@@ -2788,6 +2788,8 @@ class MPhi : public MDefinition, public InlineForwardListNode<MPhi>
     INSTRUCTION_HEADER(Phi)
     static MPhi *New(uint32_t slot);
 
+    void removeOperand(size_t index);
+
     MDefinition *getOperand(size_t index) const {
         return inputs_[index];
     }

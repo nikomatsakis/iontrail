@@ -824,6 +824,7 @@ CompileBackEnd(MIRGenerator *mir)
 
     if (!BuildPhiReverseMapping(graph))
         return NULL;
+    AssertExtendedGraphCoherency(graph);
     // No spew: graph not changed.
 
     if (mir->shouldCancel("Phi reverse mapping"))
@@ -833,7 +834,7 @@ CompileBackEnd(MIRGenerator *mir)
     if (!ApplyTypeInformation(mir, graph))
         return NULL;
     IonSpewPass("Apply types");
-    AssertGraphCoherency(graph);
+    AssertExtendedGraphCoherency(graph);
 
     if (mir->shouldCancel("Apply types"))
         return NULL;
@@ -845,7 +846,7 @@ CompileBackEnd(MIRGenerator *mir)
         if (!analysis.analyze())
             return NULL;
         IonSpewPass("Alias analysis");
-        AssertGraphCoherency(graph);
+        AssertExtendedGraphCoherency(graph);
 
         if (mir->shouldCancel("Alias analysis"))
             return NULL;
@@ -865,7 +866,7 @@ CompileBackEnd(MIRGenerator *mir)
         if (!edgeCaseAnalysis.analyzeEarly())
             return NULL;
         IonSpewPass("Edge Case Analysis (Early)");
-        AssertGraphCoherency(graph);
+        AssertExtendedGraphCoherency(graph);
 
         if (mir->shouldCancel("Edge Case Analysis (Early)"))
             return NULL;
@@ -876,18 +877,26 @@ CompileBackEnd(MIRGenerator *mir)
         if (!gvn.analyze())
             return NULL;
         IonSpewPass("GVN");
-        AssertGraphCoherency(graph);
+        AssertExtendedGraphCoherency(graph);
 
         if (mir->shouldCancel("GVN"))
             return NULL;
     }
+
+    if (!EliminateUnreachableCode(mir, graph))
+        return NULL;
+    IonSpewPass("UCE");
+    AssertExtendedGraphCoherency(graph);
+
+    if (mir->shouldCancel("UCE"))
+        return NULL;
 
     if (js_IonOptions.licm) {
         LICM licm(mir, graph);
         if (!licm.analyze())
             return NULL;
         IonSpewPass("LICM");
-        AssertGraphCoherency(graph);
+        AssertExtendedGraphCoherency(graph);
 
         if (mir->shouldCancel("LICM"))
             return NULL;
@@ -898,7 +907,7 @@ CompileBackEnd(MIRGenerator *mir)
         if (!r.addBetaNobes())
             return NULL;
         IonSpewPass("Beta");
-        AssertGraphCoherency(graph);
+        AssertExtendedGraphCoherency(graph);
 
         if (mir->shouldCancel("RA Beta"))
             return NULL;
@@ -906,7 +915,7 @@ CompileBackEnd(MIRGenerator *mir)
         if (!r.analyze())
             return NULL;
         IonSpewPass("Range Analysis");
-        AssertGraphCoherency(graph);
+        AssertExtendedGraphCoherency(graph);
 
         if (mir->shouldCancel("Range Analysis"))
             return NULL;
@@ -914,7 +923,7 @@ CompileBackEnd(MIRGenerator *mir)
         if (!r.removeBetaNobes())
             return NULL;
         IonSpewPass("De-Beta");
-        AssertGraphCoherency(graph);
+        AssertExtendedGraphCoherency(graph);
 
         if (mir->shouldCancel("RA De-Beta"))
             return NULL;
@@ -923,7 +932,7 @@ CompileBackEnd(MIRGenerator *mir)
     if (!EliminateDeadCode(mir, graph))
         return NULL;
     IonSpewPass("DCE");
-    AssertGraphCoherency(graph);
+    AssertExtendedGraphCoherency(graph);
 
     if (mir->shouldCancel("DCE"))
         return NULL;

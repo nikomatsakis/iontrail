@@ -22,6 +22,7 @@
 #include "IonCompartment.h"
 #include "CodeGenerator.h"
 #include "StupidAllocator.h"
+#include "UnreachableCodeElimination.h"
 
 #if defined(JS_CPU_X86)
 # include "x86/Lowering-x86.h"
@@ -814,7 +815,7 @@ CompileBackEnd(MIRGenerator *mir)
         return NULL;
 
     // This must occur before any code elimination.
-    if (!EliminatePhis(mir, graph))
+    if (!EliminatePhis(mir, graph, AggressiveObservability))
         return NULL;
     IonSpewPass("Eliminate phis");
     AssertGraphCoherency(graph);
@@ -883,10 +884,13 @@ CompileBackEnd(MIRGenerator *mir)
             return NULL;
     }
 
-    if (!EliminateUnreachableCode(mir, graph))
-        return NULL;
-    IonSpewPass("UCE");
-    AssertExtendedGraphCoherency(graph);
+    if (js_IonOptions.uce) {
+        UnreachableCodeElimination uce(mir, graph);
+        if (!uce.analyze())
+            return NULL;
+        IonSpewPass("UCE");
+        AssertExtendedGraphCoherency(graph);
+    }
 
     if (mir->shouldCancel("UCE"))
         return NULL;

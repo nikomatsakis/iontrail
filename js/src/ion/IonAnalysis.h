@@ -22,17 +22,19 @@ class MIRGraph;
 bool
 SplitCriticalEdges(MIRGraph &graph);
 
+enum Observability {
+    ConservativeObservability,
+    AggressiveObservability
+};
+
 bool
-EliminatePhis(MIRGenerator *mir, MIRGraph &graph);
+EliminatePhis(MIRGenerator *mir, MIRGraph &graph, Observability observe);
 
 bool
 EliminateDeadResumePointOperands(MIRGenerator *mir, MIRGraph &graph);
 
 bool
 EliminateDeadCode(MIRGenerator *mir, MIRGraph &graph);
-
-bool
-EliminateUnreachableCode(MIRGenerator *mir, MIRGraph &graph);
 
 bool
 ApplyTypeInformation(MIRGenerator *mir, MIRGraph &graph);

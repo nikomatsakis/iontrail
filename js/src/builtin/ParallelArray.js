@@ -298,15 +298,14 @@ function ParallelArrayMap(f, m) {
   var tiles = [];
   for (var i = 0; i < slices; i++) {
     var [tile_start, tile_end] = ComputeTileBounds(chunks, i, slices);
-    tiles[i << 1] = tile_start;
-    tiles[(i << 1) + 1] = tile_end;
+    tiles.push(TILE_INFO(tile_start, tile_end));
   }
 
   // Warmup: if we have not yet compiled anything for parallel
   // execution, try to execute a single tile from somewhere.
   if (!%CompiledForParallelExecution(fill)) {
     for (var i = 0; i < slices; i++) {
-      if (tiles[i << 1] != tiles[(i << 1) + 1]) {
+      if (tiles[TILE_START(i)] != tiles[TILE_END(i)]) {
         fill(i, slices, true);
         break;
       }
@@ -344,9 +343,8 @@ function ParallelArrayMap(f, m) {
   return %NewParallelArray(ParallelArrayView, [length], buffer, 0);
 
   function fill(id, n, warmup) {
-    var tile = id << 1;
-    var start = tiles[tile];
-    var end = tiles[tile + 1];
+    var start = tiles[TILE_START(id)];
+    var end = tiles[TILE_END(id)];
 
     var all = true;
     if (warmup && end > start + 1) {
@@ -364,7 +362,7 @@ function ParallelArrayMap(f, m) {
       for (var i = chunk_start; i < chunk_end; i++)
         %UnsafeSetElement(buffer, i, f(self.get(i), i, self));
 
-      %UnsafeSetElement(tiles, tile, chunk_id);
+      %UnsafeSetElement(tiles, TILE_START(id), chunk_id);
     }
     return all;
   }

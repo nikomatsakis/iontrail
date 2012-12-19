@@ -284,40 +284,89 @@ function ParallelArrayMap(f, m) {
 
   var buffer = %DenseArray(length);
 
-  // Note: at the moment, writing "if (%InParallelSection() &&
-  // TRY_PARALLEL(m))" is not fully optimized away.  This would require
-  // repeated loops to get it right, or else perhaps integrating UCE
-  // and GVN.
-  if (TRY_PARALLEL(m)) {
-    if (%EnterParallelSection()) {
-      // FIXME: Just throw away some work for now to warmup every time.
-      fill(0, 1, true);
+  // Determine the number of chunks of size 32;
+  // note that the final chunk may be smaller than 32.
+  var chunks = length >>> CHUNK_SHIFT;
+  if (chunks << CHUNK_SHIFT !== length)
+    chunks += 1;
 
-      if (%ParallelDo(fill, CheckParallel(m), false)) {
-        %LeaveParallelSection();
-        return %NewParallelArray(ParallelArrayView, [length], buffer, 0);
+  // Create an array storing the index of the start/end chunk for each
+  // of the N parallel workers.  Each worker will be responsible for
+  // 1/Nth of the total chunks.  The start chunk will be updated as we
+  // execute to track the current progress of each worker.
+  var slices = %ParallelSlices();
+  var tiles = [];
+  for (var i = 0; i < slices; i++) {
+    var [tile_start, tile_end] = ComputeTileBounds(chunks, i, slices);
+    tiles[i << 1] = tile_start;
+    tiles[(i << 1) + 1] = tile_end;
+  }
+
+  // Warmup: if we have not yet compiled anything for parallel
+  // execution, try to execute a single tile from somewhere.
+  if (!%CompiledForParallelExecution(fill)) {
+    for (var i = 0; i < slices; i++) {
+      if (tiles[i << 1] != tiles[(i << 1) + 1]) {
+        fill(i, slices, true);
+        break;
       }
-
-      %LeaveParallelSection();
     }
   }
 
-  ///////////////////////////////////////////////////////////////////////////
-  // Sequential
+  completeSlices: {
+    for (var attempts = 0; attempts < 3; attempts++) {
+      // try a parallel run. if it succeeds, then everything is done.
+      if (TRY_PARALLEL(m) && %EnterParallelSection()) {
+        if (%ParallelDo(fill, CheckParallel(m), false)) {
+            %LeaveParallelSection();
+          break completeSlices;
+        }
+          %LeaveParallelSection();
+      }
 
-  if (TRY_SEQUENTIAL(m)) {
-    fill(0, 1, false);
-    return %NewParallelArray(ParallelArrayView, [length], buffer, 0);
+      // if the parallel run failed, execute the unfinished chunk from
+      // each worker sequentially and then try to run in parallel for
+      // the remainder.
+      var done = true;
+      for (var i = 0; i < slices; i++) {
+        done = fill(i, slices, true) && done;
+      }
+      if (done)
+        break completeSlices;
+    }
+
+    // after enough attempts, give up and just run sequentiall
+    for (var i = 0; i < slices; i++) {
+      fill(i, slices, false);
+    }
   }
 
-  return %NewParallelArray(ParallelArrayView, [0], [], 0);
+  return %NewParallelArray(ParallelArrayView, [length], buffer, 0);
 
   function fill(id, n, warmup) {
-    var [start, end] = ComputeTileBounds(length, id, n);
-    if (warmup)
-      end = TruncateEnd(start, end);
-    for (var i = start; i < end; i++)
-      %UnsafeSetElement(buffer, i, f(self.get(i), i, self));
+    var tile = id << 1;
+    var start = tiles[tile];
+    var end = tiles[tile + 1];
+
+    var all = true;
+    if (warmup && end > start + 1) {
+      end = start + 1;
+      all = false;
+    }
+
+    for (var chunk_id = start; chunk_id < end; chunk_id++) {
+      var chunk_start = chunk_id << CHUNK_SHIFT;
+      var chunk_end = chunk_start + CHUNK_SIZE;
+
+      if (chunk_end > length)
+        chunk_end = length;
+
+      for (var i = chunk_start; i < chunk_end; i++)
+        %UnsafeSetElement(buffer, i, f(self.get(i), i, self));
+
+      %UnsafeSetElement(tiles, tile, chunk_id);
+    }
+    return all;
   }
 }
 

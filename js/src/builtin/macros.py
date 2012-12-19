@@ -217,6 +217,8 @@ macro OVERRIDE_CAPTURE(override, index) = ((override)[(index)]);
 # The mode asserts options object for ParallelArray
 macro TRY_PARALLEL(m) = ((!m || m.mode === "par"));
 macro TRY_SEQUENTIAL(m) = ((!m || m.mode === "seq"));
+const CHUNK_SHIFT = 5;
+const CHUNK_SIZE = 32;
 
 # PropertyDescriptor return value indices - must match
 # PropertyDescriptorIndices in runtime.cc.

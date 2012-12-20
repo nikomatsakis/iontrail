@@ -7,6 +7,8 @@
 // XXX: Hide buffer and other fields?
 
 function ComputeNumChunks(length) {
+  // Determine the number of chunks of size CHUNK_SIZE;
+  // note that the final chunk may be smaller than CHUNK_SIZE.
   var chunks = length >>> CHUNK_SHIFT;
   if (chunks << CHUNK_SHIFT === length)
     return chunks;
@@ -91,21 +93,22 @@ function IsInteger(v) {
 }
 
 function Do(slices, fillfunc, callbackfunc) {
-  if (!%CompiledForParallelExecution(fillfunc)) {
-    fillfunc(0, slices, true);
-  }
+  if (%EnterParallelSection()) {
+    if (!%CompiledForParallelExecution(fillfunc)) {
+      fillfunc(0, slices, true);
+    }
 
-  for (var attempts = 0; attempts < 3; attempts++) {
-    if (%EnterParallelSection()) {
+    for (var attempts = 0; attempts < 3; attempts++) {
       if (%ParallelDo(fillfunc, callbackfunc, false)) {
         %LeaveParallelSection();
         return;
       }
-      %LeaveParallelSection();
+
+      for (var i = 0; i < slices; i++)
+        fillfunc(i, slices, true);
     }
 
-    for (var i = 0; i < slices; i++)
-      fillfunc(i, slices, true);
+    %LeaveParallelSection();
   }
 
   for (var i = 0; i < slices; i++)
@@ -316,18 +319,25 @@ function ParallelArrayBuild(self, shape, f, m) {
 function ParallelArrayMap(f, m) {
   var self = this;
   var length = self.shape[0];
-
-  ///////////////////////////////////////////////////////////////////////////
-  // Parallel
-
   var buffer = %DenseArray(length);
 
-  // Determine the number of chunks of size 32;
-  // note that the final chunk may be smaller than 32.
-  var chunks = ComputeNumChunks(length);
-  var slices = %ParallelSlices();
-  var tiles = ComputeAllTileBounds(chunks, slices);
-  Do(slices, fill, CheckParallel(m));
+  parallel: {
+    if (%InParallelSection())
+      break parallel;
+
+    if (!TRY_PARALLEL(m))
+      break parallel;
+
+    var chunks = ComputeNumChunks(length);
+    var slices = %ParallelSlices();
+    var tiles = ComputeAllTileBounds(chunks, slices);
+    Do(slices, fill, CheckParallel(m));
+    return %NewParallelArray(ParallelArrayView, [length], buffer, 0);
+  }
+
+  sequential:
+  for (var i = 0; i < length; i++)
+    buffer[i] = f(self.get(i), i, self);
   return %NewParallelArray(ParallelArrayView, [length], buffer, 0);
 
   function fill(id, n, warmup) {

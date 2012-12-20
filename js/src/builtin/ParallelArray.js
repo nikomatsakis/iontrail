@@ -6,11 +6,27 @@
 // TODO: Private names.
 // XXX: Hide buffer and other fields?
 
+function ComputeNumChunks(length) {
+  var chunks = length >>> CHUNK_SHIFT;
+  if (chunks << CHUNK_SHIFT === length)
+    return chunks;
+  return chunks + 1;
+}
+
 function ComputeTileBounds(len, id, n) {
   var slice = (len / n) | 0;
   var start = slice * id;
   var end = id === n - 1 ? len : slice * (id + 1);
   return [start, end];
+}
+
+function ComputeAllTileBounds(chunks, slices) {
+  var tiles = [];
+  for (var i = 0; i < slices; i++) {
+    var [tile_start, tile_end] = ComputeTileBounds(chunks, i, slices);
+    tiles.push(TILE_INFO(tile_start, tile_end));
+  }
+  return tiles;
 }
 
 function TruncateEnd(start, end) {
@@ -72,6 +88,28 @@ function StepIndices(shape, indices) {
 
 function IsInteger(v) {
   return (v | 0) === v;
+}
+
+function Do(slices, fillfunc, callbackfunc) {
+  if (!%CompiledForParallelExecution(fillfunc)) {
+    fillfunc(0, slices, true);
+  }
+
+  for (var attempts = 0; attempts < 3; attempts++) {
+    if (%EnterParallelSection()) {
+      if (%ParallelDo(fillfunc, callbackfunc, false)) {
+        %LeaveParallelSection();
+        return;
+      }
+      %LeaveParallelSection();
+    }
+
+    for (var i = 0; i < slices; i++)
+      fillfunc(i, slices, true);
+  }
+
+  for (var i = 0; i < slices; i++)
+    fillfunc(i, slices, false);
 }
 
 // Constructor
@@ -286,85 +324,30 @@ function ParallelArrayMap(f, m) {
 
   // Determine the number of chunks of size 32;
   // note that the final chunk may be smaller than 32.
-  var chunks = length >>> CHUNK_SHIFT;
-  if (chunks << CHUNK_SHIFT !== length)
-    chunks += 1;
-
-  // Create an array storing the index of the start/end chunk for each
-  // of the N parallel workers.  Each worker will be responsible for
-  // 1/Nth of the total chunks.  The start chunk will be updated as we
-  // execute to track the current progress of each worker.
+  var chunks = ComputeNumChunks(length);
   var slices = %ParallelSlices();
-  var tiles = [];
-  for (var i = 0; i < slices; i++) {
-    var [tile_start, tile_end] = ComputeTileBounds(chunks, i, slices);
-    tiles.push(TILE_INFO(tile_start, tile_end));
-  }
-
-  // Warmup: if we have not yet compiled anything for parallel
-  // execution, try to execute a single tile from somewhere.
-  if (!%CompiledForParallelExecution(fill)) {
-    for (var i = 0; i < slices; i++) {
-      if (tiles[TILE_START(i)] != tiles[TILE_END(i)]) {
-        fill(i, slices, true);
-        break;
-      }
-    }
-  }
-
-  completeSlices: {
-    for (var attempts = 0; attempts < 3; attempts++) {
-      // try a parallel run. if it succeeds, then everything is done.
-      if (TRY_PARALLEL(m) && %EnterParallelSection()) {
-        if (%ParallelDo(fill, CheckParallel(m), false)) {
-            %LeaveParallelSection();
-          break completeSlices;
-        }
-          %LeaveParallelSection();
-      }
-
-      // if the parallel run failed, execute the unfinished chunk from
-      // each worker sequentially and then try to run in parallel for
-      // the remainder.
-      var done = true;
-      for (var i = 0; i < slices; i++) {
-        done = fill(i, slices, true) && done;
-      }
-      if (done)
-        break completeSlices;
-    }
-
-    // after enough attempts, give up and just run sequentiall
-    for (var i = 0; i < slices; i++) {
-      fill(i, slices, false);
-    }
-  }
-
+  var tiles = ComputeAllTileBounds(chunks, slices);
+  Do(slices, fill, CheckParallel(m));
   return %NewParallelArray(ParallelArrayView, [length], buffer, 0);
 
   function fill(id, n, warmup) {
-    var start = tiles[TILE_START(id)];
-    var end = tiles[TILE_END(id)];
+    var chunk_pos = tiles[TILE_POS(id)];
+    var chunk_end = tiles[TILE_END(id)];
 
-    var all = true;
-    if (warmup && end > start + 1) {
-      end = start + 1;
-      all = false;
-    }
+    if (warmup && chunk_end > chunk_pos)
+      chunk_end = chunk_pos + 1;
 
-    for (var chunk_id = start; chunk_id < end; chunk_id++) {
-      var chunk_start = chunk_id << CHUNK_SHIFT;
-      var chunk_end = chunk_start + CHUNK_SIZE;
+    while (chunk_pos < chunk_end) {
+      var index_start = chunk_pos << CHUNK_SHIFT;
+      var index_end = index_start + CHUNK_SIZE;
+      if (index_end > length)
+        index_end = length;
 
-      if (chunk_end > length)
-        chunk_end = length;
-
-      for (var i = chunk_start; i < chunk_end; i++)
+      for (var i = index_start; i < index_end; i++)
         %UnsafeSetElement(buffer, i, f(self.get(i), i, self));
 
-      %UnsafeSetElement(tiles, TILE_START(id), chunk_id);
+      %UnsafeSetElement(tiles, TILE_POS(id), ++chunk_pos);
     }
-    return all;
   }
 }
 
@@ -377,6 +360,66 @@ function ParallelArrayReduce(f, m) {
 
   ///////////////////////////////////////////////////////////////////////////
   // Parallel Version
+
+  var chunks = ComputeNumChunks(length);
+  var slices = %ParallelSlices();
+
+  if (!TRY_PARALLEL(m) || chunks < slices * 2) {
+    var acc = self.get(0);
+    for (var i = 1; i < length; i++)
+      acc = f(acc, self.get(i));
+    return acc;
+  }
+
+  var tiles = ComputeAllTileBounds(slices);
+  var subreductions = %DenseArray(slices);
+  Do(slices, fill, CheckParallel(m));
+  var acc = subreductions[0];
+  for (var i = 1; i < slices; i++)
+    acc = f(acc, subreductions[i]);
+
+  return acc;
+
+  function fill(id, n, warmup) {
+    var chunk_start = tiles[TILE_START(id)];
+    var chunk_pos = tiles[TILE_POS(id)];
+    var chunk_end = tiles[TILE_END(id)];
+
+    if (warmup && chunk_end > chunk_pos + 2)
+      chunk_end = chunk_pos + 2;
+
+    var acc;
+
+    // Note: this is carefully designed so that the warmup (which
+    // executes with |chunk_start === chunk_pos| will execute all
+    // potential loads and stores.
+
+    if (chunk_start === chunk_pos) {
+      var index_pos = chunk_start << CHUNK_SHIFT;
+      acc = reduce_chunk(self.get(index_pos), index_pos + 1, index_pos + CHUNK_SIZE);
+      %UnsafeSetElement(tiles, TILE_POS(id), ++chunk_pos);
+      %UnsafeSetElement(subreductions, id, acc);
+    }
+
+    acc = subreductions[id];
+
+    while (chunk_pos < chunk_end) {
+      var index_pos = chunk_pos << CHUNK_SHIFT;
+      acc = reduce_chunk(acc, index_pos, index_pos + CHUNK_SIZE);
+      %UnsafeSetElement(tiles, TILE_POS(id), ++chunk_pos);
+    }
+    %UnsafeSetElement(subreductions, id, acc);
+    return all;
+  }
+
+  function reduce_chunk(acc, from, to) {
+    if (to > length)
+      to = length;
+    for (var i = from; i < to; i++)
+      acc = f(acc, self.get(i));
+    return acc;
+  }
+
 
   if (TRY_PARALLEL(m) && %EnterParallelSection()) {
     var slices = %ParallelSlices();
@@ -832,15 +875,6 @@ function CheckParallel(m) {
   };
 }
 
-function SequentialDo(func, notify) {
-  var slices = %ParallelSlices();
-  for (var i = 0; i < slices; i++)
-    func(i, slices, true);
-  for (var i = 0; i < slices; i++)
-    func(i, slices, false);
-  return true;
-}
-
 // Mark the main operations as clone-at-callsite for better precision.
 %_SetFunctionFlags(ParallelArrayConstruct0, { cloneAtCallsite: true });
 %_SetFunctionFlags(ParallelArrayConstruct1, { cloneAtCallsite: true });
@@ -853,6 +887,7 @@ function SequentialDo(func, notify) {
 %_SetFunctionFlags(ParallelArrayScan,       { cloneAtCallsite: true });
 %_SetFunctionFlags(ParallelArrayScatter,    { cloneAtCallsite: true });
 %_SetFunctionFlags(ParallelArrayFilter,     { cloneAtCallsite: true });
+%_SetFunctionFlags(Do,                      { cloneAtCallsite: true });
 
 // Mark the common getters as clone-at-callsite.
 %_SetFunctionFlags(ParallelArrayGet1,       { cloneAtCallsite: true });

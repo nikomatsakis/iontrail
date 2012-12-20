@@ -321,10 +321,17 @@ function ParallelArrayMap(f, m) {
   var length = self.shape[0];
   var buffer = %DenseArray(length);
 
-  parallel: {
+  parallel: for (;;) {
+
+    // Avoid parallel compilation if we are already nested in another
+    // parallel section or the user told us not to.  The somewhat
+    // artificial style of this code is working around some ion
+    // limitations:
+    //
+    // - Breaking out of named blocks does not currently work;
+    // - Unreachable Code Elim. can't properly handle if (a && b)
     if (%InParallelSection())
       break parallel;
-
     if (!TRY_PARALLEL(m))
       break parallel;
 
@@ -335,7 +342,6 @@ function ParallelArrayMap(f, m) {
     return %NewParallelArray(ParallelArrayView, [length], buffer, 0);
   }
 
-  sequential:
   for (var i = 0; i < length; i++)
     buffer[i] = f(self.get(i), i, self);
   return %NewParallelArray(ParallelArrayView, [length], buffer, 0);

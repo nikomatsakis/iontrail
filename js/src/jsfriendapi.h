@@ -562,7 +562,7 @@ IsObjectInContextCompartment(RawObject obj, const JSContext *cx);
 inline uintptr_t
 GetNativeStackLimit(const JSRuntime *rt)
 {
-    return RuntimeFriendFields::get(rt)->nativeStackLimit;
+    return PerThreadDataFriendFields::getMainThread(rt)->nativeStackLimit;
 }
 
 /*
@@ -744,6 +744,7 @@ GetRuntimeCompartments(JSRuntime *rt);
     D(DEBUG_GC)                                 \
     D(DEBUG_MODE_GC)                            \
     D(TRANSPLANT)                               \
+    D(START_PARALLEL_BLOCK)                     \
     D(RESET)                                    \
                                                 \
     /* Reasons from Firefox */                  \

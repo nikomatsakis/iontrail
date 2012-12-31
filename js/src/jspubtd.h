@@ -212,6 +212,8 @@ typedef JSBool                 (*JSInitCallback)(void);
 
 namespace js {
 
+class Allocator;
+
 template <typename T>
 class Rooted;
 
@@ -301,12 +303,8 @@ struct RuntimeFriendFields {
      */
     volatile int32_t    interrupt;
 
-    /* Limit pointer for checking native stack consumption. */
-    uintptr_t           nativeStackLimit;
-
     RuntimeFriendFields()
-      : interrupt(0),
-        nativeStackLimit(0) { }
+      : interrupt(0) { }
 
     static const RuntimeFriendFields *get(const JSRuntime *rt) {
         return reinterpret_cast<const RuntimeFriendFields *>(rt);
@@ -317,6 +315,17 @@ class PerThreadData;
 
 struct PerThreadDataFriendFields
 {
+  private:
+    // Note: this type only exists to permit us to derive the offset of
+    // the perThread data within the real JSRuntime* type in a portable
+    // way.
+    struct RuntimeDummy : RuntimeFriendFields
+    {
+        void *perThread;
+    };
+
+  public:
+
     PerThreadDataFriendFields();
 
 #if defined(JSGC_ROOT_ANALYSIS) || defined(JSGC_USE_EXACT_ROOTING)
@@ -327,15 +336,27 @@ struct PerThreadDataFriendFields
     Rooted<void*> *thingGCRooters[THING_ROOT_LIMIT];
 #endif
 
-    static PerThreadDataFriendFields *get(js::PerThreadData *pt) {
+    /* Limit pointer for checking native stack consumption. */
+    uintptr_t nativeStackLimit;
+
+    static const size_t RuntimeMainThreadOffset = offsetof(RuntimeDummy, perThread);
+
+    static inline PerThreadDataFriendFields *get(js::PerThreadData *pt) {
         return reinterpret_cast<PerThreadDataFriendFields *>(pt);
     }
 
-    static PerThreadDataFriendFields *getMainThread(JSRuntime *rt) {
+    static inline PerThreadDataFriendFields *getMainThread(JSRuntime *rt) {
         // mainThread must always appear directly after |RuntimeFriendFields|.
         // Tested by a JS_STATIC_ASSERT in |jsfriendapi.cpp|
         return reinterpret_cast<PerThreadDataFriendFields *>(
-            reinterpret_cast<char*>(rt) + sizeof(RuntimeFriendFields));
+            reinterpret_cast<char*>(rt) + RuntimeMainThreadOffset);
+    }
+
+    static inline const PerThreadDataFriendFields *getMainThread(const JSRuntime *rt) {
+        // mainThread must always appear directly after |RuntimeFriendFields|.
+        // Tested by a JS_STATIC_ASSERT in |jsfriendapi.cpp|
+        return reinterpret_cast<const PerThreadDataFriendFields *>(
+            reinterpret_cast<const char*>(rt) + RuntimeMainThreadOffset);
     }
 };
 

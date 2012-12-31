@@ -18,6 +18,7 @@
 #include "jsprobes.h"
 #include "jsstr.h"
 #include "methodjit/MethodJIT.h"
+#include "vm/ForkJoin.h"
 
 #include "jsatominlines.h"
 #include "jsfuninlines.h"
@@ -1068,6 +1069,7 @@ class FastInvokeGuard
       , useIon_(ion::IsEnabled(cx))
 #endif
     {
+        JS_ASSERT(!ForkJoinSlice::InParallelSection());
         initFunction(fval);
     }
 

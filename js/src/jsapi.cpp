@@ -720,12 +720,17 @@ JS_FRIEND_API(bool) JS::NeedRelaxedRootChecks() { return false; }
 
 static const JSSecurityCallbacks NullSecurityCallbacks = { };
 
-PerThreadData::PerThreadData(JSRuntime *runtime)
-  : runtime_(runtime),
+js::PerThreadData::PerThreadData(JSRuntime *runtime)
+  : PerThreadDataFriendFields(),
+    runtime_(runtime),
 #ifdef DEBUG
     gcRelaxRootChecks(false),
     gcAssertNoGCDepth(0),
 #endif
+    ionTop(NULL),
+    ionJSContext(NULL),
+    ionStackLimit(0),
+    ionActivation(NULL),
     suppressGC(0)
 {}
 
@@ -878,10 +883,6 @@ JSRuntime::JSRuntime(JSUseHelperThreads useHelperThreads)
     noGCOrAllocationCheck(0),
 #endif
     jitHardening(false),
-    ionTop(NULL),
-    ionJSContext(NULL),
-    ionStackLimit(0),
-    ionActivation(NULL),
     ionPcScriptCache(NULL),
     threadPool(this),
     ctypesActivityCallback(NULL),
@@ -1055,9 +1056,9 @@ JSRuntime::clearOwnerThread()
     js::TlsPerThreadData.set(NULL);
     nativeStackBase = 0;
 #if JS_STACK_GROWTH_DIRECTION > 0
-    nativeStackLimit = UINTPTR_MAX;
+    mainThread.nativeStackLimit = UINTPTR_MAX;
 #else
-    nativeStackLimit = 0;
+    mainThread.nativeStackLimit = 0;
 #endif
 }
 
@@ -2274,13 +2275,13 @@ JS_ComputeThis(JSContext *cx, jsval *vp)
 JS_PUBLIC_API(void)
 JS_MallocInCompartment(JSCompartment *comp, size_t nbytes)
 {
-    comp->mallocInCompartment(nbytes);
+    comp->allocator.mallocInAllocator(nbytes);
 }
 
 JS_PUBLIC_API(void)
 JS_FreeInCompartment(JSCompartment *comp, size_t nbytes)
 {
-    comp->freeInCompartment(nbytes);
+    comp->allocator.freeInAllocator(nbytes);
 }
 
 JS_PUBLIC_API(void *)
@@ -2320,7 +2321,7 @@ JS_GetDefaultFreeOp(JSRuntime *rt)
 JS_PUBLIC_API(void)
 JS_updateMallocCounter(JSContext *cx, size_t nbytes)
 {
-    return cx->runtime->updateMallocCounter(cx, nbytes);
+    return cx->runtime->updateMallocCounter(cx->compartment, nbytes);
 }
 
 JS_PUBLIC_API(char *)
@@ -3108,17 +3109,17 @@ JS_SetNativeStackQuota(JSRuntime *rt, size_t stackSize)
 
 #if JS_STACK_GROWTH_DIRECTION > 0
     if (stackSize == 0) {
-        rt->nativeStackLimit = UINTPTR_MAX;
+        rt->mainThread.nativeStackLimit = UINTPTR_MAX;
     } else {
         JS_ASSERT(rt->nativeStackBase <= size_t(-1) - stackSize);
-        rt->nativeStackLimit = rt->nativeStackBase + stackSize - 1;
+        rt->mainThread.nativeStackLimit = rt->nativeStackBase + stackSize - 1;
     }
 #else
     if (stackSize == 0) {
-        rt->nativeStackLimit = 0;
+        rt->mainThread.nativeStackLimit = 0;
     } else {
         JS_ASSERT(rt->nativeStackBase >= stackSize);
-        rt->nativeStackLimit = rt->nativeStackBase - (stackSize - 1);
+        rt->mainThread.nativeStackLimit = rt->nativeStackBase - (stackSize - 1);
     }
 #endif
 }

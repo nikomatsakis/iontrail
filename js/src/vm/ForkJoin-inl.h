@@ -10,26 +10,20 @@
 
 namespace js {
 
-inline ForkJoinSlice *
-ForkJoinSlice::current()
+/* static */ inline ForkJoinSlice *
+ForkJoinSlice::Current()
 {
-#ifdef JS_THREADSAFE_ION
+#ifdef JS_THREADSAFE
     return (ForkJoinSlice*) PR_GetThreadPrivate(ThreadPrivateIndex);
 #else
     return NULL;
 #endif
 }
 
-// True if this thread is currently executing a parallel operation across
-// multiple threads.
-static inline bool
-InParallelSection()
+/* static */ inline bool
+ForkJoinSlice::InParallelSection()
 {
-#ifdef JS_THREADSAFE
-    return ForkJoinSlice::current() != NULL;
-#else
-    return false;
-#endif
+    return Current() != NULL;
 }
 
 } // namespace js

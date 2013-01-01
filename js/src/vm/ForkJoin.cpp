@@ -572,6 +572,7 @@ ForkJoinSlice::requestCompartmentGC(JSCompartment *compartment,
 #endif
 }
 
+#ifdef JS_THREADSAFE
 void
 ForkJoinSlice::triggerAbort()
 {
@@ -587,6 +588,7 @@ ForkJoinSlice::triggerAbort()
     // are not on a central list so that's not possible.
     perThreadData->ionStackLimit = -1;
 }
+#endif
 
 /////////////////////////////////////////////////////////////////////////////
 

@@ -55,7 +55,6 @@
 #include "vm/ArgumentsObject-inl.h"
 #include "vm/ObjectImpl-inl.h"
 #include "vm/Stack-inl.h"
-#include "vm/ForkJoin-inl.h"
 
 using namespace js;
 using namespace js::gc;

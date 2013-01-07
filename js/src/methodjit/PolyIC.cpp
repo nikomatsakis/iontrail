@@ -24,7 +24,6 @@
 
 #include "vm/ScopeObject-inl.h"
 #include "vm/StringObject-inl.h"
-#include "vm/ForkJoin-inl.h"
 
 #if defined JS_POLYIC
 

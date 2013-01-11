@@ -30,7 +30,7 @@ class js::ForkJoinShared : public TaskExecutor, public Monitor
     JSContext *const cx_;          // Current context
     ThreadPool *const threadPool_; // The thread pool.
     ForkJoinOp &op_;               // User-defined operations to be perf. in par.
-    const uint32_t numSlices_;    // Total number of threads.
+    const uint32_t numSlices_;     // Total number of threads.
     PRCondVar *rendezvousEnd_;     // Cond. var used to signal end of rendezvous.
 
     /////////////////////////////////////////////////////////////////////////
@@ -245,7 +245,6 @@ ForkJoinShared::execute()
 
     // Notify workers to start and execute one portion on this thread.
     {
-        gc::AutoSuppressGC gc(cx_);
         AutoUnlockMonitor unlock(*this);
         if (!threadPool_->submitAll(cx_, this))
             return TP_FATAL;
@@ -278,11 +277,10 @@ ForkJoinShared::transferArenasToCompartmentAndProcessGCRequests()
         comp->adoptWorkerAllocator(allocators_[i]);
 
     if (gcRequested_) {
-        if (!gcCompartment_) {
+        if (!gcCompartment_)
             TriggerGC(cx_->runtime, gcReason_);
-        } else {
+        else
             TriggerCompartmentGC(gcCompartment_, gcReason_);
-        }
         gcRequested_ = false;
         gcCompartment_ = NULL;
     }
@@ -606,11 +604,11 @@ class AutoEnterParallelSection
         // Note: we do not allow GC during parallel sections.
         // Moreover, we do not wish to worry about making
         // write barriers thread-safe.  Therefore, we guarantee
-        // that there is no incremental GC in progress:
+        // that there is no incremental GC in progress.
 
         if (IsIncrementalGCInProgress(cx->runtime)) {
             PrepareForIncrementalGC(cx->runtime);
-            FinishIncrementalGC(cx->runtime, gcreason::START_PARALLEL_BLOCK);
+            FinishIncrementalGC(cx->runtime, gcreason::API);
         }
 
         cx->runtime->gcHelperThread.waitBackgroundSweepEnd();
@@ -620,7 +618,7 @@ class AutoEnterParallelSection
         cx_->runtime->mainThread.ionTop = prevIonTop_;
     }
 };
-}
+} /* namespace js */
 
 uint32_t
 js::ForkJoinSlices(JSContext *cx)

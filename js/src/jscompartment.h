@@ -132,12 +132,12 @@ namespace js {
  */
 class Allocator
 {
-    JSCompartment         *const compartment;
+    JSCompartment*const compartment;
 
-public:
+  public:
     explicit Allocator(JSCompartment *compartment);
 
-    js::gc::ArenaLists           arenas;
+    js::gc::ArenaLists arenas;
 
     inline void *parallelNewGCThing(gc::AllocKind thingKind, size_t thingSize);
 
@@ -195,7 +195,8 @@ struct JSCompartment : private JS::shadow::Compartment, public js::gc::GraphNode
     /*
      * Moves all data from the allocator |workerAllocator|, which was
      * in use by a parallel worker, into the compartment's main
-     * allocator.  This is used at the end of a parallel section. */
+     * allocator.  This is used at the end of a parallel section.
+     */
     void adoptWorkerAllocator(js::Allocator *workerAllocator);
 
 #ifdef JSGC_GENERATIONAL
@@ -478,9 +479,10 @@ struct JSCompartment : private JS::shadow::Compartment, public js::gc::GraphNode
     void resetGCMallocBytes();
     void setGCMaxMallocBytes(size_t value);
     void updateMallocCounter(size_t nbytes) {
-        /* Note: this code may be run from worker threads.
-
-           We tolerate any thread races when updating gcMallocBytes. */
+        /*
+         * Note: this code may be run from worker threads.  We
+         * tolerate any thread races when updating gcMallocBytes.
+         */
         ptrdiff_t oldCount = gcMallocBytes;
         ptrdiff_t newCount = oldCount - ptrdiff_t(nbytes);
         gcMallocBytes = newCount;

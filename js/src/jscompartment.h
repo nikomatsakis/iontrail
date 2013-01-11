@@ -134,31 +134,10 @@ class Allocator
 {
     JSCompartment         *const compartment;
 
-    /*
-     * Keeps track of the total number of malloc bytes connected to a
-     * compartment's GC things. This counter should be used in preference to
-     * gcMallocBytes. These counters affect collection in the same way as
-     * gcBytes and gcTriggerBytes.
-     */
-    size_t                       gcMallocAndFreeBytes;
-
 public:
     explicit Allocator(JSCompartment *compartment);
 
     js::gc::ArenaLists           arenas;
-
-    size_t getMallocAndFreeBytes() {
-        return gcMallocAndFreeBytes;
-    }
-
-    void mallocInAllocator(size_t nbytes) {
-        gcMallocAndFreeBytes += nbytes;
-    }
-
-    void freeInAllocator(size_t nbytes) {
-        JS_ASSERT(gcMallocAndFreeBytes >= nbytes);
-        gcMallocAndFreeBytes -= nbytes;
-    }
 
     inline void *parallelNewGCThing(gc::AllocKind thingKind, size_t thingSize);
 
@@ -341,7 +320,6 @@ struct JSCompartment : private JS::shadow::Compartment, public js::gc::GraphNode
 
     size_t                       gcBytes;
     size_t                       gcTriggerBytes;
-    size_t                       gcTriggerMallocAndFreeBytes;
     size_t                       gcMaxMallocBytes;
     double                       gcHeapGrowthFactor;
 

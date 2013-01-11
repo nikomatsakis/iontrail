@@ -1085,6 +1085,7 @@ struct JSRuntime : js::RuntimeFriendFields
      * reporting OOM error when cx is not null. We will not GC from here.
      */
     void* malloc_(size_t bytes, JSCompartment *comp = NULL, JSContext *cx = NULL) {
+        JS_ASSERT_IF(cx != NULL, comp != NULL);
         updateMallocCounter(comp, bytes);
         void *p = js_malloc(bytes);
         return JS_LIKELY(!!p) ? p : onOutOfMemory(NULL, bytes, cx);

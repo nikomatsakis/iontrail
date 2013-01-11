@@ -63,7 +63,6 @@ JSCompartment::JSCompartment(JSRuntime *rt)
     gcPreserveCode(false),
     gcBytes(0),
     gcTriggerBytes(0),
-    gcTriggerMallocAndFreeBytes(0),
     gcHeapGrowthFactor(3.0),
     hold(false),
     isSystemCompartment(false),
@@ -1024,6 +1023,5 @@ JSCompartment::sizeOfIncludingThis(JSMallocSizeOfFun mallocSizeOf, size_t *compa
 void
 JSCompartment::adoptWorkerAllocator(Allocator *workerAllocator)
 {
-    allocator.mallocInAllocator(workerAllocator->getMallocAndFreeBytes());
     allocator.arenas.adoptArenas(rt, &workerAllocator->arenas);
 }

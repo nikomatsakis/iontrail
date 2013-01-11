@@ -1138,7 +1138,6 @@ JSCompartment::setGCLastBytes(size_t lastBytes, size_t lastMallocBytes, JSGCInvo
         }
     }
     gcTriggerBytes = ComputeTriggerBytes(this, lastBytes, rt->gcMaxBytes, gckind);
-    gcTriggerMallocAndFreeBytes = ComputeTriggerBytes(this, lastMallocBytes, SIZE_MAX, gckind);
 }
 
 void
@@ -1152,8 +1151,7 @@ JSCompartment::reduceGCTriggerBytes(size_t amount)
 }
 
 Allocator::Allocator(JSCompartment *compartment)
-  : compartment(compartment),
-    gcMallocAndFreeBytes(0)
+  : compartment(compartment)
 {}
 
 inline void
@@ -2004,12 +2002,6 @@ js::MaybeGC(JSContext *cx)
         rt->gcIncrementalState == NO_INCREMENTAL &&
         !rt->gcHelperThread.sweeping())
     {
-        PrepareCompartmentForGC(comp);
-        GCSlice(rt, GC_NORMAL, gcreason::MAYBEGC);
-        return;
-    }
-
-    if (comp->allocator.getMallocAndFreeBytes() > comp->gcTriggerMallocAndFreeBytes) {
         PrepareCompartmentForGC(comp);
         GCSlice(rt, GC_NORMAL, gcreason::MAYBEGC);
         return;
@@ -3841,7 +3833,6 @@ EndSweepPhase(JSRuntime *rt, JSGCInvocationKind gckind, bool lastGC)
     }
 
     for (CompartmentsIter c(rt); !c.done(); c.next()) {
-        c->setGCLastBytes(c->gcBytes, c->allocator.getMallocAndFreeBytes(), gckind);
         if (c->isCollecting()) {
             JS_ASSERT(c->isGCFinished());
             c->setGCState(JSCompartment::NoGC);

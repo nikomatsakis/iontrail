@@ -76,14 +76,14 @@
 // |Allocator| is merged back into the main compartment lists and
 // things proceed normally.
 //
-// In Ion-generated code, we will do allocation through the |Allocator|
-// found in |ForkJoinSlice| (which is obtained via TLS).  Also, no
-// write barriers are emitted.  Conceptually, we should never need a
-// write barrier because we only permit writes to objects that are
-// newly allocated, and such objects are always black (to use inc. GC
-// terminology).  However, to be safe, we also block upon entering a
-// parallel section to ensure that any concurrent marking or inc. GC
-// has completed.
+// In Ion-generated code, we will do allocation through the
+// |Allocator| found in |ForkJoinSlice| (which is obtained via TLS).
+// Also, no write barriers are emitted.  Conceptually, we should never
+// need a write barrier because we only permit writes to objects that
+// are newly allocated, and such objects are always black (to use
+// incremental GC terminology).  However, to be safe, we also block
+// upon entering a parallel section to ensure that any concurrent
+// marking or incremental GC has completed.
 //
 // In the future, it should be possible to lift the restriction that
 // we must block until inc. GC has completed and also to permit GC
@@ -110,7 +110,8 @@ struct ForkJoinOp;
 
 // Returns the number of slices that a fork-join op will have when
 // executed.
-uint32_t ForkJoinSlices(JSContext *cx);
+uint32_t
+ForkJoinSlices(JSContext *cx);
 
 // Executes the given |TaskSet| in parallel using the runtime's |ThreadPool|,
 // returning upon completion.  In general, if there are |N| workers in the
@@ -124,7 +125,8 @@ class AutoRendezvous;
 class AutoSetForkJoinSlice;
 
 #ifdef DEBUG
-struct IonTraceData {
+struct IonTraceData
+{
     uint32_t bblock;
     uint32_t lir;
     uint32_t execModeInt;
@@ -155,7 +157,7 @@ struct ForkJoinSlice
     // If we took a parallel bailout, the script that bailed out is stored here.
     JSScript *abortedScript;
 
-    // Records the last instr. to execute on this thread.
+    // Records the last instruction to execute on this thread.
 #ifdef DEBUG
     IonTraceData traceData;
 #endif
@@ -178,10 +180,11 @@ struct ForkJoinSlice
     // When the code would normally trigger a GC, we don't trigger it
     // immediately but instead record that request here.  This will
     // cause |ExecuteForkJoinOp()| to invoke |TriggerGC()| or
-    // |TriggerCompartmentGC()| as appropriate once the par. sec. is
-    // complete. This is done because those routines do various
-    // preparations that are not thread-safe, and because the full set
-    // of arenas is not available until the end of the par. sec.
+    // |TriggerCompartmentGC()| as appropriate once the parallel
+    // section is complete. This is done because those routines do
+    // various preparations that are not thread-safe, and because the
+    // full set of arenas is not available until the end of the
+    // parallel section.
     void requestGC(gcreason::Reason reason);
     void requestCompartmentGC(JSCompartment *compartment, gcreason::Reason reason);
 

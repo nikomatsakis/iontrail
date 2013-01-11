@@ -1177,6 +1177,13 @@ PushArenaAllocatedDuringSweep(JSRuntime *runtime, ArenaHeader *arena)
 void *
 ArenaLists::parallelAllocate(JSCompartment *comp, AllocKind thingKind, size_t thingSize)
 {
+    /*
+     * During parallel Rivertrail sections, no GC is permitted. If no
+     * existing arena can satisfy the allocation, then a new one is
+     * allocated. If that fails, then we return NULL which will cause
+     * the parallel section to abort.
+     */
+
     void *t = allocateFromFreeList(thingKind, thingSize);
     if (t)
         return t;
@@ -1187,13 +1194,15 @@ ArenaLists::parallelAllocate(JSCompartment *comp, AllocKind thingKind, size_t th
 inline void *
 ArenaLists::allocateFromArena(JSCompartment *comp, AllocKind thingKind)
 {
-    // Threading Note:
-    //
-    // This function can be called from parallel threads all of which
-    // are associated with the same compartment. In that case, each
-    // thread will have a distinct ArenaLists.  Therefore, whenever we
-    // fall through to PickChunk() we must be sure that we are holding
-    // a lock.
+    /*
+     * Parallel JS Note:
+     *
+     * This function can be called from parallel threads all of which
+     * are associated with the same compartment. In that case, each
+     * thread will have a distinct ArenaLists.  Therefore, whenever we
+     * fall through to PickChunk() we must be sure that we are holding
+     * a lock.
+     */
 
     Chunk *chunk = NULL;
 
@@ -1464,12 +1473,11 @@ ArenaLists::queueIonCodeForSweep(FreeOp *fop)
 static void*
 RunLastDitchGC(JSContext *cx, JSCompartment *comp, AllocKind thingKind)
 {
-    // Note: we do not attempt the last ditch GC in a parallel
-    // section.  Of course we could modify the `runGC` flag below but
-    // since that path is quite hot is was deemed better to offload
-    // the access to thread-local data into this function.
-    if (ForkJoinSlice::InParallelSection())
-        return NULL;
+    /*
+     * In parallel sections, we do not attempt to refill the free list
+     * and hence do not encounter last ditch GC.
+     */
+    JS_ASSERT(!ForkJoinSlice::InParallelSection());
 
     PrepareCompartmentForGC(comp);
 
@@ -1931,9 +1939,8 @@ TriggerOperationCallback(JSRuntime *rt, gcreason::Reason reason)
 void
 js::TriggerGC(JSRuntime *rt, gcreason::Reason reason)
 {
-    // Wait till end of parallel section to trigger GC.
-    ForkJoinSlice *slice = ForkJoinSlice::Current();
-    if (slice != NULL) {
+    /* Wait till end of parallel section to trigger GC. */
+    if (ForkJoinSlice *slice = ForkJoinSlice::Current()) {
         slice->requestGC(reason);
         return;
     }
@@ -1950,9 +1957,8 @@ js::TriggerGC(JSRuntime *rt, gcreason::Reason reason)
 void
 js::TriggerCompartmentGC(JSCompartment *comp, gcreason::Reason reason)
 {
-    // Wait till end of parallel section to trigger GC.
-    ForkJoinSlice *slice = ForkJoinSlice::Current();
-    if (slice != NULL) {
+    /* Wait till end of parallel section to trigger GC. */
+    if (ForkJoinSlice *slice = ForkJoinSlice::Current()) {
         slice->requestCompartmentGC(comp, reason);
         return;
     }
@@ -4333,7 +4339,7 @@ static void
 Collect(JSRuntime *rt, bool incremental, int64_t budget,
         JSGCInvocationKind gckind, gcreason::Reason reason)
 {
-    // GC shouldn't be running in par. exec. mode
+    /* GC shouldn't be running in parallel execution mode */
     JS_ASSERT(!ForkJoinSlice::InParallelSection());
 
     JS_AbortIfWrongThread(rt);
@@ -4819,15 +4825,15 @@ ArenaLists::adoptArenas(JSRuntime *rt, ArenaLists *fromArenaLists)
 }
 
 bool
-ArenaLists::containsArena(JSRuntime *rt,
-                          ArenaHeader *needle)
+ArenaLists::containsArena(JSRuntime *rt, ArenaHeader *needle)
 {
     AutoLockGC lock(rt);
     size_t allocKind = needle->getAllocKind();
-    for (ArenaHeader *header = arenaLists[allocKind].head;
-         header != NULL;
-         header = header->next) {
-        if (header == needle)
+    for (ArenaHeader *aheader = arenaLists[allocKind].head;
+         aheader != NULL;
+         aheader = aheader->next)
+    {
+        if (aheader == needle)
             return true;
     }
     return false;

@@ -4531,7 +4531,7 @@ void PreventGCDuringInteractiveDebug()
 #endif
 
 gc::AutoSuppressGC::AutoSuppressGC(JSContext *cx)
-  : suppressGC_(cx->runtime->mainThread.suppressGC)
+  : suppressGC_(cx->mainThread().suppressGC)
 {
     suppressGC_++;
 }

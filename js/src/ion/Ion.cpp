@@ -300,18 +300,18 @@ IonCompartment::getVMWrapper(const VMFunction &f)
 IonActivation::IonActivation(JSContext *cx, StackFrame *fp)
   : cx_(cx),
     compartment_(cx->compartment),
-    prev_(cx->runtime->mainThread.ionActivation),
+    prev_(cx->mainThread().ionActivation),
     entryfp_(fp),
     bailout_(NULL),
-    prevIonTop_(cx->runtime->mainThread.ionTop),
-    prevIonJSContext_(cx->runtime->mainThread.ionJSContext),
+    prevIonTop_(cx->mainThread().ionTop),
+    prevIonJSContext_(cx->mainThread().ionJSContext),
     prevpc_(NULL)
 {
     if (fp)
         fp->setRunningInIon();
-    cx->runtime->mainThread.ionJSContext = cx;
-    cx->runtime->mainThread.ionActivation = this;
-    cx->runtime->mainThread.ionStackLimit = cx->runtime->mainThread.nativeStackLimit;
+    cx->mainThread().ionJSContext = cx;
+    cx->mainThread().ionActivation = this;
+    cx->mainThread().ionStackLimit = cx->mainThread().nativeStackLimit;
 }
 
 IonActivation::~IonActivation()

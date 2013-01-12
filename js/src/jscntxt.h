@@ -1121,40 +1121,17 @@ struct JSRuntime : js::RuntimeFriendFields
      * Call the system malloc while checking for GC memory pressure and
      * reporting OOM error when cx is not null. We will not GC from here.
      */
-    void* malloc_(size_t bytes, JSCompartment *comp = NULL, JSContext *cx = NULL) {
-        JS_ASSERT_IF(cx != NULL, cx->compartment == comp);
-        updateMallocCounter(comp, bytes);
-        void *p = js_malloc(bytes);
-        return JS_LIKELY(!!p) ? p : onOutOfMemory(NULL, bytes, cx);
-    }
+    inline void* malloc_(size_t bytes, JSCompartment *comp = NULL, JSContext *cx = NULL);
 
     /*
      * Call the system calloc while checking for GC memory pressure and
      * reporting OOM error when cx is not null. We will not GC from here.
      */
-    void* calloc_(size_t bytes, JSCompartment *comp = NULL, JSContext *cx = NULL) {
-        updateMallocCounter(comp, bytes);
-        void *p = js_calloc(bytes);
-        return JS_LIKELY(!!p) ? p : onOutOfMemory(reinterpret_cast<void *>(1), bytes, cx);
-    }
+    inline void* calloc_(size_t bytes, JSCompartment *comp = NULL, JSContext *cx = NULL);
 
-    void* realloc_(void* p, size_t oldBytes, size_t newBytes, JSCompartment *comp = NULL, JSContext *cx = NULL) {
-        JS_ASSERT(oldBytes < newBytes);
-        updateMallocCounter(comp, newBytes - oldBytes);
-        void *p2 = js_realloc(p, newBytes);
-        return JS_LIKELY(!!p2) ? p2 : onOutOfMemory(p, newBytes, cx);
-    }
+    inline void* realloc_(void* p, size_t oldBytes, size_t newBytes, JSCompartment *comp = NULL, JSContext *cx = NULL);
 
-    void* realloc_(void* p, size_t bytes, JSCompartment *comp = NULL, JSContext *cx = NULL) {
-        /*
-         * For compatibility we do not account for realloc that increases
-         * previously allocated memory.
-         */
-        if (!p)
-            updateMallocCounter(comp, bytes);
-        void *p2 = js_realloc(p, bytes);
-        return JS_LIKELY(!!p2) ? p2 : onOutOfMemory(p, bytes, cx);
-    }
+    inline void* realloc_(void* p, size_t bytes, JSCompartment *comp = NULL, JSContext *cx = NULL);
 
     template <class T>
     T *pod_malloc(JSCompartment *comp = NULL, JSContext *cx = NULL) {

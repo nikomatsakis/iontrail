@@ -599,7 +599,7 @@ class AutoEnterParallelSection
   public:
     AutoEnterParallelSection(JSContext *cx)
       : cx_(cx),
-        prevIonTop_(cx->runtime->mainThread.ionTop)
+        prevIonTop_(cx->mainThread().ionTop)
     {
         // Note: we do not allow GC during parallel sections.
         // Moreover, we do not wish to worry about making

@@ -212,6 +212,8 @@ typedef JSBool                 (*JSInitCallback)(void);
 
 namespace js {
 
+class Allocator;
+
 template <typename T>
 class Rooted;
 

@@ -316,14 +316,14 @@ IonActivation::IonActivation(JSContext *cx, StackFrame *fp)
 
 IonActivation::~IonActivation()
 {
-    JS_ASSERT(cx_->runtime->mainThread.ionActivation == this);
+    JS_ASSERT(cx_->mainThread().ionActivation == this);
     JS_ASSERT(!bailout_);
 
     if (entryfp_)
         entryfp_->clearRunningInIon();
-    cx_->runtime->mainThread.ionActivation = prev();
-    cx_->runtime->mainThread.ionTop = prevIonTop_;
-    cx_->runtime->mainThread.ionJSContext = prevIonJSContext_;
+    cx_->mainThread().ionActivation = prev();
+    cx_->mainThread().ionTop = prevIonTop_;
+    cx_->mainThread().ionJSContext = prevIonJSContext_;
 }
 
 IonCode *

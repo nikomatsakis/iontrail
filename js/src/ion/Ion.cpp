@@ -295,7 +295,7 @@ IonActivation::IonActivation(JSContext *cx, StackFrame *fp)
     prev_(cx->runtime->ionActivation),
     entryfp_(fp),
     bailout_(NULL),
-    prevIonTop_(cx->runtime->ionTop),
+    prevIonTop_(cx->runtime->mainThread.ionTop),
     prevIonJSContext_(cx->runtime->mainThread.ionJSContext),
     prevpc_(NULL)
 {
@@ -314,7 +314,7 @@ IonActivation::~IonActivation()
     if (entryfp_)
         entryfp_->clearRunningInIon();
     cx_->runtime->ionActivation = prev();
-    cx_->runtime->ionTop = prevIonTop_;
+    cx_->runtime->mainThread.ionTop = prevIonTop_;
     cx_->runtime->mainThread.ionJSContext = prevIonJSContext_;
 }
 

@@ -731,6 +731,7 @@ PerThreadData::PerThreadData(JSRuntime *runtime)
     gcAssertNoGCDepth(0),
 #endif
     suppressGC(0),
+    ionTop(NULL),
     ionJSContext(NULL),
     ionStackLimit(0)
 {}
@@ -883,7 +884,6 @@ JSRuntime::JSRuntime(JSUseHelperThreads useHelperThreads)
     noGCOrAllocationCheck(0),
 #endif
     jitHardening(false),
-    ionTop(NULL),
     ionActivation(NULL),
     ionPcScriptCache(NULL),
     threadPool(this),

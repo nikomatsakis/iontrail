@@ -446,6 +446,9 @@ class PerThreadData : public js::PerThreadDataFriendFields
      */
     int32_t             suppressGC;
 
+    // If Ion code is on the stack, and has called into C++, this will be
+    // aligned to an Ion exit frame.
+    uint8_t             *ionTop;
     JSContext           *ionJSContext;
     uintptr_t           ionStackLimit;
 
@@ -1026,10 +1029,6 @@ struct JSRuntime : js::RuntimeFriendFields
 #endif
 
     bool                jitHardening;
-
-    // If Ion code is on the stack, and has called into C++, this will be
-    // aligned to an Ion exit frame.
-    uint8_t             *ionTop;
 
     void resetIonStackLimit() {
         mainThread.ionStackLimit = nativeStackLimit;

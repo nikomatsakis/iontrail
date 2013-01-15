@@ -85,7 +85,7 @@ inline UnrootedScript
 GetTopIonJSScript(JSContext *cx, const SafepointIndex **safepointIndexOut, void **returnAddrOut)
 {
     AutoAssertNoGC nogc;
-    IonFrameIterator iter(cx->runtime->ionTop);
+    IonFrameIterator iter(cx->runtime->mainThread.ionTop);
     JS_ASSERT(iter.type() == IonFrame_Exit);
     ++iter;
 

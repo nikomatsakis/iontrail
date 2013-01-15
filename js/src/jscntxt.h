@@ -436,6 +436,15 @@ class PerThreadData : public js::PerThreadDataFriendFields
     int                 gcAssertNoGCDepth;
 #endif
 
+    // If Ion code is on the stack, and has called into C++, this will be
+    // aligned to an Ion exit frame.
+    uint8_t             *ionTop;
+    JSContext           *ionJSContext;
+    uintptr_t            ionStackLimit;
+
+    // This points to the most recent Ion activation running on the thread.
+    js::ion::IonActivation  *ionActivation;
+
     /*
      * When this flag is non-zero, any attempt to GC will be skipped. It is used
      * to suppress GC when reporting an OOM (see js_ReportOutOfMemory) and in
@@ -445,12 +454,6 @@ class PerThreadData : public js::PerThreadDataFriendFields
      * in non-exposed debugging facilities.
      */
     int32_t             suppressGC;
-
-    // If Ion code is on the stack, and has called into C++, this will be
-    // aligned to an Ion exit frame.
-    uint8_t             *ionTop;
-    JSContext           *ionJSContext;
-    uintptr_t           ionStackLimit;
 
     PerThreadData(JSRuntime *runtime);
 
@@ -1033,9 +1036,6 @@ struct JSRuntime : js::RuntimeFriendFields
     void resetIonStackLimit() {
         mainThread.ionStackLimit = nativeStackLimit;
     }
-
-    // This points to the most recent Ion activation running on the thread.
-    js::ion::IonActivation  *ionActivation;
 
     // Cache for ion::GetPcScript().
     js::ion::PcScriptCache *ionPcScriptCache;

@@ -293,7 +293,7 @@ ForkJoinShared::executeFromWorker(uint32_t workerId, uintptr_t stackLimit)
 
     PerThreadData thisThread(cx_->runtime);
     TlsPerThreadData.set(&thisThread);
-    // NDM thisThread.ionStackLimit = stackLimit;
+    thisThread.ionStackLimit = stackLimit;
     executePortion(&thisThread, workerId);
     TlsPerThreadData.set(NULL);
 
@@ -583,7 +583,7 @@ ForkJoinSlice::triggerAbort()
     // In principle, we probably ought to set the ionStackLimit's for
     // the other threads too, but right now the various slice objects
     // are not on a central list so that's not possible.
-    // NDM perThreadData->ionStackLimit = -1;
+    perThreadData->ionStackLimit = -1;
 }
 #endif
 
@@ -598,7 +598,8 @@ class AutoEnterParallelSection
 
   public:
     AutoEnterParallelSection(JSContext *cx)
-      : cx_(cx), prevIonTop_(cx->runtime->mainThread.ionTop)
+      : cx_(cx),
+        prevIonTop_(cx->mainThread().ionTop)
     {
         // Note: we do not allow GC during parallel sections.
         // Moreover, we do not wish to worry about making

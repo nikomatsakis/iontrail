@@ -309,9 +309,9 @@ ion::HandleException(ResumeFromException *rfe)
 
     // Immediately remove any bailout frame guard that might be left over from
     // an error in between ConvertFrames and ThunkToInterpreter.
-    js_delete(cx->runtime->ionActivation->maybeTakeBailout());
+    js_delete(cx->mainThread().ionActivation->maybeTakeBailout());
 
-    IonFrameIterator iter(cx->runtime->mainThread.ionTop);
+    IonFrameIterator iter(cx->mainThread().ionTop);
     while (!iter.isEntry()) {
         if (iter.isScripted()) {
             // Search each inlined frame for live iterator objects, and close
@@ -359,15 +359,15 @@ IonActivationIterator::settle()
 }
 
 IonActivationIterator::IonActivationIterator(JSContext *cx)
-  : top_(cx->runtime->mainThread.ionTop),
-    activation_(cx->runtime->ionActivation)
+  : top_(cx->mainThread().ionTop),
+    activation_(cx->mainThread().ionActivation)
 {
     settle();
 }
 
 IonActivationIterator::IonActivationIterator(JSRuntime *rt)
   : top_(rt->mainThread.ionTop),
-    activation_(rt->ionActivation)
+    activation_(rt->mainThread.ionActivation)
 {
     settle();
 }

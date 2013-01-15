@@ -3132,7 +3132,7 @@ JSCompartment::findOutgoingEdges(ComponentFinder<JSCompartment> &finder)
 static void
 FindCompartmentGroups(JSRuntime *rt)
 {
-    ComponentFinder<JSCompartment> finder(rt->nativeStackLimit);
+    ComponentFinder<JSCompartment> finder(rt->mainThread.nativeStackLimit);
     if (!rt->gcIsIncremental)
         finder.useOneComponent();
 

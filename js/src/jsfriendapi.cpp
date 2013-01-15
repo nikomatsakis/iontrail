@@ -23,7 +23,8 @@ using namespace js;
 using namespace JS;
 
 // Required by PerThreadDataFriendFields::getMainThread()
-JS_STATIC_ASSERT(offsetof(JSRuntime, mainThread) == sizeof(RuntimeFriendFields));
+JS_STATIC_ASSERT(offsetof(JSRuntime, mainThread) ==
+                 PerThreadDataFriendFields::RuntimeMainThreadOffset);
 
 PerThreadDataFriendFields::PerThreadDataFriendFields()
 {

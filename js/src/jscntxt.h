@@ -446,6 +446,9 @@ class PerThreadData : public js::PerThreadDataFriendFields
      */
     int32_t             suppressGC;
 
+    JSContext           *ionJSContext;
+    uintptr_t           ionStackLimit;
+
     PerThreadData(JSRuntime *runtime);
 
     bool associatedWith(const JSRuntime *rt) { return runtime_ == rt; }
@@ -1027,11 +1030,9 @@ struct JSRuntime : js::RuntimeFriendFields
     // If Ion code is on the stack, and has called into C++, this will be
     // aligned to an Ion exit frame.
     uint8_t             *ionTop;
-    JSContext           *ionJSContext;
-    uintptr_t            ionStackLimit;
 
     void resetIonStackLimit() {
-        ionStackLimit = nativeStackLimit;
+        mainThread.ionStackLimit = nativeStackLimit;
     }
 
     // This points to the most recent Ion activation running on the thread.

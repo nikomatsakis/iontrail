@@ -26,6 +26,21 @@ using namespace JS;
 JS_STATIC_ASSERT(offsetof(JSRuntime, mainThread) ==
                  PerThreadDataFriendFields::RuntimeMainThreadOffset);
 
+PerThreadDataFriendFields *
+PerThreadDataFriendFields::get(js::PerThreadData *pt) {
+    return pt;
+}
+
+PerThreadDataFriendFields *
+PerThreadDataFriendFields::getMainThread(JSRuntime *rt) {
+    return &rt->mainThread;
+}
+
+const PerThreadDataFriendFields *
+PerThreadDataFriendFields::getMainThread(const JSRuntime *rt) {
+    return &rt->mainThread;
+}
+
 PerThreadDataFriendFields::PerThreadDataFriendFields()
 {
 #if defined(JSGC_ROOT_ANALYSIS) || defined(JSGC_USE_EXACT_ROOTING)

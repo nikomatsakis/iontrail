@@ -347,23 +347,9 @@ struct PerThreadDataFriendFields
 
     static const size_t RuntimeMainThreadOffset = offsetof(RuntimeDummy, mainThread);
 
-    static inline PerThreadDataFriendFields *get(js::PerThreadData *pt) {
-        return reinterpret_cast<PerThreadDataFriendFields *>(pt);
-    }
-
-    static inline PerThreadDataFriendFields *getMainThread(JSRuntime *rt) {
-        // mainThread must always appear directly after |RuntimeFriendFields|.
-        // Tested by a JS_STATIC_ASSERT in |jsfriendapi.cpp|
-        return reinterpret_cast<PerThreadDataFriendFields *>(
-            reinterpret_cast<char*>(rt) + RuntimeMainThreadOffset);
-    }
-
-    static inline const PerThreadDataFriendFields *getMainThread(const JSRuntime *rt) {
-        // mainThread must always appear directly after |RuntimeFriendFields|.
-        // Tested by a JS_STATIC_ASSERT in |jsfriendapi.cpp|
-        return reinterpret_cast<const PerThreadDataFriendFields *>(
-            reinterpret_cast<const char*>(rt) + RuntimeMainThreadOffset);
-    }
+    static PerThreadDataFriendFields *get(js::PerThreadData *pt);
+    static PerThreadDataFriendFields *getMainThread(JSRuntime *rt);
+    static const PerThreadDataFriendFields *getMainThread(const JSRuntime *rt);
 };
 
 } /* namespace js */

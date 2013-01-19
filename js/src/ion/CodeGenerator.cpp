@@ -20,6 +20,7 @@
 #include "jsinterpinlines.h"
 #include "ParFunctions.h"
 #include "ExecutionModeInlines.h"
+#include "vm/ForkJoin.h"
 
 #include "vm/StringObject-inl.h"
 
@@ -1835,22 +1836,60 @@ CodeGenerator::visitParCheckOverRecursedFailure(ParCheckOverRecursedFailure *ool
     return true;
 }
 
+// Out-of-line path to report over-recursed error and fail.
+class OutOfLineParCheckInterrupt : public OutOfLineCodeBase<CodeGenerator>
+{
+  public:
+    LParCheckInterrupt *const lir;
+
+    OutOfLineParCheckInterrupt(LParCheckInterrupt *lir)
+      : lir(lir)
+    { }
+
+    bool accept(CodeGenerator *codegen) {
+        return codegen->visitOutOfLineParCheckInterrupt(this);
+    }
+};
+
 bool
 CodeGenerator::visitParCheckInterrupt(LParCheckInterrupt *lir)
 {
-    JS_ASSERT(gen->info().executionMode() == ParallelExecution);
+    // First check for slice->shared->interrupt_.
+    OutOfLineParCheckInterrupt *ool = new OutOfLineParCheckInterrupt(lir);
+    if (!addOutOfLineCode(ool))
+        return false;
+
     const Register parSliceReg = ToRegister(lir->parSlice());
     const Register tempReg = ToRegister(lir->getTempReg());
-    masm.setupUnalignedABICall(1, tempReg);
-    masm.passABIArg(parSliceReg);
-    masm.callWithABI(JS_FUNC_TO_DATA_PTR(void *, ParCheckInterrupt));
+    masm.loadPtr(Address(parSliceReg, js::ForkJoinSlice::forkJoinSharedOffset()), tempReg);
+    masm.load32(Address(tempReg, js::ForkJoinSlice::interruptOffset()), tempReg);
+    masm.branchTest32(Assembler::NonZero, tempReg, tempReg, ool->entry());
+    masm.bind(ool->rejoin());
+    return true;
+}
 
+bool
+CodeGenerator::visitOutOfLineParCheckInterrupt(OutOfLineParCheckInterrupt *ool)
+{
+    SaveLiveRegs regs(*this, ool->lir);
+    Label abort;
+
+    regs.save();
+    masm.movePtr(ToRegister(ool->lir->parSlice()), CallTempReg0);
+    masm.setupUnalignedABICall(1, CallTempReg1);
+    masm.passABIArg(CallTempReg0);
+    masm.callWithABI(JS_FUNC_TO_DATA_PTR(void *, ParCheckInterrupt));
+    masm.branchTestBool(Assembler::Zero, ReturnReg, ReturnReg, &abort);
+    regs.restore();
+    masm.jump(ool->rejoin());
+
+    masm.bind(&abort);
+    regs.fixStack();
     Label *bail;
     if (!ensureOutOfLineParallelAbort(&bail))
         return false;
+    masm.jump(bail);
 
-    // branch to the OOL failure code if false is returned
-    masm.branchTestBool(Assembler::Zero, ReturnReg, ReturnReg, bail);
     return true;
 }
 

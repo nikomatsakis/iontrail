@@ -169,15 +169,6 @@ struct ForkJoinSlice
     // True if this is the main thread, false if it is one of the parallel workers.
     bool isMainThread();
 
-    // Generally speaking, if a thread returns false, that is interpreted as a
-    // "bailout"---meaning, a recoverable error.  If however you call this
-    // function before returning false, then the error will be interpreted as
-    // *fatal*.  This doesn't strike me as the most elegant solution here but
-    // I don't know what'd be better.
-    //
-    // For convenience, *always* returns false.
-    bool setFatal();
-
     // When the code would normally trigger a GC, we don't trigger it
     // immediately but instead record that request here.  This will
     // cause |ExecuteForkJoinOp()| to invoke |TriggerGC()| or
@@ -193,7 +184,17 @@ struct ForkJoinSlice
     // returns false, then the parallel phase has been aborted and so you
     // should bailout.  The function may also rendesvous to perform GC or do
     // other similar things.
+    //
+    // Ion compilation note: see forkJoinSharedOffset() below.
     bool check();
+
+    // These two functions are used by ion to avoid the overhead of
+    // actually invoking check() unless it is important.  Basically
+    // the code needs to check this->shared->interrupt_, but since
+    // these are private members that I do not want to fully expose,
+    // these accessors are used to obtain the relevant offsets.
+    static uintptr_t forkJoinSharedOffset();
+    static uintptr_t interruptOffset();
 
     // Be wary, the runtime is shared between all threads!
     JSRuntime *runtime();

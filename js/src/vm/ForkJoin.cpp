@@ -272,6 +272,7 @@ ForkJoinShared::execute()
 void
 ForkJoinShared::transferArenasToCompartmentAndProcessGCRequests()
 {
+#if 0 // XXX
     JSCompartment *comp = cx_->compartment;
     for (unsigned i = 0; i < numSlices_; i++)
         comp->adoptWorkerAllocator(allocators_[i]);
@@ -284,6 +285,7 @@ ForkJoinShared::transferArenasToCompartmentAndProcessGCRequests()
         gcRequested_ = false;
         gcCompartment_ = NULL;
     }
+#endif
 }
 
 void

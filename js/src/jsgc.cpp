@@ -1372,33 +1372,14 @@ ArenaLists::queueIonCodeForSweep(FreeOp *fop)
     finalizeNow(fop, FINALIZE_IONCODE);
 }
 
-static void*
-RunLastDitchGC(JSContext *cx, JSCompartment *comp, AllocKind thingKind)
+static void
+RunLastDitchGC(JSContext *cx, gcreason::Reason reason)
 {
-    /*
-     * In parallel sections, we do not attempt to refill the free list
-     * and hence do not encounter last ditch GC.
-     */
-    JS_ASSERT(!ForkJoinSlice::InParallelSection());
-
-    PrepareCompartmentForGC(comp);
-
     JSRuntime *rt = cx->runtime;
 
     /* The last ditch GC preserves all atoms. */
     AutoKeepAtoms keep(rt);
-    GC(rt, GC_NORMAL, gcreason::LAST_DITCH);
-
-    /*
-     * The JSGC_END callback can legitimately allocate new GC
-     * things and populate the free list. If that happens, just
-     * return that list head.
-     */
-    size_t thingSize = Arena::thingSize(thingKind);
-    if (void *thing = comp->allocator.arenas.allocateFromFreeList(thingKind, thingSize))
-        return thing;
-
-    return NULL;
+    GC(rt, GC_NORMAL, reason);
 }
 
 /* static */ void *
@@ -1413,7 +1394,16 @@ ArenaLists::refillFreeList(JSContext *cx, AllocKind thingKind)
     bool runGC = rt->gcIncrementalState != NO_INCREMENTAL && comp->gcBytes > comp->gcTriggerBytes;
     for (;;) {
         if (JS_UNLIKELY(runGC)) {
-            if (void *thing = RunLastDitchGC(cx, comp, thingKind))
+            PrepareCompartmentForGC(comp);
+            RunLastDitchGC(cx, gcreason::LAST_DITCH);
+
+            /*
+             * The JSGC_END callback can legitimately allocate new GC
+             * things and populate the free list. If that happens, just
+             * return that list head.
+             */
+            size_t thingSize = Arena::thingSize(thingKind);
+            if (void *thing = comp->allocator.arenas.allocateFromFreeList(thingKind, thingSize))
                 return thing;
         }
 
@@ -1841,12 +1831,6 @@ TriggerOperationCallback(JSRuntime *rt, gcreason::Reason reason)
 void
 js::TriggerGC(JSRuntime *rt, gcreason::Reason reason)
 {
-    /* Wait till end of parallel section to trigger GC. */
-    if (ForkJoinSlice *slice = ForkJoinSlice::Current()) {
-        slice->requestGC(reason);
-        return;
-    }
-
     rt->assertValidThread();
 
     if (rt->isHeapBusy())
@@ -1859,12 +1843,6 @@ js::TriggerGC(JSRuntime *rt, gcreason::Reason reason)
 void
 js::TriggerCompartmentGC(JSCompartment *comp, gcreason::Reason reason)
 {
-    /* Wait till end of parallel section to trigger GC. */
-    if (ForkJoinSlice *slice = ForkJoinSlice::Current()) {
-        slice->requestCompartmentGC(comp, reason);
-        return;
-    }
-
     JSRuntime *rt = comp->rt;
     rt->assertValidThread();
 
@@ -4217,9 +4195,6 @@ static void
 Collect(JSRuntime *rt, bool incremental, int64_t budget,
         JSGCInvocationKind gckind, gcreason::Reason reason)
 {
-    /* GC shouldn't be running in parallel execution mode */
-    JS_ASSERT(!ForkJoinSlice::InParallelSection());
-
     JS_AbortIfWrongThread(rt);
 
 #if JS_TRACE_LOGGING

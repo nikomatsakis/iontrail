@@ -77,7 +77,7 @@ class ThreadPool
     size_t numWorkers_;
 
     // Next worker for |submitOne()|. Atomically modified.
-    size_t nextId_;
+    uint32_t nextId_;
 
     bool lazyStartWorkers(JSContext *cx);
     void terminateWorkers();

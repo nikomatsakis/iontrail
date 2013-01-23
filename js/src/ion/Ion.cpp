@@ -18,9 +18,11 @@
 #include "RangeAnalysis.h"
 #include "LinearScan.h"
 #include "jscompartment.h"
-#include "jsworkers.h"
+#include "vm/ThreadPool.h"
+#include "vm/ForkJoin.h"
 #include "IonCompartment.h"
 #include "CodeGenerator.h"
+#include "jsworkers.h"
 #include "BacktrackingAllocator.h"
 #include "StupidAllocator.h"
 #include "UnreachableCodeElimination.h"
@@ -119,6 +121,10 @@ ion::InitializeIon()
         PRStatus status = PR_NewThreadPrivateIndex(&IonTLSIndex, NULL);
         if (status != PR_SUCCESS)
             return false;
+
+        if (!ForkJoinSlice::Initialize())
+            return false;
+
         IonTLSInitialized = true;
     }
 #endif

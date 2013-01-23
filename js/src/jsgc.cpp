@@ -1398,8 +1398,6 @@ ArenaLists::refillFreeList(JSContext *cx, AllocKind thingKind)
              * In parallel sections, we do not attempt to refill the free list
              * and hence do not encounter last ditch GC.
              */
-            JS_ASSERT(!ForkJoinSlice::InParallelSection());
-
             PrepareCompartmentForGC(comp);
             RunLastDitchGC(cx, gcreason::LAST_DITCH);
 

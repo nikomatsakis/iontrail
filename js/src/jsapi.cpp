@@ -934,7 +934,7 @@ JSRuntime::init(uint32_t maxbytes)
     }
 
     atomsCompartment->isSystemCompartment = true;
-    atomsCompartment->setGCLastBytes(8192, 8192, GC_NORMAL);
+    atomsCompartment->setGCLastBytes(8192, GC_NORMAL);
 
     if (!InitAtoms(this))
         return false;

@@ -1100,7 +1100,7 @@ ComputeTriggerBytes(JSCompartment *comp, size_t lastBytes, size_t maxBytes, JSGC
 }
 
 void
-JSCompartment::setGCLastBytes(size_t lastBytes, size_t lastMallocBytes, JSGCInvocationKind gckind)
+JSCompartment::setGCLastBytes(size_t lastBytes, JSGCInvocationKind gckind)
 {
     /*
      * The heap growth factor depends on the heap size after a GC and the GC frequency.
@@ -3839,6 +3839,7 @@ EndSweepPhase(JSRuntime *rt, JSGCInvocationKind gckind, bool lastGC)
     }
 
     for (CompartmentsIter c(rt); !c.done(); c.next()) {
+        c->setGCLastBytes(c->gcBytes, gckind);
         if (c->isCollecting()) {
             JS_ASSERT(c->isGCFinished());
             c->setGCState(JSCompartment::NoGC);
@@ -4541,7 +4542,7 @@ gc::NewCompartment(JSContext *cx, JSPrincipals *principals)
         // Set up the principals.
         JS_SetCompartmentPrincipals(compartment, principals);
 
-        compartment->setGCLastBytes(8192, 8192, GC_NORMAL);
+        compartment->setGCLastBytes(8192, GC_NORMAL);
 
         /*
          * Before reporting the OOM condition, |lock| needs to be cleaned up,

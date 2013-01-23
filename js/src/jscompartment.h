@@ -474,7 +474,7 @@ struct JSCompartment : private JS::shadow::Compartment, public js::gc::GraphNode
 
     void findOutgoingEdges(js::gc::ComponentFinder<JSCompartment> &finder);
 
-    void setGCLastBytes(size_t lastBytes, size_t lastMallocBytes, js::JSGCInvocationKind gckind);
+    void setGCLastBytes(size_t lastBytes, js::JSGCInvocationKind gckind);
     void reduceGCTriggerBytes(size_t amount);
 
     void resetGCMallocBytes();

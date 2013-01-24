@@ -22,6 +22,30 @@ using namespace js;
 
 #ifdef JS_THREADSAFE
 
+class AutoClearParallelAbort
+{
+    JSRuntime *runtime;
+
+  public:
+    AutoClearParallelAbort(JSRuntime *runtime)
+      : runtime(runtime)
+    {
+        // when we begin with a parallel section, the flag should
+        // always have been cleared
+        JS_ASSERT(runtime->parallelAbort == false);
+    }
+
+    bool aborted() {
+        return runtime->parallelAbort != 0;
+    }
+
+    ~AutoClearParallelAbort()
+    {
+        // clear flag as we exit the parallel section
+        runtime->parallelAbort = false;
+    }
+};
+
 class js::ForkJoinShared : public TaskExecutor, public Monitor
 {
     /////////////////////////////////////////////////////////////////////////
@@ -58,20 +82,6 @@ class js::ForkJoinShared : public TaskExecutor, public Monitor
     //
     // These can be read without the lock (hence the |volatile| declaration).
     // All fields should be *written with the lock*, however.
-
-    // If non-zero, threads should stop iterating.  This is
-    // incremented (under lock) on each request to abort or
-    // rendezvous.
-    //
-    // This flag is important because it is checked by ion code on
-    // backedges: if it is zero, then check() will never be called!
-    volatile uint32_t interrupt_;
-
-    // A thread has bailed and others should follow suit.  After
-    // setting abort, workers will acquire the lock, decrement
-    // uncompleted, and then notify if uncompleted has reached
-    // blocked.
-    volatile bool abort_;
 
     // Set to true when a worker bails for a fatal reason.
     volatile bool fatal_;
@@ -140,9 +150,6 @@ class js::ForkJoinShared : public TaskExecutor, public Monitor
 
     JSContext *acquireContext() { PR_Lock(cxLock_); return cx_; }
     void releaseContext() { PR_Unlock(cxLock_); }
-
-    uintptr_t interrupt() { return interrupt_; }
-    static uintptr_t interruptOffset() { return offsetof(ForkJoinShared, interrupt_); }
 };
 
 class js::AutoRendezvous
@@ -196,11 +203,10 @@ ForkJoinShared::ForkJoinShared(JSContext *cx,
     gcRequested_(false),
     gcReason_(gcreason::NUM_REASONS),
     gcCompartment_(NULL),
-    interrupt_(0),
-    abort_(false),
     fatal_(false),
     rendezvous_(false)
-{ }
+{
+}
 
 bool
 ForkJoinShared::init()
@@ -251,6 +257,8 @@ ForkJoinShared::~ForkJoinShared()
 ParallelResult
 ForkJoinShared::execute()
 {
+    AutoClearParallelAbort abort(cx_->runtime);
+
     // Sometimes a GC request occurs *just before* we enter into the
     // parallel section.  Rather than enter into the parallel section
     // and then abort, we just check here and abort early.
@@ -276,7 +284,7 @@ ForkJoinShared::execute()
     transferArenasToCompartmentAndProcessGCRequests();
 
     // Check if any of the workers failed.
-    if (abort_) {
+    if (abort.aborted()) {
         if (fatal_)
             return TP_FATAL;
         else if (gcWasRequested)
@@ -349,9 +357,7 @@ ForkJoinShared::executePortion(PerThreadData *perThread,
 bool
 ForkJoinShared::check(ForkJoinSlice &slice)
 {
-    JS_ASSERT(interrupt_);
-
-    if (abort_)
+    if (cx_->runtime->parallelAbort)
         return false;
 
     if (slice.isMainThread()) {
@@ -417,7 +423,6 @@ ForkJoinShared::initiateRendezvous(ForkJoinSlice &slice)
 
     // Signal other threads we want to start a rendezvous.
     rendezvous_ = true;
-    interrupt_++;
 
     // Wait until all the other threads blocked themselves.
     while (blocked_ != uncompleted_)
@@ -455,7 +460,6 @@ ForkJoinShared::endRendezvous(ForkJoinSlice &slice)
     rendezvous_ = false;
     blocked_ = 0;
     rendezvousIndex_++;
-    interrupt_--;
 
     // Signal other threads that rendezvous is over.
     PR_NotifyAllCondVar(rendezvousEnd_);
@@ -466,9 +470,8 @@ ForkJoinShared::setAbortFlag(bool fatal)
 {
     AutoLockMonitor lock(*this);
 
-    abort_ = true;
+    cx_->runtime->parallelAbort = true;
     fatal_ = fatal_ || fatal;
-    interrupt_++;
 }
 
 void
@@ -518,22 +521,6 @@ ForkJoinSlice::ForkJoinSlice(PerThreadData *perThreadData,
       shared(shared)
 { }
 
-/*static*/ uintptr_t
-ForkJoinSlice::forkJoinSharedOffset()
-{
-    return offsetof(ForkJoinSlice, shared);
-}
-
-/*static*/ uintptr_t
-ForkJoinSlice::interruptOffset()
-{
-#ifdef JS_THREADSAFE
-    return ForkJoinShared::interruptOffset();
-#else
-    return 0;
-#endif
-}
-
 bool
 ForkJoinSlice::isMainThread()
 {
@@ -576,8 +563,6 @@ bool
 ForkJoinSlice::check()
 {
 #ifdef JS_THREADSAFE
-    if (!shared->interrupt())
-        return true;
     return shared->check(*this);
 #else
     return false;

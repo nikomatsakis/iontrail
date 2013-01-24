@@ -1742,16 +1742,17 @@ CodeGenerator::visitParCheckOverRecursed(LParCheckOverRecursed *lir)
     // visitCheckOverRecursed() is that this code runs in parallel mode
     // and hence uses the ionStackLimit from the current thread state
     Register parSliceReg = ToRegister(lir->parSlice());
-    Register limitReg = ToRegister(lir->getTempReg());
+    Register tempReg = ToRegister(lir->getTempReg());
 
-    masm.loadPtr(Address(parSliceReg, offsetof(ForkJoinSlice, perThreadData)), limitReg);
-    masm.loadPtr(Address(limitReg, offsetof(PerThreadData, ionStackLimit)), limitReg);
+    masm.loadPtr(Address(parSliceReg, offsetof(ForkJoinSlice, perThreadData)), tempReg);
+    masm.loadPtr(Address(tempReg, offsetof(PerThreadData, ionStackLimit)), tempReg);
 
     // Conditional forward (unlikely) branch to failure.
     ParCheckOverRecursedFailure *ool = new ParCheckOverRecursedFailure(lir);
     if (!addOutOfLineCode(ool))
         return false;
-    masm.branchPtr(Assembler::BelowOrEqual, StackPointer, limitReg, ool->entry());
+    masm.branchPtr(Assembler::BelowOrEqual, StackPointer, tempReg, ool->entry());
+    masm.parCheckInterruptFlags(tempReg, ool->entry());
     masm.bind(ool->rejoin());
 
     return true;
@@ -1859,11 +1860,13 @@ CodeGenerator::visitParCheckInterrupt(LParCheckInterrupt *lir)
     if (!addOutOfLineCode(ool))
         return false;
 
-    const Register parSliceReg = ToRegister(lir->parSlice());
-    const Register tempReg = ToRegister(lir->getTempReg());
-    masm.loadPtr(Address(parSliceReg, js::ForkJoinSlice::forkJoinSharedOffset()), tempReg);
-    masm.load32(Address(tempReg, js::ForkJoinSlice::interruptOffset()), tempReg);
-    masm.branchTest32(Assembler::NonZero, tempReg, tempReg, ool->entry());
+    // We must check two flags:
+    // - runtime->interrupt
+    // - runtime->parallelAbort
+    // See vm/ForkJoin.h for discussion on why we use this design.
+
+    Register tempReg = ToRegister(lir->getTempReg());
+    masm.parCheckInterruptFlags(tempReg, ool->entry());
     masm.bind(ool->rejoin());
     return true;
 }

@@ -540,7 +540,7 @@ ForkJoinSlice::setFatal()
 }
 
 bool
-ForkJoinSlice::Initialize()
+ForkJoinSlice::InitializeTLS()
 {
 #ifdef JS_THREADSAFE
     PRStatus status = PR_NewThreadPrivateIndex(&ThreadPrivateIndex, NULL);
@@ -636,7 +636,7 @@ js::ExecuteForkJoinOp(JSContext *cx, ForkJoinOp &op)
 {
 #ifdef JS_THREADSAFE
     // Recursive use of the ThreadPool is not supported.
-    JS_ASSERT(!ForkJoinSlice::InParallelSection());
+    JS_ASSERT(!InParallelSection());
 
     AutoEnterParallelSection enter(cx);
 

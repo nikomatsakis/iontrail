@@ -1364,7 +1364,8 @@ VersionIsKnown(JSVersion version)
 }
 
 inline void
-FreeOp::free_(void *p) {
+FreeOp::free_(void *p)
+{
     if (shouldFreeLater()) {
         runtime()->gcHelperThread.freeLater(p);
         return;

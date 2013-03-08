@@ -128,10 +128,14 @@ ion::ParCheckOverRecursed(ForkJoinSlice *slice)
     // and, if not, check whether an interrupt is needed.
     if (slice->isMainThread()) {
         int stackDummy_;
-        if (!JS_CHECK_STACK_SIZE(js::GetNativeStackLimit(slice->runtime()), &stackDummy_))
+        if (!JS_CHECK_STACK_SIZE(js::GetNativeStackLimit(slice->runtime()), &stackDummy_)) {
+            slice->bailoutRecord->setCause(ParallelBailoutOverRecursed, NULL, NULL);
             return false;
+        }
         return ParCheckInterrupt(slice);
     } else {
+        slice->bailoutRecord->setCause(ParallelBailoutOverRecursed, NULL, NULL);
+
         // FIXME---we don't ovewrite the stack limit for worker
         // threads, which means that technically they can recurse
         // forever---or at least a long time---without ever checking
@@ -146,8 +150,10 @@ ion::ParCheckInterrupt(ForkJoinSlice *slice)
 {
     JS_ASSERT(ForkJoinSlice::Current() == slice);
     bool result = slice->check();
-    if (!result)
+    if (!result) {
+        slice->bailoutRecord->setCause(ParallelBailoutInterrupt, NULL, NULL);
         return false;
+    }
     return true;
 }
 
@@ -201,16 +207,27 @@ ion::ParCompareStrings(JSString *str1, JSString *str2)
 }
 
 void
-ion::ParallelAbort(JSScript *script)
+ion::ParallelAbort(ParallelBailoutCause cause,
+                   JSScript *script,
+                   jsbytecode *bytecode)
 {
     JS_ASSERT(InParallelSection());
-
+    JS_ASSERT(script != NULL);
     ForkJoinSlice *slice = ForkJoinSlice::Current();
 
-    Spew(SpewBailouts, "Parallel abort in %p:%s:%d", script, script->filename, script->lineno);
+    Spew(SpewBailouts, "Parallel abort with cause %d in %p:%s:%d at line %d",
+         cause, script, script->filename, script->lineno);
 
-    if (!slice->abortedScript)
-        slice->abortedScript = script;
+    JS_ASSERT(slice->bailoutRecord->depth == 0);
+    slice->bailoutRecord->setCause(cause, script, bytecode);
+}
+
+void
+ion::PropagateParallelAbort(JSScript *script)
+{
+    JS_ASSERT(InParallelSection());
+    ForkJoinSlice *slice = ForkJoinSlice::Current();
+    slice->bailoutRecord->addTrace(script, NULL);
 }
 
 void

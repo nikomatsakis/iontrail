@@ -32,6 +32,7 @@ class js::ForkJoinShared : public TaskExecutor, public Monitor
     ForkJoinOp &op_;               // User-defined operations to be perf. in par.
     const uint32_t numSlices_;     // Total number of threads.
     PRCondVar *rendezvousEnd_;     // Cond. var used to signal end of rendezvous.
+    ParallelBailoutRecord *const records_; // Bailout records for each slice
 
     /////////////////////////////////////////////////////////////////////////
     // Per-thread arenas
@@ -98,7 +99,8 @@ class js::ForkJoinShared : public TaskExecutor, public Monitor
                    ThreadPool *threadPool,
                    ForkJoinOp &op,
                    uint32_t numSlices,
-                   uint32_t uncompleted);
+                   uint32_t uncompleted,
+                   ParallelBailoutRecord *records);
     ~ForkJoinShared();
 
     bool init();
@@ -167,11 +169,14 @@ ForkJoinShared::ForkJoinShared(JSContext *cx,
                                ThreadPool *threadPool,
                                ForkJoinOp &op,
                                uint32_t numSlices,
-                               uint32_t uncompleted)
+                               uint32_t uncompleted,
+                               ParallelBailoutRecord *records)
   : cx_(cx),
     threadPool_(threadPool),
     op_(op),
     numSlices_(numSlices),
+    rendezvousEnd_(NULL),
+    records_(records),
     allocators_(cx),
     uncompleted_(uncompleted),
     blocked_(0),
@@ -312,7 +317,8 @@ ForkJoinShared::executePortion(PerThreadData *perThread,
                                uint32_t threadId)
 {
     Allocator *allocator = allocators_[threadId];
-    ForkJoinSlice slice(perThread, threadId, numSlices_, allocator, this);
+    ForkJoinSlice slice(perThread, threadId, numSlices_, allocator,
+                        this, &records_[threadId]);
     AutoSetForkJoinSlice autoContext(&slice);
 
     if (!op_.parallel(slice))
@@ -481,12 +487,13 @@ ForkJoinShared::requestZoneGC(JS::Zone *zone, gcreason::Reason reason)
 
 ForkJoinSlice::ForkJoinSlice(PerThreadData *perThreadData,
                              uint32_t sliceId, uint32_t numSlices,
-                             Allocator *allocator, ForkJoinShared *shared)
+                             Allocator *allocator, ForkJoinShared *shared,
+                             ParallelBailoutRecord *bailoutRecord)
     : perThreadData(perThreadData),
       sliceId(sliceId),
       numSlices(numSlices),
       allocator(allocator),
-      abortedScript(NULL),
+      bailoutRecord(bailoutRecord),
       shared(shared)
 { }
 
@@ -619,7 +626,7 @@ js::ForkJoinSlices(JSContext *cx)
 }
 
 ParallelResult
-js::ExecuteForkJoinOp(JSContext *cx, ForkJoinOp &op)
+js::ExecuteForkJoinOp(JSContext *cx, ForkJoinOp &op, ParallelBailoutRecord *records)
 {
 #ifdef JS_THREADSAFE
     // Recursive use of the ThreadPool is not supported.
@@ -630,7 +637,7 @@ js::ExecuteForkJoinOp(JSContext *cx, ForkJoinOp &op)
     ThreadPool *threadPool = &cx->runtime->threadPool;
     uint32_t numSlices = ForkJoinSlices(cx);
 
-    ForkJoinShared shared(cx, threadPool, op, numSlices, numSlices - 1);
+    ForkJoinShared shared(cx, threadPool, op, numSlices, numSlices - 1, records);
     if (!shared.init())
         return TP_RETRY_SEQUENTIALLY;
 
@@ -638,4 +645,55 @@ js::ExecuteForkJoinOp(JSContext *cx, ForkJoinOp &op)
 #else
     return TP_RETRY_SEQUENTIALLY;
 #endif
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// ParallelBailoutRecord
+
+void
+js::ParallelBailoutRecord::init(JSContext *cx, uint32_t maxDepth, ParallelBailoutTrace *trace)
+{
+    reset(cx);
+    this->maxDepth = maxDepth;
+    this->trace = trace;
+}
+
+void
+js::ParallelBailoutRecord::reset(JSContext *cx)
+{
+    topScript = NULL;
+    cause = ParallelBailoutNone;
+    depth = 0;
+}
+
+void
+js::ParallelBailoutRecord::setCause(ParallelBailoutCause cause,
+                                    JSScript *script,
+                                    jsbytecode *pc)
+{
+    this->cause = cause;
+
+    if (script) {
+        this->topScript = script;
+        addTrace(script, pc);
+    } else {
+        JS_ASSERT(!pc);
+    }
+}
+
+void
+js::ParallelBailoutRecord::addTrace(JSScript *script,
+                                    jsbytecode *pc)
+{
+    // Ideally, this should never occur, because we should always have
+    // a script when we invoke setCause, but I havent' fully
+    // refactored things to that point yet:
+    if (topScript == NULL && script != NULL)
+        topScript = script;
+
+    if (depth < maxDepth) {
+        trace[depth].script = script;
+        trace[depth].bytecode = pc;
+        depth++;
+    }
 }

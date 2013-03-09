@@ -49,7 +49,7 @@ enum SpewChannel {
 bool SpewEnabled(SpewChannel channel);
 void Spew(SpewChannel channel, const char *fmt, ...);
 void SpewBeginOp(JSContext *cx, const char *name);
-void SpewBailout(uint32_t count, ParallelBailoutCause cause);
+void SpewBailout(uint32_t count, uint32_t causes);
 ExecutionStatus SpewEndOp(ExecutionStatus status);
 void SpewBeginCompile(HandleFunction fun);
 ion::MethodStatus SpewEndCompile(ion::MethodStatus status);

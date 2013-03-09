@@ -550,6 +550,7 @@ ForkJoinSlice::requestGC(gcreason::Reason reason)
 {
 #ifdef JS_THREADSAFE
     shared->requestGC(reason);
+    bailoutRecord->setCause(ParallelBailoutGCRequest, NULL, NULL);
     triggerAbort();
 #endif
 }
@@ -559,6 +560,7 @@ ForkJoinSlice::requestZoneGC(JS::Zone *zone, gcreason::Reason reason)
 {
 #ifdef JS_THREADSAFE
     shared->requestZoneGC(zone, reason);
+    bailoutRecord->setCause(ParallelBailoutGCRequest, NULL, NULL);
     triggerAbort();
 #endif
 }
@@ -568,16 +570,6 @@ void
 ForkJoinSlice::triggerAbort()
 {
     shared->setAbortFlag(false);
-
-    // set iontracklimit to -1 so that on next entry to a function,
-    // the thread will trigger the overrecursedcheck.  If the thread
-    // is in a loop, then it will be calling ForkJoinSlice::check(),
-    // in which case it will notice the shared abort_ flag.
-    //
-    // In principle, we probably ought to set the ionStackLimit's for
-    // the other threads too, but right now the various slice objects
-    // are not on a central list so that's not possible.
-    perThreadData->ionStackLimit = -1;
 }
 #endif
 

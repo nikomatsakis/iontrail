@@ -176,6 +176,9 @@ enum ParallelBailoutCause {
     // an IC update failed
     ParallelBailoutFailedIC,
 
+    // a GC was requested
+    ParallelBailoutGCRequest,
+
     ParallelBailoutCalledToUncompiledScript,
     ParallelBailoutIllegalWrite,
     ParallelBailoutAccessToIntrinsic,

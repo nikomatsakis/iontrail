@@ -1230,17 +1230,17 @@ function CheckParallel(mode) {
   if (!mode || !ParallelTestsShouldPass())
     return null;
 
-  return function(result, code) {
+  return function(result, bailouts, causes) {
     if (!("expect" in mode) || mode.expect === "any") {
       return; // Ignore result when unspecified or unimportant.
+    } else if (mode.expect === "mixed" && result !== "disqualified") {
+      return; // "mixed" means that it may bailout, may succeed
+    } else if (result === mode.expect) {
+      return;
     }
 
-    if (mode.expect === "mixed") {
-      if (result === "disqualified")
-        ThrowError(JSMSG_WRONG_VALUE, mode.expect, result+":"+code);
-    } else if (result !== mode.expect) {
-      ThrowError(JSMSG_WRONG_VALUE, mode.expect, result+":"+code);
-    }
+    ThrowError(JSMSG_WRONG_VALUE, mode.expect,
+               result+":"+bailouts+":"+causes);
   };
 }
 

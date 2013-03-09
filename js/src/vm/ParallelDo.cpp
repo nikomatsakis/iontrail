@@ -221,11 +221,11 @@ class ParallelSpewer
              statusColor, ExecutionStatusToString(status), reset());
     }
 
-    void bailout(uint32_t count, ParallelBailoutCause cause) {
+    void bailout(uint32_t count, uint32_t causes) {
         if (!active[SpewOps])
             return;
 
-        spew(SpewOps, "%s%sBAILOUT %d%s: %d", bold(), yellow(), count, reset(), cause);
+        spew(SpewOps, "%s%sBAILOUT %d%s: %d", bold(), yellow(), count, reset(), causes);
     }
 
     void beginCompile(HandleFunction fun) {
@@ -325,9 +325,9 @@ parallel::SpewEndOp(ExecutionStatus status)
 }
 
 void
-parallel::SpewBailout(uint32_t count, ParallelBailoutCause cause)
+parallel::SpewBailout(uint32_t count, uint32_t causes)
 {
-    spewer.bailout(count, cause);
+    spewer.bailout(count, causes);
 }
 
 void
@@ -421,14 +421,14 @@ class ParallelDo : public ForkJoinOp
     // For tests, make sure to keep this in sync with minItemsTestingThreshold.
     const static uint32_t MAX_BAILOUTS = 3;
     uint32_t bailouts;
-    ParallelBailoutCause cause;
+    uint32_t causes;
 
     ParallelDo(JSContext *cx, HandleObject fun)
       : cx_(cx),
         fun_(fun),
         bailoutRecords(cx),
         bailouts(0),
-        cause(ParallelBailoutNone)
+        causes(0)
     { }
 
 #ifndef JS_ION
@@ -478,9 +478,9 @@ class ParallelDo : public ForkJoinOp
             }
 
             bailouts += 1;
-            determineBailoutCause();
+            causes = (causes * 100) + determineBailoutCause();
 
-            SpewBailout(bailouts, cause);
+            SpewBailout(bailouts, causes);
 
             if (!invalidateBailedOutScripts())
                 return SpewEndOp(ExecutionFatal);
@@ -540,8 +540,8 @@ class ParallelDo : public ForkJoinOp
         return ExecutionSequential;
     }
 
-    void determineBailoutCause() {
-        cause = ParallelBailoutNone;
+    ParallelBailoutCause determineBailoutCause() {
+        ParallelBailoutCause cause = ParallelBailoutNone;
         for (uint32_t i = 0; i < bailoutRecords.length(); i++) {
             if (bailoutRecords[i].cause == ParallelBailoutNone)
                 continue;
@@ -551,6 +551,7 @@ class ParallelDo : public ForkJoinOp
 
             cause = bailoutRecords[i].cause;
         }
+        return cause;
     }
 
     bool invalidateBailedOutScripts() {
@@ -668,7 +669,7 @@ js::parallel::Do(JSContext *cx, CallArgs &args)
         RootedObject feedback(cx, &args[1].toObject());
         if (feedback && feedback->isFunction()) {
             InvokeArgsGuard feedbackArgs;
-            if (!cx->stack.pushInvokeArgs(cx, 2, &feedbackArgs))
+            if (!cx->stack.pushInvokeArgs(cx, 3, &feedbackArgs))
                 return false;
 
             const char *resultString;
@@ -685,7 +686,8 @@ js::parallel::Do(JSContext *cx, CallArgs &args)
             feedbackArgs.setCallee(ObjectValue(*feedback));
             feedbackArgs.setThis(UndefinedValue());
             feedbackArgs[0].setString(JS_NewStringCopyZ(cx, resultString));
-            feedbackArgs[1].setInt32(op.cause);
+            feedbackArgs[1].setInt32(op.bailouts);
+            feedbackArgs[2].setInt32(op.causes);
             if (!Invoke(cx, feedbackArgs))
                 return false;
         }

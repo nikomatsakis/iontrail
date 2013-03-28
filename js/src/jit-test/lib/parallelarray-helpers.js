@@ -2,6 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+var ChunkSize = 32;
+var MaxThreads = 16;
+var MaxBailouts = 3;
+
 // Explanation of minItemsTestingThreshold:
 //
 // If the volume of input items in a test is small, then all of them
@@ -24,14 +28,26 @@
 // This is still imperfect since it assumes numSlices <= 8, but
 // numSlices is machine-dependent.
 // (TODO: consider exposing numSlices via builtin/TestingFunctions.cpp)
+var minItemsTestingThreshold = (MaxBailouts + 1) * MaxThreads * ChunkSize;
 
-var minItemsTestingThreshold = 1024;
+// Sufficient for 16 threads.  Arguably we should set this dynamically
+// based on forkJoinSlices(), but we wanted to try and keep the test
+// behavior more uniform as the number of threads increases.
+var minFilterParallelThreshold = ChunkSize * 2 * MaxThreads;
 
 function build(n, f) {
   var result = [];
   for (var i = 0; i < n; i++)
     result.push(f(i));
   return result;
+}
+
+function forkJoinSlices() {
+  GetSelfHostedValues("ParallelSlices")()
+}
+
+function minFilterRange() {
+  return range(0, minFilterParallelThreshold);
 }
 
 function range(n, m) {

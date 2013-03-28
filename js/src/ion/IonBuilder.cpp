@@ -251,7 +251,8 @@ IonBuilder::canInlineTarget(JSFunction *target, CallInfo &callInfo)
         }
     }
 
-    IonSpew(IonSpew_Inlining, "Inlining good to go!");
+    IonSpew(IonSpew_Inlining, "Inlining good to go! inlineScript=%p",
+            inlineScript.address());
     return true;
 }
 

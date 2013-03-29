@@ -2,38 +2,26 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+// Explanation of the constant ParallelSize:
+//
+// For many tests, we must ensure that there are an adequate number of
+// elements to process such that the warmup iterations do not
+// completely consume the array.  Since each warmup iteration performs
+// one chunk per thread, that means a warmup will consume `WarmupElts
+// = ChunkSize * MaxThreads` items.  Each bailout will again consume
+// another `WarmupElts` set of elements.  Therefore, we set
+// ParallelSize to be something big enough that even if we bailed out
+// the maximum number of times (currently 3) we would still have 3
+// chunks left to process in parallel.  For the time beging, we use a
+// constant `MaxThreads`, which means that this range will be invalid
+// if `forkJoinSlices()>MaxThreads`.  We could also just remove
+// `MaxThreads`, but the thought was that this would cause the test
+// behavior to vary even more as the number of threads changed.  This
+// may not be the right call.
 var ChunkSize = 32;
 var MaxThreads = 16;
 var MaxBailouts = 3;
-
-// Explanation of minItemsTestingThreshold:
-//
-// If the volume of input items in a test is small, then all of them
-// may be processed during warmup alone, and the parallel-invocation
-// will trivially succeed even if we are intentionally trying to
-// detect a failure.
-//
-// The maximum number of items processed by sequential warmups for
-// ParallelArrayBuild is:
-//      maxSeqItems = maxBailouts * numSlices * CHUNK_SIZE
-//
-// For maxBailouts = 3, maxSeqItems == 3 * 8 * 32 == 768
-// For maxBailouts = 5, maxSeqItems == 5 * 8 * 32 == 1280
-//
-// Our test code does not have access to the values of these constants
-// (maxBailouts, numSlices, CHUNK_SIZE).  Therefore, the value of
-// minItemsTestingThreshold should be kept in sync with some value
-// greater than maxSeqItems as calculated above.
-//
-// This is still imperfect since it assumes numSlices <= 8, but
-// numSlices is machine-dependent.
-// (TODO: consider exposing numSlices via builtin/TestingFunctions.cpp)
-var minItemsTestingThreshold = (MaxBailouts + 1) * MaxThreads * ChunkSize;
-
-// Sufficient for 16 threads.  Arguably we should set this dynamically
-// based on forkJoinSlices(), but we wanted to try and keep the test
-// behavior more uniform as the number of threads increases.
-var minFilterParallelThreshold = ChunkSize * 2 * MaxThreads;
+var ParallelSize = MaxThreads * ChunkSize * (MaxBailouts + 3);
 
 function build(n, f) {
   var result = [];
@@ -43,11 +31,15 @@ function build(n, f) {
 }
 
 function forkJoinSlices() {
-  GetSelfHostedValues("ParallelSlices")()
+  getSelfHostedValue("ParallelSlices")()
 }
 
-function minFilterRange() {
-  return range(0, minFilterParallelThreshold);
+function parallelTestsShouldPass() {
+  getSelfHostedValue("ParallelTestsShouldPass")()
+}
+
+function parallelRange() {
+  return range(0, ParallelSize);
 }
 
 function range(n, m) {

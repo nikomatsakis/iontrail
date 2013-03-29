@@ -6,7 +6,7 @@ function testReduce() {
   // By the end, it will just be infinity.
   function mul(v, p) { return v*p; }
 
-  var array = range(1, 513);
+  var array = range(1, ParallelSize+1);
   var expected = array.reduce(mul);
   var parray = new ParallelArray(array);
   var modes = ["seq", "par"];

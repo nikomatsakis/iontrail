@@ -5,6 +5,9 @@ function testMap() {
   // `alloc-too-many-objs.js` fails to run in parallel because of
   // issues around GC.
 
+  // Note: we rely here on the fact that map() will execute in parallel
+  // regardless of how many operations there are.  Otherwise we wind
+  // up allocating too much.
   var nums = new ParallelArray(range(0, 10));
 
   assertParallelArrayModesCommute(["seq", "par"], function(m) {

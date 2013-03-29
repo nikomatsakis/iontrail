@@ -1,9 +1,10 @@
 load(libdir + "parallelarray-helpers.js");
 
 function inc(n) {
-  if (n > 1024)
+  if (n < 0) // never happens
     throw n;
   return n + 1;
 }
 
-if (getBuildConfiguration().parallelJS) compareAgainstArray(range(0, 512), "map", inc);
+if (getBuildConfiguration().parallelJS)
+  compareAgainstArray(parallelRange(), "map", inc);

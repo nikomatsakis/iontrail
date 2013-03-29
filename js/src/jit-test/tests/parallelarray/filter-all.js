@@ -5,4 +5,4 @@ load(libdir + "parallelarray-helpers.js");
 // slices.  See parallelarray-helpers.js for more info.
 
 if (getBuildConfiguration().parallelJS)
-  testFilter(minFilterRange(), function() { return true; });
+  testFilter(parallelRange(), function() { return true; });

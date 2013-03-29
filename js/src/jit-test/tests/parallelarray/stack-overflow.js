@@ -9,7 +9,7 @@ function kernel(n) {
 }
 
 function testMap() {
-  var p = new ParallelArray(range(0, 2048));
+  var p = new ParallelArray(parallelRange());
   p.map(kernel, { mode: "par", expect: "disqualified" });
 }
 

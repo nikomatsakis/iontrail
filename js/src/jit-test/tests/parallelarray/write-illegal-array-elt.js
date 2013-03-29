@@ -1,7 +1,7 @@
 load(libdir + "parallelarray-helpers.js");
 
 function testMap() {
-  var p = new ParallelArray(range(0, minItemsTestingThreshold));
+  var p = new ParallelArray(parallelRange());
   var v = [1];
   var func = function (e) {
     v[0] = e;

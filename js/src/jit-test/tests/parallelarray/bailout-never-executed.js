@@ -1,17 +1,17 @@
-// |jit-test| slow;
-// ^^ This test is slow when --no-ion is used, specifically,
-//    as part of TBPL.
-
 load(libdir + "parallelarray-helpers.js");
 
-function makeObject(e, i, c) {
-  var v = {element: e, index: i, collection: c};
+// Test that code which would not be safe in parallel mode does not
+// cause bailouts if it never executes.
 
-  if (e == 512) // note: never happens
-    delete v.i;
+var v = {index: 22};
+
+function makeObject(e, i, c) {
+  if (i < 0) { // Note: never happens.
+    delete v.index;
+  }
 
   return v;
 }
 
 if (getBuildConfiguration().parallelJS)
-  compareAgainstArray(range(0, 512), "map", makeObject);
+  compareAgainstArray(parallelRange(), "map", makeObject);

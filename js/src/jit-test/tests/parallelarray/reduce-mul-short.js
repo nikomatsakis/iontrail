@@ -8,7 +8,7 @@ function testReduce() {
   function mul(v, p) { return v*p; }
 
   // Ensure that the array only contains values between 1 and 4.
-  var array = range(1, 513).map(function(v) { return (v % 4) + 1; });
+  var array = range(1, ParallelSize+1).map(function(v) { return (v % 4) + 1; });
   var expected = array.reduce(mul);
   print(expected);
 

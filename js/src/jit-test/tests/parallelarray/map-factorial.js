@@ -6,4 +6,9 @@ function factorial(n) {
   return n * factorial(n - 1);
 }
 
-if (getBuildConfiguration().parallelJS) compareAgainstArray(range(0, 64), "map", factorial);
+if (getBuildConfiguration().parallelJS) {
+  // Just to keep the running times down, don't pass in
+  // huge values to factorial :)
+  var range = parallelRange().map(function (n) n % 256);
+  compareAgainstArray(range, "map", factorial);
+}

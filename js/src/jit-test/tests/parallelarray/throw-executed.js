@@ -7,7 +7,7 @@ function test() {
       throw x;
     return n + 1;
   }
-  var x = new ParallelArray(range(0, 2048));
+  var x = new ParallelArray(parallelRange());
 
   // the disqualification occurs because all parallel executions throw
   // exceptions:

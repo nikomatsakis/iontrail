@@ -1,7 +1,7 @@
 load(libdir + "parallelarray-helpers.js");
 
 function testMap() {
-  compareAgainstArray(range(0, 64), "map", function (v) {
+  compareAgainstArray(parallelRange(), "map", function (v) {
     var x = [];
     var N = 2;
     for (var i = 0; i < 10; i++) {

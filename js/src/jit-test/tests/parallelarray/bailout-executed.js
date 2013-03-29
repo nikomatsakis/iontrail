@@ -1,20 +1,23 @@
 load(libdir + "parallelarray-helpers.js");
 
+// Test a function that bails out along a conditional path
+// that is taken.  See also bailout-not-executed.js.
+
 function makeObject(e, i, c) {
-  var v = {element: e, index: i, collection: c};
-
-  if (e == 512) // note: happens once
+  if (inParallelSection()) {
+    var v = {element: e, index: i, collection: c};
     delete v.index;
+  }
 
-  return v;
+  return 22;
 }
 
 function test() {
-  var array = range(0, 768);
+  var array = parallelRange();
   var array1 = array.map(makeObject);
 
   var pa = new ParallelArray(array);
-  var pa1 = pa.map(makeObject, {mode: "par", expect: "mixed"});
+  var pa1 = pa.map(makeObject, {mode: "par", expect: "disqualified"});
 
   assertStructuralEq(pa1, array1);
 }

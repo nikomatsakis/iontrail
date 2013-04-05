@@ -7,6 +7,7 @@
 
 #include "jscntxt.h"
 #include "jscompartment.h"
+#include "mozilla/PodOperations.h"
 
 #include "vm/ForkJoin.h"
 #include "vm/Monitor.h"
@@ -40,6 +41,7 @@
 using namespace js;
 using namespace js::parallel;
 using namespace js::ion;
+using mozilla::PodArrayZero;
 
 ///////////////////////////////////////////////////////////////////////////
 // Degenerate configurations
@@ -97,7 +99,8 @@ ForkJoinSlice::runtime()
 void
 ParallelBailoutRecord::setCause(ParallelBailoutCause cause,
                                 JSScript *script,
-                                jsbytecode *pc)
+                                jsbytecode *pc,
+                                JSScript *inlinerScript)
 {
     JS_NOT_REACHED("Not THREADSAFE build");
 }
@@ -902,6 +905,8 @@ ForkJoinShared::executeFromWorker(uint32_t workerId, uintptr_t stackLimit)
 
     PerThreadData thisThread(cx_->runtime);
     TlsPerThreadData.set(&thisThread);
+    // Don't use setIonStackLimit() because that acquires the ionStackLimitLock, and the
+    // lock has not been initialized in these cases.
     thisThread.ionStackLimit = stackLimit;
     executePortion(&thisThread, workerId);
     TlsPerThreadData.set(NULL);
@@ -1026,7 +1031,7 @@ ForkJoinShared::check(ForkJoinSlice &slice)
             // right now to abort rather than prove it cannot arise,
             // and safer for short-term than asserting !isHeapBusy.
             setAbortFlag(false);
-            records_->setCause(ParallelBailoutHeapBusy, NULL, NULL);
+            records_->setCause(ParallelBailoutHeapBusy, NULL, NULL, NULL);
             return false;
         }
 
@@ -1050,7 +1055,7 @@ ForkJoinShared::check(ForkJoinSlice &slice)
 
         // (3). Invoke the callback and abort if it returns false.
         if (!js_InvokeOperationCallback(cx_)) {
-            records_->setCause(ParallelBailoutInterrupt, NULL, NULL);
+            records_->setCause(ParallelBailoutInterrupt, NULL, NULL, NULL);
             setAbortFlag(true);
             return false;
         }
@@ -1365,16 +1370,20 @@ js::ParallelBailoutRecord::reset(JSContext *cx)
 void
 js::ParallelBailoutRecord::setCause(ParallelBailoutCause cause,
                                     JSScript *script,
-                                    jsbytecode *pc)
+                                    jsbytecode *pc,
+                                    JSScript *inlinerScript)
 {
+    JS_ASSERT_IF(inlinerScript, script);
+    JS_ASSERT_IF(script, inlinerScript);
+    JS_ASSERT_IF(!script, !pc);
+
     this->cause = cause;
 
-    if (script) {
-        this->topScript = script;
+    if (inlinerScript)
+        topScript = script;
+
+    if (script)
         addTrace(script, pc);
-    } else {
-        JS_ASSERT(!pc);
-    }
 }
 
 void

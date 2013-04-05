@@ -179,6 +179,12 @@ let Util = {
    * Rect and nsIDOMRect utilities
    */
 
+  getCleanRect: function getCleanRect() {
+    return {
+      left: 0, top: 0, right: 0, bottom: 0
+    };
+  },
+
   pointWithinRect: function pointWithinRect(aX, aY, aRect) {
     return (aRect.left < aX && aRect.top < aY &&
             aRect.right > aX && aRect.bottom > aY);
@@ -250,6 +256,13 @@ let Util = {
             aURL == "about:empty" ||
             aURL == "about:home" ||
             aURL == "about:start");
+  },
+
+  // Title to use for emptyURL tabs.
+  getEmptyURLTabTitle: function getEmptyURLTabTitle() {
+    let browserStrings = Services.strings.createBundle("chrome://browser/locale/browser.properties");
+
+    return browserStrings.GetStringFromName("tabs.emptyTabTitle");
   },
 
   // Don't remember these pages in the session store.

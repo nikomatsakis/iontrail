@@ -63,7 +63,8 @@
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/indexedDB/FileInfo.h"
 #include "mozilla/dom/indexedDB/IndexedDatabaseManager.h"
-#include "sampler.h"
+#include "mozilla/dom/quota/QuotaManager.h"
+#include "GeckoProfiler.h"
 #include "nsDOMBlobBuilder.h"
 #include "nsIDOMFileHandle.h"
 #include "nsPrintfCString.h"
@@ -579,7 +580,7 @@ nsDOMWindowUtils::SendMouseEventToWindow(const nsAString& aType,
                                          float aPressure,
                                          unsigned short aInputSourceArg)
 {
-  SAMPLE_LABEL("nsDOMWindowUtils", "SendMouseEventToWindow");
+  PROFILER_LABEL("nsDOMWindowUtils", "SendMouseEventToWindow");
   return SendMouseEventCommon(aType, aX, aY, aButton, aClickCount, aModifiers,
                               aIgnoreRootScrollFrame, aPressure,
                               aInputSourceArg, true, nullptr);
@@ -1139,7 +1140,7 @@ NS_IMETHODIMP
 nsDOMWindowUtils::GarbageCollect(nsICycleCollectorListener *aListener,
                                  int32_t aExtraForgetSkippableCalls)
 {
-  SAMPLE_LABEL("GC", "GarbageCollect");
+  PROFILER_LABEL("GC", "GarbageCollect");
   // Always permit this in debug builds.
 #ifndef DEBUG
   if (!nsContentUtils::IsCallerChrome()) {
@@ -2756,8 +2757,7 @@ nsDOMWindowUtils::GetFileReferences(const nsAString& aDatabaseName,
   NS_ENSURE_TRUE(window, NS_ERROR_FAILURE);
 
   nsCString origin;
-  nsresult rv = indexedDB::IndexedDatabaseManager::GetASCIIOriginFromWindow(
-    window, origin);
+  nsresult rv = quota::QuotaManager::GetASCIIOriginFromWindow(window, origin);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsRefPtr<indexedDB::IndexedDatabaseManager> mgr =

@@ -7,7 +7,7 @@
 #ifndef AudioParam_h_
 #define AudioParam_h_
 
-#include "AudioEventTimeline.h"
+#include "AudioParamTimeline.h"
 #include "nsWrapperCache.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsCOMPtr.h"
@@ -16,7 +16,7 @@
 #include "AudioNode.h"
 #include "mozilla/dom/TypedArray.h"
 #include "mozilla/Util.h"
-#include "mozilla/ErrorResult.h"
+#include "WebAudioUtils.h"
 
 struct JSContext;
 class nsIDOMWindow;
@@ -24,8 +24,6 @@ class nsIDOMWindow;
 namespace mozilla {
 
 namespace dom {
-
-typedef AudioEventTimeline<ErrorResult> AudioParamTimeline;
 
 class AudioParam MOZ_FINAL : public nsWrapperCache,
                              public EnableWebAudioCheck,
@@ -65,7 +63,8 @@ public:
   void SetValue(float aValue)
   {
     // Optimize away setting the same value on an AudioParam
-    if (HasSimpleValue() && fabsf(GetValue() - aValue) < 1e-7) {
+    if (HasSimpleValue() &&
+        WebAudioUtils::FuzzyEqual(GetValue(), aValue)) {
       return;
     }
     AudioParamTimeline::SetValue(aValue);

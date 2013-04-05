@@ -83,7 +83,7 @@
 #include "mozilla/dom/Element.h"
 #include "mozilla/layout/RenderFrameParent.h"
 #include "nsIAppsService.h"
-#include "sampler.h"
+#include "GeckoProfiler.h"
 
 #include "jsapi.h"
 #include "mozilla/dom/HTMLIFrameElement.h"
@@ -410,7 +410,7 @@ nsFrameLoader::ReallyStartLoadingInternal()
 {
   NS_ENSURE_STATE(mURIToLoad && mOwnerContent && mOwnerContent->IsInDoc());
 
-  SAMPLE_LABEL("nsFrameLoader", "ReallyStartLoading");
+  PROFILER_LABEL("nsFrameLoader", "ReallyStartLoading");
 
   nsresult rv = MaybeCreateDocShell();
   if (NS_FAILED(rv)) {
@@ -942,7 +942,7 @@ nsFrameLoader::ShowRemoteFrame(const nsIntSize& size,
     nsCOMPtr<nsIObserverService> os = services::GetObserverService();
     if (OwnerIsBrowserOrAppFrame() && os && !mRemoteBrowserInitialized) {
       os->NotifyObservers(NS_ISUPPORTS_CAST(nsIFrameLoader*, this),
-                          "remote-browser-frame-shown", NULL);
+                          "remote-browser-frame-shown", nullptr);
       mRemoteBrowserInitialized = true;
     }
   } else {
@@ -1679,7 +1679,7 @@ nsFrameLoader::MaybeCreateDocShell()
     nsCOMPtr<nsIObserverService> os = services::GetObserverService();
     if (os) {
       os->NotifyObservers(NS_ISUPPORTS_CAST(nsIFrameLoader*, this),
-                          "in-process-browser-or-app-frame-shown", NULL);
+                          "in-process-browser-or-app-frame-shown", nullptr);
     }
 
     if (mMessageManager) {
@@ -2024,7 +2024,7 @@ nsFrameLoader::TryRemoteBrowser()
     return false;
   }
 
-  SAMPLE_LABEL("nsFrameLoader", "CreateRemoteBrowser");
+  PROFILER_LABEL("nsFrameLoader", "CreateRemoteBrowser");
 
   MutableTabContext context;
   nsCOMPtr<mozIApplication> ownApp = GetOwnApp();

@@ -70,6 +70,8 @@ class CodeGenerator : public CodeGeneratorSpecific
     void emitOOLTestObject(Register objreg, Label *ifTruthy, Label *ifFalsy, Register scratch);
     bool visitTestOAndBranch(LTestOAndBranch *lir);
     bool visitTestVAndBranch(LTestVAndBranch *lir);
+    bool visitFunctionDispatch(LFunctionDispatch *lir);
+    bool visitTypeObjectDispatch(LTypeObjectDispatch *lir);
     bool visitPolyInlineDispatch(LPolyInlineDispatch *lir);
     bool visitIntToString(LIntToString *lir);
     bool visitInteger(LInteger *lir);
@@ -187,6 +189,7 @@ class CodeGenerator : public CodeGeneratorSpecific
     bool visitLoadTypedArrayElement(LLoadTypedArrayElement *lir);
     bool visitLoadTypedArrayElementHole(LLoadTypedArrayElementHole *lir);
     bool visitStoreTypedArrayElement(LStoreTypedArrayElement *lir);
+    bool visitStoreTypedArrayElementHole(LStoreTypedArrayElementHole *lir);
     bool visitClampIToUint8(LClampIToUint8 *lir);
     bool visitClampDToUint8(LClampDToUint8 *lir);
     bool visitClampVToUint8(LClampVToUint8 *lir);

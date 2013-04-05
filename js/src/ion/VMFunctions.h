@@ -26,6 +26,15 @@ enum DataType {
     Type_ParallelResult
 };
 
+struct PopValues
+{
+    uint32_t numValues;
+
+    explicit PopValues(uint32_t numValues)
+      : numValues(numValues)
+    { }
+};
+
 // Contains information about a virtual machine function that can be called
 // from JIT code. Functions described in this manner must conform to a simple
 // protocol: the return type must have a special "failure" value (for example,
@@ -92,9 +101,18 @@ struct VMFunction
     // arguments of the VM wrapper.
     uint64_t argumentRootTypes;
 
+<<<<<<< HEAD
     // Does this function take a ForkJoinSlice * or a JSContext *?
     ExecutionMode executionMode;
 
+||||||| merged common ancestors
+=======
+    // Number of Values the VM wrapper should pop from the stack when it returns.
+    // Used by baseline IC stubs so that they can use tail calls to call the VM
+    // wrapper.
+    uint32_t extraValuesToPop;
+
+>>>>>>> mozilla/master
     uint32_t argc() const {
         // JSContext * + args + (OutParam? *)
         return 1 + explicitArgc() + ((outParam == Type_Void) ? 0 : 1);
@@ -167,16 +185,31 @@ struct VMFunction
     {
     }
 
+<<<<<<< HEAD
     VMFunction(void *wrapped, uint32_t explicitArgs, uint32_t argumentProperties,
                uint64_t argRootTypes, DataType outParam, DataType returnType,
                ExecutionMode executionMode)
+||||||| merged common ancestors
+    VMFunction(void *wrapped, uint32_t explicitArgs, uint32_t argumentProperties, uint64_t argRootTypes,
+               DataType outParam, DataType returnType)
+=======
+    VMFunction(void *wrapped, uint32_t explicitArgs, uint32_t argumentProperties, uint64_t argRootTypes,
+               DataType outParam, DataType returnType, uint32_t extraValuesToPop = 0)
+>>>>>>> mozilla/master
       : wrapped(wrapped),
         explicitArgs(explicitArgs),
         argumentProperties(argumentProperties),
         outParam(outParam),
         returnType(returnType),
+<<<<<<< HEAD
         argumentRootTypes(argRootTypes),
         executionMode(executionMode)
+||||||| merged common ancestors
+        argumentRootTypes(argRootTypes)
+=======
+        argumentRootTypes(argRootTypes),
+        extraValuesToPop(extraValuesToPop)
+>>>>>>> mozilla/master
     {
         // Check for valid failure/return type.
         JS_ASSERT_IF(outParam != Type_Void && executionMode == SequentialExecution,
@@ -208,6 +241,7 @@ template <> struct TypeToDataType<HandleObject> { static const DataType result =
 template <> struct TypeToDataType<HandleString> { static const DataType result = Type_Handle; };
 template <> struct TypeToDataType<HandlePropertyName> { static const DataType result = Type_Handle; };
 template <> struct TypeToDataType<HandleFunction> { static const DataType result = Type_Handle; };
+template <> struct TypeToDataType<Handle<StaticBlockObject *> > { static const DataType result = Type_Handle; };
 template <> struct TypeToDataType<HandleScript> { static const DataType result = Type_Handle; };
 template <> struct TypeToDataType<HandleValue> { static const DataType result = Type_Handle; };
 template <> struct TypeToDataType<MutableHandleValue> { static const DataType result = Type_Handle; };
@@ -232,6 +266,9 @@ template <> struct TypeToArgProperties<HandlePropertyName> {
 };
 template <> struct TypeToArgProperties<HandleFunction> {
     static const uint32_t result = TypeToArgProperties<JSFunction *>::result | VMFunction::ByRef;
+};
+template <> struct TypeToArgProperties<Handle<StaticBlockObject *> > {
+    static const uint32_t result = TypeToArgProperties<StaticBlockObject *>::result | VMFunction::ByRef;
 };
 template <> struct TypeToArgProperties<HandleScript> {
     static const uint32_t result = TypeToArgProperties<RawScript>::result | VMFunction::ByRef;
@@ -297,6 +334,7 @@ template <> struct MatchContext<ForkJoinSlice *> {
 #define FOR_EACH_ARGS_3(Macro, Sep, Last) FOR_EACH_ARGS_2(Macro, Sep, Sep) Macro(3) Last(3)
 #define FOR_EACH_ARGS_4(Macro, Sep, Last) FOR_EACH_ARGS_3(Macro, Sep, Sep) Macro(4) Last(4)
 #define FOR_EACH_ARGS_5(Macro, Sep, Last) FOR_EACH_ARGS_4(Macro, Sep, Sep) Macro(5) Last(5)
+#define FOR_EACH_ARGS_6(Macro, Sep, Last) FOR_EACH_ARGS_5(Macro, Sep, Sep) Macro(6) Last(6)
 
 #define COMPUTE_INDEX(NbArg) NbArg
 #define COMPUTE_OUTPARAM_RESULT(NbArg) OutParamToDataType<A ## NbArg>::result
@@ -327,10 +365,16 @@ template <> struct MatchContext<ForkJoinSlice *> {
     static inline uint64_t argumentRootTypes() {                                        \
         return ForEachNb(COMPUTE_ARG_ROOT, SEP_OR, NOTHING);                            \
     }                                                                                   \
-    FunctionInfo(pf fun)                                                                \
+    FunctionInfo(pf fun, PopValues extraValuesToPop = PopValues(0))                     \
         : VMFunction(JS_FUNC_TO_DATA_PTR(void *, fun), explicitArgs(),                  \
                      argumentProperties(),argumentRootTypes(),                          \
+<<<<<<< HEAD
                      outParam(), returnType(), executionMode())                         \
+||||||| merged common ancestors
+                     outParam(), returnType())                                          \
+=======
+                     outParam(), returnType(), extraValuesToPop.numValues)              \
+>>>>>>> mozilla/master
     { }
 
 template <typename Fun>
@@ -399,6 +443,12 @@ template <class R, class Context, class A1, class A2, class A3, class A4, class 
     FUNCTION_INFO_STRUCT_BODY(FOR_EACH_ARGS_5)
 };
 
+template <class R, class A1, class A2, class A3, class A4, class A5, class A6>
+    struct FunctionInfo<R (*)(JSContext *, A1, A2, A3, A4, A5, A6)> : public VMFunction {
+    typedef R (*pf)(JSContext *, A1, A2, A3, A4, A5, A6);
+    FUNCTION_INFO_STRUCT_BODY(FOR_EACH_ARGS_6)
+};
+
 #undef FUNCTION_INFO_STRUCT_BODY
 
 #undef FOR_EACH_ARGS_5
@@ -445,6 +495,7 @@ JSObject *NewGCThing(JSContext *cx, gc::AllocKind allocKind, size_t thingSize);
 bool CheckOverRecursed(JSContext *cx);
 
 bool DefVarOrConst(JSContext *cx, HandlePropertyName dn, unsigned attrs, HandleObject scopeChain);
+bool SetConst(JSContext *cx, HandlePropertyName name, HandleObject scopeChain, HandleValue rval);
 bool InitProp(JSContext *cx, HandleObject obj, HandlePropertyName name, HandleValue value);
 
 template<bool Equal>
@@ -499,6 +550,25 @@ bool CreateThis(JSContext *cx, HandleObject callee, MutableHandleValue rval);
 void GetDynamicName(JSContext *cx, JSObject *scopeChain, JSString *str, Value *vp);
 
 JSBool FilterArguments(JSContext *cx, JSString *str);
+
+uint32_t GetIndexFromString(JSString *str);
+
+bool DebugPrologue(JSContext *cx, BaselineFrame *frame, JSBool *mustReturn);
+bool DebugEpilogue(JSContext *cx, BaselineFrame *frame, JSBool ok);
+
+bool StrictEvalPrologue(JSContext *cx, BaselineFrame *frame);
+bool HeavyweightFunPrologue(JSContext *cx, BaselineFrame *frame);
+
+bool NewArgumentsObject(JSContext *cx, BaselineFrame *frame, MutableHandleValue res);
+
+bool HandleDebugTrap(JSContext *cx, BaselineFrame *frame, uint8_t *retAddr, JSBool *mustReturn);
+bool OnDebuggerStatement(JSContext *cx, BaselineFrame *frame, jsbytecode *pc, JSBool *mustReturn);
+
+bool EnterBlock(JSContext *cx, BaselineFrame *frame, Handle<StaticBlockObject *> block);
+bool LeaveBlock(JSContext *cx, BaselineFrame *frame);
+
+bool InitBaselineFrameForOsr(BaselineFrame *frame, StackFrame *interpFrame,
+                             uint32_t numStackValues);
 
 } // namespace ion
 } // namespace js

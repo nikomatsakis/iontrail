@@ -1409,6 +1409,8 @@ class Assembler
 
     BufferOffset as_dtm(LoadStore ls, Register rn, uint32_t mask,
                 DTMMode mode, DTMWriteBack wb, Condition c = Always);
+    //overwrite a pool entry with new data.
+    void as_WritePoolEntry(Instruction *addr, Condition c, uint32_t data);
     // load a 32 bit immediate from a pool into a register
     BufferOffset as_Imm32Pool(Register dest, uint32_t value, ARMBuffer::PoolEntry *pe = NULL, Condition c = Always);
     // make a patchable jump that can target the entire 32 bit address space.
@@ -1622,14 +1624,19 @@ class Assembler
         dtmCond = c;
         dtmLastReg = -1;
         dtmMode = mode;
+        dtmDelta = 0;
     }
     void transferFloatReg(VFPRegister rn)
     {
         if (dtmLastReg == -1) {
-            vdtmFirstReg = rn;
+            vdtmFirstReg = rn.code();
         } else {
+            if (dtmDelta == 0) {
+                dtmDelta = rn.code() - dtmLastReg;
+                JS_ASSERT(dtmDelta == 1 || dtmDelta == -1);
+            }
             JS_ASSERT(dtmLastReg >= 0);
-            JS_ASSERT(rn.code() == unsigned(dtmLastReg) + 1);
+            JS_ASSERT(rn.code() == unsigned(dtmLastReg) + dtmDelta);
         }
         dtmLastReg = rn.code();
     }
@@ -1637,16 +1644,20 @@ class Assembler
         JS_ASSERT(dtmActive);
         dtmActive = false;
         JS_ASSERT(dtmLastReg != -1);
+        dtmDelta = dtmDelta ? dtmDelta : 1;
         // fencepost problem.
-        int len = dtmLastReg - vdtmFirstReg.code() + 1;
-        as_vdtm(dtmLoadStore, dtmBase, vdtmFirstReg, len, dtmCond);
+        int len = dtmDelta * (dtmLastReg - vdtmFirstReg) + 1;
+        as_vdtm(dtmLoadStore, dtmBase,
+                VFPRegister(FloatRegister::FromCode(Min(vdtmFirstReg, dtmLastReg))),
+                len, dtmCond);
     }
 
   private:
     int dtmRegBitField;
+    int vdtmFirstReg;
     int dtmLastReg;
+    int dtmDelta;
     Register dtmBase;
-    VFPRegister vdtmFirstReg;
     DTMWriteBack dtmUpdate;
     DTMMode dtmMode;
     LoadStore dtmLoadStore;
@@ -1780,7 +1791,7 @@ class InstDTR : public Instruction
     { }
 
     static bool isTHIS(const Instruction &i);
-    static InstDTR *asTHIS(Instruction &i);
+    static InstDTR *asTHIS(const Instruction &i);
 
 };
 JS_STATIC_ASSERT(sizeof(InstDTR) == sizeof(Instruction));
@@ -1792,7 +1803,7 @@ class InstLDR : public InstDTR
         : InstDTR(IsLoad, IsWord, mode, rt, addr, c)
     { }
     static bool isTHIS(const Instruction &i);
-    static InstLDR *asTHIS(Instruction &i);
+    static InstLDR *asTHIS(const Instruction &i);
 
 };
 JS_STATIC_ASSERT(sizeof(InstDTR) == sizeof(InstLDR));

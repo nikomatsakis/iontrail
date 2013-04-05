@@ -698,7 +698,7 @@ nsWindow::GetLayerManager(PLayersChild*, LayersBackend, LayerManagerPersistence,
 }
 
 void
-nsWindow::CreateLayerManager()
+nsWindow::CreateLayerManager(int aCompositorWidth, int aCompositorHeight)
 {
     if (mLayerManager) {
         return;
@@ -716,11 +716,12 @@ nsWindow::CreateLayerManager()
         if (sLayerManager) {
             return;
         }
-        CreateCompositor();
+        CreateCompositor(aCompositorWidth, aCompositorHeight);
         if (mLayerManager) {
             // for OMTC create a single layer manager and compositor that will be
             // used for all windows.
             SetCompositor(mLayerManager, mCompositorParent, mCompositorChild);
+            sCompositorPaused = false;
             return;
         }
 
@@ -875,6 +876,19 @@ nsWindow::OnGlobalAndroidEvent(AndroidGeckoEvent *ae)
             }
             break;
 
+        case AndroidGeckoEvent::IME_KEY_EVENT:
+            // Keys synthesized by Java IME code are saved in the mIMEKeyEvents
+            // array until the next IME_REPLACE_TEXT event, at which point
+            // these keys are dispatched in sequence.
+            if (win->mFocus) {
+                win->mFocus->mIMEKeyEvents.AppendElement(*ae);
+            }
+            break;
+
+        case AndroidGeckoEvent::COMPOSITOR_CREATE:
+            win->CreateLayerManager(ae->Width(), ae->Height());
+            break;
+
         case AndroidGeckoEvent::COMPOSITOR_PAUSE:
             // The compositor gets paused when the app is about to go into the
             // background. While the compositor is paused, we need to ensure that
@@ -887,8 +901,6 @@ nsWindow::OnGlobalAndroidEvent(AndroidGeckoEvent *ae)
             break;
 
         case AndroidGeckoEvent::COMPOSITOR_RESUME:
-            win->CreateLayerManager();
-
             // When we receive this, the compositor has already been told to
             // resume. (It turns out that waiting till we reach here to tell
             // the compositor to resume takes too long, resulting in a black
@@ -1175,6 +1187,10 @@ send_again:
 bool nsWindow::OnMultitouchEvent(AndroidGeckoEvent *ae)
 {
     nsRefPtr<nsWindow> kungFuDeathGrip(this);
+
+    // End any composition in progress in case the touch event listener
+    // modifies the input field value (see bug 856155)
+    RemoveIMEComposition();
 
     // This is set to true once we have called SetPreventPanning() exactly
     // once for a given sequence of touch events. It is reset on the start
@@ -1479,8 +1495,12 @@ nsWindow::InitKeyEvent(nsKeyEvent& event, AndroidGeckoEvent& key,
 
     if (event.message == NS_KEY_PRESS) {
         // Android gives us \n, so filter out some control characters.
-        event.isChar = (key.UnicodeChar() >= ' ');
-        event.charCode = event.isChar ? key.UnicodeChar() : 0;
+        int charCode = key.UnicodeChar();
+        if (!charCode) {
+            charCode = key.BaseUnicodeChar();
+        }
+        event.isChar = (charCode >= ' ');
+        event.charCode = event.isChar ? charCode : 0;
         event.keyCode = (event.charCode > 0) ? 0 : domKeyCode;
         event.pluginEvent = NULL;
     } else {
@@ -1502,10 +1522,17 @@ nsWindow::InitKeyEvent(nsKeyEvent& event, AndroidGeckoEvent& key,
         event.pluginEvent = pluginEvent;
     }
 
-    event.InitBasicModifiers(gMenu || key.IsCtrlPressed(),
-                             key.IsAltPressed(),
-                             key.IsShiftPressed(),
-                             key.IsMetaPressed());
+    if (event.message != NS_KEY_PRESS ||
+        !key.UnicodeChar() || !key.BaseUnicodeChar() ||
+        key.UnicodeChar() == key.BaseUnicodeChar()) {
+        // For keypress, if the unicode char already has modifiers applied, we
+        // don't specify extra modifiers. If UnicodeChar() != BaseUnicodeChar()
+        // it means UnicodeChar() already has modifiers applied.
+        event.InitBasicModifiers(gMenu || key.IsCtrlPressed(),
+                                 key.IsAltPressed(),
+                                 key.IsShiftPressed(),
+                                 key.IsMetaPressed());
+    }
     event.location = key.DomKeyLocation();
     event.time = key.Time();
 
@@ -1715,10 +1742,10 @@ nsWindow::OnIMEEvent(AndroidGeckoEvent *ae)
             NotifyIMEOfTextChange(0, INT32_MAX / 2, INT32_MAX / 2);
             FlushIMEChanges();
         }
-        AndroidBridge::NotifyIME(AndroidBridge::NOTIFY_IME_REPLY_EVENT, 0);
+        AndroidBridge::NotifyIME(AndroidBridge::NOTIFY_IME_REPLY_EVENT);
         return;
     } else if (ae->Action() == AndroidGeckoEvent::IME_UPDATE_CONTEXT) {
-        AndroidBridge::NotifyIMEEnabled(mInputContext.mIMEState.mEnabled,
+        AndroidBridge::NotifyIMEContext(mInputContext.mIMEState.mEnabled,
                                         mInputContext.mHTMLInputType,
                                         mInputContext.mHTMLInputInputmode,
                                         mInputContext.mActionHint);
@@ -1729,7 +1756,7 @@ nsWindow::OnIMEEvent(AndroidGeckoEvent *ae)
         // Still reply to events, but don't do anything else
         if (ae->Action() == AndroidGeckoEvent::IME_SYNCHRONIZE ||
             ae->Action() == AndroidGeckoEvent::IME_REPLACE_TEXT) {
-            AndroidBridge::NotifyIME(AndroidBridge::NOTIFY_IME_REPLY_EVENT, 0);
+            AndroidBridge::NotifyIME(AndroidBridge::NOTIFY_IME_REPLY_EVENT);
         }
         return;
     }
@@ -1742,7 +1769,7 @@ nsWindow::OnIMEEvent(AndroidGeckoEvent *ae)
     case AndroidGeckoEvent::IME_SYNCHRONIZE:
         {
             FlushIMEChanges();
-            AndroidBridge::NotifyIME(AndroidBridge::NOTIFY_IME_REPLY_EVENT, 0);
+            AndroidBridge::NotifyIME(AndroidBridge::NOTIFY_IME_REPLY_EVENT);
         }
         break;
     case AndroidGeckoEvent::IME_REPLACE_TEXT:
@@ -1767,6 +1794,17 @@ nsWindow::OnIMEEvent(AndroidGeckoEvent *ae)
                 event.mExpandToClusterBoundary = false;
                 DispatchEvent(&event);
             }
+
+            if (!mIMEKeyEvents.IsEmpty()) {
+                for (uint32_t i = 0; i < mIMEKeyEvents.Length(); i++) {
+                    OnKeyEvent(&mIMEKeyEvents[i]);
+                }
+                mIMEKeyEvents.Clear();
+                FlushIMEChanges();
+                AndroidBridge::NotifyIME(AndroidBridge::NOTIFY_IME_REPLY_EVENT);
+                break;
+            }
+
             {
                 nsCompositionEvent event(true, NS_COMPOSITION_START, this);
                 InitEvent(event, nullptr);
@@ -1785,7 +1823,7 @@ nsWindow::OnIMEEvent(AndroidGeckoEvent *ae)
                 DispatchEvent(&event);
             }
             FlushIMEChanges();
-            AndroidBridge::NotifyIME(AndroidBridge::NOTIFY_IME_REPLY_EVENT, 0);
+            AndroidBridge::NotifyIME(AndroidBridge::NOTIFY_IME_REPLY_EVENT);
         }
         break;
     case AndroidGeckoEvent::IME_SET_SELECTION:
@@ -1797,6 +1835,7 @@ nsWindow::OnIMEEvent(AndroidGeckoEvent *ae)
                   notified of the new selection
             */
             AutoIMEMask selMask(mIMEMaskSelectionUpdate);
+            RemoveIMEComposition();
             nsSelectionEvent selEvent(true, NS_SELECTION_SET, this);
             InitEvent(selEvent, nullptr);
 
@@ -1962,8 +2001,7 @@ nsWindow::NotifyIME(NotificationToIME aNotification)
         case REQUEST_TO_COMMIT_COMPOSITION:
             //ALOGIME("IME: REQUEST_TO_COMMIT_COMPOSITION: s=%d", aState);
             RemoveIMEComposition();
-            AndroidBridge::NotifyIME(
-                AndroidBridge::NOTIFY_IME_RESETINPUTSTATE, 0);
+            AndroidBridge::NotifyIME(REQUEST_TO_COMMIT_COMPOSITION);
             return NS_OK;
         case REQUEST_TO_CANCEL_COMPOSITION:
             ALOGIME("IME: REQUEST_TO_CANCEL_COMPOSITION");
@@ -1981,12 +2019,11 @@ nsWindow::NotifyIME(NotificationToIME aNotification)
                 DispatchEvent(&compEvent);
             }
 
-            AndroidBridge::NotifyIME(
-                AndroidBridge::NOTIFY_IME_CANCELCOMPOSITION, 0);
+            AndroidBridge::NotifyIME(REQUEST_TO_CANCEL_COMPOSITION);
             return NS_OK;
         case NOTIFY_IME_OF_FOCUS:
             ALOGIME("IME: NOTIFY_IME_OF_FOCUS");
-            AndroidBridge::NotifyIME(AndroidBridge::NOTIFY_IME_FOCUSCHANGE, 1);
+            AndroidBridge::NotifyIME(NOTIFY_IME_OF_FOCUS);
             return NS_OK;
         case NOTIFY_IME_OF_BLUR:
             ALOGIME("IME: NOTIFY_IME_OF_BLUR");
@@ -1998,7 +2035,7 @@ nsWindow::NotifyIME(NotificationToIME aNotification)
             mIMEComposing = false;
             mIMEComposingText.Truncate();
 
-            AndroidBridge::NotifyIME(AndroidBridge::NOTIFY_IME_FOCUSCHANGE, 0);
+            AndroidBridge::NotifyIME(NOTIFY_IME_OF_BLUR);
             return NS_OK;
         case NOTIFY_IME_OF_SELECTION_CHANGE:
             if (mIMEMaskSelectionUpdate) {
@@ -2019,6 +2056,16 @@ NS_IMETHODIMP_(void)
 nsWindow::SetInputContext(const InputContext& aContext,
                           const InputContextAction& aAction)
 {
+    nsWindow *top = TopWindow();
+    if (top && top->mFocus && this != top->mFocus) {
+        // We are using an IME event later to notify Java, and the IME event
+        // will be processed by the focused window. Therefore, to ensure the
+        // IME event uses the correct mInputContext, we need to let the focused
+        // window process SetInputContext
+        top->mFocus->SetInputContext(aContext, aAction);
+        return;
+    }
+
     ALOGIME("IME: SetInputContext: s=0x%X, 0x%X, action=0x%X, 0x%X",
             aContext.mIMEState.mEnabled, aContext.mIMEState.mOpen,
             aAction.mCause, aAction.mFocusChange);
@@ -2059,10 +2106,17 @@ nsWindow::SetInputContext(const InputContext& aContext,
 NS_IMETHODIMP_(InputContext)
 nsWindow::GetInputContext()
 {
-    mInputContext.mIMEState.mOpen = IMEState::OPEN_STATE_NOT_SUPPORTED;
+    nsWindow *top = TopWindow();
+    if (top && top->mFocus && this != top->mFocus) {
+        // We let the focused window process SetInputContext,
+        // so we should let it process GetInputContext as well.
+        return top->mFocus->GetInputContext();
+    }
+    InputContext context = mInputContext;
+    context.mIMEState.mOpen = IMEState::OPEN_STATE_NOT_SUPPORTED;
     // We assume that there is only one context per process on Android
-    mInputContext.mNativeIMEContext = nullptr;
-    return mInputContext;
+    context.mNativeIMEContext = nullptr;
+    return context;
 }
 
 void

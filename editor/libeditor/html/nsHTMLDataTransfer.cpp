@@ -152,6 +152,8 @@ NS_IMETHODIMP nsHTMLEditor::LoadHTML(const nsAString & aInputString)
 
   nsTextRulesInfo ruleInfo(EditAction::loadHTML);
   bool cancel, handled;
+  // Protect the edit rules object from dying
+  nsCOMPtr<nsIEditRules> kungFuDeathGrip(mRules);
   nsresult rv = mRules->WillDoAction(selection, &ruleInfo, &cancel, &handled);
   NS_ENSURE_SUCCESS(rv, rv);
   if (cancel) {
@@ -1702,6 +1704,8 @@ NS_IMETHODIMP nsHTMLEditor::PasteAsCitedQuotation(const nsAString & aCitation,
   // give rules a chance to handle or cancel
   nsTextRulesInfo ruleInfo(EditAction::insertElement);
   bool cancel, handled;
+  // Protect the edit rules object from dying
+  nsCOMPtr<nsIEditRules> kungFuDeathGrip(mRules);
   nsresult rv = mRules->WillDoAction(selection, &ruleInfo, &cancel, &handled);
   NS_ENSURE_SUCCESS(rv, rv);
   if (cancel || handled) {
@@ -1906,6 +1910,8 @@ nsHTMLEditor::InsertAsPlaintextQuotation(const nsAString & aQuotedText,
   // give rules a chance to handle or cancel
   nsTextRulesInfo ruleInfo(EditAction::insertElement);
   bool cancel, handled;
+  // Protect the edit rules object from dying
+  nsCOMPtr<nsIEditRules> kungFuDeathGrip(mRules);
   nsresult rv = mRules->WillDoAction(selection, &ruleInfo, &cancel, &handled);
   NS_ENSURE_SUCCESS(rv, rv);
   if (cancel || handled) {
@@ -1999,6 +2005,8 @@ nsHTMLEditor::InsertAsCitedQuotation(const nsAString & aQuotedText,
   // give rules a chance to handle or cancel
   nsTextRulesInfo ruleInfo(EditAction::insertElement);
   bool cancel, handled;
+  // Protect the edit rules object from dying
+  nsCOMPtr<nsIEditRules> kungFuDeathGrip(mRules);
   nsresult rv = mRules->WillDoAction(selection, &ruleInfo, &cancel, &handled);
   NS_ENSURE_SUCCESS(rv, rv);
   if (cancel || handled) {
@@ -2088,7 +2096,7 @@ void RemoveBodyAndHead(nsIDOMNode *aNode)
 /**
  * This function finds the target node that we will be pasting into. aStart is
  * the context that we're given and aResult will be the target. Initially,
- * *aResult must be NULL.
+ * *aResult must be nullptr.
  *
  * The target for a paste is found by either finding the node that contains
  * the magical comment node containing kInsertCookie or, failing that, the
@@ -2105,7 +2113,7 @@ nsresult FindTargetNode(nsIDOMNode *aStart, nsCOMPtr<nsIDOMNode> &aResult)
 
   if (!child)
   {
-    // If the current result is NULL, then aStart is a leaf, and is the
+    // If the current result is nullptr, then aStart is a leaf, and is the
     // fallback result.
     if (!aResult)
       aResult = aStart;

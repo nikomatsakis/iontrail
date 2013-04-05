@@ -38,8 +38,11 @@ Cu.import("resource:///modules/devtools/SideMenuWidget.jsm");
 Cu.import("resource:///modules/devtools/VariablesView.jsm");
 Cu.import("resource:///modules/devtools/ViewHelpers.jsm");
 
-XPCOMUtils.defineLazyModuleGetter(this,
-  "Reflect", "resource://gre/modules/reflect.jsm");
+XPCOMUtils.defineLazyModuleGetter(this, "Promise",
+  "resource://gre/modules/commonjs/sdk/core/promise.js");
+
+XPCOMUtils.defineLazyModuleGetter(this, "Parser",
+  "resource:///modules/devtools/Parser.jsm");
 
 /**
  * Object defining the debugger controller components.
@@ -51,157 +54,126 @@ let DebuggerController = {
   initialize: function DC_initialize() {
     dumpn("Initializing the DebuggerController");
 
-    this._startupDebugger = this._startupDebugger.bind(this);
-    this._shutdownDebugger = this._shutdownDebugger.bind(this);
+    this.startupDebugger = this.startupDebugger.bind(this);
+    this.shutdownDebugger = this.shutdownDebugger.bind(this);
     this._onTabNavigated = this._onTabNavigated.bind(this);
     this._onTabDetached = this._onTabDetached.bind(this);
 
-    window.addEventListener("DOMContentLoaded", this._startupDebugger, true);
-    window.addEventListener("unload", this._shutdownDebugger, true);
+    // Chrome debugging lives in a different process and needs to handle
+    // debugger startup and shutdown by itself.
+    if (window._isChromeDebugger) {
+      window.addEventListener("DOMContentLoaded", this.startupDebugger, true);
+      window.addEventListener("unload", this.shutdownDebugger, true);
+    }
   },
 
   /**
-   * Initializes the view and connects a debugger client to the server.
+   * Initializes the view.
+   *
+   * @return object
+   *         A promise that is resolved when the debugger finishes startup.
    */
-  _startupDebugger: function DC__startupDebugger() {
+  startupDebugger: function DC_startupDebugger() {
     if (this._isInitialized) {
       return;
     }
     this._isInitialized = true;
-    window.removeEventListener("DOMContentLoaded", this._startupDebugger, true);
+    window.removeEventListener("DOMContentLoaded", this.startupDebugger, true);
 
-    DebuggerView.initialize(function() {
+    let deferred = Promise.defer();
+
+    DebuggerView.initialize(() => {
       DebuggerView._isInitialized = true;
 
-      window.dispatchEvent(document, "Debugger:Loaded");
-      this._connect();
-    }.bind(this));
+      // Chrome debugging needs to initiate the connection by itself.
+      if (window._isChromeDebugger) {
+        this.connect().then(deferred.resolve);
+      } else {
+        deferred.resolve();
+      }
+    });
+
+    return deferred.promise;
   },
 
   /**
    * Destroys the view and disconnects the debugger client from the server.
+   *
+   * @return object
+   *         A promise that is resolved when the debugger finishes shutdown.
    */
-  _shutdownDebugger: function DC__shutdownDebugger() {
+  shutdownDebugger: function DC__shutdownDebugger() {
     if (this._isDestroyed || !DebuggerView._isInitialized) {
       return;
     }
     this._isDestroyed = true;
-    window.removeEventListener("unload", this._shutdownDebugger, true);
+    window.removeEventListener("unload", this.shutdownDebugger, true);
 
-    DebuggerView.destroy(function() {
+    let deferred = Promise.defer();
+
+    DebuggerView.destroy(() => {
       DebuggerView._isDestroyed = true;
       this.SourceScripts.disconnect();
       this.StackFrames.disconnect();
       this.ThreadState.disconnect();
 
-      this._disconnect();
-      window.dispatchEvent(document, "Debugger:Unloaded");
+      this.disconnect();
+      deferred.resolve();
+
+      // Chrome debugging needs to close its parent process on shutdown.
       window._isChromeDebugger && this._quitApp();
-    }.bind(this));
-  },
+    });
 
-  /**
-   * Prepares the hostname and port number for a remote debugger connection
-   * and handles connection retries and timeouts.
-   * XXX: remove all this (bug 823577)
-   * @return boolean
-   *         True if connection should proceed normally, false otherwise.
-   */
-  _prepareConnection: function DC__prepareConnection() {
-    // If we exceeded the total number of connection retries, bail.
-    if (this._remoteConnectionTry === Prefs.remoteConnectionRetries) {
-      Services.prompt.alert(null,
-        L10N.getStr("remoteDebuggerPromptTitle"),
-        L10N.getStr("remoteDebuggerConnectionFailedMessage"));
-
-      // If the connection was not established before a certain number of
-      // retries, close the remote debugger.
-      this._shutdownDebugger();
-      return false;
-    }
-
-    // TODO: This is ugly, need to rethink the design for the UI in #751677.
-    if (!Prefs.remoteAutoConnect) {
-      let prompt = new RemoteDebuggerPrompt();
-      let result = prompt.show(!!this._remoteConnectionTimeout);
-
-      // If the connection was not established before the user canceled the
-      // prompt, close the remote debugger.
-      if (!result) {
-        this._shutdownDebugger();
-        return false;
-      }
-
-      Prefs.remoteHost = prompt.remote.host;
-      Prefs.remotePort = prompt.remote.port;
-      Prefs.remoteAutoConnect = prompt.remote.auto;
-    }
-
-    // If this debugger is connecting remotely to a server, we need to check
-    // after a while if the connection actually succeeded.
-    this._remoteConnectionTry = ++this._remoteConnectionTry || 1;
-    this._remoteConnectionTimeout = window.setTimeout(function() {
-      // If we couldn't connect to any server yet, try again...
-      if (!this.activeThread) {
-        this._onRemoteConnectionTimeout();
-        this._connect();
-      }
-    }.bind(this), Prefs.remoteTimeout);
-
-    // Proceed with the connection normally.
-    return true;
-  },
-
-  /**
-   * Called when a remote connection timeout occurs.
-   */
-  _onRemoteConnectionTimeout: function DC__onRemoteConnectionTimeout() {
-    Cu.reportError("Couldn't connect to " +
-      Prefs.remoteHost + ":" + Prefs.remotePort);
+    return deferred.promise;
   },
 
   /**
    * Initializes a debugger client and connects it to the debugger server,
    * wiring event handlers as necessary.
+   *
+   * @return object
+   *         A promise that is resolved when the debugger finishes connecting.
    */
-  _connect: function DC__connect() {
-    function callback() {
-      window.dispatchEvent(document, "Debugger:Connected");
-    }
+  connect: function DC_connect() {
+    let deferred = Promise.defer();
 
     if (!window._isChromeDebugger) {
-      let client = this.client = this._target.client;
-      this._target.on("close", this._onTabDetached);
-      this._target.on("navigate", this._onTabNavigated);
-      this._target.on("will-navigate", this._onTabNavigated);
+      let target = this._target;
+      let { client, form } = target;
+      target.on("close", this._onTabDetached);
+      target.on("navigate", this._onTabNavigated);
+      target.on("will-navigate", this._onTabNavigated);
 
-      if (this._target.chrome) {
-        let dbg = this._target.form.chromeDebugger;
-        this._startChromeDebugging(client, dbg, callback);
+      if (target.chrome) {
+        this._startChromeDebugging(client, form.chromeDebugger, deferred.resolve);
       } else {
-        this._startDebuggingTab(client, this._target.form, callback);
+        this._startDebuggingTab(client, form, deferred.resolve);
       }
-      return;
+
+      return deferred.promise;
     }
 
     // Chrome debugging needs to make the connection to the debuggee.
-    let transport = debuggerSocketConnect(Prefs.remoteHost, Prefs.remotePort);
+    let transport = debuggerSocketConnect(Prefs.chromeDebuggingHost,
+                                          Prefs.chromeDebuggingPort);
 
-    let client = this.client = new DebuggerClient(transport);
+    let client = new DebuggerClient(transport);
     client.addListener("tabNavigated", this._onTabNavigated);
     client.addListener("tabDetached", this._onTabDetached);
 
-    client.connect(function(aType, aTraits) {
-      client.listTabs(function(aResponse) {
-        this._startChromeDebugging(client, aResponse.chromeDebugger, callback);
-      }.bind(this));
-    }.bind(this));
+    client.connect((aType, aTraits) => {
+      client.listTabs((aResponse) => {
+        this._startChromeDebugging(client, aResponse.chromeDebugger, deferred.resolve);
+      });
+    });
+
+    return deferred.promise;
   },
 
   /**
    * Disconnects the debugger client and removes event handlers as necessary.
    */
-  _disconnect: function DC__disconnect() {
+  disconnect: function DC_disconnect() {
     // Return early if the client didn't even have a chance to instantiate.
     if (!this.client) {
       return;
@@ -231,6 +203,11 @@ let DebuggerController = {
   _onTabNavigated: function DC__onTabNavigated(aType, aPacket) {
     if (aPacket.state == "start") {
       DebuggerView._handleTabNavigation();
+
+      // Discard all the old sources.
+      DebuggerController.SourceScripts.clearCache();
+      DebuggerController.Parser.clearCache();
+      SourceUtils.clearCache();
       return;
     }
 
@@ -243,7 +220,7 @@ let DebuggerController = {
    * Called when the debugged tab is closed.
    */
   _onTabDetached: function DC__onTabDetached() {
-    this._shutdownDebugger();
+    this.shutdownDebugger();
   },
 
   /**
@@ -253,6 +230,8 @@ let DebuggerController = {
    *        The debugger client.
    * @param object aTabGrip
    *        The remote protocol grip of the tab.
+   * @param function aCallback
+   *        A function to invoke once the client attached to the active thread.
    */
   _startDebuggingTab: function DC__startDebuggingTab(aClient, aTabGrip, aCallback) {
     if (!aClient) {
@@ -261,14 +240,14 @@ let DebuggerController = {
     }
     this.client = aClient;
 
-    aClient.attachTab(aTabGrip.actor, function(aResponse, aTabClient) {
+    aClient.attachTab(aTabGrip.actor, (aResponse, aTabClient) => {
       if (!aTabClient) {
         Cu.reportError("No tab client found!");
         return;
       }
       this.tabClient = aTabClient;
 
-      aClient.attachThread(aResponse.threadActor, function(aResponse, aThreadClient) {
+      aClient.attachThread(aResponse.threadActor, (aResponse, aThreadClient) => {
         if (!aThreadClient) {
           Cu.reportError("Couldn't attach to thread: " + aResponse.error);
           return;
@@ -283,8 +262,8 @@ let DebuggerController = {
         if (aCallback) {
           aCallback();
         }
-      }.bind(this));
-    }.bind(this));
+      });
+    });
   },
 
   /**
@@ -294,6 +273,8 @@ let DebuggerController = {
    *        The debugger client.
    * @param object aChromeDebugger
    *        The remote protocol grip of the chrome debugger.
+   * @param function aCallback
+   *        A function to invoke once the client attached to the active thread.
    */
   _startChromeDebugging: function DC__startChromeDebugging(aClient, aChromeDebugger, aCallback) {
     if (!aClient) {
@@ -302,7 +283,7 @@ let DebuggerController = {
     }
     this.client = aClient;
 
-    aClient.attachThread(aChromeDebugger, function(aResponse, aThreadClient) {
+    aClient.attachThread(aChromeDebugger, (aResponse, aThreadClient) => {
       if (!aThreadClient) {
         Cu.reportError("Couldn't attach to thread: " + aResponse.error);
         return;
@@ -317,7 +298,7 @@ let DebuggerController = {
       if (aCallback) {
         aCallback();
       }
-    }.bind(this));
+    });
   },
 
   /**
@@ -955,9 +936,9 @@ StackFrames.prototype = {
     // faulty expression, simply convert it to a string describing the error.
     // There's no other information necessary to be offered in such cases.
     let sanitizedExpressions = list.map(function(str) {
-      // Reflect.parse throws when encounters a syntax error.
+      // Reflect.parse throws when it encounters a syntax error.
       try {
-        Reflect.parse(str);
+        Parser.reflectionAPI.parse(str);
         return str; // Watch expression can be executed safely.
       } catch (e) {
         return "\"" + e.name + ": " + e.message + "\""; // Syntax error.
@@ -1009,9 +990,13 @@ StackFrames.prototype = {
  * source script cache.
  */
 function SourceScripts() {
+  this._cache = new Map(); // Can't use a WeakMap because keys are strings.
   this._onNewSource = this._onNewSource.bind(this);
   this._onNewGlobal = this._onNewGlobal.bind(this);
   this._onSourcesAdded = this._onSourcesAdded.bind(this);
+  this._onFetch = this._onFetch.bind(this);
+  this._onTimeout = this._onTimeout.bind(this);
+  this._onFinished = this._onFinished.bind(this);
 }
 
 SourceScripts.prototype = {
@@ -1154,35 +1139,161 @@ SourceScripts.prototype = {
    *        The source object coming from the active thread.
    * @param function aCallback
    *        Function called after the source text has been loaded.
-   * @param function aOnTimeout
+   * @param function aTimeout
    *        Function called when the source text takes too long to fetch.
    */
-  getText: function SS_getText(aSource, aCallback, aOnTimeout) {
+  getText: function SS_getText(aSource, aCallback, aTimeout) {
     // If already loaded, return the source text immediately.
     if (aSource.loaded) {
-      aCallback(aSource.url, aSource.text);
+      aCallback(aSource);
       return;
     }
 
     // If the source text takes too long to fetch, invoke a timeout to
     // avoid blocking any operations.
-    if (aOnTimeout) {
-      var fetchTimeout = window.setTimeout(aOnTimeout, FETCH_SOURCE_RESPONSE_DELAY);
+    if (aTimeout) {
+      var fetchTimeout = window.setTimeout(() => {
+        aSource._fetchingTimedOut = true;
+        aTimeout(aSource);
+      }, FETCH_SOURCE_RESPONSE_DELAY);
     }
 
     // Get the source text from the active thread.
-    this.activeThread.source(aSource).source(function(aResponse) {
-      window.clearTimeout(fetchTimeout);
-
+    this.activeThread.source(aSource).source((aResponse) => {
+      if (aTimeout) {
+        window.clearTimeout(fetchTimeout);
+      }
       if (aResponse.error) {
         Cu.reportError("Error loading: " + aSource.url + "\n" + aResponse.message);
-        return void aCallback(aSource.url, "", aResponse.error);
+        return void aCallback(aSource);
       }
       aSource.loaded = true;
       aSource.text = aResponse.source;
-      aCallback(aSource.url, aResponse.source);
+      aCallback(aSource);
     });
-  }
+  },
+
+  /**
+   * Gets all the fetched sources.
+   *
+   * @return array
+   *         An array containing [url, text] entries for the fetched sources.
+   */
+  getCache: function SS_getCache() {
+    let sources = [];
+    for (let source of this._cache) {
+      sources.push(source);
+    }
+    return sources.sort(([first], [second]) => first > second);
+  },
+
+  /**
+   * Clears all the fetched sources from cache.
+   */
+  clearCache: function SS_clearCache() {
+    this._cache = new Map();
+  },
+
+  /**
+   * Starts fetching all the sources, silently.
+   *
+   * @param array aUrls
+   *        The urls for the sources to fetch.
+   * @param object aCallbacks [optional]
+   *        An object containing the callback functions to invoke:
+   *          - onFetch: optional, called after each source is fetched
+   *          - onTimeout: optional, called when a source takes too long to fetch
+   *          - onFinished: called when all the sources are fetched
+   */
+  fetchSources: function SS_fetchSources(aUrls, aCallbacks = {}) {
+    this._fetchQueue = new Set();
+    this._fetchCallbacks = aCallbacks;
+
+    // Add each new source which needs to be fetched in a queue.
+    for (let url of aUrls) {
+      if (!this._cache.has(url)) {
+        this._fetchQueue.add(url);
+      }
+    }
+
+    // If all the sources were already fetched, don't do anything special.
+    if (this._fetchQueue.size == 0) {
+      this._onFinished();
+      return;
+    }
+
+    // Start fetching each new source.
+    for (let url of this._fetchQueue) {
+      let sourceItem = DebuggerView.Sources.getItemByValue(url);
+      let sourceObject = sourceItem.attachment.source;
+      this.getText(sourceObject, this._onFetch, this._onTimeout);
+    }
+  },
+
+  /**
+   * Called when a source has been fetched via fetchSources().
+   *
+   * @param object aSource
+   *        The source object coming from the active thread.
+   */
+  _onFetch: function SS__onFetch(aSource) {
+    // Remember the source in a cache so we don't have to fetch it again.
+    this._cache.set(aSource.url, aSource.text);
+
+    // Fetch completed before timeout, remove the source from the fetch queue.
+    this._fetchQueue.delete(aSource.url);
+
+    // If this fetch was eventually completed at some point after a timeout,
+    // don't call any subsequent event listeners.
+    if (aSource._fetchingTimedOut) {
+      return;
+    }
+
+    // Invoke the source fetch callback if provided via fetchSources();
+    if (this._fetchCallbacks.onFetch) {
+      this._fetchCallbacks.onFetch(aSource);
+    }
+
+    // Check if all sources were fetched and stored in the cache.
+    if (this._fetchQueue.size == 0) {
+      this._onFinished();
+    }
+  },
+
+  /**
+   * Called when a source's text takes too long to fetch via fetchSources().
+   *
+   * @param object aSource
+   *        The source object coming from the active thread.
+   */
+  _onTimeout: function SS__onTimeout(aSource) {
+    // Remove the source from the fetch queue.
+    this._fetchQueue.delete(aSource.url);
+
+    // Invoke the source timeout callback if provided via fetchSources();
+    if (this._fetchCallbacks.onTimeout) {
+      this._fetchCallbacks.onTimeout(aSource);
+    }
+
+    // Check if the remaining sources were fetched and stored in the cache.
+    if (this._fetchQueue.size == 0) {
+      this._onFinished();
+    }
+  },
+
+  /**
+   * Called when all the sources have been fetched.
+   */
+  _onFinished: function SS__onFinished() {
+    // Invoke the finish callback if provided via fetchSources();
+    if (this._fetchCallbacks.onFinished) {
+      this._fetchCallbacks.onFinished();
+    }
+  },
+
+  _cache: null,
+  _fetchQueue: null,
+  _fetchCallbacks: null
 };
 
 /**
@@ -1596,6 +1707,8 @@ let Prefs = {
   }
 };
 
+Prefs.map("Char", "chromeDebuggingHost", "devtools.debugger.chrome-debugging-host");
+Prefs.map("Int", "chromeDebuggingPort", "devtools.debugger.chrome-debugging-port");
 Prefs.map("Int", "windowX", "devtools.debugger.ui.win-x");
 Prefs.map("Int", "windowY", "devtools.debugger.ui.win-y");
 Prefs.map("Int", "windowWidth", "devtools.debugger.ui.win-width");
@@ -1637,6 +1750,7 @@ XPCOMUtils.defineLazyGetter(window, "_isChromeDebugger", function() {
  * Preliminary setup for the DebuggerController object.
  */
 DebuggerController.initialize();
+DebuggerController.Parser = new Parser();
 DebuggerController.ThreadState = new ThreadState();
 DebuggerController.StackFrames = new StackFrames();
 DebuggerController.SourceScripts = new SourceScripts();

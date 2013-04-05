@@ -25,7 +25,7 @@
 #endif
 #include "nsIXMLContentSink.h"
 #include "nsContentCID.h"
-#include "nsXMLDocument.h"
+#include "mozilla/dom/XMLDocument.h"
 #include "jsapi.h"
 #include "nsXBLService.h"
 #include "nsXBLInsertionPoint.h"
@@ -925,8 +925,9 @@ nsXBLBinding::ChangeDocument(nsIDocument* aOldDocument, nsIDocument* aNewDocumen
     // Only style bindings get their prototypes unhooked.  First do ourselves.
     if (mIsStyleBinding) {
       // Now the binding dies.  Unhook our prototypes.
-      if (mPrototypeBinding->HasImplementation()) { 
-        nsIScriptGlobalObject *global = aOldDocument->GetScopeObject();
+      if (mPrototypeBinding->HasImplementation()) {
+        nsCOMPtr<nsIScriptGlobalObject> global =  do_QueryInterface(
+          aOldDocument->GetScopeObject());
         if (global) {
           JSObject *scope = global->GetGlobalJSObject();
           // scope might be null if we've cycle-collected the global
@@ -981,7 +982,7 @@ nsXBLBinding::ChangeDocument(nsIDocument* aOldDocument, nsIDocument* aNewDocumen
                   continue;
                 }
 
-                jsval protoBinding = ::JS_GetReservedSlot(proto, 0);
+                JS::Value protoBinding = ::JS_GetReservedSlot(proto, 0);
 
                 if (JSVAL_TO_PRIVATE(protoBinding) != mPrototypeBinding) {
                   // Not the right binding
@@ -1130,8 +1131,8 @@ nsXBLBinding::DoInitJSClass(JSContext *cx, JSObject *global, JSObject *obj,
     }
   }
 
-  jsval val;
-  JSObject* proto = NULL;
+  JS::Value val;
+  JSObject* proto = nullptr;
   if ((!::JS_LookupPropertyWithFlags(cx, global, className.get(), 0, &val)) ||
       JSVAL_IS_PRIMITIVE(val)) {
     // We need to initialize the class.

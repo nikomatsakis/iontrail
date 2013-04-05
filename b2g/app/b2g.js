@@ -270,12 +270,6 @@ pref("media.cache_size", 4096);    // 4MB media cache
 // MediaDecoderReader's mVideoQueue.
 pref("media.video-queue.default-size", 3);
 
-//  0: don't show fullscreen keyboard
-//  1: always show fullscreen keyboard
-// -1: show fullscreen keyboard based on threshold pref
-pref("widget.ime.android.landscape_fullscreen", -1);
-pref("widget.ime.android.fullscreen_threshold", 250); // in hundreths of inches
-
 // optimize images' memory usage
 pref("image.mem.decodeondraw", true);
 pref("content.image.allow_locking", true);
@@ -393,6 +387,22 @@ pref("dom.mozContacts.enabled", true);
 
 // WebAlarms
 pref("dom.mozAlarms.enabled", true);
+
+// SimplePush
+pref("services.push.enabled", true);
+// serverURL to be assigned by services team
+pref("services.push.serverURL", "");
+pref("services.push.userAgentID", "");
+// exponential back-off start is 5 seconds like in HTTP/1.1
+pref("services.push.retryBaseInterval", 5000);
+// exponential back-off end is 20 minutes
+pref("services.push.maxRetryInterval", 1200000);
+// How long before a DOMRequest errors as timeout
+pref("services.push.requestTimeout", 10000);
+// enable udp wakeup support
+pref("services.push.udp.wakeupEnabled", true);
+// port on which UDP server socket is bound
+pref("services.push.udp.port", 2442);
 
 // NetworkStats
 #ifdef MOZ_B2G_RIL

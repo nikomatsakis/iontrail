@@ -29,7 +29,6 @@ CPPSRCS		= \
 		DOMSVGPoint.cpp \
 		DOMSVGPointList.cpp \
 		DOMSVGStringList.cpp \
-		DOMSVGTransform.cpp \
 		DOMSVGTransformList.cpp \
 		nsDOMSVGZoomEvent.cpp \
 		nsISVGPoint.cpp \
@@ -50,8 +49,7 @@ CPPSRCS		= \
 		nsSVGPathGeometryElement.cpp \
 		nsSVGPolyElement.cpp \
 		nsSVGString.cpp \
-		nsSVGRect.cpp \
-		nsSVGUnknownElement.cpp \
+		nsSVGTransform.cpp \
 		nsSVGViewBox.cpp \
 		SVGAElement.cpp \
 		SVGAltGlyphElement.cpp \
@@ -81,14 +79,22 @@ CPPSRCS		= \
 		SVGFEColorMatrixElement.cpp \
 		SVGFEComponentTransferElement.cpp \
 		SVGFECompositeElement.cpp \
+		SVGFEConvolveMatrixElement.cpp \
+		SVGFEDiffuseLightingElement.cpp \
+		SVGFEDisplacementMapElement.cpp \
 		SVGFEDistantLightElement.cpp \
 		SVGFEFloodElement.cpp \
 		SVGFEGaussianBlurElement.cpp \
 		SVGFEImageElement.cpp \
 		SVGFEMergeElement.cpp \
 		SVGFEMergeNodeElement.cpp \
+		SVGFEMorphologyElement.cpp \
+		SVGFEOffsetElement.cpp \
 		SVGFEPointLightElement.cpp \
+		SVGFESpecularLightingElement.cpp \
+		SVGFESpotLightElement.cpp \
 		SVGFETileElement.cpp \
+		SVGFETurbulenceElement.cpp \
 		SVGFilterElement.cpp \
 		SVGForeignObjectElement.cpp \
 		SVGFragmentIdentifier.cpp \
@@ -124,6 +130,7 @@ CPPSRCS		= \
 		SVGPolygonElement.cpp \
 		SVGPolylineElement.cpp \
 		SVGPreserveAspectRatio.cpp \
+		SVGRect.cpp \
 		SVGRectElement.cpp \
 		SVGScriptElement.cpp \
 		SVGSetElement.cpp \
@@ -159,7 +166,6 @@ EXPORTS =  			\
 	nsSVGClass.h               \
 	nsSVGElement.h             \
 	nsSVGFeatures.h            \
-	nsSVGRect.h                \
 	SVGAttrValueWrapper.h      \
 	SVGStringList.h            \
 	$(NULL)
@@ -187,14 +193,22 @@ EXPORTS_mozilla/dom = \
 	SVGFEColorMatrixElement.h \
 	SVGFEComponentTransferElement.h \
 	SVGFECompositeElement.h \
+	SVGFEConvolveMatrixElement.h \
+	SVGFEDiffuseLightingElement.h \
+	SVGFEDisplacementMapElement.h \
 	SVGFEDistantLightElement.h \
 	SVGFEFloodElement.h \
 	SVGFEGaussianBlurElement.h \
 	SVGFEImageElement.h \
 	SVGFEMergeElement.h \
 	SVGFEMergeNodeElement.h \
+	SVGFEMorphologyElement.h \
+	SVGFEOffsetElement.h \
 	SVGFEPointLightElement.h \
+	SVGFESpecularLightingElement.h \
+	SVGFESpotLightElement.h \
 	SVGFETileElement.h \
+	SVGFETurbulenceElement.h \
 	SVGFilterElement.h \
 	SVGForeignObjectElement.h \
 	SVGGElement.h \
@@ -211,6 +225,8 @@ EXPORTS_mozilla/dom = \
 	SVGPatternElement.h \
 	SVGPolygonElement.h \
 	SVGPolylineElement.h \
+	SVGRect.h \
+	SVGIRect.h \
 	SVGRectElement.h \
 	SVGScriptElement.h \
 	SVGSetElement.h \
@@ -225,6 +241,7 @@ EXPORTS_mozilla/dom = \
 	SVGTextPathElement.h \
 	SVGTextPositioningElement.h \
 	SVGTitleElement.h \
+	SVGTransform.h \
 	SVGTransformableElement.h \
 	SVGTSpanElement.h \
 	SVGUseElement.h \

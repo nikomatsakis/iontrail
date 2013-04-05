@@ -17,7 +17,6 @@
 #include "WrapperFactory.h"
 #include "xpcprivate.h"
 #include "XPCQuickStubs.h"
-#include "XPCWrapper.h"
 #include "XrayWrapper.h"
 
 #include "mozilla/dom/HTMLObjectElement.h"
@@ -157,7 +156,7 @@ ErrorResult::ReportJSException(JSContext* cx)
 namespace dom {
 
 bool
-DefineConstants(JSContext* cx, JSObject* obj, ConstantSpec* cs)
+DefineConstants(JSContext* cx, JSObject* obj, const ConstantSpec* cs)
 {
   for (; cs->name; ++cs) {
     JSBool ok =
@@ -171,21 +170,21 @@ DefineConstants(JSContext* cx, JSObject* obj, ConstantSpec* cs)
 }
 
 static inline bool
-Define(JSContext* cx, JSObject* obj, JSFunctionSpec* spec) {
+Define(JSContext* cx, JSObject* obj, const JSFunctionSpec* spec) {
   return JS_DefineFunctions(cx, obj, spec);
 }
 static inline bool
-Define(JSContext* cx, JSObject* obj, JSPropertySpec* spec) {
+Define(JSContext* cx, JSObject* obj, const JSPropertySpec* spec) {
   return JS_DefineProperties(cx, obj, spec);
 }
 static inline bool
-Define(JSContext* cx, JSObject* obj, ConstantSpec* spec) {
+Define(JSContext* cx, JSObject* obj, const ConstantSpec* spec) {
   return DefineConstants(cx, obj, spec);
 }
 
 template<typename T>
 bool
-DefinePrefable(JSContext* cx, JSObject* obj, Prefable<T>* props)
+DefinePrefable(JSContext* cx, JSObject* obj, const Prefable<T>* props)
 {
   MOZ_ASSERT(props);
   MOZ_ASSERT(props->specs);
@@ -202,7 +201,7 @@ DefinePrefable(JSContext* cx, JSObject* obj, Prefable<T>* props)
 
 bool
 DefineUnforgeableAttributes(JSContext* cx, JSObject* obj,
-                            Prefable<JSPropertySpec>* props)
+                            const Prefable<const JSPropertySpec>* props)
 {
   return DefinePrefable(cx, obj, props);
 }
@@ -231,7 +230,8 @@ InterfaceObjectToString(JSContext* cx, unsigned argc, JS::Value *vp)
     return false;
   }
 
-  jsval v = js::GetFunctionNativeReserved(callee, TOSTRING_CLASS_RESERVED_SLOT);
+  JS::Value v = js::GetFunctionNativeReserved(callee,
+                                              TOSTRING_CLASS_RESERVED_SLOT);
   JSClass* clasp = static_cast<JSClass*>(JSVAL_TO_PRIVATE(v));
 
   v = js::GetFunctionNativeReserved(callee, TOSTRING_NAME_RESERVED_SLOT);
@@ -640,6 +640,23 @@ XPCOMObjectToJsval(JSContext* cx, JSObject* scope, xpcObjectHelper &helper,
   return true;
 }
 
+bool
+VariantToJsval(JSContext* aCx, JSObject* aScope, nsIVariant* aVariant,
+               JS::Value* aRetval)
+{
+  nsresult rv;
+  XPCLazyCallContext lccx(JS_CALLER, aCx, aScope);
+  if (!XPCVariant::VariantDataToJS(lccx, aVariant, &rv, aRetval)) {
+    // Does it throw?  Who knows
+    if (!JS_IsExceptionPending(aCx)) {
+      Throw<true>(aCx, NS_FAILED(rv) ? rv : NS_ERROR_UNEXPECTED);
+    }
+    return false;
+  }
+
+  return true;
+}
+
 JSBool
 QueryInterface(JSContext* cx, unsigned argc, JS::Value* vp)
 {
@@ -746,8 +763,8 @@ XrayResolveOwnProperty(JSContext* cx, JSObject* wrapper, JSObject* obj, jsid id,
 
 static bool
 XrayResolveAttribute(JSContext* cx, JSObject* wrapper, JSObject* obj, jsid id,
-                     Prefable<JSPropertySpec>* attributes, jsid* attributeIds,
-                     JSPropertySpec* attributeSpecs, JSPropertyDescriptor* desc)
+                     const Prefable<const JSPropertySpec>* attributes, jsid* attributeIds,
+                     const JSPropertySpec* attributeSpecs, JSPropertyDescriptor* desc)
 {
   for (; attributes->specs; ++attributes) {
     if (attributes->isEnabled(cx, obj)) {
@@ -756,7 +773,7 @@ XrayResolveAttribute(JSContext* cx, JSObject* wrapper, JSObject* obj, jsid id,
       size_t i = attributes->specs - attributeSpecs;
       for ( ; attributeIds[i] != JSID_VOID; ++i) {
         if (id == attributeIds[i]) {
-          JSPropertySpec& attrSpec = attributeSpecs[i];
+          const JSPropertySpec& attrSpec = attributeSpecs[i];
           // Because of centralization, we need to make sure we fault in the
           // JitInfos as well. At present, until the JSAPI changes, the easiest
           // way to do this is wrap them up as functions ourselves.
@@ -798,9 +815,9 @@ XrayResolveProperty(JSContext* cx, JSObject* wrapper, JSObject* obj, jsid id,
                     JSPropertyDescriptor* desc, DOMObjectType type,
                     const NativeProperties* nativeProperties)
 {
-  Prefable<JSFunctionSpec>* methods;
+  const Prefable<const JSFunctionSpec>* methods;
   jsid* methodIds;
-  JSFunctionSpec* methodsSpecs;
+  const JSFunctionSpec* methodsSpecs;
   if (type == eInterface) {
     methods = nativeProperties->staticMethods;
     methodIds = nativeProperties->staticMethodIds;
@@ -811,7 +828,7 @@ XrayResolveProperty(JSContext* cx, JSObject* wrapper, JSObject* obj, jsid id,
     methodsSpecs = nativeProperties->methodsSpecs;
   }
   if (methods) {
-    Prefable<JSFunctionSpec>* method;
+    const Prefable<const JSFunctionSpec>* method;
     for (method = methods; method->specs; ++method) {
       if (method->isEnabled(cx, obj)) {
         // Set i to be the index into our full list of ids/specs that we're
@@ -819,7 +836,7 @@ XrayResolveProperty(JSContext* cx, JSObject* wrapper, JSObject* obj, jsid id,
         size_t i = method->specs - methodsSpecs;
         for ( ; methodIds[i] != JSID_VOID; ++i) {
           if (id == methodIds[i]) {
-            JSFunctionSpec& methodSpec = methodsSpecs[i];
+            const JSFunctionSpec& methodSpec = methodsSpecs[i];
             JSFunction *fun = JS_NewFunctionById(cx, methodSpec.call.op,
                                                  methodSpec.nargs, 0,
                                                  wrapper, id);
@@ -879,7 +896,7 @@ XrayResolveProperty(JSContext* cx, JSObject* wrapper, JSObject* obj, jsid id,
   }
 
   if (nativeProperties->constants) {
-    Prefable<ConstantSpec>* constant;
+    const Prefable<const ConstantSpec>* constant;
     for (constant = nativeProperties->constants; constant->specs; ++constant) {
       if (constant->isEnabled(cx, obj)) {
         // Set i to be the index into our full list of ids/specs that we're
@@ -999,8 +1016,8 @@ XrayResolveNativeProperty(JSContext* cx, JSObject* wrapper, JSObject* obj,
 
 bool
 XrayEnumerateAttributes(JSContext* cx, JSObject* wrapper, JSObject* obj,
-                        Prefable<JSPropertySpec>* attributes,
-                        jsid* attributeIds, JSPropertySpec* attributeSpecs,
+                        const Prefable<const JSPropertySpec>* attributes,
+                        jsid* attributeIds, const JSPropertySpec* attributeSpecs,
                         unsigned flags, JS::AutoIdVector& props)
 {
   for (; attributes->specs; ++attributes) {
@@ -1026,9 +1043,9 @@ XrayEnumerateProperties(JSContext* cx, JSObject* wrapper, JSObject* obj,
                         DOMObjectType type,
                         const NativeProperties* nativeProperties)
 {
-  Prefable<JSFunctionSpec>* methods;
+  const Prefable<const JSFunctionSpec>* methods;
   jsid* methodIds;
-  JSFunctionSpec* methodsSpecs;
+  const JSFunctionSpec* methodsSpecs;
   if (type == eInterface) {
     methods = nativeProperties->staticMethods;
     methodIds = nativeProperties->staticMethodIds;
@@ -1039,7 +1056,7 @@ XrayEnumerateProperties(JSContext* cx, JSObject* wrapper, JSObject* obj,
     methodsSpecs = nativeProperties->methodsSpecs;
   }
   if (methods) {
-    Prefable<JSFunctionSpec>* method;
+    const Prefable<const JSFunctionSpec>* method;
     for (method = methods; method->specs; ++method) {
       if (method->isEnabled(cx, obj)) {
         // Set i to be the index into our full list of ids/specs that we're
@@ -1085,7 +1102,7 @@ XrayEnumerateProperties(JSContext* cx, JSObject* wrapper, JSObject* obj,
   }
 
   if (nativeProperties->constants) {
-    Prefable<ConstantSpec>* constant;
+    const Prefable<const ConstantSpec>* constant;
     for (constant = nativeProperties->constants; constant->specs; ++constant) {
       if (constant->isEnabled(cx, obj)) {
         // Set i to be the index into our full list of ids/specs that we're
@@ -1328,9 +1345,11 @@ ConcatJSString(JSContext* cx, const char* pre, JSString* str, const char* post)
 }
 
 bool
-NativeToString(JSContext* cx, JSObject* wrapper, JSObject* obj, const char* pre,
+NativeToString(JSContext* cx, JSObject* wrapper, JSObject* object, const char* pre,
                const char* post, JS::Value* v)
 {
+  JS::Rooted<JSObject*> obj(cx, object);
+
   JSPropertyDescriptor toStringDesc;
   toStringDesc.obj = nullptr;
   toStringDesc.attrs = 0;
@@ -1568,7 +1587,7 @@ GetGlobalObject(JSContext* aCx, JSObject* aObject,
                 Maybe<JSAutoCompartment>& aAutoCompartment)
 {
   if (js::IsWrapper(aObject)) {
-    aObject = XPCWrapper::Unwrap(aCx, aObject, false);
+    aObject = js::UnwrapObjectChecked(aObject, /* stopAtOuter = */ false);
     if (!aObject) {
       Throw<mainThread>(aCx, NS_ERROR_XPC_SECURITY_MANAGER_VETO);
       return nullptr;

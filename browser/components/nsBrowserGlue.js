@@ -731,7 +731,7 @@ BrowserGlue.prototype = {
     var button0Title = quitBundle.GetStringFromName("saveTitle");
     var button1Title = quitBundle.GetStringFromName("cancelTitle");
     var button2Title = quitBundle.GetStringFromName("quitTitle");
-    var neverAskText = quitBundle.GetStringFromName("neverAsk");
+    var neverAskText = quitBundle.GetStringFromName("neverAsk2");
 
     // This wouldn't have been set above since we shouldn't be here for
     // aQuitType == "lastwindow"
@@ -1398,7 +1398,7 @@ BrowserGlue.prototype = {
       }
 
       // Add the entry to the persisted set for this document if it's not there.
-      // This code is mostly borrowed from nsXULDocument::Persist.
+      // This code is mostly borrowed from XULDocument::Persist.
       let docURL = aSource.ValueUTF8.split("#")[0];
       let docResource = this._rdf.GetResource(docURL);
       let persistResource = this._rdf.GetResource("http://home.netscape.com/NC-rdf#persist");
@@ -1637,9 +1637,14 @@ ContentPermissionPrompt.prototype = {
    *                               Permission is granted if action is null or ALLOW_ACTION.
    * @param aNotificationId        The id of the PopupNotification.
    * @param aAnchorId              The id for the PopupNotification anchor.
+   * @param aOptions               Options for the PopupNotification
    */
   _showPrompt: function CPP_showPrompt(aRequest, aMessage, aPermission, aActions,
-                                       aNotificationId, aAnchorId) {
+                                       aNotificationId, aAnchorId, aOptions) {
+    function onFullScreen() {
+      popup.remove();
+    }
+
     var browserBundle = Services.strings.createBundle("chrome://browser/locale/browser.properties");
 
     var requestingWindow = aRequest.window.top;
@@ -1685,10 +1690,35 @@ ContentPermissionPrompt.prototype = {
       popupNotificationActions.push(action);
     }
 
-    var mainAction = popupNotificationActions[0];
+    var mainAction = popupNotificationActions.length ?
+                       popupNotificationActions[0] : null;
     var secondaryActions = popupNotificationActions.splice(1);
-    chromeWin.PopupNotifications.show(browser, aNotificationId, aMessage, aAnchorId,
-                                      mainAction, secondaryActions);
+
+    if (aRequest.type == "pointerLock") {
+      // If there's no mainAction, this is the autoAllow warning prompt.
+      let autoAllow = !mainAction;
+      aOptions = {
+        removeOnDismissal: autoAllow,
+        eventCallback: type => {
+          if (type == "removed") {
+            browser.removeEventListener("mozfullscreenchange", onFullScreen, true);
+            if (autoAllow) {
+              aRequest.allow();
+            }
+          }
+        },
+      };
+    }
+
+    var popup = chromeWin.PopupNotifications.show(browser, aNotificationId, aMessage, aAnchorId,
+                                                  mainAction, secondaryActions, aOptions);
+    if (aRequest.type == "pointerLock") {
+      // pointerLock is automatically allowed in fullscreen mode (and revoked
+      // upon exit), so if the page enters fullscreen mode after requesting
+      // pointerLock (but before the user has granted permission), we should
+      // remove the now-impotent notification.
+      browser.addEventListener("mozfullscreenchange", onFullScreen, true);
+    }
   },
 
   _promptGeo : function(aRequest) {
@@ -1743,7 +1773,8 @@ ContentPermissionPrompt.prototype = {
 
     secHistogram.add(Ci.nsISecurityUITelemetry.WARNING_GEOLOCATION_REQUEST);
 
-    this._showPrompt(aRequest, message, "geo", actions, "geolocation", "geo-notification-icon");
+    this._showPrompt(aRequest, message, "geo", actions, "geolocation",
+                     "geo-notification-icon", null);
   },
 
   _promptWebNotifications : function(aRequest) {
@@ -1776,12 +1807,54 @@ ContentPermissionPrompt.prototype = {
 
     this._showPrompt(aRequest, message, "desktop-notification", actions,
                      "web-notifications",
-                     "web-notifications-notification-icon");
+                     "web-notifications-notification-icon", null);
+  },
+
+  _promptPointerLock: function CPP_promtPointerLock(aRequest, autoAllow) {
+
+    let browserBundle = Services.strings.createBundle("chrome://browser/locale/browser.properties");
+    let requestingURI = aRequest.principal.URI;
+
+    let originString = requestingURI.schemeIs("file") ? requestingURI.path : requestingURI.host;
+    let message = browserBundle.formatStringFromName(autoAllow ?
+                                  "pointerLock.autoLock.title2" : "pointerLock.title2",
+                                  [originString], 1);
+    // If this is an autoAllow info prompt, offer no actions.
+    // _showPrompt() will allow the request when it's dismissed.
+    let actions = [];
+    if (!autoAllow) {
+      actions = [
+        {
+          stringId: "pointerLock.allow2",
+          action: null,
+          expireType: null,
+          callback: function() {},
+        },
+        {
+          stringId: "pointerLock.alwaysAllow",
+          action: Ci.nsIPermissionManager.ALLOW_ACTION,
+          expireType: null,
+          callback: function() {},
+        },
+        {
+          stringId: "pointerLock.neverAllow",
+          action: Ci.nsIPermissionManager.DENY_ACTION,
+          expireType: null,
+          callback: function() {},
+        },
+      ];
+    }
+
+    this._showPrompt(aRequest, message, "pointerLock", actions, "pointerLock",
+                     "pointerLock-notification-icon", null);
   },
 
   prompt: function CPP_prompt(request) {
+
     const kFeatureKeys = { "geolocation" : "geo",
-                           "desktop-notification" : "desktop-notification" };
+                           "desktop-notification" : "desktop-notification",
+                           "pointerLock" : "pointerLock",
+                         };
 
     // Make sure that we support the request.
     if (!(request.type in kFeatureKeys)) {
@@ -1795,17 +1868,22 @@ ContentPermissionPrompt.prototype = {
     if (!(requestingURI instanceof Ci.nsIStandardURL))
       return;
 
+    var autoAllow = false;
     var permissionKey = kFeatureKeys[request.type];
     var result = Services.perms.testExactPermissionFromPrincipal(requestingPrincipal, permissionKey);
-
-    if (result == Ci.nsIPermissionManager.ALLOW_ACTION) {
-      request.allow();
-      return;
-    }
 
     if (result == Ci.nsIPermissionManager.DENY_ACTION) {
       request.cancel();
       return;
+    }
+
+    if (result == Ci.nsIPermissionManager.ALLOW_ACTION) {
+      autoAllow = true;
+      // For pointerLock, we still want to show a warning prompt.
+      if (request.type != "pointerLock") {
+        request.allow();
+        return;
+      }
     }
 
     // Show the prompt.
@@ -1816,8 +1894,12 @@ ContentPermissionPrompt.prototype = {
     case "desktop-notification":
       this._promptWebNotifications(request);
       break;
+    case "pointerLock":
+      this._promptPointerLock(request, autoAllow);
+      break;
     }
-  }
+  },
+
 };
 
 var components = [BrowserGlue, ContentPermissionPrompt];

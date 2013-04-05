@@ -8,6 +8,7 @@
 
 #include "mozilla/DebugOnly.h"
 #include "mozilla/FloatingPoint.h"
+#include "mozilla/PodOperations.h"
 
 #include "jstypes.h"
 #include "jsutil.h"
@@ -50,6 +51,7 @@ using namespace js::gc;
 using namespace js::types;
 
 using mozilla::DebugOnly;
+using mozilla::PodCopy;
 
 /*
  * Allocate array buffers with the maximum number of fixed slots marked as
@@ -366,12 +368,21 @@ ArrayBufferObject::prepareForAsmJS(JSContext *cx, Handle<ArrayBufferObject*> buf
     // Enable access to the valid region.
     JS_ASSERT(buffer->byteLength() % AsmJSAllocationGranularity == 0);
 # ifdef XP_WIN
-    if (!VirtualAlloc(p, PageSize + buffer->byteLength(), MEM_COMMIT, PAGE_READWRITE))
+    if (!VirtualAlloc(p, PageSize + buffer->byteLength(), MEM_COMMIT, PAGE_READWRITE)) {
+        VirtualFree(p, 0, MEM_RELEASE);
         return false;
+    }
 # else
-    if (mprotect(p, PageSize + buffer->byteLength(), PROT_READ | PROT_WRITE))
+    if (mprotect(p, PageSize + buffer->byteLength(), PROT_READ | PROT_WRITE)) {
+        munmap(p, AsmJSMappedSize);
         return false;
+    }
 # endif
+
+    // We don't include the PageSize at the front so that when we sum the
+    // individual asm.js arrays for all the compartments in the runtime, they
+    // match this number.
+    buffer->runtime()->sizeOfNonHeapAsmJSArrays_ += buffer->byteLength();
 
     // Copy over the current contents of the typed array.
     uint8_t *data = reinterpret_cast<uint8_t*>(p) + PageSize;
@@ -396,10 +407,12 @@ ArrayBufferObject::releaseAsmJSArrayBuffer(FreeOp *fop, RawObject obj)
     ArrayBufferObject &buffer = obj->asArrayBuffer();
     JS_ASSERT(buffer.isAsmJSArrayBuffer());
 
+    buffer.runtime()->sizeOfNonHeapAsmJSArrays_ -= buffer.byteLength();
+
     uint8_t *p = buffer.dataPointer() - PageSize ;
     JS_ASSERT(uintptr_t(p) % PageSize == 0);
 # ifdef XP_WIN
-    VirtualAlloc(p, AsmJSMappedSize, MEM_RESERVE, PAGE_NOACCESS);
+    VirtualFree(p, 0, MEM_RELEASE);
 # else
     munmap(p, AsmJSMappedSize);
 # endif
@@ -533,7 +546,7 @@ ArrayBufferObject::create(JSContext *cx, uint32_t nbytes, uint8_t *contents)
     RootedObject obj(cx, NewBuiltinClassInstance(cx, &ArrayBufferClass));
     if (!obj)
         return NULL;
-    JS_ASSERT(obj->getAllocKind() == gc::FINALIZE_OBJECT16_BACKGROUND);
+    JS_ASSERT_IF(obj->isTenured(), obj->tenuredGetAllocKind() == gc::FINALIZE_OBJECT16_BACKGROUND);
     JS_ASSERT(obj->getClass() == &ArrayBufferClass);
 
     js::Shape *empty = EmptyShape::getInitialShape(cx, &ArrayBufferClass,
@@ -723,7 +736,7 @@ ArrayBufferObject::sweep(JSCompartment *compartment)
         while (view) {
             JS_ASSERT(buffer->compartment() == view->compartment());
             JSObject *nextView = NextView(view);
-            if (!JS_IsAboutToBeFinalized(view)) {
+            if (!IsObjectAboutToBeFinalized(&view)) {
                 view->setFixedSlot(BufferView::NEXT_VIEW_SLOT, PrivateValue(prevLiveView));
                 prevLiveView = view;
             }
@@ -1729,7 +1742,8 @@ class TypedArrayTemplate
             obj = NewBuiltinClassInstance(cx, fastClass());
         if (!obj)
             return NULL;
-        JS_ASSERT(obj->getAllocKind() == gc::FINALIZE_OBJECT8_BACKGROUND);
+        JS_ASSERT_IF(obj->isTenured(),
+                     obj->tenuredGetAllocKind() == gc::FINALIZE_OBJECT8_BACKGROUND);
 
         obj->setSlot(TYPE_SLOT, Int32Value(ArrayTypeID()));
         obj->setSlot(BUFFER_SLOT, ObjectValue(*bufobj));
@@ -2592,7 +2606,6 @@ template<typename T>
 JSBool
 ArrayBufferObject::createTypedArrayFromBuffer(JSContext *cx, unsigned argc, Value *vp)
 {
-    typedef TypedArrayTemplate<T> ArrayType;
     CallArgs args = CallArgsFromVp(argc, vp);
     return CallNonGenericMethod<IsArrayBuffer, createTypedArrayFromBufferImpl<T> >(cx, args);
 }
@@ -2729,7 +2742,7 @@ DataViewObject::class_constructor(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
 
     RootedObject bufobj(cx);
-    if (!GetFirstArgumentAsObject(cx, args.length(), args.base(), "DataView constructor", &bufobj))
+    if (!GetFirstArgumentAsObject(cx, args, "DataView constructor", &bufobj))
         return false;
 
     if (bufobj->isWrapper() && UnwrapObject(bufobj)->isArrayBuffer()) {
@@ -2739,7 +2752,7 @@ DataViewObject::class_constructor(JSContext *cx, unsigned argc, Value *vp)
             return false;
 
         InvokeArgsGuard ag;
-        if (!cx->stack.pushInvokeArgs(cx, argc + 1, &ag))
+        if (!cx->stack.pushInvokeArgs(cx, args.length() + 1, &ag))
             return false;
         ag.setCallee(global->createDataViewForThis());
         ag.setThis(ObjectValue(*bufobj));

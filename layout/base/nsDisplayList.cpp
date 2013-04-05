@@ -43,7 +43,7 @@
 #include "nsSVGEffects.h"
 #include "nsSVGElement.h"
 #include "nsSVGClipPathFrame.h"
-#include "sampler.h"
+#include "GeckoProfiler.h"
 #include "nsAnimationManager.h"
 #include "nsTransitionManager.h"
 #include "nsViewManager.h"
@@ -570,12 +570,24 @@ void nsDisplayListBuilder::MarkOutOfFlowFrameForDisplay(nsIFrame* aDirtyFrame,
   nsRect dirty = aDirtyRect - aFrame->GetOffsetTo(aDirtyFrame);
   nsRect overflowRect = aFrame->GetVisualOverflowRect();
 
+  if (aFrame->IsTransformed() &&
+      nsLayoutUtils::HasAnimationsForCompositor(aFrame->GetContent(),
+                                                eCSSProperty_transform)) {
+   /**
+    * Add a fuzz factor to the overflow rectangle so that elements only just
+    * out of view are pulled into the display list, so they can be
+    * prerendered if necessary.
+    */
+    overflowRect.Inflate(nsPresContext::CSSPixelsToAppUnits(32));
+  }
+
   if (mHasDisplayPort && IsFixedFrame(aFrame)) {
     dirty = overflowRect;
   }
 
   if (!dirty.IntersectRect(dirty, overflowRect))
     return;
+
   aFrame->Properties().Set(nsDisplayListBuilder::OutOfFlowDirtyRectProperty(),
                            new nsRect(dirty));
 
@@ -893,7 +905,7 @@ nsDisplayList::GetBounds(nsDisplayListBuilder* aBuilder) const {
 bool
 nsDisplayList::ComputeVisibilityForRoot(nsDisplayListBuilder* aBuilder,
                                         nsRegion* aVisibleRegion) {
-  SAMPLE_LABEL("nsDisplayList", "ComputeVisibilityForRoot");
+  PROFILER_LABEL("nsDisplayList", "ComputeVisibilityForRoot");
   nsRegion r;
   r.And(*aVisibleRegion, GetBounds(aBuilder));
   return ComputeVisibilityForSublist(aBuilder, nullptr, aVisibleRegion, r.GetBounds(), r.GetBounds());
@@ -1029,7 +1041,7 @@ nsDisplayList::ComputeVisibilityForSublist(nsDisplayListBuilder* aBuilder,
 void nsDisplayList::PaintRoot(nsDisplayListBuilder* aBuilder,
                               nsRenderingContext* aCtx,
                               uint32_t aFlags) const {
-  SAMPLE_LABEL("nsDisplayList", "PaintRoot");
+  PROFILER_LABEL("nsDisplayList", "PaintRoot");
   PaintForFrame(aBuilder, aCtx, aBuilder->RootReferenceFrame(), aFlags);
 }
 
@@ -2447,7 +2459,7 @@ nsDisplayBoxShadowOuter::Paint(nsDisplayListBuilder* aBuilder,
   nsAutoTArray<nsRect,10> rects;
   ComputeDisjointRectangles(mVisibleRegion, &rects);
 
-  SAMPLE_LABEL("nsDisplayBoxShadowOuter", "Paint");
+  PROFILER_LABEL("nsDisplayBoxShadowOuter", "Paint");
   for (uint32_t i = 0; i < rects.Length(); ++i) {
     aCtx->PushState();
     aCtx->IntersectClip(rects[i]);
@@ -2506,7 +2518,7 @@ nsDisplayBoxShadowInner::Paint(nsDisplayListBuilder* aBuilder,
   nsAutoTArray<nsRect,10> rects;
   ComputeDisjointRectangles(mVisibleRegion, &rects);
 
-  SAMPLE_LABEL("nsDisplayBoxShadowInner", "Paint");
+  PROFILER_LABEL("nsDisplayBoxShadowInner", "Paint");
   for (uint32_t i = 0; i < rects.Length(); ++i) {
     aCtx->PushState();
     aCtx->IntersectClip(rects[i]);
@@ -3575,20 +3587,6 @@ nsDisplayTransform::nsDisplayTransform(nsDisplayListBuilder* aBuilder, nsIFrame 
   mToReferenceFrame = aFrame->GetOffsetToCrossDoc(mReferenceFrame);
 }
 
-nsDisplayTransform::nsDisplayTransform(nsDisplayListBuilder* aBuilder, nsIFrame *aFrame,
-                                       nsDisplayItem *aItem, uint32_t aIndex) 
-  : nsDisplayItem(aBuilder, aFrame)
-  , mStoredList(aBuilder, aFrame, aItem)
-  , mTransformGetter(nullptr)
-  , mIndex(aIndex)
-{
-  MOZ_COUNT_CTOR(nsDisplayTransform);
-  NS_ABORT_IF_FALSE(aFrame, "Must have a frame!");
-  mReferenceFrame = 
-    aBuilder->FindReferenceFrameFor(GetTransformRootFrame(aFrame));
-  mToReferenceFrame = aFrame->GetOffsetToCrossDoc(mReferenceFrame);
-}
-
 /* Returns the delta specified by the -moz-transform-origin property.
  * This is a positive delta, meaning that it indicates the direction to move
  * to get from (0, 0) of the frame to the transform origin.  This function is
@@ -3891,7 +3889,14 @@ nsDisplayTransform::ShouldPrerenderTransformedContent(nsDisplayListBuilder* aBui
                                                       nsIFrame* aFrame,
                                                       bool aLogAnimations)
 {
-  if (!aFrame->AreLayersMarkedActive(nsChangeHint_UpdateTransformLayer)) {
+  // Elements whose transform has been modified recently, or which
+  // have a compositor-animated transform, can be prerendered. An element
+  // might have only just had its transform animated in which case
+  // nsChangeHint_UpdateTransformLayer will not be present yet.
+  if (!aFrame->AreLayersMarkedActive(nsChangeHint_UpdateTransformLayer) &&
+      (!aFrame->GetContent() ||
+       !nsLayoutUtils::HasAnimationsForCompositor(aFrame->GetContent(),
+                                                  eCSSProperty_transform))) {
     if (aLogAnimations) {
       nsCString message;
       message.AppendLiteral("Performance warning: Async animation disabled because frame was not marked active for transform animation");
@@ -3978,6 +3983,12 @@ nsDisplayTransform::GetTransform(float aAppUnitsPerPixel)
   return mTransform;
 }
 
+bool
+nsDisplayTransform::ShouldBuildLayerEvenIfInvisible(nsDisplayListBuilder* aBuilder)
+{
+  return ShouldPrerenderTransformedContent(aBuilder, mFrame, false);
+}
+
 already_AddRefed<Layer> nsDisplayTransform::BuildLayer(nsDisplayListBuilder *aBuilder,
                                                        LayerManager *aManager,
                                                        const ContainerParameters& aContainerParameters)
@@ -3985,13 +3996,19 @@ already_AddRefed<Layer> nsDisplayTransform::BuildLayer(nsDisplayListBuilder *aBu
   const gfx3DMatrix& newTransformMatrix =
     GetTransform(mFrame->PresContext()->AppUnitsPerDevPixel());
 
-  if (!IsFrameVisible(mFrame, newTransformMatrix)) {
+  if (mFrame->StyleDisplay()->mBackfaceVisibility == NS_STYLE_BACKFACE_VISIBILITY_HIDDEN &&
+      newTransformMatrix.IsBackfaceVisible()) {
     return nullptr;
   }
 
   nsRefPtr<ContainerLayer> container = aManager->GetLayerBuilder()->
     BuildContainerLayerFor(aBuilder, aManager, mFrame, this, *mStoredList.GetChildren(),
-                           aContainerParameters, &newTransformMatrix);
+                           aContainerParameters, &newTransformMatrix,
+                           FrameLayerBuilder::CONTAINER_NOT_CLIPPED_BY_ANCESTORS);
+
+  if (!container) {
+    return nullptr;
+  }
 
   // Add the preserve-3d flag for this layer, BuildContainerLayerFor clears all flags,
   // so we never need to explicitely unset this flag.

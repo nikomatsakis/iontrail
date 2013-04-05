@@ -12,10 +12,6 @@ include $(DEPTH)/config/autoconf.mk
 
 LIBRARY_NAME	= gkconhtmlcon_s
 LIBXUL_LIBRARY	= 1
-ifndef _MSC_VER
-FAIL_ON_WARNINGS = 1
-endif # !_MSC_VER
-
 
 EXPORTS		= \
 		HTMLPropertiesCollection.h \
@@ -43,6 +39,7 @@ EXPORTS_mozilla/dom = \
 		HTMLHRElement.h \
 		HTMLIFrameElement.h \
 		HTMLImageElement.h \
+		HTMLInputElement.h \
 		HTMLLabelElement.h \
 		HTMLLegendElement.h \
 		HTMLLIElement.h \
@@ -62,6 +59,7 @@ EXPORTS_mozilla/dom = \
 		HTMLPreElement.h \
 		HTMLProgressElement.h \
 		HTMLScriptElement.h \
+		HTMLSelectElement.h \
 		HTMLSharedElement.h \
 		HTMLSharedListElement.h \
 		HTMLSharedObjectElement.h \
@@ -73,6 +71,7 @@ EXPORTS_mozilla/dom = \
 		HTMLTableElement.h \
 		HTMLTableRowElement.h \
 		HTMLTableSectionElement.h \
+		HTMLTemplateElement.h \
 		HTMLTextAreaElement.h \
 		HTMLTimeElement.h \
 		HTMLTitleElement.h \
@@ -109,7 +108,7 @@ CPPSRCS		= \
 		HTMLHeadingElement.cpp \
 		HTMLIFrameElement.cpp \
 		HTMLImageElement.cpp \
-		nsHTMLInputElement.cpp \
+		HTMLInputElement.cpp \
 		HTMLLIElement.cpp \
 		HTMLLabelElement.cpp \
 		HTMLLegendElement.cpp \
@@ -130,7 +129,7 @@ CPPSRCS		= \
 		HTMLPreElement.cpp \
 		HTMLProgressElement.cpp \
 		HTMLScriptElement.cpp \
-		nsHTMLSelectElement.cpp \
+		HTMLSelectElement.cpp \
 		HTMLSharedElement.cpp \
 		HTMLSharedListElement.cpp \
 		HTMLSpanElement.cpp \
@@ -141,6 +140,7 @@ CPPSRCS		= \
 		HTMLTableColElement.cpp \
 		HTMLTableRowElement.cpp \
 		HTMLTableSectionElement.cpp \
+		HTMLTemplateElement.cpp \
 		HTMLTextAreaElement.cpp \
 		HTMLTimeElement.cpp \
 		HTMLTitleElement.cpp \

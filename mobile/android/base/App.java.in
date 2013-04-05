@@ -9,9 +9,9 @@ package @ANDROID_PACKAGE_NAME@;
 import android.view.MenuItem;
 
 import org.mozilla.gecko.BrowserApp;
-import org.mozilla.gecko.GeckoAppShell;
 import org.mozilla.gecko.GeckoProfile;
 import org.mozilla.gecko.R;
+import org.mozilla.gecko.util.HardwareUtils;
 
 public class App extends BrowserApp {
     @Override
@@ -36,7 +36,7 @@ public class App extends BrowserApp {
     @Override
     public String getDefaultUAString() {
         String deviceType = "Mobile";
-        if (GeckoAppShell.isTablet())
+        if (HardwareUtils.isTablet())
             deviceType = "Tablet";
         return "Mozilla/5.0 (Android; " + deviceType + "; rv:@MOZ_APP_VERSION@) Gecko/@MOZ_APP_VERSION@ Firefox/@MOZ_APP_VERSION@";
     }
@@ -54,8 +54,9 @@ public class App extends BrowserApp {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
 #ifdef MOZ_PROFILING
-        if (item.getItemId() == R.id.toggle_profiling) {
-            GeckoAppShell.sendEventToGecko(GeckoEvent.createBroadcastEvent("ToggleProfiling", null));
+        if (item.getItemId() == org.mozilla.gecko.R.id.toggle_profiling) {
+            org.mozilla.gecko.GeckoAppShell.sendEventToGecko(
+                org.mozilla.gecko.GeckoEvent.createBroadcastEvent("ToggleProfiling", null));
             return true;
         }
 #endif

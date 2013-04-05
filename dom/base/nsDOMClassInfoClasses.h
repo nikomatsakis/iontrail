@@ -120,17 +120,7 @@ DOMCI_CLASS(BeforeUnloadEvent)
 // The SVG document
 DOMCI_CLASS(SVGDocument)
 
-// SVG element classes
 DOMCI_CLASS(TimeEvent)
-DOMCI_CLASS(SVGFEConvolveMatrixElement)
-DOMCI_CLASS(SVGFEDiffuseLightingElement)
-DOMCI_CLASS(SVGFEDisplacementMapElement)
-DOMCI_CLASS(SVGFEMorphologyElement)
-DOMCI_CLASS(SVGFEOffsetElement)
-DOMCI_CLASS(SVGFESpecularLightingElement)
-DOMCI_CLASS(SVGFESpotLightElement)
-DOMCI_CLASS(SVGFETurbulenceElement)
-DOMCI_CLASS(SVGUnknownElement)
 
 // other SVG classes
 DOMCI_CLASS(SVGAnimatedEnumeration)
@@ -214,13 +204,6 @@ DOMCI_CLASS(MozCellBroadcast)
 // @font-face in CSS
 DOMCI_CLASS(CSSFontFaceRule)
 
-#if defined(MOZ_MEDIA)
-// WhatWG Video Element
-DOMCI_CLASS(HTMLVideoElement)
-DOMCI_CLASS(HTMLAudioElement)
-DOMCI_CLASS(TimeRanges)
-#endif
-
 // DOM Traversal NodeIterator class
 DOMCI_CLASS(NodeIterator)
 
@@ -246,7 +229,6 @@ DOMCI_CLASS(ChromeMessageSender)
 DOMCI_CLASS(DesktopNotification)
 DOMCI_CLASS(DesktopNotificationCenter)
 
-DOMCI_CLASS(IDBFactory)
 DOMCI_CLASS(IDBFileHandle)
 DOMCI_CLASS(IDBRequest)
 DOMCI_CLASS(IDBDatabase)
@@ -262,6 +244,10 @@ DOMCI_CLASS(IDBOpenDBRequest)
 DOMCI_CLASS(Touch)
 DOMCI_CLASS(TouchList)
 DOMCI_CLASS(TouchEvent)
+
+#ifdef MOZ_GAMEPAD
+DOMCI_CLASS(Gamepad)
+#endif
 
 DOMCI_CLASS(MozCSSKeyframeRule)
 DOMCI_CLASS(MozCSSKeyframesRule)

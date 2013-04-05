@@ -30,6 +30,7 @@
 #include "mozilla/DebugOnly.h"
 #include "mozilla/dom/DocumentFragment.h"
 #include "mozilla/dom/Element.h"
+#include "mozilla/dom/HTMLTemplateElement.h"
 #include "mozilla/dom/TextDecoderBase.h"
 #include "mozilla/Likely.h"
 #include "mozilla/Preferences.h"
@@ -1201,6 +1202,13 @@ nsContentUtils::IsHTMLWhitespace(PRUnichar aChar)
 
 /* static */
 bool
+nsContentUtils::IsHTMLWhitespaceOrNBSP(PRUnichar aChar)
+{
+  return IsHTMLWhitespace(aChar) || aChar == PRUnichar(0xA0);
+}
+
+/* static */
+bool
 nsContentUtils::IsHTMLBlock(nsIAtom* aLocalName)
 {
   return
@@ -1658,7 +1666,7 @@ nsContentUtils::InProlog(nsINode *aNode)
 JSContext *
 nsContentUtils::GetContextFromDocument(nsIDocument *aDocument)
 {
-  nsIScriptGlobalObject *sgo = aDocument->GetScopeObject();
+  nsCOMPtr<nsIScriptGlobalObject> sgo =  do_QueryInterface(aDocument->GetScopeObject());
   if (!sgo) {
     // No script global, no context.
     return nullptr;
@@ -1685,7 +1693,7 @@ nsContentUtils::TraceSafeJSContext(JSTracer* aTrc)
     return;
   }
   if (JSObject* global = JS_GetGlobalObject(cx)) {
-    JS_CALL_OBJECT_TRACER(aTrc, global, "safe context");
+    JS_CallObjectTracer(aTrc, global, "safe context");
   }
 }
 
@@ -1768,8 +1776,9 @@ nsContentUtils::IsCallerXBL()
         return false;
 
     // New Hotness.
-    if (XPCJSRuntime::Get()->XBLScopesEnabled())
-        return xpc::IsXBLScope(js::GetContextCompartment(cx));
+    JSCompartment *c = js::GetContextCompartment(cx);
+    if (xpc::AllowXBLScope(c))
+        return xpc::IsXBLScope(c);
 
     // XBL scopes are behind a pref, so check the XBL bit as well.
     if (!JS_DescribeScriptedCaller(cx, &script, nullptr) || !script)
@@ -1841,6 +1850,27 @@ nsContentUtils::ContentIsDescendantOf(const nsINode* aPossibleDescendant,
     if (aPossibleDescendant == aPossibleAncestor)
       return true;
     aPossibleDescendant = aPossibleDescendant->GetParentNode();
+  } while (aPossibleDescendant);
+
+  return false;
+}
+
+bool
+nsContentUtils::ContentIsHostIncludingDescendantOf(
+  const nsINode* aPossibleDescendant, const nsINode* aPossibleAncestor)
+{
+  NS_PRECONDITION(aPossibleDescendant, "The possible descendant is null!");
+  NS_PRECONDITION(aPossibleAncestor, "The possible ancestor is null!");
+
+  do {
+    if (aPossibleDescendant == aPossibleAncestor)
+      return true;
+    if (aPossibleDescendant->NodeType() == nsIDOMNode::DOCUMENT_FRAGMENT_NODE) {
+      aPossibleDescendant =
+        static_cast<const DocumentFragment*>(aPossibleDescendant)->GetHost();
+    } else {
+      aPossibleDescendant = aPossibleDescendant->GetParentNode();
+    }
   } while (aPossibleDescendant);
 
   return false;
@@ -2158,6 +2188,9 @@ nsContentUtils::TrimWhitespace<nsCRT::IsAsciiSpace>(const nsAString&, bool);
 template
 const nsDependentSubstring
 nsContentUtils::TrimWhitespace<nsContentUtils::IsHTMLWhitespace>(const nsAString&, bool);
+template
+const nsDependentSubstring
+nsContentUtils::TrimWhitespace<nsContentUtils::IsHTMLWhitespaceOrNBSP>(const nsAString&, bool);
 
 static inline void KeyAppendSep(nsACString& aKey)
 {
@@ -4665,6 +4698,15 @@ nsContentUtils::IsSystemPrincipal(nsIPrincipal* aPrincipal)
   return NS_SUCCEEDED(rv) && isSystem;
 }
 
+nsIPrincipal*
+nsContentUtils::GetSystemPrincipal()
+{
+  nsCOMPtr<nsIPrincipal> sysPrin;
+  nsresult rv = sSecurityManager->GetSystemPrincipal(getter_AddRefs(sysPrin));
+  MOZ_ASSERT(NS_SUCCEEDED(rv) && sysPrin);
+  return sysPrin;
+}
+
 bool
 nsContentUtils::CombineResourcePrincipals(nsCOMPtr<nsIPrincipal>* aResourcePrincipal,
                                           nsIPrincipal* aExtraPrincipal)
@@ -5002,10 +5044,15 @@ nsContentUtils::AddScriptBlocker()
   ++sScriptBlockerCount;
 }
 
+#ifdef DEBUG
+static bool sRemovingScriptBlockers = false;
+#endif
+
 /* static */
 void
 nsContentUtils::RemoveScriptBlocker()
 {
+  MOZ_ASSERT(!sRemovingScriptBlockers);
   NS_ASSERTION(sScriptBlockerCount != 0, "Negative script blockers");
   --sScriptBlockerCount;
   if (sScriptBlockerCount) {
@@ -5021,14 +5068,23 @@ nsContentUtils::RemoveScriptBlocker()
                "bad sRunnersCountAtFirstBlocker");
 
   while (firstBlocker < lastBlocker) {
-    nsCOMPtr<nsIRunnable> runnable = (*sBlockedScriptRunners)[firstBlocker];
+    nsCOMPtr<nsIRunnable> runnable;
+    runnable.swap((*sBlockedScriptRunners)[firstBlocker]);
     ++firstBlocker;
 
+    // Calling the runnable can reenter us
     runnable->Run();
+    // So can dropping the reference to the runnable
+    runnable = nullptr;
+
     NS_ASSERTION(sRunnersCountAtFirstBlocker == 0,
                  "Bad count");
     NS_ASSERTION(!sScriptBlockerCount, "This is really bad");
   }
+#ifdef DEBUG
+  AutoRestore<bool> removingScriptBlockers(sRemovingScriptBlockers);
+  sRemovingScriptBlockers = true;
+#endif
   sBlockedScriptRunners->RemoveElementsAt(originalFirstBlocker, blockersCount);
 }
 
@@ -5879,7 +5935,7 @@ nsContentUtils::DispatchXULCommand(nsIContent* aTarget,
 // static
 nsresult
 nsContentUtils::WrapNative(JSContext *cx, JSObject *scope, nsISupports *native,
-                           nsWrapperCache *cache, const nsIID* aIID, jsval *vp,
+                           nsWrapperCache *cache, const nsIID* aIID, JS::Value *vp,
                            nsIXPConnectJSObjectHolder **aHolder,
                            bool aAllowWrapping)
 {
@@ -5966,7 +6022,7 @@ nsContentUtils::CreateArrayBuffer(JSContext *aCx, const nsACString& aData,
 nsresult
 nsContentUtils::CreateBlobBuffer(JSContext* aCx,
                                  const nsACString& aData,
-                                 jsval& aBlob)
+                                 JS::Value& aBlob)
 {
   uint32_t blobLen = aData.Length();
   void* blobData = moz_malloc(blobLen);
@@ -6372,7 +6428,7 @@ nsContentUtils::FindInternalContentViewer(const char* aType,
   // one helper factory, please
   nsCOMPtr<nsICategoryManager> catMan(do_GetService(NS_CATEGORYMANAGER_CONTRACTID));
   if (!catMan)
-    return NULL;
+    return nullptr;
 
   nsCOMPtr<nsIDocumentLoaderFactory> docFactory;
 
@@ -6401,7 +6457,7 @@ nsContentUtils::FindInternalContentViewer(const char* aType,
   }
 #endif // MOZ_MEDIA
 
-  return NULL;
+  return nullptr;
 }
 
 // static
@@ -6475,7 +6531,7 @@ nsContentUtils::SetUpChannelOwner(nsIPrincipal* aLoadingPrincipal,
   //      can't provide their own security context!
   //
   //      (Currently chrome URIs set the owner when they are created!
-  //      So setting a NULL owner would be bad!)
+  //      So setting a nullptr owner would be bad!)
   //
   // If aForceOwner is true, the owner will be set, even for a channel that
   // can provide its own security context. This is used for the HTML5 IFRAME
@@ -6641,6 +6697,29 @@ nsContentUtils::GetFullscreenAncestor(nsIDocument* aDoc)
   return nullptr;
 }
 
+/* static */
+bool
+nsContentUtils::IsInPointerLockContext(nsIDOMWindow* aWin)
+{
+  if (!aWin) {
+    return false;
+  }
+
+  nsCOMPtr<nsIDocument> pointerLockedDoc =
+    do_QueryReferent(nsEventStateManager::sPointerLockedDoc);
+  if (!pointerLockedDoc || !pointerLockedDoc->GetWindow()) {
+    return false;
+  }
+
+  nsCOMPtr<nsIDOMWindow> lockTop;
+  pointerLockedDoc->GetWindow()->GetScriptableTop(getter_AddRefs(lockTop));
+
+  nsCOMPtr<nsIDOMWindow> top;
+  aWin->GetScriptableTop(getter_AddRefs(top));
+
+  return top == lockTop;
+}
+
 // static
 void
 nsContentUtils::ReleaseWrapper(void* aScriptObjectHolder,
@@ -6670,46 +6749,6 @@ nsContentUtils::TraceWrapper(nsWrapperCache* aCache, TraceCallback aCallback,
       aCallback(wrapper, "Preserved wrapper", aClosure);
     }
   }
-}
-
-nsresult
-nsContentUtils::JSArrayToAtomArray(JSContext* aCx, const JS::Value& aJSArray,
-                                   nsCOMArray<nsIAtom>& aRetVal)
-{
-  JSAutoRequest ar(aCx);
-  if (!aJSArray.isObject()) {
-    return NS_ERROR_ILLEGAL_VALUE;
-  }
-  
-  JSObject* obj = &aJSArray.toObject();
-  JSAutoCompartment ac(aCx, obj);
-  
-  uint32_t length;
-  if (!JS_IsArrayObject(aCx, obj) || !JS_GetArrayLength(aCx, obj, &length)) {
-    return NS_ERROR_ILLEGAL_VALUE;
-  }
-
-  JSString* str = nullptr;
-  JS::Anchor<JSString *> deleteProtector(str);
-  for (uint32_t i = 0; i < length; ++i) {
-    jsval v;
-    if (!JS_GetElement(aCx, obj, i, &v) ||
-        !(str = JS_ValueToString(aCx, v))) {
-      return NS_ERROR_ILLEGAL_VALUE;
-    }
-
-    nsDependentJSString depStr;
-    if (!depStr.init(aCx, str)) {
-      return NS_ERROR_OUT_OF_MEMORY;
-    }
-
-    nsCOMPtr<nsIAtom> a = do_GetAtom(depStr);
-    if (!a) {
-      return NS_ERROR_OUT_OF_MEMORY;
-    }
-    aRetVal.AppendObject(a);
-  }
-  return NS_OK;
 }
 
 // static

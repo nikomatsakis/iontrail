@@ -846,10 +846,10 @@ nsBaseWidget::ComputeShouldAccelerate(bool aDefault)
     return true;
 
   if (!whitelisted) {
-    NS_WARNING("OpenGL-accelerated layers are not supported on this system.");
+    NS_WARNING("OpenGL-accelerated layers are not supported on this system");
 #ifdef MOZ_ANDROID_OMTC
     NS_RUNTIMEABORT("OpenGL-accelerated layers are a hard requirement on this platform. "
-                    "Cannot continue without support for them.");
+                    "Cannot continue without support for them");
 #endif
     return false;
   }
@@ -863,14 +863,19 @@ nsBaseWidget::ComputeShouldAccelerate(bool aDefault)
 
 void nsBaseWidget::CreateCompositor()
 {
+  nsIntRect rect;
+  GetBounds(rect);
+  CreateCompositor(rect.width, rect.height);
+}
+
+void nsBaseWidget::CreateCompositor(int aWidth, int aHeight)
+{
   bool renderToEGLSurface = false;
 #ifdef MOZ_ANDROID_OMTC
   renderToEGLSurface = true;
 #endif
-  nsIntRect rect;
-  GetBounds(rect);
   mCompositorParent =
-    new CompositorParent(this, renderToEGLSurface, rect.width, rect.height);
+    new CompositorParent(this, renderToEGLSurface, aWidth, aHeight);
   LayerManager* lm = CreateBasicLayerManager();
   MessageLoop *childMessageLoop = CompositorParent::CompositorLoop();
   mCompositorChild = new CompositorChild(lm);

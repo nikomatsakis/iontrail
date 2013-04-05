@@ -67,7 +67,7 @@
 #include "nsIObserverService.h"
 #include "nsIScrollableFrame.h"
 #include "mozilla/Preferences.h"
-#include "sampler.h"
+#include "GeckoProfiler.h"
 #include <algorithm>
 
 // headers for plugin scriptability
@@ -309,15 +309,12 @@ nsObjectFrame::DestroyFrom(nsIFrame* aDestructRoot)
   // Tell content owner of the instance to disconnect its frame.
   nsCOMPtr<nsIObjectLoadingContent> objContent(do_QueryInterface(mContent));
   NS_ASSERTION(objContent, "Why not an object loading content?");
-  objContent->DisconnectFrame();
+  objContent->HasNewFrame(nullptr);
 
   if (mBackgroundSink) {
     mBackgroundSink->Destroy();
   }
 
-  if (mInstanceOwner) {
-    mInstanceOwner->SetFrame(nullptr);
-  }
   SetInstanceOwner(nullptr);
 
   nsObjectFrameSuper::DestroyFrom(aDestructRoot);

@@ -16,8 +16,10 @@
 #include "jsbool.h"
 #include "assembler/assembler/MacroAssemblerCodeRef.h"
 #include "jstypes.h"
+#include "jsworkers.h"
 
 #include "gc/Marking.h"
+#include "ion/AsmJS.h"
 #include "vm/Debugger.h"
 #include "vm/NumericConversions.h"
 #include "vm/Shape.h"
@@ -317,7 +319,7 @@ stubs::DefFun(VMFrame &f, JSFunction *funArg)
      * requests in server-side JS.
      */
     HandleObject scopeChain = f.fp()->scopeChain();
-    if (fun->environment() != scopeChain) {
+    if (fun->isNative() || fun->environment() != scopeChain) {
         fun = CloneFunctionObjectIfNotSingleton(cx, fun, scopeChain);
         if (!fun)
             THROW();
@@ -775,7 +777,7 @@ stubs::TriggerIonCompile(VMFrame &f)
 {
     RootedScript script(f.cx, f.script());
 
-    if (ion::js_IonOptions.parallelCompilation && !f.cx->runtime->profilingScripts) {
+    if (OffThreadCompilationEnabled(f.cx) && !f.cx->runtime->profilingScripts) {
         if (script->hasIonScript()) {
             /*
              * Normally TriggerIonCompile is not called if !script->ion, but the

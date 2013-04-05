@@ -361,13 +361,6 @@ class CodeGeneratorShared : public LInstructionVisitor
     virtual bool visitOutOfLinePropagateParallelAbort(OutOfLinePropagateParallelAbort *ool) = 0;
 };
 
-// Wrapper around Label, on the heap, to avoid a bogus assert with OOM.
-struct HeapLabel
-  : public TempObject,
-    public Label
-{
-};
-
 // An out-of-line path is generated at the end of the function.
 class OutOfLineCode : public TempObject
 {

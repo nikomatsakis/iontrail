@@ -23,6 +23,7 @@
 #include "frontend/BytecodeEmitter.h"
 #include "gc/Marking.h"
 #include "methodjit/Retcon.h"
+#include "ion/BaselineJIT.h"
 #include "js/Vector.h"
 
 #include "gc/FindSCCs-inl.h"
@@ -243,6 +244,11 @@ BreakpointSite::recompile(FreeOp *fop)
         mjit::ReleaseScriptCode(fop, script);
     }
 #endif
+
+#ifdef JS_ION
+    if (script->hasBaselineScript())
+        script->baseline->toggleDebugTraps(script, pc);
+#endif
 }
 
 void
@@ -380,14 +386,6 @@ Debugger::~Debugger()
     JS_ASSERT(object->compartment()->rt->isHeapBusy());
 
     /*
-     * These maps may contain finalized entries, so drop them before destructing to avoid calling
-     * ~EncapsulatedPtr.
-     */
-    scripts.clearWithoutCallingDestructors();
-    objects.clearWithoutCallingDestructors();
-    environments.clearWithoutCallingDestructors();
-
-    /*
      * Since the inactive state for this link is a singleton cycle, it's always
      * safe to apply JS_REMOVE_LINK to it, regardless of whether we're in the list or not.
      */
@@ -493,11 +491,6 @@ Debugger::slowPathOnEnterFrame(JSContext *cx, AbstractFramePtr frame, MutableHan
     AutoValueVector triggered(cx);
     Handle<GlobalObject*> global = cx->global();
 
-#ifdef DEBUG
-    ScriptFrameIter iter(cx);
-    JS_ASSERT(iter.abstractFramePtr() == frame);
-#endif
-
     if (GlobalObject::DebuggerVector *debuggers = global->getDebuggers()) {
         for (Debugger **p = debuggers->begin(); p != debuggers->end(); p++) {
             Debugger *dbg = *p;
@@ -531,11 +524,6 @@ DebuggerFrame_freeStackIterData(FreeOp *fop, RawObject obj);
 bool
 Debugger::slowPathOnLeaveFrame(JSContext *cx, AbstractFramePtr frame, bool frameOk)
 {
-#ifdef DEBUG
-    ScriptFrameIter iter(cx);
-    JS_ASSERT(iter.abstractFramePtr() == frame);
-#endif
-
     Handle<GlobalObject*> global = cx->global();
 
     /* Save the frame's completion value. */
@@ -888,8 +876,8 @@ Debugger::parseResumptionValue(Maybe<AutoCompartment> &ac, bool ok, const Value 
     JSContext *cx = ac.ref().context();
     Rooted<JSObject*> obj(cx);
     RootedShape shape(cx);
-    jsid returnId = NameToId(cx->names().return_);
-    jsid throwId = NameToId(cx->names().throw_);
+    RootedId returnId(cx, NameToId(cx->names().return_));
+    RootedId throwId(cx, NameToId(cx->names().throw_));
     bool okResumption = rv.isObject();
     if (okResumption) {
         obj = &rv.toObject();
@@ -2005,11 +1993,11 @@ Debugger::getNewestFrame(JSContext *cx, unsigned argc, Value *vp)
          * Debug-mode currently disables Ion compilation in the compartment of
          * the debuggee.
          */
-        if (i.isIon())
+        if (i.isIonOptimizedJS())
             continue;
         if (dbg->observesFrame(i.abstractFramePtr())) {
             ScriptFrameIter iter(i.seg()->cx(), StackIter::GO_THROUGH_SAVED);
-            while (iter.isIon() || iter.abstractFramePtr() != i.abstractFramePtr())
+            while (iter.isIonOptimizedJS() || iter.abstractFramePtr() != i.abstractFramePtr())
                 ++iter;
             return dbg->getScriptFrame(cx, iter, args.rval());
         }
@@ -3296,6 +3284,37 @@ Debugger::observesScript(JSScript *script) const
     return observesGlobal(&script->global()) && !script->selfHosted;
 }
 
+/* static */ bool
+Debugger::handleBaselineOsr(JSContext *cx, StackFrame *from, ion::BaselineFrame *to)
+{
+    ScriptFrameIter iter(cx);
+    JS_ASSERT(iter.abstractFramePtr() == to);
+
+    for (FrameRange r(from); !r.empty(); r.popFront()) {
+        RootedObject frameobj(cx, r.frontFrame());
+        Debugger *dbg = r.frontDebugger();
+        JS_ASSERT(dbg == Debugger::fromChildJSObject(frameobj));
+
+        // Update frame object's StackIter::data pointer.
+        DebuggerFrame_freeStackIterData(cx->runtime->defaultFreeOp(), frameobj);
+        StackIter::Data *data = iter.copyData();
+        if (!data)
+            return false;
+        frameobj->setPrivate(data);
+
+        // Add the frame object with |to| as key.
+        if (!dbg->frames.putNew(to, frameobj)) {
+            js_ReportOutOfMemory(cx);
+            return false;
+        }
+
+        // Remove the old entry.
+        r.removeFrontFrame();
+    }
+
+    return true;
+}
+
 static JSBool
 DebuggerScript_setBreakpoint(JSContext *cx, unsigned argc, Value *vp)
 {
@@ -3573,7 +3592,7 @@ DebuggerFrame_getOlder(JSContext *cx, unsigned argc, Value *vp)
     Debugger *dbg = Debugger::fromChildJSObject(thisobj);
 
     for (++iter; !iter.done(); ++iter) {
-        if (iter.isIon())
+        if (iter.isIonOptimizedJS())
             continue;
         if (dbg->observesFrame(iter.abstractFramePtr()))
             return dbg->getScriptFrame(cx, iter, args.rval());
@@ -4445,10 +4464,12 @@ DebuggerObject_defineProperties(JSContext *cx, unsigned argc, Value *vp)
 
         Maybe<AutoCompartment> ac;
         ac.construct(cx, obj);
+        RootedId id(cx);
         for (size_t i = 0; i < n; i++) {
             if (!rewrappedIds.append(jsid()) || !rewrappedDescs.append())
                 return false;
-            if (!unwrappedDescs[i].wrapInto(cx, obj, ids[i], &rewrappedIds[i], &rewrappedDescs[i]))
+            id = ids[i];
+            if (!unwrappedDescs[i].wrapInto(cx, obj, id, &rewrappedIds[i], &rewrappedDescs[i]))
                 return false;
         }
 
@@ -4507,7 +4528,7 @@ DebuggerObject_sealHelper(JSContext *cx, unsigned argc, Value *vp, SealHelperOp 
             args.rval().setUndefined();
             return true;
         }
-        ok = obj->preventExtensions(cx);
+        ok = JSObject::preventExtensions(cx, obj);
     }
     if (!ok)
         return false;
@@ -4980,14 +5001,15 @@ DebuggerEnv_names(JSContext *cx, unsigned argc, Value *vp)
     RootedObject arr(cx, NewDenseEmptyArray(cx));
     if (!arr)
         return false;
+    RootedId id(cx);
     for (size_t i = 0, len = keys.length(); i < len; i++) {
-         jsid id = keys[i];
-         if (JSID_IS_ATOM(id) && IsIdentifier(JSID_TO_ATOM(id))) {
-             if (!cx->compartment->wrapId(cx, &id))
-                 return false;
-             if (!js_NewbornArrayPush(cx, arr, StringValue(JSID_TO_STRING(id))))
-                 return false;
-         }
+        id = keys[i];
+        if (JSID_IS_ATOM(id) && IsIdentifier(JSID_TO_ATOM(id))) {
+            if (!cx->compartment->wrapId(cx, id.address()))
+                return false;
+            if (!js_NewbornArrayPush(cx, arr, StringValue(JSID_TO_STRING(id))))
+                return false;
+        }
     }
     args.rval().setObject(*arr);
     return true;

@@ -2324,7 +2324,7 @@ fsmdef_error_onhook_timeout (void *data)
                  dcb->call_id, dcb->line, fname, "timeout");
 
     cc_int_onhook(CC_SRC_GSM, CC_SRC_GSM, CC_NO_CALL_ID, CC_REASON_NONE,
-                  dcb->call_id, dcb->line, FALSE, FALSE);
+                  dcb->call_id, dcb->line, FALSE, FALSE, __FILE__, __LINE__);
 }
 
 /**
@@ -3526,6 +3526,11 @@ fsmdef_ev_addstream(sm_event_t *event) {
         dcb->media_cap_tbl->cap[CC_AUDIO_1].support_direction = SDP_DIRECTION_SENDRECV;
         dcb->media_cap_tbl->cap[CC_AUDIO_1].pc_stream = msg->data.track.stream_id;
         dcb->media_cap_tbl->cap[CC_AUDIO_1].pc_track = msg->data.track.track_id;
+    } else if (msg->data.track.media_type == DATA) {
+        dcb->media_cap_tbl->cap[CC_DATACHANNEL_1].enabled = TRUE;
+        dcb->media_cap_tbl->cap[CC_DATACHANNEL_1].support_direction = SDP_DIRECTION_SENDRECV;
+        dcb->media_cap_tbl->cap[CC_DATACHANNEL_1].pc_stream = msg->data.track.stream_id;
+        dcb->media_cap_tbl->cap[CC_DATACHANNEL_1].pc_track = msg->data.track.track_id;
     } else {
         return (SM_RC_END);
     }
@@ -3564,11 +3569,11 @@ fsmdef_ev_removestream(sm_event_t *event) {
      * will be re-implemented.
      */
     if (msg->data.track.media_type == AUDIO) {
-        dcb->media_cap_tbl->cap[CC_AUDIO_1].enabled = TRUE;
+        PR_ASSERT(dcb->media_cap_tbl->cap[CC_AUDIO_1].enabled);
         dcb->media_cap_tbl->cap[CC_AUDIO_1].support_direction = SDP_DIRECTION_RECVONLY;
         dcb->video_pref = SDP_DIRECTION_SENDRECV;
     } else if (msg->data.track.media_type == VIDEO) {
-        dcb->media_cap_tbl->cap[CC_VIDEO_1].enabled = TRUE;
+        PR_ASSERT(dcb->media_cap_tbl->cap[CC_VIDEO_1].enabled);
         dcb->media_cap_tbl->cap[CC_VIDEO_1].support_direction = SDP_DIRECTION_RECVONLY;
     } else {
         return (SM_RC_END);
@@ -8574,7 +8579,8 @@ fsmdef_notify_hook_event (fsm_fcb_t *fcb, cc_msgs_t msg, char *global_call_id,
                        global_call_id, monitor_mode,cfwdall_mode);
     } else if (msg == CC_MSG_ONHOOK) {
         cc_int_onhook(CC_SRC_GSM, CC_SRC_SIP, prim_call_id,
-                      consult_reason, fcb->dcb->call_id, fcb->dcb->line, FALSE, FALSE);
+                      consult_reason, fcb->dcb->call_id, fcb->dcb->line, FALSE,
+                      FALSE, __FILE__, __LINE__);
     }
     return;
 }

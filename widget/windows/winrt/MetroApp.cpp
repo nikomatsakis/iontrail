@@ -11,6 +11,8 @@
 #include "MetroAppShell.h"
 #include "nsICommandLineRunner.h"
 #include "FrameworkView.h"
+#include "nsAppDirectoryServiceDefs.h"
+#include <shellapi.h>
 
 using namespace ABI::Windows::ApplicationModel;
 using namespace ABI::Windows::ApplicationModel::Core;
@@ -22,7 +24,7 @@ using namespace Microsoft::WRL::Wrappers;
 
 // Metro specific XRE methods we call from here on an
 // appropriate thread.
-extern nsresult XRE_metroStartup();
+extern nsresult XRE_metroStartup(bool runXREMain);
 extern void XRE_metroShutdown();
 
 #ifdef PR_LOGGING
@@ -50,6 +52,7 @@ MetroApp::CreateView(ABI::Windows::ApplicationModel::Core::IFrameworkView **aVie
 
   LogFunction();
 
+  sFrameworkView.Get()->AddRef();
   *aViewProvider = sFrameworkView.Get();
   return !sFrameworkView ? E_FAIL : S_OK;
 }
@@ -68,7 +71,7 @@ MetroApp::Initialize()
   if (!xpcomInit) {
     xpcomInit = true;
     Log(L"XPCOM startup initialization began");
-    nsresult rv = XRE_metroStartup();
+    nsresult rv = XRE_metroStartup(true);
     Log(L"XPCOM startup initialization complete");
     if (NS_FAILED(rv)) {
       Log(L"XPCOM startup initialization failed, bailing. rv=%X", rv);
@@ -99,10 +102,14 @@ MetroApp::ShutdownXPCOM()
 
   mozilla::widget::StopAudioSession();
 
-  sCoreApp->remove_Suspending(mSuspendEvent);
-  sCoreApp->remove_Resuming(mResumeEvent);
+  if (sCoreApp) {
+    sCoreApp->remove_Suspending(mSuspendEvent);
+    sCoreApp->remove_Resuming(mResumeEvent);
+  }
 
-  MetroApp::GetView()->ShutdownXPCOM();
+  if (sFrameworkView) {
+    sFrameworkView->ShutdownXPCOM();
+  }
 
   // Shut down xpcom
   XRE_metroShutdown();
@@ -120,14 +127,6 @@ MetroApp::CoreExit()
   if (SUCCEEDED(hr)) {
     coreExit->Exit();
   }
-}
-
-// static
-FrameworkView*
-MetroApp::GetView()
-{
-  NS_ASSERTION(sFrameworkView, "view has not been created.");
-  return sFrameworkView.Get();
 }
 
 ////////////////////////////////////////////////////
@@ -162,7 +161,10 @@ void
 MetroApp::SetBaseWidget(MetroWidget* aPtr)
 {
   LogThread();
+
   NS_ASSERTION(aPtr, "setting null base widget?");
+
+  // Both of these calls AddRef the ptr we pass in
   aPtr->SetView(sFrameworkView.Get());
   sFrameworkView->SetWidget(aPtr);
 }
@@ -195,6 +197,17 @@ MetroApp::PostSleepWakeNotification(const bool aIsSleep)
 
 } } }
 
+
+static bool
+IsBackgroundSessionClosedStartup()
+{
+  int argc;
+  LPWSTR *argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+  bool backgroundSessionClosed = argc > 1 && !wcsicmp(argv[1], L"-BackgroundSessionClosed");
+  LocalFree(argv);
+  return backgroundSessionClosed;
+}
+
 bool
 XRE_MetroCoreApplicationRun()
 {
@@ -218,12 +231,32 @@ XRE_MetroCoreApplicationRun()
     return false;
   }
 
+  // Perform any cleanup for unclean shutdowns here, such as when the background session
+  // is closed via the appbar on the left when outside of Metro.  Windows restarts the
+  // process solely for cleanup reasons.
+  if (IsBackgroundSessionClosedStartup() && SUCCEEDED(XRE_metroStartup(false))) {
+
+    // Whether or  not to use sessionstore depends on if the bak exists.  Since host process
+    // shutdown isn't a crash we shouldn't restore sessionstore.
+    nsCOMPtr<nsIFile> sessionBAK;
+    if (NS_FAILED(NS_GetSpecialDirectory("ProfDS", getter_AddRefs(sessionBAK)))) {
+      return false;
+    }
+
+    sessionBAK->AppendNative(nsDependentCString("sessionstore.bak"));
+    bool exists;
+    if (NS_SUCCEEDED(sessionBAK->Exists(&exists)) && exists) {
+      sessionBAK->Remove(false);
+    }
+    return false;
+  }
+
   sFrameworkView = Make<FrameworkView>(sMetroApp.Get());
-  sCoreApp->Run(sMetroApp.Get());
+  hr = sCoreApp->Run(sMetroApp.Get());
+  sFrameworkView = nullptr;
 
   Log(L"Exiting CoreApplication::Run");
 
-  sFrameworkView = nullptr;
   sCoreApp = nullptr;
   sMetroApp = nullptr;
 

@@ -2283,6 +2283,10 @@ toolbarbutton.bookmark-item[dragover="true"][open="true"] {
   list-style-image: url(chrome://browser/skin/webRTC-shareDevice-64.png);
 }
 
+.popup-notification-icon[popupid="pointerLock"] {
+  list-style-image: url(chrome://browser/skin/pointerLock-64.png);
+}
+
 /* Notification icon box */
 #notification-popup-box {
   position: relative;
@@ -2386,6 +2390,13 @@ toolbarbutton.bookmark-item[dragover="true"][open="true"] {
 
 #web-notifications-notification-icon {
   list-style-image: url(chrome://browser/skin/notification-16.png);
+}
+
+#pointerLock-notification-icon {
+  list-style-image: url(chrome://browser/skin/pointerLock-16.png);
+}
+#pointerLock-cancel {
+  margin: 0px;
 }
 
 #identity-popup-container {
@@ -2721,6 +2732,36 @@ toolbarbutton.bookmark-item[dragover="true"][open="true"] {
 .social-notification-container > .toolbarbutton-1[badge]:not([badge=""]):-moz-locale-dir(rtl)::after {
   left: 2px;
   right: auto;
+}
+
+.popup-notification-icon[popupid="servicesInstall"] {
+  list-style-image: url("chrome://global/skin/icons/information-64.png");
+}
+#servicesInstall-notification-icon {
+  list-style-image: url(chrome://global/skin/icons/information-16.png);
+}
+#social-undoactivation-button,
+#servicesInstall-learnmore-link {
+  -moz-margin-start: 0; /* override default label margin to match description margin */
+}
+
+#socialActivatedNotification .popup-notification-button-container {
+  margin-left: 6px;
+}
+
+.social-activation-icon {
+  width: auto;
+  height: auto;
+  max-height: 64px;
+  max-width: 64px;
+}
+
+#social-activation-message {
+  max-width: 250px;
+}
+
+#social-activation-message > label {
+  margin: 0;
 }
 
 /* social toolbar provider menu */

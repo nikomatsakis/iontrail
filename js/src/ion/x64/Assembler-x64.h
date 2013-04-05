@@ -357,6 +357,11 @@ class Assembler : public AssemblerX86Shared
         return masm.currentOffset();
     }
 
+    CodeOffsetLabel movWithPatch(const ImmWord &word, const Register &dest) {
+        movq(word, dest);
+        return masm.currentOffset();
+    }
+
     void movq(ImmWord word, const Register &dest) {
         masm.movq_i64r(word.value, dest.code());
     }
@@ -643,7 +648,13 @@ class Assembler : public AssemblerX86Shared
         CodeOffsetLabel offset(size());
         JmpSrc src = enabled ? masm.call() : masm.cmp_eax();
         addPendingJump(src, target->raw(), Relocation::IONCODE);
+        JS_ASSERT(size() - offset.offset() == ToggledCallSize());
         return offset;
+    }
+
+    static size_t ToggledCallSize() {
+        // Size of a call instruction.
+        return 5;
     }
 
     // Do not mask shared implementations.

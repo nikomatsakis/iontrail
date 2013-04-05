@@ -115,8 +115,14 @@ class IonCacheVisitor
 class IonCache
 {
   public:
+<<<<<<< HEAD
     class StubPatcher;
 
+||||||| merged common ancestors
+=======
+    class StubAttacher;
+
+>>>>>>> mozilla/master
     enum Kind {
 #   define DEFINE_CACHEKINDS(ickind) Cache_##ickind,
         IONCACHE_KIND_LIST(DEFINE_CACHEKINDS)
@@ -157,6 +163,7 @@ class IonCache
     JSScript *script;
     jsbytecode *pc;
 
+<<<<<<< HEAD
   private:
     static const size_t MAX_STUBS;
     void incrementStubCount() {
@@ -165,6 +172,51 @@ class IonCache
         JS_ASSERT(stubCount_);
     }
 
+||||||| merged common ancestors
+  private:
+    static const size_t MAX_STUBS;
+    void incrementStubCount() {
+        // The IC should stop generating stubs before wrapping stubCount.
+        stubCount_++;
+        JS_ASSERT(stubCount_);
+    }
+
+    CodeLocationLabel fallbackLabel() const {
+        return fallbackLabel_;
+    }
+    CodeLocationLabel rejoinLabel() const {
+        uint8_t *ptr = initialJump_.raw();
+#ifdef JS_CPU_ARM
+        uint32_t i = 0;
+        while (i < REJOIN_LABEL_OFFSET)
+            ptr = Assembler::nextInstruction(ptr, &i);
+#endif
+        return CodeLocationLabel(ptr);
+    }
+
+=======
+    CodeLocationLabel fallbackLabel() const {
+        return fallbackLabel_;
+    }
+    CodeLocationLabel rejoinLabel() const {
+        uint8_t *ptr = initialJump_.raw();
+#ifdef JS_CPU_ARM
+        uint32_t i = 0;
+        while (i < REJOIN_LABEL_OFFSET)
+            ptr = Assembler::nextInstruction(ptr, &i);
+#endif
+        return CodeLocationLabel(ptr);
+    }
+
+  private:
+    static const size_t MAX_STUBS;
+    void incrementStubCount() {
+        // The IC should stop generating stubs before wrapping stubCount.
+        stubCount_++;
+        JS_ASSERT(stubCount_);
+    }
+
+>>>>>>> mozilla/master
   public:
 
     IonCache()
@@ -212,10 +264,16 @@ class IonCache
                                      uint8_t **dispatchEntry, MacroAssembler &masm);
 
     // Reset the cache around garbage collection.
+<<<<<<< HEAD
     virtual void reset(uint8_t **stubEntry);
 
     // Destroy any extra resources the cache uses upon IonCode finalization.
     virtual void destroy() { }
+||||||| merged common ancestors
+    void reset();
+=======
+    virtual void reset();
+>>>>>>> mozilla/master
 
     bool canAttachStub() const {
         return stubCount_ < MAX_STUBS;
@@ -234,12 +292,28 @@ class IonCache
     LinkStatus linkCode(JSContext *cx, MacroAssembler &masm, IonScript *ion, IonCode **code);
     // Fixup variables and update jumps in the list of stubs.  Increment the
     // number of attached stubs accordingly.
+<<<<<<< HEAD
     void attachStub(MacroAssembler &masm, StubPatcher &patcher, IonCode *code);
+||||||| merged common ancestors
+    void attachStub(MacroAssembler &masm, IonCode *code, CodeOffsetJump &rejoinOffset,
+                    CodeOffsetJump *exitOffset, CodeOffsetLabel *stubOffset = NULL);
+=======
+    void attachStub(MacroAssembler &masm, StubAttacher &patcher, IonCode *code);
+>>>>>>> mozilla/master
 
     // Combine both linkStub and attachStub into one function. In addition, it
     // produces a spew augmented with the attachKind string.
+<<<<<<< HEAD
     bool linkAndAttachStub(JSContext *cx, MacroAssembler &masm, StubPatcher &patcher,
                            IonScript *ion, const char *attachKind);
+||||||| merged common ancestors
+    bool linkAndAttachStub(JSContext *cx, MacroAssembler &masm, IonScript *ion,
+                           const char *attachKind, CodeOffsetJump &rejoinOffset,
+                           CodeOffsetJump *exitOffset, CodeOffsetLabel *stubOffset = NULL);
+=======
+    bool linkAndAttachStub(JSContext *cx, MacroAssembler &masm, StubAttacher &patcher,
+                           IonScript *ion, const char *attachKind);
+>>>>>>> mozilla/master
 
     bool isAllocated() {
         return fallbackLabel_.isSet();
@@ -318,6 +392,8 @@ class GetPropertyIC : public IonCache
     }
 
     CACHE_HEADER(GetProperty)
+
+    void reset();
 
     Register object() const {
         return object_;
@@ -429,6 +505,8 @@ class GetElementIC : public IonCache
     }
 
     CACHE_HEADER(GetElement)
+
+    void reset();
 
     Register object() const {
         return object_;

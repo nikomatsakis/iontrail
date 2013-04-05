@@ -97,7 +97,7 @@ IonCache::LinkStatus
 IonCache::linkCode(JSContext *cx, MacroAssembler &masm, IonScript *ion, IonCode **code)
 {
     Linker linker(masm);
-    *code = linker.newCode(cx);
+    *code = linker.newCode(cx, JSC::ION_CODE);
     if (!code)
         return LINK_ERROR;
 
@@ -109,8 +109,65 @@ IonCache::linkCode(JSContext *cx, MacroAssembler &masm, IonScript *ion, IonCode 
 
 const size_t IonCache::MAX_STUBS = 16;
 
+<<<<<<< HEAD
 class IonCache::StubPatcher
+||||||| merged common ancestors
+// Value used instead of the IonCode self-reference of generated stubs. This
+// value is needed for marking calls made inside stubs. This value would be
+// replaced by the attachStub function after the allocation of the IonCode. The
+// self-reference is used to keep the stub path alive even if the IonScript is
+// invalidated or if the IC is flushed.
+const ImmWord STUB_ADDR = ImmWord(uintptr_t(0xdeadc0de));
+
+void
+IonCache::attachStub(MacroAssembler &masm, IonCode *code, CodeOffsetJump &rejoinOffset,
+                     CodeOffsetJump *exitOffset, CodeOffsetLabel *stubLabel)
+=======
+// Helper class which encapsulates logic to attach a stub to an IC by hooking
+// up rejoins and next stub jumps.
+//
+// The simplest stubs have a single jump to the next stub and look like the
+// following:
+//
+//    branch guard NEXTSTUB
+//    ... IC-specific code ...
+//    jump REJOIN
+//
+// This corresponds to:
+//
+//    attacher.branchNextStub(masm, ...);
+//    ... emit IC-specific code ...
+//    attacher.jumpRejoin(masm);
+//
+// Whether the stub needs multiple next stub jumps look like:
+//
+//   branch guard FAILURES
+//   ... IC-specific code ...
+//   branch another-guard FAILURES
+//   ... IC-specific code ...
+//   jump REJOIN
+//   FAILURES:
+//   jump NEXTSTUB
+//
+// This corresponds to:
+//
+//   Label failures;
+//   masm.branchX(..., &failures);
+//   ... emit IC-specific code ...
+//   masm.branchY(..., failures);
+//   ... emit more IC-specific code ...
+//   attacher.jumpRejoin(masm);
+//   masm.bind(&failures);
+//   attacher.jumpNextStub(masm);
+//
+// A convenience function |branchNextStubOrLabel| is provided in the case that
+// the stub sometimes has multiple next stub jumps and sometimes a single
+// one. If a non-NULL label is passed in, a |branchPtr| will be made to that
+// label instead of a |branchPtrWithPatch| to the next stub.
+class IonCache::StubAttacher
+>>>>>>> mozilla/master
 {
+<<<<<<< HEAD
   protected:
     bool hasExitOffset_ : 1;
     bool hasStubCodePatchOffset_ : 1;
@@ -146,6 +203,55 @@ class IonCache::StubPatcher
         exitOffset_ = masm.branchPtrWithPatch(cond, op1, op2, &failures_);
         hasExitOffset_ = true;
     }
+||||||| merged common ancestors
+    JS_ASSERT(canAttachStub());
+    incrementStubCount();
+=======
+  protected:
+    bool hasNextStubOffset_ : 1;
+    bool hasStubCodePatchOffset_ : 1;
+
+    CodeLocationLabel rejoinLabel_;
+    CodeOffsetJump nextStubOffset_;
+    CodeOffsetJump rejoinOffset_;
+    CodeOffsetLabel stubCodePatchOffset_;
+
+  public:
+    StubAttacher(CodeLocationLabel rejoinLabel)
+      : hasNextStubOffset_(false),
+        hasStubCodePatchOffset_(false),
+        rejoinLabel_(rejoinLabel),
+        nextStubOffset_(),
+        rejoinOffset_(),
+        stubCodePatchOffset_()
+    { }
+
+    // Value used instead of the IonCode self-reference of generated
+    // stubs. This value is needed for marking calls made inside stubs. This
+    // value would be replaced by the attachStub function after the allocation
+    // of the IonCode. The self-reference is used to keep the stub path alive
+    // even if the IonScript is invalidated or if the IC is flushed.
+    static const ImmWord STUB_ADDR;
+
+    template <class T1, class T2>
+    void branchNextStub(MacroAssembler &masm, Assembler::Condition cond, T1 op1, T2 op2) {
+        JS_ASSERT(!hasNextStubOffset_);
+        RepatchLabel nextStub;
+        nextStubOffset_ = masm.branchPtrWithPatch(cond, op1, op2, &nextStub);
+        hasNextStubOffset_ = true;
+        masm.bind(&nextStub);
+    }
+
+    template <class T1, class T2>
+    void branchNextStubOrLabel(MacroAssembler &masm, Assembler::Condition cond, T1 op1, T2 op2,
+                               Label *label)
+    {
+        if (label != NULL)
+            masm.branchPtr(cond, op1, op2, label);
+        else
+            branchNextStub(masm, cond, op1, op2);
+    }
+>>>>>>> mozilla/master
 
     void jumpRejoin(MacroAssembler &masm) {
         RepatchLabel rejoin;
@@ -153,17 +259,70 @@ class IonCache::StubPatcher
         masm.bind(&rejoin);
     }
 
+<<<<<<< HEAD
     void jumpExit(MacroAssembler &masm) {
         RepatchLabel exit;
         exitOffset_ = masm.jumpWithPatch(&exit);
         hasExitOffset_ = true;
         masm.bind(&exit);
     }
+||||||| merged common ancestors
+    // Update the success path to continue after the IC initial jump.
+    PatchJump(rejoinJump, rejoinLabel());
+=======
+    void jumpNextStub(MacroAssembler &masm) {
+        JS_ASSERT(!hasNextStubOffset_);
+        RepatchLabel nextStub;
+        nextStubOffset_ = masm.jumpWithPatch(&nextStub);
+        hasNextStubOffset_ = true;
+        masm.bind(&nextStub);
+    }
 
+    void pushStubCodePointer(MacroAssembler &masm) {
+        // Push the IonCode pointer for the stub we're generating.
+        // WARNING:
+        // WARNING: If IonCode ever becomes relocatable, the following code is incorrect.
+        // WARNING: Note that we're not marking the pointer being pushed as an ImmGCPtr.
+        // WARNING: This location will be patched with the pointer of the generated stub,
+        // WARNING: such as it can be marked when a call is made with this stub. Be aware
+        // WARNING: that ICs are not marked and so this stub will only be kept alive iff
+        // WARNING: it is on the stack at the time of the GC. No ImmGCPtr is needed as the
+        // WARNING: stubs are flushed on GC.
+        // WARNING:
+        JS_ASSERT(!hasStubCodePatchOffset_);
+        stubCodePatchOffset_ = masm.PushWithPatch(STUB_ADDR);
+        hasStubCodePatchOffset_ = true;
+    }
+
+    void patchRejoinJump(MacroAssembler &masm, IonCode *code) {
+        rejoinOffset_.fixup(&masm);
+        CodeLocationJump rejoinJump(code, rejoinOffset_);
+        PatchJump(rejoinJump, rejoinLabel_);
+    }
+
+    void patchStubCodePointer(MacroAssembler &masm, IonCode *code) {
+        if (hasStubCodePatchOffset_) {
+            stubCodePatchOffset_.fixup(&masm);
+            Assembler::patchDataWithValueCheck(CodeLocationLabel(code, stubCodePatchOffset_),
+                                               ImmWord(uintptr_t(code)), STUB_ADDR);
+        }
+    }
+>>>>>>> mozilla/master
+
+<<<<<<< HEAD
     void bindFailures(MacroAssembler &masm) {
         masm.bind(&failures_);
     }
+||||||| merged common ancestors
+    // Patch the previous exitJump of the last stub, or the jump from the
+    // codeGen, to jump into the newly allocated code.
+    PatchJump(lastJump_, CodeLocationLabel(code));
+=======
+    virtual void patchNextStubJump(MacroAssembler &masm, IonCode *code) = 0;
+};
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     void pushStubCodePatch(MacroAssembler &masm) {
         // Push the IonCode pointer for the stub we're generating.
         // WARNING:
@@ -194,9 +353,43 @@ class IonCache::StubPatcher
 
     virtual void patchExit(MacroAssembler &masm, IonCode *code) = 0;
 };
+||||||| merged common ancestors
+    // If this path is not taken, we are producing an entry which can no longer
+    // go back into the update function.
+    if (exitOffset) {
+        exitOffset->fixup(&masm);
+        CodeLocationJump exitJump(code, *exitOffset);
+=======
+const ImmWord IonCache::StubAttacher::STUB_ADDR = ImmWord(uintptr_t(0xdeadc0de));
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
 const ImmWord IonCache::StubPatcher::STUB_ADDR = ImmWord(uintptr_t(0xdeadc0de));
+||||||| merged common ancestors
+        // When the last stub fails, it fallback to the ool call which can
+        // produce a stub.
+        PatchJump(exitJump, fallbackLabel());
+=======
+// Repatch-style stubs are daisy chained in such a fashion that when
+// generating a new stub, the previous stub's nextStub jump is patched to the
+// entry of our new stub.
+class RepatchStubAppender : public IonCache::StubAttacher
+{
+    CodeLocationLabel nextStubLabel_;
+    CodeLocationJump *lastJump_;
 
+  public:
+    RepatchStubAppender(CodeLocationLabel rejoinLabel, CodeLocationLabel nextStubLabel,
+                        CodeLocationJump *lastJump)
+      : StubAttacher(rejoinLabel),
+        nextStubLabel_(nextStubLabel),
+        lastJump_(lastJump)
+    {
+        JS_ASSERT(lastJump);
+    }
+>>>>>>> mozilla/master
+
+<<<<<<< HEAD
 // Repatch-style stubs are daisy chained in such a fashion that when
 // generating a new stub, the previous stub's exit jump is patched to the
 // entry of our new stub.
@@ -213,7 +406,43 @@ class RepatchStubPatcher : public IonCache::StubPatcher
         lastJump_(lastJump)
     {
         JS_ASSERT(lastJump);
+||||||| merged common ancestors
+        // Next time we generate a stub, we will patch the exitJump to try the
+        // new stub.
+        lastJump_ = exitJump;
+=======
+    void patchNextStubJump(MacroAssembler &masm, IonCode *code) {
+        // Patch the previous nextStubJump of the last stub, or the jump from the
+        // codeGen, to jump into the newly allocated code.
+        PatchJump(*lastJump_, CodeLocationLabel(code));
+
+        // If this path is not taken, we are producing an entry which can no
+        // longer go back into the update function.
+        if (hasNextStubOffset_) {
+            nextStubOffset_.fixup(&masm);
+            CodeLocationJump nextStubJump(code, nextStubOffset_);
+            PatchJump(nextStubJump, nextStubLabel_);
+
+            // When the last stub fails, it fallback to the ool call which can
+            // produce a stub. Next time we generate a stub, we will patch the
+            // nextStub jump to try the new stub.
+            *lastJump_ = nextStubJump;
+        }
+>>>>>>> mozilla/master
     }
+};
+
+void
+IonCache::attachStub(MacroAssembler &masm, StubAttacher &attacher, IonCode *code)
+{
+    JS_ASSERT(canAttachStub());
+    incrementStubCount();
+
+    // Update the success path to continue after the IC initial jump.
+    attacher.patchRejoinJump(masm, code);
+
+    // Update the failure path.
+    attacher.patchNextStubJump(masm, code);
 
     void patchExit(MacroAssembler &masm, IonCode *code) {
         // Patch the previous exitJump of the last stub, or the jump from the
@@ -291,19 +520,44 @@ IonCache::attachStub(MacroAssembler &masm, StubPatcher &patcher, IonCode *code)
     // Replace the STUB_ADDR constant by the address of the generated stub, such
     // as it can be kept alive even if the cache is flushed (see
     // MarkIonExitFrame).
+<<<<<<< HEAD
     patcher.patchStubCode(masm, code);
+||||||| merged common ancestors
+    if (stubLabel) {
+        stubLabel->fixup(&masm);
+        Assembler::patchDataWithValueCheck(CodeLocationLabel(code, *stubLabel),
+                                           ImmWord(uintptr_t(code)), STUB_ADDR);
+    }
+=======
+    attacher.patchStubCodePointer(masm, code);
+>>>>>>> mozilla/master
 }
 
 bool
+<<<<<<< HEAD
 IonCache::linkAndAttachStub(JSContext *cx, MacroAssembler &masm, StubPatcher &patcher,
                             IonScript *ion, const char *attachKind)
+||||||| merged common ancestors
+IonCache::linkAndAttachStub(JSContext *cx, MacroAssembler &masm, IonScript *ion,
+                            const char *attachKind, CodeOffsetJump &rejoinOffset,
+                            CodeOffsetJump *exitOffset, CodeOffsetLabel *stubLabel)
+=======
+IonCache::linkAndAttachStub(JSContext *cx, MacroAssembler &masm, StubAttacher &attacher,
+                            IonScript *ion, const char *attachKind)
+>>>>>>> mozilla/master
 {
     IonCode *code = NULL;
     LinkStatus status = linkCode(cx, masm, ion, &code);
     if (status != LINK_GOOD)
         return status != LINK_ERROR;
 
+<<<<<<< HEAD
     attachStub(masm, patcher, code);
+||||||| merged common ancestors
+    attachStub(masm, code, rejoinOffset, exitOffset, stubLabel);
+=======
+    attachStub(masm, attacher, code);
+>>>>>>> mozilla/master
 
     IonSpew(IonSpew_InlineCaches, "Generated %s %s stub at %p",
             attachKind, CacheName(kind()), code->raw());
@@ -464,11 +718,20 @@ IsCacheableGetPropCallPropertyOp(JSObject *obj, JSObject *holder, RawShape shape
     return true;
 }
 
+<<<<<<< HEAD
 static void
 GenerateReadSlot(JSContext *cx, MacroAssembler &masm, IonCache::StubPatcher &patcher,
                  JSObject *obj, JSObject *holder, Shape *shape, Register object,
                  TypedOrValueRegister output, Label *nonRepatchFailures = NULL)
+||||||| merged common ancestors
+struct GetNativePropertyStub
+=======
+static inline void
+EmitLoadSlot(MacroAssembler &masm, JSObject *holder, Shape *shape, Register holderReg,
+             TypedOrValueRegister output, Register scratchReg)
+>>>>>>> mozilla/master
 {
+<<<<<<< HEAD
     // If there's a single jump to |failures|, we can patch the shape guard
     // jump directly. Otherwise, jump to the end of the stub, so there's a
     // common point to patch.
@@ -497,7 +760,57 @@ GenerateReadSlot(JSContext *cx, MacroAssembler &masm, IonCache::StubPatcher &pat
             scratchReg = output.typedReg().gpr();
         }
     }
+||||||| merged common ancestors
+    CodeOffsetJump exitOffset;
+    CodeOffsetJump rejoinOffset;
+    CodeOffsetLabel stubCodePatchOffset;
 
+    void generateReadSlot(JSContext *cx, MacroAssembler &masm, JSObject *obj, PropertyName *propName,
+                          JSObject *holder, HandleShape shape, Register object, TypedOrValueRegister output,
+                          RepatchLabel *failures, Label *nonRepatchFailures = NULL)
+    {
+        // If there's a single jump to |failures|, we can patch the shape guard
+        // jump directly. Otherwise, jump to the end of the stub, so there's a
+        // common point to patch.
+        bool multipleFailureJumps = (nonRepatchFailures != NULL) && nonRepatchFailures->used();
+        exitOffset = masm.branchPtrWithPatch(Assembler::NotEqual,
+                                             Address(object, JSObject::offsetOfShape()),
+                                             ImmGCPtr(obj->lastProperty()),
+                                             failures);
+
+        bool restoreScratch = false;
+        Register scratchReg = Register::FromCode(0); // Quell compiler warning.
+
+        // If we need a scratch register, use either an output register or the object
+        // register (and restore it afterwards). After this point, we cannot jump
+        // directly to |failures| since we may still have to pop the object register.
+        Label prototypeFailures;
+        if (obj != holder || !holder->isFixedSlot(shape->slot())) {
+            if (output.hasValue()) {
+                scratchReg = output.valueReg().scratchReg();
+            } else if (output.type() == MIRType_Double) {
+                scratchReg = object;
+                masm.push(scratchReg);
+                restoreScratch = true;
+            } else {
+                scratchReg = output.typedReg().gpr();
+            }
+        }
+=======
+    JS_ASSERT(holder);
+    if (holder->isFixedSlot(shape->slot())) {
+        Address addr(holderReg, JSObject::getFixedSlotOffset(shape->slot()));
+        masm.loadTypedOrValue(addr, output);
+    } else {
+        masm.loadPtr(Address(holderReg, JSObject::offsetOfSlots()), scratchReg);
+
+        Address addr(scratchReg, holder->dynamicSlotIndex(shape->slot()) * sizeof(Value));
+        masm.loadTypedOrValue(addr, output);
+    }
+}
+>>>>>>> mozilla/master
+
+<<<<<<< HEAD
     // Generate prototype guards.
     Register holderReg;
     if (obj != holder) {
@@ -530,7 +843,97 @@ GenerateReadSlot(JSContext *cx, MacroAssembler &masm, IonCache::StubPatcher &pat
                                Address(scratchReg, JSObject::offsetOfShape()),
                                ImmGCPtr(proto->lastProperty()),
                                &prototypeFailures);
+||||||| merged common ancestors
+        // Generate prototype guards.
+        Register holderReg;
+        if (obj != holder) {
+            // Note: this may clobber the object register if it's used as scratch.
+            GeneratePrototypeGuards(cx, masm, obj, holder, object, scratchReg, &prototypeFailures);
 
+            if (holder) {
+                // Guard on the holder's shape.
+                holderReg = scratchReg;
+                masm.movePtr(ImmGCPtr(holder), holderReg);
+                masm.branchPtr(Assembler::NotEqual,
+                               Address(holderReg, JSObject::offsetOfShape()),
+                               ImmGCPtr(holder->lastProperty()),
+                               &prototypeFailures);
+            } else {
+                // The property does not exist. Guard on everything in the
+                // prototype chain.
+                JSObject *proto = obj->getTaggedProto().toObjectOrNull();
+                Register lastReg = object;
+                JS_ASSERT(scratchReg != object);
+                while (proto) {
+                    Address addrType(lastReg, JSObject::offsetOfType());
+                    masm.loadPtr(addrType, scratchReg);
+                    Address addrProto(scratchReg, offsetof(types::TypeObject, proto));
+                    masm.loadPtr(addrProto, scratchReg);
+                    Address addrShape(scratchReg, JSObject::offsetOfShape());
+
+                    // Guard the shape of the current prototype.
+                    masm.branchPtr(Assembler::NotEqual,
+                                   Address(scratchReg, JSObject::offsetOfShape()),
+                                   ImmGCPtr(proto->lastProperty()),
+                                   &prototypeFailures);
+
+                    proto = proto->getProto();
+                    lastReg = scratchReg;
+                }
+=======
+static void
+GenerateListBaseChecks(JSContext *cx, MacroAssembler &masm, JSObject *obj,
+                       PropertyName *name, Register object, Label *stubFailure)
+{
+    MOZ_ASSERT(IsCacheableListBase(obj));
+
+    // Guard the following:
+    //      1. The object is a ListBase.
+    //      2. The object does not have expando properties, or has an expando
+    //          which is known to not have the desired property.
+    Address handlerAddr(object, JSObject::getFixedSlotOffset(JSSLOT_PROXY_HANDLER));
+    Address expandoAddr(object, JSObject::getFixedSlotOffset(GetListBaseExpandoSlot()));
+
+    // Check that object is a ListBase.
+    masm.branchPrivatePtr(Assembler::NotEqual, handlerAddr, ImmWord(GetProxyHandler(obj)), stubFailure);
+
+    // For the remaining code, we need to reserve some registers to load a value.
+    // This is ugly, but unvaoidable.
+    RegisterSet listBaseRegSet(RegisterSet::All());
+    listBaseRegSet.take(AnyRegister(object));
+    ValueOperand tempVal = listBaseRegSet.takeValueOperand();
+    masm.pushValue(tempVal);
+
+    Label failListBaseCheck;
+    Label listBaseOk;
+
+    masm.loadValue(expandoAddr, tempVal);
+
+    // If the incoming object does not have an expando object then we're sure we're not
+    // shadowing.
+    masm.branchTestUndefined(Assembler::Equal, tempVal, &listBaseOk);
+
+    Value expandoVal = obj->getFixedSlot(GetListBaseExpandoSlot());
+    if (expandoVal.isObject()) {
+        JS_ASSERT(!expandoVal.toObject().nativeContains(cx, name));
+
+        // Reference object has an expando object that doesn't define the name. Check that
+        // the incoming object has an expando object with the same shape.
+        masm.branchTestObject(Assembler::NotEqual, tempVal, &failListBaseCheck);
+        masm.extractObject(tempVal, tempVal.scratchReg());
+        masm.branchPtr(Assembler::Equal,
+                       Address(tempVal.scratchReg(), JSObject::offsetOfShape()),
+                       ImmGCPtr(expandoVal.toObject().lastProperty()),
+                       &listBaseOk);
+    }
+
+    // Failure case: restore the tempVal registers and jump to failures.
+    masm.bind(&failListBaseCheck);
+    masm.popValue(tempVal);
+    masm.jump(stubFailure);
+>>>>>>> mozilla/master
+
+<<<<<<< HEAD
                 proto = proto->getProto();
                 lastReg = scratchReg;
             }
@@ -540,14 +943,65 @@ GenerateReadSlot(JSContext *cx, MacroAssembler &masm, IonCache::StubPatcher &pat
     } else {
         holderReg = object;
     }
+||||||| merged common ancestors
+                holderReg = InvalidReg;
+            }
+        } else {
+            holderReg = object;
+        }
+=======
+    // Success case: restore the tempval and proceed.
+    masm.bind(&listBaseOk);
+    masm.popValue(tempVal);
+}
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     // Slot access.
     if (holder && holder->isFixedSlot(shape->slot())) {
         Address addr(holderReg, JSObject::getFixedSlotOffset(shape->slot()));
         masm.loadTypedOrValue(addr, output);
     } else if (holder) {
         masm.loadPtr(Address(holderReg, JSObject::offsetOfSlots()), scratchReg);
+||||||| merged common ancestors
+        // Slot access.
+        if (holder && holder->isFixedSlot(shape->slot())) {
+            Address addr(holderReg, JSObject::getFixedSlotOffset(shape->slot()));
+            masm.loadTypedOrValue(addr, output);
+        } else if (holder) {
+            masm.loadPtr(Address(holderReg, JSObject::offsetOfSlots()), scratchReg);
+=======
+static void
+GenerateReadSlot(JSContext *cx, MacroAssembler &masm, IonCache::StubAttacher &attacher,
+                 JSObject *obj, PropertyName *name, JSObject *holder, Shape *shape,
+                 Register object, TypedOrValueRegister output, Label *failures = NULL)
+{
+    // If there's a single jump to |failures|, we can patch the shape guard
+    // jump directly. Otherwise, jump to the end of the stub, so there's a
+    // common point to patch.
+    bool multipleFailureJumps = (obj != holder) || (failures != NULL && failures->used());
 
+    // If we have multiple failure jumps but didn't get a label from the
+    // outside, make one ourselves.
+    Label failures_;
+    if (multipleFailureJumps && !failures)
+        failures = &failures_;
+
+    // Guard on the shape of the object.
+    attacher.branchNextStubOrLabel(masm, Assembler::NotEqual,
+                                   Address(object, JSObject::offsetOfShape()),
+                                   ImmGCPtr(obj->lastProperty()),
+                                   failures);
+
+    bool isCacheableListBase = IsCacheableListBase(obj);
+    Label listBaseFailures;
+    if (isCacheableListBase) {
+        JS_ASSERT(multipleFailureJumps);
+        GenerateListBaseChecks(cx, masm, obj, name, object, &listBaseFailures);
+    }
+>>>>>>> mozilla/master
+
+<<<<<<< HEAD
         Address addr(scratchReg, holder->dynamicSlotIndex(shape->slot()) * sizeof(Value));
         masm.loadTypedOrValue(addr, output);
     } else {
@@ -559,11 +1013,45 @@ GenerateReadSlot(JSContext *cx, MacroAssembler &masm, IonCache::StubPatcher &pat
         masm.pop(scratchReg);
 
     patcher.jumpRejoin(masm);
+||||||| merged common ancestors
+            Address addr(scratchReg, holder->dynamicSlotIndex(shape->slot()) * sizeof(Value));
+            masm.loadTypedOrValue(addr, output);
+        } else {
+            JS_ASSERT(!holder);
+            masm.moveValue(UndefinedValue(), output.valueReg());
+        }
+=======
+    // If we need a scratch register, use either an output register or the
+    // object register. After this point, we cannot jump directly to
+    // |failures| since we may still have to pop the object register.
+    bool restoreScratch = false;
+    Register scratchReg = Register::FromCode(0); // Quell compiler warning.
 
+    if (obj != holder || !holder->isFixedSlot(shape->slot())) {
+        if (output.hasValue()) {
+            scratchReg = output.valueReg().scratchReg();
+        } else if (output.type() == MIRType_Double) {
+            scratchReg = object;
+            masm.push(scratchReg);
+            restoreScratch = true;
+        } else {
+            scratchReg = output.typedReg().gpr();
+        }
+    }
+>>>>>>> mozilla/master
+
+<<<<<<< HEAD
     if (obj != holder || multipleFailureJumps) {
         masm.bind(&prototypeFailures);
+||||||| merged common ancestors
+=======
+    // Fast path: single failure jump, no prototype guards.
+    if (!multipleFailureJumps) {
+        EmitLoadSlot(masm, holder, shape, object, output, scratchReg);
+>>>>>>> mozilla/master
         if (restoreScratch)
             masm.pop(scratchReg);
+<<<<<<< HEAD
         patcher.bindFailures(masm);
         if (multipleFailureJumps)
             masm.bind(nonRepatchFailures);
@@ -572,7 +1060,14 @@ GenerateReadSlot(JSContext *cx, MacroAssembler &masm, IonCache::StubPatcher &pat
         patcher.bindFailures(masm);
     }
 }
+||||||| merged common ancestors
+=======
+        attacher.jumpRejoin(masm);
+        return;
+    }
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
 static bool
 GenerateCallGetter(JSContext *cx, MacroAssembler &masm, IonCache::StubPatcher &patcher,
                    JSObject *obj, PropertyName *name, JSObject *holder, HandleShape shape,
@@ -624,29 +1119,204 @@ GenerateCallGetter(JSContext *cx, MacroAssembler &masm, IonCache::StubPatcher &p
                            Address(tempVal.scratchReg(), JSObject::offsetOfShape()),
                            ImmGCPtr(expando->lastProperty()),
                            &listBaseOk);
+||||||| merged common ancestors
+        RepatchLabel rejoin_;
+        rejoinOffset = masm.jumpWithPatch(&rejoin_);
+        masm.bind(&rejoin_);
+
+        if (obj != holder || multipleFailureJumps) {
+            masm.bind(&prototypeFailures);
+            if (restoreScratch)
+                masm.pop(scratchReg);
+            masm.bind(failures);
+            if (multipleFailureJumps)
+                masm.bind(nonRepatchFailures);
+            RepatchLabel exit_;
+            exitOffset = masm.jumpWithPatch(&exit_);
+            masm.bind(&exit_);
+=======
+    // Slow path: multiple jumps; generate prototype guards.
+    Label prototypeFailures;
+    Register holderReg;
+    if (obj != holder) {
+        // Note: this may clobber the object register if it's used as scratch.
+        GeneratePrototypeGuards(cx, masm, obj, holder, object, scratchReg,
+                                failures);
+
+        if (holder) {
+            // Guard on the holder's shape.
+            holderReg = scratchReg;
+            masm.movePtr(ImmGCPtr(holder), holderReg);
+            masm.branchPtr(Assembler::NotEqual,
+                           Address(holderReg, JSObject::offsetOfShape()),
+                           ImmGCPtr(holder->lastProperty()),
+                           &prototypeFailures);
+>>>>>>> mozilla/master
         } else {
+<<<<<<< HEAD
             // Reference object has no expando.  Check incoming object and ensure
             // it has no expando.
             masm.branchTestUndefined(Assembler::Equal, tempVal, &listBaseOk);
-        }
+||||||| merged common ancestors
+            masm.bind(failures);
+=======
+            // The property does not exist. Guard on everything in the
+            // prototype chain.
+            JSObject *proto = obj->getTaggedProto().toObjectOrNull();
+            Register lastReg = object;
+            JS_ASSERT(scratchReg != object);
+            while (proto) {
+                Address addrType(lastReg, JSObject::offsetOfType());
+                masm.loadPtr(addrType, scratchReg);
+                Address addrProto(scratchReg, offsetof(types::TypeObject, proto));
+                masm.loadPtr(addrProto, scratchReg);
+                Address addrShape(scratchReg, JSObject::offsetOfShape());
 
+                // Guard the shape of the current prototype.
+                masm.branchPtr(Assembler::NotEqual,
+                               Address(scratchReg, JSObject::offsetOfShape()),
+                               ImmGCPtr(proto->lastProperty()),
+                               &prototypeFailures);
+
+                proto = proto->getProto();
+                lastReg = scratchReg;
+            }
+
+            holderReg = InvalidReg;
+>>>>>>> mozilla/master
+        }
+<<<<<<< HEAD
+||||||| merged common ancestors
+    }
+=======
+    } else {
+        holderReg = object;
+    }
+>>>>>>> mozilla/master
+
+<<<<<<< HEAD
         // Failure case: restore the tempVal registers and jump to failures.
         masm.bind(&failListBaseCheck);
         masm.popValue(tempVal);
         masm.jump(&stubFailure);
+||||||| merged common ancestors
+    bool generateCallGetter(JSContext *cx, MacroAssembler &masm, JSObject *obj,
+                            PropertyName *propName, JSObject *holder, HandleShape shape,
+                            RegisterSet &liveRegs, Register object, TypedOrValueRegister output,
+                            void *returnAddr, jsbytecode *pc,
+                            RepatchLabel *failures, Label *nonRepatchFailures = NULL)
+    {
+        // Initial shape check.
+        Label stubFailure;
+        masm.branchPtr(Assembler::NotEqual, Address(object, JSObject::offsetOfShape()),
+                       ImmGCPtr(obj->lastProperty()), &stubFailure);
 
+        // If this is a stub for a ListBase object, guard the following:
+        //      1. The object is a ListBase.
+        //      2. The object does not have expando properties, or has an expando
+        //          which is known to not have the desired property.
+        if (IsCacheableListBase(obj)) {
+            Address handlerAddr(object, JSObject::getFixedSlotOffset(JSSLOT_PROXY_HANDLER));
+            Address expandoAddr(object, JSObject::getFixedSlotOffset(GetListBaseExpandoSlot()));
+
+            // Check that object is a ListBase.
+            masm.branchPrivatePtr(Assembler::NotEqual, handlerAddr, ImmWord(GetProxyHandler(obj)), &stubFailure);
+
+            // For the remaining code, we need to reserve some registers to load a value.
+            // This is ugly, but unvaoidable.
+            RegisterSet listBaseRegSet(RegisterSet::All());
+            listBaseRegSet.take(AnyRegister(object));
+            ValueOperand tempVal = listBaseRegSet.takeValueOperand();
+            masm.pushValue(tempVal);
+
+            Label failListBaseCheck;
+            Label listBaseOk;
+
+            Value expandoVal = obj->getFixedSlot(GetListBaseExpandoSlot());
+            JSObject *expando = expandoVal.isObject() ? &(expandoVal.toObject()) : NULL;
+            JS_ASSERT_IF(expando, expando->isNative() && expando->getProto() == NULL);
+
+            masm.loadValue(expandoAddr, tempVal);
+            if (expando && expando->nativeLookup(cx, propName)) {
+                // Reference object has an expando that doesn't define the name.
+                // Check incoming object's expando and make sure it's an object.
+
+                // If checkExpando is true, we'll temporarily use register(s) for a ValueOperand.
+                // If we do that, we save the register(s) on stack before use and pop them
+                // on both exit paths.
+
+                masm.branchTestObject(Assembler::NotEqual, tempVal, &failListBaseCheck);
+                masm.extractObject(tempVal, tempVal.scratchReg());
+                masm.branchPtr(Assembler::Equal,
+                               Address(tempVal.scratchReg(), JSObject::offsetOfShape()),
+                               ImmGCPtr(expando->lastProperty()),
+                               &listBaseOk);
+            } else {
+                // Reference object has no expando.  Check incoming object and ensure
+                // it has no expando.
+                masm.branchTestUndefined(Assembler::Equal, tempVal, &listBaseOk);
+            }
+
+            // Failure case: restore the tempVal registers and jump to failures.
+            masm.bind(&failListBaseCheck);
+            masm.popValue(tempVal);
+            masm.jump(&stubFailure);
+=======
+    // Slot access.
+    if (holder)
+        EmitLoadSlot(masm, holder, shape, holderReg, output, scratchReg);
+    else
+        masm.moveValue(UndefinedValue(), output.valueReg());
+
+    // Restore scratch on success.
+    if (restoreScratch)
+        masm.pop(scratchReg);
+>>>>>>> mozilla/master
+
+<<<<<<< HEAD
         // Success case: restore the tempval and proceed.
         masm.bind(&listBaseOk);
         masm.popValue(tempVal);
     }
+||||||| merged common ancestors
+            // Success case: restore the tempval and proceed.
+            masm.bind(&listBaseOk);
+            masm.popValue(tempVal);
+        }
+=======
+    attacher.jumpRejoin(masm);
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     JS_ASSERT(output.hasValue());
     Register scratchReg = output.valueReg().scratchReg();
+||||||| merged common ancestors
+        JS_ASSERT(output.hasValue());
+        Register scratchReg = output.valueReg().scratchReg();
+=======
+    if (multipleFailureJumps) {
+        masm.bind(&prototypeFailures);
+        if (restoreScratch)
+            masm.pop(scratchReg);
+        if (isCacheableListBase)
+            masm.bind(&listBaseFailures);
+        masm.bind(failures);
+    }
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     // Note: this may clobber the object register if it's used as scratch.
     if (obj != holder)
         GeneratePrototypeGuards(cx, masm, obj, holder, object, scratchReg, &stubFailure);
+||||||| merged common ancestors
+        // Note: this may clobber the object register if it's used as scratch.
+        if (obj != holder)
+            GeneratePrototypeGuards(cx, masm, obj, holder, object, scratchReg, &stubFailure);
+=======
+    attacher.jumpNextStub(masm);
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     // Guard on the holder's shape.
     Register holderReg = scratchReg;
     masm.movePtr(ImmGCPtr(holder), holderReg);
@@ -654,17 +1324,64 @@ GenerateCallGetter(JSContext *cx, MacroAssembler &masm, IonCache::StubPatcher &p
                    Address(holderReg, JSObject::offsetOfShape()),
                    ImmGCPtr(holder->lastProperty()),
                    &stubFailure);
+||||||| merged common ancestors
+        // Guard on the holder's shape.
+        Register holderReg = scratchReg;
+        masm.movePtr(ImmGCPtr(holder), holderReg);
+        masm.branchPtr(Assembler::NotEqual,
+                       Address(holderReg, JSObject::offsetOfShape()),
+                       ImmGCPtr(holder->lastProperty()),
+                       &stubFailure);
+=======
+    if (restoreScratch)
+        masm.pop(scratchReg);
+}
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     // Now we're good to go to invoke the native call.
+||||||| merged common ancestors
+        // Now we're good to go to invoke the native call.
+=======
+static bool
+GenerateCallGetter(JSContext *cx, MacroAssembler &masm, IonCache::StubAttacher &attacher,
+                   JSObject *obj, PropertyName *name, JSObject *holder, HandleShape shape,
+                   RegisterSet &liveRegs, Register object, TypedOrValueRegister output,
+                   void *returnAddr, jsbytecode *pc)
+{
+    // Initial shape check.
+    Label stubFailure;
+    masm.branchPtr(Assembler::NotEqual, Address(object, JSObject::offsetOfShape()),
+                   ImmGCPtr(obj->lastProperty()), &stubFailure);
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     // saveLive()
     masm.PushRegsInMask(liveRegs);
+||||||| merged common ancestors
+        // saveLive()
+        masm.PushRegsInMask(liveRegs);
+=======
+    if (IsCacheableListBase(obj))
+        GenerateListBaseChecks(cx, masm, obj, name, object, &stubFailure);
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     // Remaining registers should basically be free, but we need to use |object| still
     // so leave it alone.
     RegisterSet regSet(RegisterSet::All());
     regSet.take(AnyRegister(object));
+||||||| merged common ancestors
+        // Remaining registers should basically be free, but we need to use |object| still
+        // so leave it alone.
+        RegisterSet regSet(RegisterSet::All());
+        regSet.take(AnyRegister(object));
+=======
+    JS_ASSERT(output.hasValue());
+    Register scratchReg = output.valueReg().scratchReg();
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     // This is a slower stub path, and we're going to be doing a call anyway.  Don't need
     // to try so hard to not use the stack.  Scratch regs are just taken from the register
     // set not including the input, current value saved on the stack, and restored when
@@ -673,42 +1390,157 @@ GenerateCallGetter(JSContext *cx, MacroAssembler &masm, IonCache::StubPatcher &p
     Register argJSContextReg = regSet.takeGeneral();
     Register argUintNReg     = regSet.takeGeneral();
     Register argVpReg        = regSet.takeGeneral();
+||||||| merged common ancestors
+        // This is a slower stub path, and we're going to be doing a call anyway.  Don't need
+        // to try so hard to not use the stack.  Scratch regs are just taken from the register
+        // set not including the input, current value saved on the stack, and restored when
+        // we're done with it.
+        scratchReg               = regSet.takeGeneral();
+        Register argJSContextReg = regSet.takeGeneral();
+        Register argUintNReg     = regSet.takeGeneral();
+        Register argVpReg        = regSet.takeGeneral();
+=======
+    // Note: this may clobber the object register if it's used as scratch.
+    if (obj != holder)
+        GeneratePrototypeGuards(cx, masm, obj, holder, object, scratchReg, &stubFailure);
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     // Shape has a getter function.
     bool callNative = IsCacheableGetPropCallNative(obj, holder, shape);
     JS_ASSERT_IF(!callNative, IsCacheableGetPropCallPropertyOp(obj, holder, shape));
+||||||| merged common ancestors
+        // Shape has a getter function.
+        bool callNative = IsCacheableGetPropCallNative(obj, holder, shape);
+        JS_ASSERT_IF(!callNative, IsCacheableGetPropCallPropertyOp(obj, holder, shape));
+=======
+    // Guard on the holder's shape.
+    Register holderReg = scratchReg;
+    masm.movePtr(ImmGCPtr(holder), holderReg);
+    masm.branchPtr(Assembler::NotEqual,
+                   Address(holderReg, JSObject::offsetOfShape()),
+                   ImmGCPtr(holder->lastProperty()),
+                   &stubFailure);
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     // TODO: ensure stack is aligned?
     DebugOnly<uint32_t> initialStack = masm.framePushed();
+||||||| merged common ancestors
+        // TODO: ensure stack is aligned?
+        DebugOnly<uint32_t> initialStack = masm.framePushed();
+=======
+    // Now we're good to go to invoke the native call.
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     Label success, exception;
+||||||| merged common ancestors
+        Label success, exception;
+=======
+    // saveLive()
+    masm.PushRegsInMask(liveRegs);
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     patcher.pushStubCodePatch(masm);
+||||||| merged common ancestors
+        // Push the IonCode pointer for the stub we're generating.
+        // WARNING:
+        // WARNING: If IonCode ever becomes relocatable, the following code is incorrect.
+        // WARNING: Note that we're not marking the pointer being pushed as an ImmGCPtr.
+        // WARNING: This is not a marking issue since the stub IonCode won't be collected
+        // WARNING: between the time it's called and when we get here, but it would fail
+        // WARNING: if the IonCode object ever moved, since we'd be rooting a nonsense
+        // WARNING: value here.
+        // WARNING:
+        stubCodePatchOffset = masm.PushWithPatch(STUB_ADDR);
+=======
+    // Remaining registers should basically be free, but we need to use |object| still
+    // so leave it alone.
+    RegisterSet regSet(RegisterSet::All());
+    regSet.take(AnyRegister(object));
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     if (callNative) {
         JS_ASSERT(shape->hasGetterValue() && shape->getterValue().isObject() &&
                   shape->getterValue().toObject().isFunction());
         JSFunction *target = shape->getterValue().toObject().toFunction();
+||||||| merged common ancestors
+        if (callNative) {
+            JS_ASSERT(shape->hasGetterValue() && shape->getterValue().isObject() &&
+                      shape->getterValue().toObject().isFunction());
+            JSFunction *target = shape->getterValue().toObject().toFunction();
+=======
+    // This is a slower stub path, and we're going to be doing a call anyway.  Don't need
+    // to try so hard to not use the stack.  Scratch regs are just taken from the register
+    // set not including the input, current value saved on the stack, and restored when
+    // we're done with it.
+    scratchReg               = regSet.takeGeneral();
+    Register argJSContextReg = regSet.takeGeneral();
+    Register argUintNReg     = regSet.takeGeneral();
+    Register argVpReg        = regSet.takeGeneral();
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
         JS_ASSERT(target);
         JS_ASSERT(target->isNative());
+||||||| merged common ancestors
+            JS_ASSERT(target);
+            JS_ASSERT(target->isNative());
+=======
+    // Shape has a getter function.
+    bool callNative = IsCacheableGetPropCallNative(obj, holder, shape);
+    JS_ASSERT_IF(!callNative, IsCacheableGetPropCallPropertyOp(obj, holder, shape));
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
         // Native functions have the signature:
         //  bool (*)(JSContext *, unsigned, Value *vp)
         // Where vp[0] is space for an outparam, vp[1] is |this|, and vp[2] onward
         // are the function arguments.
+||||||| merged common ancestors
+            // Native functions have the signature:
+            //  bool (*)(JSContext *, unsigned, Value *vp)
+            // Where vp[0] is space for an outparam, vp[1] is |this|, and vp[2] onward
+            // are the function arguments.
+=======
+    // TODO: ensure stack is aligned?
+    DebugOnly<uint32_t> initialStack = masm.framePushed();
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
         // Construct vp array:
         // Push object value for |this|
         masm.Push(TypedOrValueRegister(MIRType_Object, AnyRegister(object)));
         // Push callee/outparam.
         masm.Push(ObjectValue(*target));
+||||||| merged common ancestors
+            // Construct vp array:
+            // Push object value for |this|
+            masm.Push(TypedOrValueRegister(MIRType_Object, AnyRegister(object)));
+            // Push callee/outparam.
+            masm.Push(ObjectValue(*target));
+=======
+    Label success, exception;
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
         // Preload arguments into registers.
         masm.loadJSContext(argJSContextReg);
         masm.move32(Imm32(0), argUintNReg);
         masm.movePtr(StackPointer, argVpReg);
+||||||| merged common ancestors
+            // Preload arguments into registers.
+            masm.loadJSContext(argJSContextReg);
+            masm.move32(Imm32(0), argUintNReg);
+            masm.movePtr(StackPointer, argVpReg);
+=======
+    attacher.pushStubCodePointer(masm);
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
         if (!masm.buildOOLFakeExitFrame(returnAddr))
             return false;
         masm.enterFakeExitFrame(ION_FRAME_OOL_NATIVE_GETTER);
@@ -730,27 +1562,127 @@ GenerateCallGetter(JSContext *cx, MacroAssembler &masm, IonCache::StubPatcher &p
     } else {
         Register argObjReg       = argUintNReg;
         Register argIdReg        = regSet.takeGeneral();
+||||||| merged common ancestors
+            if (!masm.buildOOLFakeExitFrame(returnAddr))
+                return false;
+            masm.enterFakeExitFrame(ION_FRAME_OOL_NATIVE_GETTER);
 
+            // Construct and execute call.
+            masm.setupUnalignedABICall(3, scratchReg);
+            masm.passABIArg(argJSContextReg);
+            masm.passABIArg(argUintNReg);
+            masm.passABIArg(argVpReg);
+            masm.callWithABI(JS_FUNC_TO_DATA_PTR(void *, target->native()));
+
+            // Test for failure.
+            masm.branchTest32(Assembler::Zero, ReturnReg, ReturnReg, &exception);
+
+            // Load the outparam vp[0] into output register(s).
+            masm.loadValue(
+                Address(StackPointer, IonOOLNativeGetterExitFrameLayout::offsetOfResult()),
+                JSReturnOperand);
+        } else {
+            Register argObjReg       = argUintNReg;
+            Register argIdReg        = regSet.takeGeneral();
+=======
+    if (callNative) {
+        JS_ASSERT(shape->hasGetterValue() && shape->getterValue().isObject() &&
+                  shape->getterValue().toObject().isFunction());
+        JSFunction *target = shape->getterValue().toObject().toFunction();
+>>>>>>> mozilla/master
+
+<<<<<<< HEAD
         PropertyOp target = shape->getterOp();
         JS_ASSERT(target);
         // JSPropertyOp: JSBool fn(JSContext *cx, JSHandleObject obj, JSHandleId id, JSMutableHandleValue vp)
+||||||| merged common ancestors
+            PropertyOp target = shape->getterOp();
+            JS_ASSERT(target);
+            // JSPropertyOp: JSBool fn(JSContext *cx, JSHandleObject obj, JSHandleId id, JSMutableHandleValue vp)
+=======
+        JS_ASSERT(target);
+        JS_ASSERT(target->isNative());
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
         // Push args on stack first so we can take pointers to make handles.
         masm.Push(UndefinedValue());
         masm.movePtr(StackPointer, argVpReg);
+||||||| merged common ancestors
+            // Push args on stack first so we can take pointers to make handles.
+            masm.Push(UndefinedValue());
+            masm.movePtr(StackPointer, argVpReg);
+=======
+        // Native functions have the signature:
+        //  bool (*)(JSContext *, unsigned, Value *vp)
+        // Where vp[0] is space for an outparam, vp[1] is |this|, and vp[2] onward
+        // are the function arguments.
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
         // push canonical jsid from shape instead of propertyname.
         RootedId propId(cx);
         if (!shape->getUserId(cx, &propId))
             return false;
         masm.Push(propId, scratchReg);
         masm.movePtr(StackPointer, argIdReg);
+||||||| merged common ancestors
+            // push canonical jsid from shape instead of propertyname.
+            RootedId propId(cx);
+            if (!shape->getUserId(cx, &propId))
+                return false;
+            masm.Push(propId, scratchReg);
+            masm.movePtr(StackPointer, argIdReg);
+=======
+        // Construct vp array:
+        // Push object value for |this|
+        masm.Push(TypedOrValueRegister(MIRType_Object, AnyRegister(object)));
+        // Push callee/outparam.
+        masm.Push(ObjectValue(*target));
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
         masm.Push(object);
         masm.movePtr(StackPointer, argObjReg);
-
+||||||| merged common ancestors
+            masm.Push(object);
+            masm.movePtr(StackPointer, argObjReg);
+=======
+        // Preload arguments into registers.
         masm.loadJSContext(argJSContextReg);
+        masm.move32(Imm32(0), argUintNReg);
+        masm.movePtr(StackPointer, argVpReg);
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
+        masm.loadJSContext(argJSContextReg);
+||||||| merged common ancestors
+            masm.loadJSContext(argJSContextReg);
+=======
+        if (!masm.buildOOLFakeExitFrame(returnAddr))
+            return false;
+        masm.enterFakeExitFrame(ION_FRAME_OOL_NATIVE_GETTER);
+
+        // Construct and execute call.
+        masm.setupUnalignedABICall(3, scratchReg);
+        masm.passABIArg(argJSContextReg);
+        masm.passABIArg(argUintNReg);
+        masm.passABIArg(argVpReg);
+        masm.callWithABI(JS_FUNC_TO_DATA_PTR(void *, target->native()));
+
+        // Test for failure.
+        masm.branchTest32(Assembler::Zero, ReturnReg, ReturnReg, &exception);
+
+        // Load the outparam vp[0] into output register(s).
+        masm.loadValue(
+            Address(StackPointer, IonOOLNativeGetterExitFrameLayout::offsetOfResult()),
+            JSReturnOperand);
+    } else {
+        Register argObjReg       = argUintNReg;
+        Register argIdReg        = regSet.takeGeneral();
+>>>>>>> mozilla/master
+
+<<<<<<< HEAD
         if (!masm.buildOOLFakeExitFrame(returnAddr))
             return false;
         masm.enterFakeExitFrame(ION_FRAME_OOL_PROPERTY_OP);
@@ -771,19 +1703,176 @@ GenerateCallGetter(JSContext *cx, MacroAssembler &masm, IonCache::StubPatcher &p
             Address(StackPointer, IonOOLPropertyOpExitFrameLayout::offsetOfResult()),
             JSReturnOperand);
     }
+||||||| merged common ancestors
+            if (!masm.buildOOLFakeExitFrame(returnAddr))
+                return false;
+            masm.enterFakeExitFrame(ION_FRAME_OOL_PROPERTY_OP);
 
+            // Make the call.
+            masm.setupUnalignedABICall(4, scratchReg);
+            masm.passABIArg(argJSContextReg);
+            masm.passABIArg(argObjReg);
+            masm.passABIArg(argIdReg);
+            masm.passABIArg(argVpReg);
+            masm.callWithABI(JS_FUNC_TO_DATA_PTR(void *, target));
+
+            // Test for failure.
+            masm.branchTest32(Assembler::Zero, ReturnReg, ReturnReg, &exception);
+
+            // Load the outparam vp[0] into output register(s).
+            masm.loadValue(
+                Address(StackPointer, IonOOLPropertyOpExitFrameLayout::offsetOfResult()),
+                JSReturnOperand);
+        }
+=======
+        PropertyOp target = shape->getterOp();
+        JS_ASSERT(target);
+        // JSPropertyOp: JSBool fn(JSContext *cx, JSHandleObject obj, JSHandleId id, JSMutableHandleValue vp)
+>>>>>>> mozilla/master
+
+<<<<<<< HEAD
     // If generating getter call stubs, then return type MUST have been generalized
     // to MIRType_Value.
     masm.jump(&success);
+||||||| merged common ancestors
+        // If generating getter call stubs, then return type MUST have been generalized
+        // to MIRType_Value.
+        masm.jump(&success);
+=======
+        // Push args on stack first so we can take pointers to make handles.
+        masm.Push(UndefinedValue());
+        masm.movePtr(StackPointer, argVpReg);
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     // Handle exception case.
     masm.bind(&exception);
     masm.handleException();
+||||||| merged common ancestors
+        // Handle exception case.
+        masm.bind(&exception);
+        masm.handleException();
+=======
+        // push canonical jsid from shape instead of propertyname.
+        RootedId propId(cx);
+        if (!shape->getUserId(cx, &propId))
+            return false;
+        masm.Push(propId, scratchReg);
+        masm.movePtr(StackPointer, argIdReg);
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     // Handle success case.
     masm.bind(&success);
     masm.storeCallResultValue(output);
+||||||| merged common ancestors
+        // Handle success case.
+        masm.bind(&success);
+        masm.storeCallResultValue(output);
+=======
+        masm.Push(object);
+        masm.movePtr(StackPointer, argObjReg);
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
+    // The next instruction is removing the footer of the exit frame, so there
+    // is no need for leaveFakeExitFrame.
+||||||| merged common ancestors
+        // The next instruction is removing the footer of the exit frame, so there
+        // is no need for leaveFakeExitFrame.
+=======
+        masm.loadJSContext(argJSContextReg);
+>>>>>>> mozilla/master
+
+<<<<<<< HEAD
+    // Move the StackPointer back to its original location, unwinding the native exit frame.
+    if (callNative)
+        masm.adjustStack(IonOOLNativeGetterExitFrameLayout::Size());
+    else
+        masm.adjustStack(IonOOLPropertyOpExitFrameLayout::Size());
+    JS_ASSERT(masm.framePushed() == initialStack);
+||||||| merged common ancestors
+        // Move the StackPointer back to its original location, unwinding the native exit frame.
+        if (callNative)
+            masm.adjustStack(IonOOLNativeGetterExitFrameLayout::Size());
+        else
+            masm.adjustStack(IonOOLPropertyOpExitFrameLayout::Size());
+        JS_ASSERT(masm.framePushed() == initialStack);
+=======
+        if (!masm.buildOOLFakeExitFrame(returnAddr))
+            return false;
+        masm.enterFakeExitFrame(ION_FRAME_OOL_PROPERTY_OP);
+
+        // Make the call.
+        masm.setupUnalignedABICall(4, scratchReg);
+        masm.passABIArg(argJSContextReg);
+        masm.passABIArg(argObjReg);
+        masm.passABIArg(argIdReg);
+        masm.passABIArg(argVpReg);
+        masm.callWithABI(JS_FUNC_TO_DATA_PTR(void *, target));
+
+        // Test for failure.
+        masm.branchTest32(Assembler::Zero, ReturnReg, ReturnReg, &exception);
+
+        // Load the outparam vp[0] into output register(s).
+        masm.loadValue(
+            Address(StackPointer, IonOOLPropertyOpExitFrameLayout::offsetOfResult()),
+            JSReturnOperand);
+    }
+>>>>>>> mozilla/master
+
+<<<<<<< HEAD
+    // restoreLive()
+    masm.PopRegsInMask(liveRegs);
+||||||| merged common ancestors
+        // restoreLive()
+        masm.PopRegsInMask(liveRegs);
+=======
+    // If generating getter call stubs, then return type MUST have been generalized
+    // to MIRType_Value.
+    masm.jump(&success);
+>>>>>>> mozilla/master
+
+<<<<<<< HEAD
+    // Rejoin jump.
+    patcher.jumpRejoin(masm);
+||||||| merged common ancestors
+        // Rejoin jump.
+        RepatchLabel rejoin_;
+        rejoinOffset = masm.jumpWithPatch(&rejoin_);
+        masm.bind(&rejoin_);
+=======
+    // Handle exception case.
+    masm.bind(&exception);
+    masm.handleException();
+>>>>>>> mozilla/master
+
+<<<<<<< HEAD
+    // Exit jump.
+    masm.bind(&stubFailure);
+    patcher.jumpExit(masm);
+||||||| merged common ancestors
+        // Exit jump.
+        masm.bind(&stubFailure);
+        if (nonRepatchFailures)
+            masm.bind(nonRepatchFailures);
+        RepatchLabel exit_;
+        exitOffset = masm.jumpWithPatch(&exit_);
+        masm.bind(&exit_);
+=======
+    // Handle success case.
+    masm.bind(&success);
+    masm.storeCallResultValue(output);
+>>>>>>> mozilla/master
+
+<<<<<<< HEAD
+    return true;
+}
+||||||| merged common ancestors
+        return true;
+    }
+};
+=======
     // The next instruction is removing the footer of the exit frame, so there
     // is no need for leaveFakeExitFrame.
 
@@ -798,24 +1887,39 @@ GenerateCallGetter(JSContext *cx, MacroAssembler &masm, IonCache::StubPatcher &p
     masm.PopRegsInMask(liveRegs);
 
     // Rejoin jump.
-    patcher.jumpRejoin(masm);
+    attacher.jumpRejoin(masm);
 
-    // Exit jump.
+    // Jump to next stub.
     masm.bind(&stubFailure);
-    patcher.jumpExit(masm);
+    attacher.jumpNextStub(masm);
 
     return true;
 }
+>>>>>>> mozilla/master
 
 bool
 GetPropertyIC::attachReadSlotWithPatcher(JSContext *cx, StubPatcher &patcher, IonScript *ion,
                                          JSObject *obj, JSObject *holder, HandleShape shape)
 {
     MacroAssembler masm(cx);
+<<<<<<< HEAD
     GenerateReadSlot(cx, masm, patcher, obj, holder, shape, object(), output());
+||||||| merged common ancestors
+    RepatchLabel failures;
+
+    GetNativePropertyStub getprop;
+    getprop.generateReadSlot(cx, masm, obj, name(), holder, shape, object(), output(), &failures);
+
+=======
+
+    RepatchStubAppender attacher(rejoinLabel(), fallbackLabel_, &lastJump_);
+    GenerateReadSlot(cx, masm, attacher, obj, name(), holder, shape, object(), output());
+
+>>>>>>> mozilla/master
     const char *attachKind = "non idempotent reading";
     if (idempotent())
         attachKind = "idempotent reading";
+<<<<<<< HEAD
     return linkAndAttachStub(cx, masm, patcher, ion, attachKind);
 }
 
@@ -825,6 +1929,11 @@ GetPropertyIC::attachReadSlot(JSContext *cx, IonScript *ion, JSObject *obj, JSOb
 {
     RepatchStubPatcher patcher(rejoinLabel_, fallbackLabel_, &lastJump_);
     return attachReadSlotWithPatcher(cx, patcher, ion, obj, holder, shape);
+||||||| merged common ancestors
+    return linkAndAttachStub(cx, masm, ion, attachKind, getprop.rejoinOffset, &getprop.exitOffset);
+=======
+    return linkAndAttachStub(cx, masm, attacher, ion, attachKind);
+>>>>>>> mozilla/master
 }
 
 bool
@@ -841,9 +1950,19 @@ GetPropertyIC::attachCallGetter(JSContext *cx, IonScript *ion, JSObject *obj,
     // properly constructed.
     masm.setFramePushed(ion->frameSize());
 
+<<<<<<< HEAD
     RepatchStubPatcher patcher(rejoinLabel_, fallbackLabel_, &lastJump_);
     if (!GenerateCallGetter(cx, masm, patcher, obj, name(), holder, shape, liveRegs_,
                             object(), output(), returnAddr, pc))
+||||||| merged common ancestors
+    GetNativePropertyStub getprop;
+    if (!getprop.generateCallGetter(cx, masm, obj, name(), holder, shape, liveRegs_,
+                                    object(), output(), returnAddr, pc, &failures))
+=======
+    RepatchStubAppender attacher(rejoinLabel(), fallbackLabel_, &lastJump_);
+    if (!GenerateCallGetter(cx, masm, attacher, obj, name(), holder, shape, liveRegs_,
+                            object(), output(), returnAddr, pc))
+>>>>>>> mozilla/master
     {
          return false;
     }
@@ -851,7 +1970,14 @@ GetPropertyIC::attachCallGetter(JSContext *cx, IonScript *ion, JSObject *obj,
     const char *attachKind = "non idempotent calling";
     if (idempotent())
         attachKind = "idempotent calling";
+<<<<<<< HEAD
     return linkAndAttachStub(cx, masm, patcher, ion, attachKind);
+||||||| merged common ancestors
+    return linkAndAttachStub(cx, masm, ion, attachKind, getprop.rejoinOffset, &getprop.exitOffset,
+                             &getprop.stubCodePatchOffset);
+=======
+    return linkAndAttachStub(cx, masm, attacher, ion, attachKind);
+>>>>>>> mozilla/master
 }
 
 bool
@@ -862,7 +1988,12 @@ GetPropertyIC::attachArrayLength(JSContext *cx, IonScript *ion, JSObject *obj)
 
     Label failures;
     MacroAssembler masm(cx);
+<<<<<<< HEAD
     RepatchStubPatcher patcher(rejoinLabel_, fallbackLabel_, &lastJump_);
+||||||| merged common ancestors
+=======
+    RepatchStubAppender attacher(rejoinLabel(), fallbackLabel_, &lastJump_);
+>>>>>>> mozilla/master
 
     // Guard object is a dense array.
     RootedObject globalObj(cx, &script->global());
@@ -891,15 +2022,37 @@ GetPropertyIC::attachArrayLength(JSContext *cx, IonScript *ion, JSObject *obj)
         masm.tagValue(JSVAL_TYPE_INT32, outReg, output().valueReg());
 
     /* Success. */
+<<<<<<< HEAD
     patcher.jumpRejoin(masm);
+||||||| merged common ancestors
+    RepatchLabel rejoin_;
+    CodeOffsetJump rejoinOffset = masm.jumpWithPatch(&rejoin_);
+    masm.bind(&rejoin_);
+=======
+    attacher.jumpRejoin(masm);
+>>>>>>> mozilla/master
 
     /* Failure. */
     masm.bind(&failures);
+<<<<<<< HEAD
     patcher.jumpExit(masm);
+||||||| merged common ancestors
+    RepatchLabel exit_;
+    CodeOffsetJump exitOffset = masm.jumpWithPatch(&exit_);
+    masm.bind(&exit_);
+=======
+    attacher.jumpNextStub(masm);
+>>>>>>> mozilla/master
 
     JS_ASSERT(!hasArrayLengthStub_);
     hasArrayLengthStub_ = true;
+<<<<<<< HEAD
     return linkAndAttachStub(cx, masm, patcher, ion, "array length");
+||||||| merged common ancestors
+    return linkAndAttachStub(cx, masm, ion, "array length", rejoinOffset, &exitOffset);
+=======
+    return linkAndAttachStub(cx, masm, attacher, ion, "array length");
+>>>>>>> mozilla/master
 }
 
 bool
@@ -910,7 +2063,12 @@ GetPropertyIC::attachTypedArrayLength(JSContext *cx, IonScript *ion, JSObject *o
 
     Label failures;
     MacroAssembler masm(cx);
+<<<<<<< HEAD
     RepatchStubPatcher patcher(rejoinLabel_, fallbackLabel_, &lastJump_);
+||||||| merged common ancestors
+=======
+    RepatchStubAppender attacher(rejoinLabel(), fallbackLabel_, &lastJump_);
+>>>>>>> mozilla/master
 
     Register tmpReg;
     if (output().hasValue()) {
@@ -930,15 +2088,37 @@ GetPropertyIC::attachTypedArrayLength(JSContext *cx, IonScript *ion, JSObject *o
     masm.loadTypedOrValue(Address(object(), TypedArray::lengthOffset()), output());
 
     /* Success. */
+<<<<<<< HEAD
     patcher.jumpRejoin(masm);
+||||||| merged common ancestors
+    RepatchLabel rejoin_;
+    CodeOffsetJump rejoinOffset = masm.jumpWithPatch(&rejoin_);
+    masm.bind(&rejoin_);
+=======
+    attacher.jumpRejoin(masm);
+>>>>>>> mozilla/master
 
     /* Failure. */
     masm.bind(&failures);
+<<<<<<< HEAD
     patcher.jumpExit(masm);
+||||||| merged common ancestors
+    RepatchLabel exit_;
+    CodeOffsetJump exitOffset = masm.jumpWithPatch(&exit_);
+    masm.bind(&exit_);
+=======
+    attacher.jumpNextStub(masm);
+>>>>>>> mozilla/master
 
     JS_ASSERT(!hasTypedArrayLengthStub_);
     hasTypedArrayLengthStub_ = true;
+<<<<<<< HEAD
     return linkAndAttachStub(cx, masm, patcher, ion, "typed array length");
+||||||| merged common ancestors
+    return linkAndAttachStub(cx, masm, ion, "typed array length", rejoinOffset, &exitOffset);
+=======
+    return linkAndAttachStub(cx, masm, attacher, ion, "typed array length");
+>>>>>>> mozilla/master
 }
 
 static bool
@@ -951,9 +2131,19 @@ TryAttachNativeGetPropStub(JSContext *cx, IonScript *ion,
     JS_ASSERT(!*isCacheable);
 
     RootedObject checkObj(cx, obj);
-    bool isListBase = IsCacheableListBase(obj);
-    if (isListBase)
+    if (IsCacheableListBase(obj)) {
+        Value expandoVal = obj->getFixedSlot(GetListBaseExpandoSlot());
+
+        // Expando objects just hold any extra properties the object has been given by a script,
+        // and have no prototype or anything else that will complicate property lookups on them.
+        JS_ASSERT_IF(expandoVal.isObject(),
+                     expandoVal.toObject().isNative() && !expandoVal.toObject().getProto());
+
+        if (expandoVal.isObject() && expandoVal.toObject().nativeContains(cx, name))
+            return true;
+
         checkObj = obj->getTaggedProto().toObjectOrNull();
+    }
 
     if (!checkObj || !checkObj->isNative())
         return true;
@@ -978,13 +2168,13 @@ TryAttachNativeGetPropStub(JSContext *cx, IonScript *ion,
     jsbytecode *pc;
     cache.getScriptedLocation(&script, &pc);
 
-    if (IsCacheableGetPropReadSlot(obj, holder, shape) ||
-        IsCacheableNoProperty(obj, holder, shape, pc, cache.output()))
+    if (IsCacheableGetPropReadSlot(checkObj, holder, shape) ||
+        IsCacheableNoProperty(checkObj, holder, shape, pc, cache.output()))
     {
         // With Proxies, we cannot garantee any property access as the proxy can
         // mask any property from the prototype chain.
-        if (!obj->isProxy())
-            readSlot = true;
+        JS_ASSERT(!checkObj->isProxy());
+        readSlot = true;
     } else if (IsCacheableGetPropCallNative(checkObj, holder, shape) ||
                IsCacheableGetPropCallPropertyOp(checkObj, holder, shape))
     {
@@ -1125,6 +2315,7 @@ GetPropertyIC::update(JSContext *cx, size_t cacheIndex,
 }
 
 void
+<<<<<<< HEAD
 ParallelGetPropertyIC::reset(uint8_t **stubEntry)
 {
     GetPropertyIC::reset(stubEntry);
@@ -1306,6 +2497,17 @@ ParallelGetPropertyIC::update(ForkJoinSlice *slice, size_t cacheIndex,
 }
 
 void
+||||||| merged common ancestors
+=======
+GetPropertyIC::reset()
+{
+    IonCache::reset();
+    hasArrayLengthStub_ = false;
+    hasTypedArrayLengthStub_ = false;
+}
+
+void
+>>>>>>> mozilla/master
 IonCache::updateBaseAddress(IonCode *code, MacroAssembler &masm)
 {
     // Dispatch caches do not have initial and last jumps set.
@@ -1359,12 +2561,31 @@ SetPropertyIC::attachNativeExisting(JSContext *cx, IonScript *ion,
                                     HandleObject obj, HandleShape shape)
 {
     MacroAssembler masm(cx);
+<<<<<<< HEAD
     RepatchStubPatcher patcher(rejoinLabel_, fallbackLabel_, &lastJump_);
+||||||| merged common ancestors
+=======
+    RepatchStubAppender attacher(rejoinLabel(), fallbackLabel_, &lastJump_);
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     patcher.branchExit(masm, Assembler::NotEqual,
                        Address(object(), JSObject::offsetOfShape()),
                        ImmGCPtr(obj->lastProperty()));
     patcher.bindFailures(masm);
+||||||| merged common ancestors
+    RepatchLabel exit_;
+    CodeOffsetJump exitOffset =
+        masm.branchPtrWithPatch(Assembler::NotEqual,
+                                Address(object(), JSObject::offsetOfShape()),
+                                ImmGCPtr(obj->lastProperty()),
+                                &exit_);
+    masm.bind(&exit_);
+=======
+    attacher.branchNextStub(masm, Assembler::NotEqual,
+                            Address(object(), JSObject::offsetOfShape()),
+                            ImmGCPtr(obj->lastProperty()));
+>>>>>>> mozilla/master
 
     if (obj->isFixedSlot(shape->slot())) {
         Address addr(object(), JSObject::getFixedSlotOffset(shape->slot()));
@@ -1385,9 +2606,23 @@ SetPropertyIC::attachNativeExisting(JSContext *cx, IonScript *ion,
         masm.storeConstantOrRegister(value(), addr);
     }
 
+<<<<<<< HEAD
     patcher.jumpRejoin(masm);
+||||||| merged common ancestors
+    RepatchLabel rejoin_;
+    CodeOffsetJump rejoinOffset = masm.jumpWithPatch(&rejoin_);
+    masm.bind(&rejoin_);
+=======
+    attacher.jumpRejoin(masm);
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     return linkAndAttachStub(cx, masm, patcher, ion, "setting");
+||||||| merged common ancestors
+    return linkAndAttachStub(cx, masm, ion, "setting", rejoinOffset, &exitOffset);
+=======
+    return linkAndAttachStub(cx, masm, attacher, ion, "setting");
+>>>>>>> mozilla/master
 }
 
 bool
@@ -1396,7 +2631,12 @@ SetPropertyIC::attachSetterCall(JSContext *cx, IonScript *ion,
                                 void *returnAddr)
 {
     MacroAssembler masm(cx);
+<<<<<<< HEAD
     RepatchStubPatcher patcher(rejoinLabel_, fallbackLabel_, &lastJump_);
+||||||| merged common ancestors
+=======
+    RepatchStubAppender attacher(rejoinLabel(), fallbackLabel_, &lastJump_);
+>>>>>>> mozilla/master
 
     // Need to set correct framePushed on the masm so that exit frame descriptors are
     // properly constructed.
@@ -1467,7 +2707,22 @@ SetPropertyIC::attachSetterCall(JSContext *cx, IonScript *ion,
 
     Label success, exception;
 
+<<<<<<< HEAD
     patcher.pushStubCodePatch(masm);
+||||||| merged common ancestors
+    // Push the IonCode pointer for the stub we're generating.
+    // WARNING:
+    // WARNING: If IonCode ever becomes relocatable, the following code is incorrect.
+    // WARNING: Note that we're not marking the pointer being pushed as an ImmGCPtr.
+    // WARNING: This is not a marking issue since the stub IonCode won't be collected
+    // WARNING: between the time it's called and when we get here, but it would fail
+    // WARNING: if the IonCode object ever moved, since we'd be rooting a nonsense
+    // WARNING: value here.
+    // WARNING:
+    CodeOffsetLabel stubCodePatchOffset = masm.PushWithPatch(STUB_ADDR);
+=======
+    attacher.pushStubCodePointer(masm);
+>>>>>>> mozilla/master
 
     StrictPropertyOp target = shape->setterOp();
     JS_ASSERT(target);
@@ -1531,13 +2786,36 @@ SetPropertyIC::attachSetterCall(JSContext *cx, IonScript *ion,
     masm.PopRegsInMask(liveRegs_);
 
     // Rejoin jump.
+<<<<<<< HEAD
     patcher.jumpRejoin(masm);
+||||||| merged common ancestors
+    RepatchLabel rejoin;
+    CodeOffsetJump rejoinOffset = masm.jumpWithPatch(&rejoin);
+    masm.bind(&rejoin);
+=======
+    attacher.jumpRejoin(masm);
+>>>>>>> mozilla/master
 
-    // Exit jump.
+    // Jump to next stub.
     masm.bind(&failure);
+<<<<<<< HEAD
     patcher.jumpExit(masm);
+||||||| merged common ancestors
+    RepatchLabel exit;
+    CodeOffsetJump exitOffset = masm.jumpWithPatch(&exit);
+    masm.bind(&exit);
+=======
+    attacher.jumpNextStub(masm);
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     return linkAndAttachStub(cx, masm, patcher, ion, "calling");
+||||||| merged common ancestors
+    return linkAndAttachStub(cx, masm, ion, "calling", rejoinOffset, &exitOffset,
+                             &stubCodePatchOffset);
+=======
+    return linkAndAttachStub(cx, masm, attacher, ion, "calling");
+>>>>>>> mozilla/master
 }
 
 bool
@@ -1546,7 +2824,12 @@ SetPropertyIC::attachNativeAdding(JSContext *cx, IonScript *ion, JSObject *obj,
                                   HandleShape propShape)
 {
     MacroAssembler masm(cx);
+<<<<<<< HEAD
     RepatchStubPatcher patcher(rejoinLabel_, fallbackLabel_, &lastJump_);
+||||||| merged common ancestors
+=======
+    RepatchStubAppender attacher(rejoinLabel(), fallbackLabel_, &lastJump_);
+>>>>>>> mozilla/master
 
     Label failures;
 
@@ -1569,8 +2852,7 @@ SetPropertyIC::attachNativeAdding(JSContext *cx, IonScript *ion, JSObject *obj,
         masm.loadPtr(Address(protoReg, JSObject::offsetOfType()), protoReg);
         masm.loadPtr(Address(protoReg, offsetof(types::TypeObject, proto)), protoReg);
 
-        // ensure that the prototype is not NULL and that its shape matches
-        masm.branchTestPtr(Assembler::Zero, protoReg, protoReg, &protoFailures);
+        // Ensure that its shape matches.
         masm.branchTestObjShape(Assembler::NotEqual, protoReg, protoShape, &protoFailures);
 
         proto = proto->getProto();
@@ -1598,16 +2880,38 @@ SetPropertyIC::attachNativeAdding(JSContext *cx, IonScript *ion, JSObject *obj,
     }
 
     /* Success. */
+<<<<<<< HEAD
     patcher.jumpRejoin(masm);
+||||||| merged common ancestors
+    RepatchLabel rejoin_;
+    CodeOffsetJump rejoinOffset = masm.jumpWithPatch(&rejoin_);
+    masm.bind(&rejoin_);
+=======
+    attacher.jumpRejoin(masm);
+>>>>>>> mozilla/master
 
     /* Failure. */
     masm.bind(&protoFailures);
     masm.pop(object());
     masm.bind(&failures);
 
+<<<<<<< HEAD
     patcher.jumpExit(masm);
+||||||| merged common ancestors
+    RepatchLabel exit_;
+    CodeOffsetJump exitOffset = masm.jumpWithPatch(&exit_);
+    masm.bind(&exit_);
+=======
+    attacher.jumpNextStub(masm);
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     return linkAndAttachStub(cx, masm, patcher, ion, "adding");
+||||||| merged common ancestors
+    return linkAndAttachStub(cx, masm, ion, "adding", rejoinOffset, &exitOffset);
+=======
+    return linkAndAttachStub(cx, masm, attacher, ion, "adding");
+>>>>>>> mozilla/master
 }
 
 static bool
@@ -1802,18 +3106,41 @@ GetElementIC::attachGetProp(JSContext *cx, IonScript *ion, HandleObject obj,
 
     JS_ASSERT(idval.isString());
 
+<<<<<<< HEAD
     Label nonRepatchFailures;
+||||||| merged common ancestors
+    RepatchLabel failures;
+    Label nonRepatchFailures;
+=======
+    Label failures;
+>>>>>>> mozilla/master
     MacroAssembler masm(cx);
 
     // Guard on the index value.
     ValueOperand val = index().reg().valueReg();
-    masm.branchTestValue(Assembler::NotEqual, val, idval, &nonRepatchFailures);
+    masm.branchTestValue(Assembler::NotEqual, val, idval, &failures);
 
+<<<<<<< HEAD
     RepatchStubPatcher patcher(rejoinLabel_, fallbackLabel_, &lastJump_);
     GenerateReadSlot(cx, masm, patcher, obj, holder, shape, object(), output(),
                      &nonRepatchFailures);
+||||||| merged common ancestors
+    GetNativePropertyStub getprop;
+    getprop.generateReadSlot(cx, masm, obj, name, holder, shape, object(), output(), &failures,
+                             &nonRepatchFailures);
+=======
+    RepatchStubAppender attacher(rejoinLabel(), fallbackLabel_, &lastJump_);
+    GenerateReadSlot(cx, masm, attacher, obj, name, holder, shape, object(), output(),
+                     &failures);
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     return linkAndAttachStub(cx, masm, patcher, ion, "property");
+||||||| merged common ancestors
+    return linkAndAttachStub(cx, masm, ion, "property", getprop.rejoinOffset, &getprop.exitOffset);
+=======
+    return linkAndAttachStub(cx, masm, attacher, ion, "property");
+>>>>>>> mozilla/master
 }
 
 bool
@@ -1824,7 +3151,12 @@ GetElementIC::attachDenseElement(JSContext *cx, IonScript *ion, JSObject *obj, c
 
     Label failures;
     MacroAssembler masm(cx);
+<<<<<<< HEAD
     RepatchStubPatcher patcher(rejoinLabel_, fallbackLabel_, &lastJump_);
+||||||| merged common ancestors
+=======
+    RepatchStubAppender attacher(rejoinLabel(), fallbackLabel_, &lastJump_);
+>>>>>>> mozilla/master
 
     // Guard object's shape.
     RootedObject globalObj(cx, &script->global());
@@ -1865,17 +3197,39 @@ GetElementIC::attachDenseElement(JSContext *cx, IonScript *ion, JSObject *obj, c
                                  output(), true, &hole);
 
     masm.pop(object());
+<<<<<<< HEAD
     patcher.jumpRejoin(masm);
+||||||| merged common ancestors
+    RepatchLabel rejoin_;
+    CodeOffsetJump rejoinOffset = masm.jumpWithPatch(&rejoin_);
+    masm.bind(&rejoin_);
+=======
+    attacher.jumpRejoin(masm);
+>>>>>>> mozilla/master
 
     // All failures flow to here.
     masm.bind(&hole);
     masm.pop(object());
     masm.bind(&failures);
 
+<<<<<<< HEAD
     patcher.jumpExit(masm);
+||||||| merged common ancestors
+    RepatchLabel exit_;
+    CodeOffsetJump exitOffset = masm.jumpWithPatch(&exit_);
+    masm.bind(&exit_);
+=======
+    attacher.jumpNextStub(masm);
+>>>>>>> mozilla/master
 
     setHasDenseStub();
+<<<<<<< HEAD
     return linkAndAttachStub(cx, masm, patcher, ion, "dense array");
+||||||| merged common ancestors
+    return linkAndAttachStub(cx, masm, ion, "dense array", rejoinOffset, &exitOffset);
+=======
+    return linkAndAttachStub(cx, masm, attacher, ion, "dense array");
+>>>>>>> mozilla/master
 }
 
 bool
@@ -1883,11 +3237,15 @@ GetElementIC::attachTypedArrayElement(JSContext *cx, IonScript *ion, JSObject *o
                                       const Value &idval)
 {
     JS_ASSERT(obj->isTypedArray());
-    JS_ASSERT(idval.isInt32());
 
     Label failures;
     MacroAssembler masm(cx);
+<<<<<<< HEAD
     RepatchStubPatcher patcher(rejoinLabel_, fallbackLabel_, &lastJump_);
+||||||| merged common ancestors
+=======
+    RepatchStubAppender attacher(rejoinLabel(), fallbackLabel_, &lastJump_);
+>>>>>>> mozilla/master
 
     // The array type is the object within the table of typed array classes.
     int arrayType = TypedArray::type(obj);
@@ -1905,19 +3263,55 @@ GetElementIC::attachTypedArrayElement(JSContext *cx, IonScript *ion, JSObject *o
     // because load size differ in function of the typed array data width.
     masm.branchTestObjClass(Assembler::NotEqual, object(), tmpReg, obj->getClass(), &failures);
 
-    // Ensure the index is an int32 value.
+    // Decide to what type index the stub should be optimized
     Register indexReg = tmpReg;
-
     JS_ASSERT(!index().constant());
-    if (index().reg().hasValue()) {
-        ValueOperand val = index().reg().valueReg();
-        masm.branchTestInt32(Assembler::NotEqual, val, &failures);
+    if (idval.isString()) {
+        JS_ASSERT(GetIndexFromString(idval.toString()) != UINT32_MAX);
 
-        // Unbox the index.
-        masm.unboxInt32(val, indexReg);
+        // Part 1: Get the string into a register
+        Register str;
+        if (index().reg().hasValue()) {
+            ValueOperand val = index().reg().valueReg();
+            masm.branchTestString(Assembler::NotEqual, val, &failures);
+
+            str = masm.extractString(val, indexReg);
+        } else {
+            JS_ASSERT(!index().reg().typedReg().isFloat());
+            str = index().reg().typedReg().gpr();
+        }
+
+        // Part 2: Call to translate the str into index
+        RegisterSet regs = RegisterSet::Volatile();
+        masm.PushRegsInMask(regs);
+        regs.maybeTake(str);
+
+        Register temp = regs.takeGeneral();
+
+        masm.setupUnalignedABICall(1, temp);
+        masm.passABIArg(str);
+        masm.callWithABI(JS_FUNC_TO_DATA_PTR(void *, GetIndexFromString));
+        masm.mov(ReturnReg, indexReg);
+
+        RegisterSet ignore = RegisterSet();
+        ignore.add(indexReg);
+        masm.PopRegsInMaskIgnore(RegisterSet::Volatile(), ignore);
+
+        masm.branch32(Assembler::Equal, indexReg, Imm32(UINT32_MAX), &failures);
+
     } else {
-        JS_ASSERT(!index().reg().typedReg().isFloat());
-        indexReg = index().reg().typedReg().gpr();
+        JS_ASSERT(idval.isInt32());
+
+        if (index().reg().hasValue()) {
+            ValueOperand val = index().reg().valueReg();
+            masm.branchTestInt32(Assembler::NotEqual, val, &failures);
+
+            // Unbox the index.
+            masm.unboxInt32(val, indexReg);
+        } else {
+            JS_ASSERT(!index().reg().typedReg().isFloat());
+            indexReg = index().reg().typedReg().gpr();
+        }
     }
 
     // Guard on the initialized length.
@@ -1944,16 +3338,38 @@ GetElementIC::attachTypedArrayElement(JSContext *cx, IonScript *ion, JSObject *o
                                 elementReg, &popAndFail);
 
     masm.pop(object());
+<<<<<<< HEAD
     patcher.jumpRejoin(masm);
+||||||| merged common ancestors
+    RepatchLabel rejoin_;
+    CodeOffsetJump rejoinOffset = masm.jumpWithPatch(&rejoin_);
+    masm.bind(&rejoin_);
+=======
+    attacher.jumpRejoin(masm);
+>>>>>>> mozilla/master
 
     // Restore the object before continuing to the next stub.
     masm.bind(&popAndFail);
     masm.pop(object());
     masm.bind(&failures);
 
+<<<<<<< HEAD
     patcher.jumpExit(masm);
+||||||| merged common ancestors
+    RepatchLabel exit_;
+    CodeOffsetJump exitOffset = masm.jumpWithPatch(&exit_);
+    masm.bind(&exit_);
+=======
+    attacher.jumpNextStub(masm);
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     return linkAndAttachStub(cx, masm, patcher, ion, "typed array");
+||||||| merged common ancestors
+    return linkAndAttachStub(cx, masm, ion, "typed array", rejoinOffset, &exitOffset);
+=======
+    return linkAndAttachStub(cx, masm, attacher, ion, "typed array");
+>>>>>>> mozilla/master
 }
 
 bool
@@ -1996,14 +3412,18 @@ GetElementIC::update(JSContext *cx, size_t cacheIndex, HandleObject obj,
             if (!cache.attachDenseElement(cx, ion, obj, idval))
                 return false;
             attachedStub = true;
-        } else if (obj->isTypedArray() && idval.isInt32()) {
-            int arrayType = TypedArray::type(obj);
-            bool floatOutput = arrayType == TypedArray::TYPE_FLOAT32 ||
-                               arrayType == TypedArray::TYPE_FLOAT64;
-            if (!floatOutput || cache.output().hasValue()) {
-                if (!cache.attachTypedArrayElement(cx, ion, obj, idval))
-                    return false;
-                attachedStub = true;
+        } else if (obj->isTypedArray()) {
+            if ((idval.isInt32()) ||
+                (idval.isString() && GetIndexFromString(idval.toString()) != UINT32_MAX))
+            {
+                int arrayType = TypedArray::type(obj);
+                bool floatOutput = arrayType == TypedArray::TYPE_FLOAT32 ||
+                                   arrayType == TypedArray::TYPE_FLOAT64;
+                if (!floatOutput || cache.output().hasValue()) {
+                    if (!cache.attachTypedArrayElement(cx, ion, obj, idval))
+                        return false;
+                    attachedStub = true;
+                }
             }
         }
     }
@@ -2026,23 +3446,59 @@ GetElementIC::update(JSContext *cx, size_t cacheIndex, HandleObject obj,
     return true;
 }
 
+void
+GetElementIC::reset()
+{
+    IonCache::reset();
+    hasDenseStub_ = false;
+}
+
 bool
 BindNameIC::attachGlobal(JSContext *cx, IonScript *ion, JSObject *scopeChain)
 {
     JS_ASSERT(scopeChain->isGlobal());
 
     MacroAssembler masm(cx);
+<<<<<<< HEAD
     RepatchStubPatcher patcher(rejoinLabel_, fallbackLabel_, &lastJump_);
+||||||| merged common ancestors
+=======
+    RepatchStubAppender attacher(rejoinLabel(), fallbackLabel_, &lastJump_);
+>>>>>>> mozilla/master
 
     // Guard on the scope chain.
+<<<<<<< HEAD
     patcher.branchExit(masm, Assembler::NotEqual, scopeChainReg(),
                        ImmGCPtr(scopeChain));
     patcher.bindFailures(masm);
+||||||| merged common ancestors
+    RepatchLabel exit_;
+    CodeOffsetJump exitOffset = masm.branchPtrWithPatch(Assembler::NotEqual, scopeChainReg(),
+                                                        ImmGCPtr(scopeChain), &exit_);
+    masm.bind(&exit_);
+=======
+    attacher.branchNextStub(masm, Assembler::NotEqual, scopeChainReg(),
+                            ImmGCPtr(scopeChain));
+>>>>>>> mozilla/master
     masm.movePtr(ImmGCPtr(scopeChain), outputReg());
 
+<<<<<<< HEAD
     patcher.jumpRejoin(masm);
+||||||| merged common ancestors
+    RepatchLabel rejoin_;
+    CodeOffsetJump rejoinOffset = masm.jumpWithPatch(&rejoin_);
+    masm.bind(&rejoin_);
+=======
+    attacher.jumpRejoin(masm);
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     return linkAndAttachStub(cx, masm, patcher, ion, "global");
+||||||| merged common ancestors
+    return linkAndAttachStub(cx, masm, ion, "global", rejoinOffset, &exitOffset);
+=======
+    return linkAndAttachStub(cx, masm, attacher, ion, "global");
+>>>>>>> mozilla/master
 }
 
 static inline void
@@ -2099,34 +3555,84 @@ BindNameIC::attachNonGlobal(JSContext *cx, IonScript *ion, JSObject *scopeChain,
     JS_ASSERT(IsCacheableNonGlobalScope(scopeChain));
 
     MacroAssembler masm(cx);
+<<<<<<< HEAD
     RepatchStubPatcher patcher(rejoinLabel_, fallbackLabel_, &lastJump_);
+||||||| merged common ancestors
+=======
+    RepatchStubAppender attacher(rejoinLabel(), fallbackLabel_, &lastJump_);
+>>>>>>> mozilla/master
 
     // Guard on the shape of the scope chain.
+<<<<<<< HEAD
     Label nonRepatchFailures;
     patcher.branchExit(masm, Assembler::NotEqual,
                        Address(scopeChainReg(), JSObject::offsetOfShape()),
                        ImmGCPtr(scopeChain->lastProperty()));
+||||||| merged common ancestors
+    RepatchLabel failures;
+    Label nonRepatchFailures;
+    CodeOffsetJump exitOffset =
+        masm.branchPtrWithPatch(Assembler::NotEqual,
+                                Address(scopeChainReg(), JSObject::offsetOfShape()),
+                                ImmGCPtr(scopeChain->lastProperty()),
+                                &failures);
+=======
+    Label failures;
+    attacher.branchNextStubOrLabel(masm, Assembler::NotEqual,
+                                   Address(scopeChainReg(), JSObject::offsetOfShape()),
+                                   ImmGCPtr(scopeChain->lastProperty()),
+                                   holder != scopeChain ? &failures : NULL);
+>>>>>>> mozilla/master
 
     if (holder != scopeChain) {
         JSObject *parent = &scopeChain->asScope().enclosingScope();
         masm.extractObject(Address(scopeChainReg(), ScopeObject::offsetOfEnclosingScope()), outputReg());
 
-        GenerateScopeChainGuards(masm, parent, holder, outputReg(), &nonRepatchFailures);
+        GenerateScopeChainGuards(masm, parent, holder, outputReg(), &failures);
     } else {
         masm.movePtr(scopeChainReg(), outputReg());
     }
 
     // At this point outputReg holds the object on which the property
     // was found, so we're done.
+<<<<<<< HEAD
     patcher.jumpRejoin(masm);
+||||||| merged common ancestors
+    RepatchLabel rejoin_;
+    CodeOffsetJump rejoinOffset = masm.jumpWithPatch(&rejoin_);
+    masm.bind(&rejoin_);
+=======
+    attacher.jumpRejoin(masm);
+>>>>>>> mozilla/master
 
     // All failures flow to here, so there is a common point to patch.
+<<<<<<< HEAD
     patcher.bindFailures(masm);
     masm.bind(&nonRepatchFailures);
     if (holder != scopeChain)
         patcher.jumpExit(masm);
+||||||| merged common ancestors
+    masm.bind(&failures);
+    masm.bind(&nonRepatchFailures);
+    if (holder != scopeChain) {
+        RepatchLabel exit_;
+        exitOffset = masm.jumpWithPatch(&exit_);
+        masm.bind(&exit_);
+    }
+=======
+    if (holder != scopeChain) {
+        masm.bind(&failures);
+        attacher.jumpNextStub(masm);
+    }
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     return linkAndAttachStub(cx, masm, patcher, ion, "non-global");
+||||||| merged common ancestors
+    return linkAndAttachStub(cx, masm, ion, "non-global", rejoinOffset, &exitOffset);
+=======
+    return linkAndAttachStub(cx, masm, attacher, ion, "non-global");
+>>>>>>> mozilla/master
 }
 
 static bool
@@ -2192,7 +3698,12 @@ NameIC::attachReadSlot(JSContext *cx, IonScript *ion, HandleObject scopeChain, H
 {
     MacroAssembler masm(cx);
     Label failures;
+<<<<<<< HEAD
     RepatchStubPatcher patcher(rejoinLabel_, fallbackLabel_, &lastJump_);
+||||||| merged common ancestors
+=======
+    RepatchStubAppender attacher(rejoinLabel(), fallbackLabel_, &lastJump_);
+>>>>>>> mozilla/master
 
     Register scratchReg = outputReg().valueReg().scratchReg();
 
@@ -2210,14 +3721,40 @@ NameIC::attachReadSlot(JSContext *cx, IonScript *ion, HandleObject scopeChain, H
         masm.loadTypedOrValue(addr, outputReg());
     }
 
+<<<<<<< HEAD
     patcher.jumpRejoin(masm);
+||||||| merged common ancestors
+    RepatchLabel rejoin;
+    CodeOffsetJump rejoinOffset = masm.jumpWithPatch(&rejoin);
+    masm.bind(&rejoin);
+
+    CodeOffsetJump exitOffset;
+=======
+    attacher.jumpRejoin(masm);
+>>>>>>> mozilla/master
 
     if (failures.used()) {
         masm.bind(&failures);
+<<<<<<< HEAD
         patcher.jumpExit(masm);
+||||||| merged common ancestors
+
+        RepatchLabel exit;
+        exitOffset = masm.jumpWithPatch(&exit);
+        masm.bind(&exit);
+=======
+        attacher.jumpNextStub(masm);
+>>>>>>> mozilla/master
     }
 
+<<<<<<< HEAD
     return linkAndAttachStub(cx, masm, patcher, ion, "generic");
+||||||| merged common ancestors
+    return linkAndAttachStub(cx, masm, ion, "generic", rejoinOffset,
+                             (failures.bound() ? &exitOffset : NULL));
+=======
+    return linkAndAttachStub(cx, masm, attacher, ion, "generic");
+>>>>>>> mozilla/master
 }
 
 static bool
@@ -2270,15 +3807,32 @@ NameIC::attachCallGetter(JSContext *cx, IonScript *ion, JSObject *obj, JSObject 
     // properly constructed.
     masm.setFramePushed(ion->frameSize());
 
+<<<<<<< HEAD
     RepatchStubPatcher patcher(rejoinLabel_, fallbackLabel_, &lastJump_);
     if (!GenerateCallGetter(cx, masm, patcher, obj, name(), holder, shape, liveRegs_,
                             scopeChainReg(), outputReg(), returnAddr, pc))
+||||||| merged common ancestors
+    GetNativePropertyStub getprop;
+    if (!getprop.generateCallGetter(cx, masm, obj, name(), holder, shape, liveRegs_,
+                                    scopeChainReg(), outputReg(), returnAddr, pc, &failures))
+=======
+    RepatchStubAppender attacher(rejoinLabel(), fallbackLabel_, &lastJump_);
+    if (!GenerateCallGetter(cx, masm, attacher, obj, name(), holder, shape, liveRegs_,
+                            scopeChainReg(), outputReg(), returnAddr, pc))
+>>>>>>> mozilla/master
     {
          return false;
     }
 
     const char *attachKind = "name getter";
+<<<<<<< HEAD
     return linkAndAttachStub(cx, masm, patcher, ion, attachKind);
+||||||| merged common ancestors
+    return linkAndAttachStub(cx, masm, ion, attachKind, getprop.rejoinOffset, &getprop.exitOffset,
+                             &getprop.stubCodePatchOffset);
+=======
+    return linkAndAttachStub(cx, masm, attacher, ion, attachKind);
+>>>>>>> mozilla/master
 }
 
 static bool
@@ -2346,19 +3900,48 @@ CallsiteCloneIC::attach(JSContext *cx, IonScript *ion, HandleFunction original,
                         HandleFunction clone)
 {
     MacroAssembler masm(cx);
+<<<<<<< HEAD
     RepatchStubPatcher patcher(rejoinLabel_, fallbackLabel_, &lastJump_);
+||||||| merged common ancestors
+=======
+    RepatchStubAppender attacher(rejoinLabel(), fallbackLabel_, &lastJump_);
+>>>>>>> mozilla/master
 
     // Guard against object identity on the original.
+<<<<<<< HEAD
     patcher.branchExit(masm, Assembler::NotEqual, calleeReg(),
                        ImmWord(uintptr_t(original.get())));
     patcher.bindFailures(masm);
+||||||| merged common ancestors
+    RepatchLabel exit;
+    CodeOffsetJump exitOffset = masm.branchPtrWithPatch(Assembler::NotEqual, calleeReg(),
+                                                        ImmWord(uintptr_t(original.get())), &exit);
+    masm.bind(&exit);
+=======
+    attacher.branchNextStub(masm, Assembler::NotEqual, calleeReg(),
+                            ImmWord(uintptr_t(original.get())));
+>>>>>>> mozilla/master
 
     // Load the clone.
     masm.movePtr(ImmWord(uintptr_t(clone.get())), outputReg());
 
+<<<<<<< HEAD
     patcher.jumpRejoin(masm);
+||||||| merged common ancestors
+    RepatchLabel rejoin;
+    CodeOffsetJump rejoinOffset = masm.jumpWithPatch(&rejoin);
+    masm.bind(&rejoin);
+=======
+    attacher.jumpRejoin(masm);
+>>>>>>> mozilla/master
 
+<<<<<<< HEAD
     return linkAndAttachStub(cx, masm, patcher, ion, "generic");
+||||||| merged common ancestors
+    return linkAndAttachStub(cx, masm, ion, "generic", rejoinOffset, &exitOffset);
+=======
+    return linkAndAttachStub(cx, masm, attacher, ion, "generic");
+>>>>>>> mozilla/master
 }
 
 JSObject *
@@ -2369,7 +3952,7 @@ CallsiteCloneIC::update(JSContext *cx, size_t cacheIndex, HandleObject callee)
     // Act as the identity for functions that are not clone-at-callsite, as we
     // generate this cache as long as some callees are clone-at-callsite.
     RootedFunction fun(cx, callee->toFunction());
-    if (!fun->nonLazyScript()->shouldCloneAtCallsite)
+    if (!fun->hasScript() || !fun->nonLazyScript()->shouldCloneAtCallsite)
         return fun;
 
     IonScript *ion = GetTopIonJSScript(cx)->ionScript();

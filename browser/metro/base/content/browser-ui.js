@@ -145,20 +145,12 @@ var BrowserUI = {
         DialogUI.init();
         FormHelperUI.init();
         FindHelperUI.init();
-        FullScreenVideo.init();
         PdfJs.init();
 #ifdef MOZ_SERVICES_SYNC
         WeaveGlue.init();
 #endif
       } catch(ex) {
         Util.dumpLn("Exception in delay load module:", ex.message);
-      }
-
-      try {
-        // XXX This is currently failing
-        CapturePickerUI.init();
-      } catch(ex) {
-        Util.dumpLn("Exception in CapturePickerUI:", ex.message);
       }
 
 #ifdef MOZ_UPDATER
@@ -285,17 +277,19 @@ var BrowserUI = {
     content.focus();
     this._setURI(aURI);
 
-    let postData = {};
-    aURI = Browser.getShortcutOrURI(aURI, postData);
-    Browser.loadURI(aURI, { flags: Ci.nsIWebNavigation.LOAD_FLAGS_ALLOW_THIRD_PARTY_FIXUP, postData: postData });
+    Task.spawn(function() {
+      let postData = {};
+      aURI = yield Browser.getShortcutOrURI(aURI, postData);
+      Browser.loadURI(aURI, { flags: Ci.nsIWebNavigation.LOAD_FLAGS_ALLOW_THIRD_PARTY_FIXUP, postData: postData });
 
-    // Delay doing the fixup so the raw URI is passed to loadURIWithFlags
-    // and the proper third-party fixup can be done
-    let fixupFlags = Ci.nsIURIFixup.FIXUP_FLAG_ALLOW_KEYWORD_LOOKUP;
-    let uri = gURIFixup.createFixupURI(aURI, fixupFlags);
-    gHistSvc.markPageAsTyped(uri);
+      // Delay doing the fixup so the raw URI is passed to loadURIWithFlags
+      // and the proper third-party fixup can be done
+      let fixupFlags = Ci.nsIURIFixup.FIXUP_FLAG_ALLOW_KEYWORD_LOOKUP;
+      let uri = gURIFixup.createFixupURI(aURI, fixupFlags);
+      gHistSvc.markPageAsTyped(uri);
 
-    this._titleChanged(Browser.selectedBrowser);
+      BrowserUI._titleChanged(Browser.selectedBrowser);
+    });
   },
 
   handleUrlbarEnter: function handleUrlbarEnter(aEvent) {
@@ -581,7 +575,7 @@ var BrowserUI = {
     } else if (!Util.isURLEmpty(url)) {
       tabCaption = url;
     } else {
-      tabCaption = Strings.browser.GetStringFromName("tabs.emptyTabTitle");
+      tabCaption = Util.getEmptyURLTabTitle();
     }
 
     let tab = Browser.getTabForBrowser(aBrowser);
@@ -1029,20 +1023,8 @@ var BrowserUI = {
         this.undoCloseTab();
         break;
       case "cmd_sanitize":
-      {
-        let title = Strings.browser.GetStringFromName("clearPrivateData.title");
-        let message = Strings.browser.GetStringFromName("clearPrivateData.message");
-        let clear = Services.prompt.confirm(window, title, message);
-        if (clear) {
-          // disable the button temporarily to indicate something happened
-          let button = document.getElementById("prefs-clear-data");
-          button.disabled = true;
-          setTimeout(function() { button.disabled = false; }, 5000);
-
-          Sanitizer.sanitize();
-        }
+        SanitizeUI.onSanitize();
         break;
-      }
       case "cmd_flyout_back":
         FlyoutPanelsUI.hide();
         MetroUtils.showSettingsFlyout();
@@ -1449,7 +1431,7 @@ var SyncPanelUI = {
   init: function() {
     // Run some setup code the first time the panel is shown.
     Elements.syncFlyout.addEventListener("PopupChanged", function onShow(aEvent) {
-      if (aEvent.detail && aEvent.popup === Elements.syncFlyout) {
+      if (aEvent.detail && aEvent.target === Elements.syncFlyout) {
         Elements.syncFlyout.removeEventListener("PopupChanged", onShow, false);
         WeaveGlue.init();
       }
@@ -1682,14 +1664,14 @@ var DialogUI = {
     this._hidePopup();
     this._popup =  { "panel": aPanel,
                      "elements": (aElements instanceof Array) ? aElements : [aElements] };
-    this._dispatchPopupChanged(true);
+    this._dispatchPopupChanged(true, aPanel);
   },
 
   popPopup: function popPopup(aPanel) {
     if (!this._popup || aPanel != this._popup.panel)
       return;
     this._popup = null;
-    this._dispatchPopupChanged(false);
+    this._dispatchPopupChanged(false, aPanel);
   },
 
   _hidePopup: function _hidePopup() {
@@ -1715,11 +1697,10 @@ var DialogUI = {
     }
   },
 
-  _dispatchPopupChanged: function _dispatchPopupChanged(aVisible) {
+  _dispatchPopupChanged: function _dispatchPopupChanged(aVisible, aElement) {
     let event = document.createEvent("UIEvents");
     event.initUIEvent("PopupChanged", true, true, window, aVisible);
-    event.popup = this._popup;
-    Elements.stack.dispatchEvent(event);
+    aElement.dispatchEvent(event);
   },
 
   _isEventInsidePopup: function _isEventInsidePopup(aEvent) {

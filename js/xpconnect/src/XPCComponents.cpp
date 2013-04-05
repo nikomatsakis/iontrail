@@ -2837,13 +2837,10 @@ nsXPCComponents_Utils::ReportError(const JS::Value &error, JSContext *cx)
 #include "nsNetUtil.h"
 const char kScriptSecurityManagerContractID[] = NS_SCRIPTSECURITYMANAGER_CONTRACTID;
 
-NS_IMPL_THREADSAFE_ISUPPORTS1(PrincipalHolder, nsIScriptObjectPrincipal)
-
-nsIPrincipal *
-PrincipalHolder::GetPrincipal()
-{
-    return mHoldee;
-}
+NS_IMPL_THREADSAFE_ISUPPORTS3(SandboxPrivate,
+                              nsIScriptObjectPrincipal,
+                              nsIGlobalObject,
+                              nsISupportsWeakReference)
 
 static JSBool
 SandboxDump(JSContext *cx, unsigned argc, jsval *vp)
@@ -2955,13 +2952,17 @@ CreateXMLHttpRequest(JSContext *cx, unsigned argc, jsval *vp)
     if (!subjectPrincipal)
         return false;
 
-    nsCOMPtr<nsIXMLHttpRequest> xhr = new nsXMLHttpRequest();
-    nsresult rv = xhr->Init(subjectPrincipal, NULL, NULL, NULL);
-    if (NS_FAILED(rv))
-        return false;
-
     JSObject *global = JS_GetGlobalForScopeChain(cx);
     MOZ_ASSERT(global);
+
+    nsIScriptObjectPrincipal *sop =
+        static_cast<nsIScriptObjectPrincipal *>(xpc_GetJSPrivate(global));
+    nsCOMPtr<nsIGlobalObject> iglobal = do_QueryInterface(sop);
+
+    nsCOMPtr<nsIXMLHttpRequest> xhr = new nsXMLHttpRequest();
+    nsresult rv = xhr->Init(subjectPrincipal, nullptr, iglobal, nullptr);
+    if (NS_FAILED(rv))
+        return false;
 
     rv = nsContentUtils::WrapNative(cx, global, xhr, vp);
     if (NS_FAILED(rv))
@@ -2987,7 +2988,9 @@ static void
 sandbox_finalize(JSFreeOp *fop, JSObject *obj)
 {
     nsIScriptObjectPrincipal *sop =
-        (nsIScriptObjectPrincipal *)xpc_GetJSPrivate(obj);
+        static_cast<nsIScriptObjectPrincipal *>(xpc_GetJSPrivate(obj));
+    MOZ_ASSERT(sop);
+    static_cast<SandboxPrivate *>(sop)->ForgetGlobalObject();
     NS_IF_RELEASE(sop);
     DestroyProtoAndIfaceCache(obj);
 }
@@ -3047,11 +3050,17 @@ NS_IMPL_THREADSAFE_RELEASE(nsXPCComponents_utils_Sandbox)
 xpc::SandboxProxyHandler xpc::sandboxProxyHandler;
 
 bool
-xpc::SandboxCallableProxyHandler::call(JSContext *cx, JSObject *proxy,
-                                       unsigned argc, Value *vp)
+xpc::IsSandboxPrototypeProxy(JSObject *obj)
 {
-    // We forward the call to our underlying callable. The callable to forward
-    // to can be gotten via GetProxyCall.
+    return js::IsProxy(obj) &&
+           js::GetProxyHandler(obj) == &xpc::sandboxProxyHandler;
+}
+
+bool
+xpc::SandboxCallableProxyHandler::call(JSContext *cx, JS::Handle<JSObject*> proxy,
+                                       const JS::CallArgs &args)
+{
+    // We forward the call to our underlying callable.
 
     // The parent of our proxy is the SandboxProxyHandler proxy
     JSObject *sandboxProxy = JS_GetParent(proxy);
@@ -3064,18 +3073,42 @@ xpc::SandboxCallableProxyHandler::call(JSContext *cx, JSObject *proxy,
     MOZ_ASSERT(js::GetObjectJSClass(sandboxGlobal) == &SandboxClass);
 
     // If our this object is the sandbox global, we call with this set to the
-    // original proto instead.  Note that we very carefully avoid using JS_THIS
-    // or JS_THIS_OBJECT here, because we do NOT want to box undefined into the
-    // global.  Instead, we just pass it through to our callable, and it will
-    // compute the global based on its own scope chain, which will do the right
-    // thing.
-    JS::Value thisVal = JS_THIS_VALUE(cx, vp);
+    // original proto instead.
+    //
+    // There are two different ways we can compute |this|. If we use
+    // JS_THIS_VALUE, we'll get the bonafide |this| value as passed by the
+    // caller, which may be undefined if a global function was invoked without
+    // an explicit invocant. If we use JS_THIS or JS_THIS_OBJECT, the |this|
+    // in |vp| will be coerced to the global, which is not the correct
+    // behavior in ES5 strict mode. And we have no way to compute strictness
+    // here.
+    //
+    // The naive approach is simply to use JS_THIS_VALUE here. If |this| was
+    // explicit, we can remap it appropriately. If it was implicit, then we
+    // leave it as undefined, and let the callee sort it out. Since the callee
+    // is generally in the same compartment as its global (eg the Window's
+    // compartment, not the Sandbox's), the callee will generally compute the
+    // correct |this|.
+    //
+    // However, this breaks down in the Xray case. If the sandboxPrototype
+    // is an Xray wrapper, then we'll end up reifying the native methods in
+    // the Sandbox's scope, which means that they'll compute |this| to be the
+    // Sandbox, breaking old-style XPC_WN_CallMethod methods.
+    //
+    // Luckily, the intent of Xrays is to provide a vanilla view of a foreign
+    // DOM interface, which means that we don't care about script-enacted
+    // strictness in the prototype's home compartment. Indeed, since DOM
+    // methods are always non-strict, we can just assume non-strict semantics
+    // if the sandboxPrototype is an Xray Wrapper, which lets us appropriately
+    // remap |this|.
+    JS::Value thisVal =
+      WrapperFactory::IsXrayWrapper(sandboxProxy) ? args.computeThis(cx) : args.thisv();
     if (thisVal == ObjectValue(*sandboxGlobal)) {
         thisVal = ObjectValue(*js::GetProxyTargetObject(sandboxProxy));
     }
 
-    return JS::Call(cx, thisVal, js::GetProxyCall(proxy), argc,
-                    JS_ARGV(cx, vp), vp);
+    return JS::Call(cx, thisVal, js::GetProxyPrivate(proxy), args.length(), args.array(),
+                    args.rval().address());
 }
 
 xpc::SandboxCallableProxyHandler xpc::sandboxCallableProxyHandler;
@@ -3093,11 +3126,9 @@ WrapCallable(JSContext *cx, JSObject *callable, JSObject *sandboxProtoProxy)
                js::GetProxyHandler(sandboxProtoProxy) ==
                  &xpc::sandboxProxyHandler);
 
-    // We need to pass the given callable in as the "call" and
-    // "construct" so we get a function proxy.
     return js::NewProxyObject(cx, &xpc::sandboxCallableProxyHandler,
                               ObjectValue(*callable), nullptr,
-                              sandboxProtoProxy, callable, callable);
+                              sandboxProtoProxy, js::ProxyIsCallable);
 }
 
 template<typename Op>
@@ -3134,13 +3165,13 @@ extern JSBool
 XPC_WN_Helper_SetProperty(JSContext *cx, JSHandleObject obj, JSHandleId id, JSBool strict, JSMutableHandleValue vp);
 
 bool
-xpc::SandboxProxyHandler::getPropertyDescriptor(JSContext *cx, JSObject *proxy,
-                                                jsid id_,
+xpc::SandboxProxyHandler::getPropertyDescriptor(JSContext *cx,
+                                                JS::Handle<JSObject*> proxy,
+                                                JS::Handle<jsid> id,
                                                 PropertyDescriptor *desc,
                                                 unsigned flags)
 {
     JS::RootedObject obj(cx, wrappedObject(proxy));
-    JS::RootedId id(cx, id_);
 
     MOZ_ASSERT(js::GetObjectCompartment(obj) == js::GetObjectCompartment(proxy));
     if (!JS_GetPropertyDescriptorById(cx, obj, id,
@@ -3183,8 +3214,8 @@ xpc::SandboxProxyHandler::getPropertyDescriptor(JSContext *cx, JSObject *proxy,
 
 bool
 xpc::SandboxProxyHandler::getOwnPropertyDescriptor(JSContext *cx,
-                                                   JSObject *proxy,
-                                                   jsid id,
+                                                   JS::Handle<JSObject*> proxy,
+                                                   JS::Handle<jsid> id,
                                                    PropertyDescriptor *desc,
                                                    unsigned flags)
 {
@@ -3203,41 +3234,47 @@ xpc::SandboxProxyHandler::getOwnPropertyDescriptor(JSContext *cx,
  */
 
 bool
-xpc::SandboxProxyHandler::has(JSContext *cx, JSObject *proxy, jsid id, bool *bp)
+xpc::SandboxProxyHandler::has(JSContext *cx, JS::Handle<JSObject*> proxy,
+                              JS::Handle<jsid> id, bool *bp)
 {
     return BaseProxyHandler::has(cx, proxy, id, bp);
 }
 bool
-xpc::SandboxProxyHandler::hasOwn(JSContext *cx, JSObject *proxy, jsid id,
-                                 bool *bp)
+xpc::SandboxProxyHandler::hasOwn(JSContext *cx, JS::Handle<JSObject*> proxy,
+                                 JS::Handle<jsid> id, bool *bp)
 {
     return BaseProxyHandler::hasOwn(cx, proxy, id, bp);
 }
 
 bool
-xpc::SandboxProxyHandler::get(JSContext *cx, JSObject *proxy, JSObject *receiver,
-                              jsid id, Value *vp)
+xpc::SandboxProxyHandler::get(JSContext *cx, JS::Handle<JSObject*> proxy,
+                              JS::Handle<JSObject*> receiver,
+                              JS::Handle<jsid> id,
+                              JS::MutableHandle<Value> vp)
 {
     return BaseProxyHandler::get(cx, proxy, receiver, id, vp);
 }
 
 bool
-xpc::SandboxProxyHandler::set(JSContext *cx, JSObject *proxy, JSObject *receiver,
-                              jsid id, bool strict, Value *vp)
+xpc::SandboxProxyHandler::set(JSContext *cx, JS::Handle<JSObject*> proxy,
+                              JS::Handle<JSObject*> receiver,
+                              JS::Handle<jsid> id,
+                              bool strict,
+                              JS::MutableHandle<Value> vp)
 {
     return BaseProxyHandler::set(cx, proxy, receiver, id, strict, vp);
 }
 
 bool
-xpc::SandboxProxyHandler::keys(JSContext *cx, JSObject *proxy,
+xpc::SandboxProxyHandler::keys(JSContext *cx, JS::Handle<JSObject*> proxy,
                                AutoIdVector &props)
 {
     return BaseProxyHandler::keys(cx, proxy, props);
 }
 
 bool
-xpc::SandboxProxyHandler::iterate(JSContext *cx, JSObject *proxy, unsigned flags,
-                                  Value *vp)
+xpc::SandboxProxyHandler::iterate(JSContext *cx, JS::Handle<JSObject*> proxy,
+                                  unsigned flags, JS::MutableHandle<Value> vp)
 {
     return BaseProxyHandler::iterate(cx, proxy, flags, vp);
 }
@@ -3251,12 +3288,12 @@ xpc_CreateSandboxObject(JSContext *cx, jsval *vp, nsISupports *prinOrSop, Sandbo
     if (NS_FAILED(rv))
         return NS_ERROR_XPC_UNEXPECTED;
 
-    nsCOMPtr<nsIScriptObjectPrincipal> sop(do_QueryInterface(prinOrSop));
-
-    if (!sop) {
-        nsCOMPtr<nsIPrincipal> principal(do_QueryInterface(prinOrSop));
-
-        if (!principal) {
+    nsCOMPtr<nsIPrincipal> principal = do_QueryInterface(prinOrSop);
+    if (!principal) {
+        nsCOMPtr<nsIScriptObjectPrincipal> sop = do_QueryInterface(prinOrSop);
+        if (sop) {
+            principal = sop->GetPrincipal();
+        } else {
             principal = do_CreateInstance("@mozilla.org/nullprincipal;1", &rv);
             NS_ASSERTION(NS_FAILED(rv) || principal,
                          "Bad return from do_CreateInstance");
@@ -3269,14 +3306,8 @@ xpc_CreateSandboxObject(JSContext *cx, jsval *vp, nsISupports *prinOrSop, Sandbo
                 return rv;
             }
         }
-
-        sop = new PrincipalHolder(principal);
-        if (!sop)
-            return NS_ERROR_OUT_OF_MEMORY;
+        MOZ_ASSERT(principal);
     }
-
-    nsIPrincipal *principal = sop->GetPrincipal();
-
     JSObject *sandbox;
 
     JS::ZoneSpecifier zoneSpec = options.sameZoneAs
@@ -3334,8 +3365,11 @@ xpc_CreateSandboxObject(JSContext *cx, jsval *vp, nsISupports *prinOrSop, Sandbo
                 return NS_ERROR_XPC_UNEXPECTED;
         }
 
-        // Pass on ownership of sop to |sandbox|.
-        JS_SetPrivate(sandbox, sop.forget().get());
+        nsCOMPtr<nsIScriptObjectPrincipal> sbp =
+            new SandboxPrivate(principal, sandbox);
+
+        // Pass on ownership of sbp to |sandbox|.
+        JS_SetPrivate(sandbox, sbp.forget().get());
 
         XPCCallContext ccx(NATIVE_CALLER, cx);
         if (!ccx.IsValid())
@@ -4842,8 +4876,7 @@ ContentComponentsGetterOp(JSContext *cx, JSHandleObject obj, JSHandleId id,
 // static
 JSBool
 nsXPCComponents::AttachComponentsObject(XPCCallContext& ccx,
-                                        XPCWrappedNativeScope* aScope,
-                                        JSObject* aTarget)
+                                        XPCWrappedNativeScope* aScope)
 {
     JSObject *components = aScope->GetComponentsJSObject(ccx);
     if (!components)
@@ -4851,13 +4884,11 @@ nsXPCComponents::AttachComponentsObject(XPCCallContext& ccx,
 
     JSObject *global = aScope->GetGlobalJSObject();
     MOZ_ASSERT(js::IsObjectInContextCompartment(global, ccx));
-    if (!aTarget)
-        aTarget = global;
 
     jsid id = ccx.GetRuntime()->GetStringID(XPCJSRuntime::IDX_COMPONENTS);
     JSPropertyOp getter = AccessCheck::isChrome(global) ? nullptr
                                                         : &ContentComponentsGetterOp;
-    return JS_DefinePropertyById(ccx, aTarget, id, js::ObjectValue(*components),
+    return JS_DefinePropertyById(ccx, global, id, js::ObjectValue(*components),
                                  getter, nullptr, JSPROP_PERMANENT | JSPROP_READONLY);
 }
 

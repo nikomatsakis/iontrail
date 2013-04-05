@@ -38,6 +38,7 @@ struct WebAudioDecodeJob;
 
 namespace dom {
 
+class AnalyserNode;
 class AudioBuffer;
 class AudioBufferSourceNode;
 class AudioDestinationNode;
@@ -66,8 +67,12 @@ public:
 
   void Shutdown()
   {
+    Suspend();
     mDecoder.Shutdown();
   }
+
+  void Suspend();
+  void Resume();
 
   virtual JSObject* WrapObject(JSContext* aCx, JSObject* aScope) MOZ_OVERRIDE;
 
@@ -94,6 +99,9 @@ public:
   CreateBuffer(JSContext* aJSContext, uint32_t aNumberOfChannels,
                uint32_t aLength, float aSampleRate,
                ErrorResult& aRv);
+
+  already_AddRefed<AnalyserNode>
+  CreateAnalyser();
 
   already_AddRefed<GainNode>
   CreateGain();

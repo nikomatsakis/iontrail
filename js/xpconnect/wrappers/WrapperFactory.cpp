@@ -39,6 +39,13 @@ Wrapper XrayWaiver(WrapperFactory::WAIVE_XRAY_WRAPPER_FLAG);
 // off it.
 WaiveXrayWrapper WaiveXrayWrapper::singleton(0);
 
+bool
+WrapperFactory::IsCOW(JSObject *obj)
+{
+    return IsWrapper(obj) &&
+           Wrapper::wrapperHandler(obj) == &ChromeObjectWrapper::singleton;
+}
+
 JSObject *
 WrapperFactory::GetXrayWaiver(JSObject *obj)
 {
@@ -284,8 +291,12 @@ DEBUG_CheckUnwrapSafety(JSObject *obj, js::Wrapper *handler,
         // The Components object that is restricted regardless of origin.
         MOZ_ASSERT(!handler->isSafeToUnwrap());
     } else if (AccessCheck::needsSystemOnlyWrapper(obj)) {
-        // SOWs are opaque to everyone but Chrome and XBL scopes.
-        MOZ_ASSERT(handler->isSafeToUnwrap() == nsContentUtils::CanAccessNativeAnon());
+        // SOWs have a dynamic unwrap check, so we can't really say anything useful
+        // about them here :-(
+    } else if (handler == &FilteringWrapper<CrossCompartmentSecurityWrapper, GentlyOpaque>::singleton) {
+        // We explicitly use a SecurityWrapper to protect privileged callers from
+        // less-privileged objects that they should never see. Skip the check in
+        // this case.
     } else {
         // Otherwise, it should depend on whether the target subsumes the origin.
         MOZ_ASSERT(handler->isSafeToUnwrap() == AccessCheck::subsumes(target, origin));
@@ -354,6 +365,7 @@ WrapperFactory::Rewrap(JSContext *cx, JSObject *existing, JSObject *obj,
     bool targetSubsumesOrigin = AccessCheck::subsumes(target, origin);
     bool sameOrigin = targetSubsumesOrigin && originSubsumesTarget;
     XrayType xrayType = GetXrayType(obj);
+    bool waiveXrayFlag = flags & WAIVE_XRAY_WRAPPER_FLAG;
 
     // By default we use the wrapped proto of the underlying object as the
     // prototype for our wrapper, but we may select something different below.
@@ -388,6 +400,20 @@ WrapperFactory::Rewrap(JSContext *cx, JSObject *existing, JSObject *obj,
                                     OnlyIfSubjectIsSystem>::singleton;
     }
 
+    // Normally, a non-xrayable non-waived content object that finds itself in
+    // a privileged scope is wrapped with a CrossCompartmentWrapper, even though
+    // the lack of a waiver _really_ should give it an opaque wrapper. This is
+    // a bit too entrenched to change for content-chrome, but we can at least fix
+    // it for XBL scopes.
+    //
+    // See bug 843829.
+    else if (targetSubsumesOrigin && !originSubsumesTarget &&
+             !waiveXrayFlag && xrayType == NotXray &&
+             IsXBLScope(target))
+    {
+        wrapper = &FilteringWrapper<CrossCompartmentSecurityWrapper, GentlyOpaque>::singleton;
+    }
+
     //
     // Now, handle the regular cases.
     //
@@ -410,8 +436,7 @@ WrapperFactory::Rewrap(JSContext *cx, JSObject *existing, JSObject *obj,
 
         // If Xrays are warranted, the caller may waive them for non-security
         // wrappers.
-        bool waiveXrays = wantXrays && !securityWrapper &&
-                          (flags & WAIVE_XRAY_WRAPPER_FLAG);
+        bool waiveXrays = wantXrays && !securityWrapper && waiveXrayFlag;
 
         wrapper = SelectWrapper(securityWrapper, wantXrays, xrayType, waiveXrays);
     }
@@ -499,7 +524,8 @@ WrapperFactory::WrapForSameCompartment(JSContext *cx, JSObject *obj)
 
     // The WN knows what to do.
     JSObject *wrapper = wn->GetSameCompartmentSecurityWrapper(cx);
-    MOZ_ASSERT_IF(wrapper != obj, !Wrapper::wrapperHandler(wrapper)->isSafeToUnwrap());
+    MOZ_ASSERT_IF(wrapper != obj && IsComponentsObject(js::UnwrapObject(obj)),
+                  !Wrapper::wrapperHandler(wrapper)->isSafeToUnwrap());
     return wrapper;
 }
 
@@ -658,6 +684,34 @@ TransplantObjectWithWrapper(JSContext *cx,
     if (!FixWaiverAfterTransplant(cx, oldWaiver, newIdentity))
         return NULL;
     return newSameCompartmentWrapper;
+}
+
+nsIGlobalObject *
+GetNativeForGlobal(JSObject *obj)
+{
+    MOZ_ASSERT(JS_IsGlobalObject(obj));
+    if (!EnsureCompartmentPrivate(obj)->scope)
+        return nullptr;
+
+    // Every global needs to hold a native as its private.
+    MOZ_ASSERT(GetObjectClass(obj)->flags & (JSCLASS_PRIVATE_IS_NSISUPPORTS |
+                                             JSCLASS_HAS_PRIVATE));
+    nsISupports *native =
+        static_cast<nsISupports *>(js::GetObjectPrivate(obj));
+    MOZ_ASSERT(native);
+
+    // In some cases (like for windows) it is a wrapped native,
+    // in other cases (sandboxes, backstage passes) it's just
+    // a direct pointer to the native. If it's a wrapped native
+    // let's unwrap it first.
+    if (nsCOMPtr<nsIXPConnectWrappedNative> wn = do_QueryInterface(native)) {
+        native = wn->Native();
+    }
+
+    nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(native);
+    MOZ_ASSERT(global, "Native held by global needs to implement nsIGlobalObject!");
+
+    return global;
 }
 
 }

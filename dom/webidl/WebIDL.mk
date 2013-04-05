@@ -9,6 +9,7 @@ generated_webidl_files = \
   $(NULL)
 
 webidl_files = \
+  AnalyserNode.webidl \
   AnimationEvent.webidl \
   ArchiveReader.webidl \
   ArchiveRequest.webidl \
@@ -21,6 +22,7 @@ webidl_files = \
   AudioParam.webidl \
   AudioSourceNode.webidl \
   BatteryManager.webidl \
+  BeforeUnloadEvent.webidl \
   BiquadFilterNode.webidl \
   Blob.webidl \
   CanvasRenderingContext2D.webidl \
@@ -30,8 +32,10 @@ webidl_files = \
   CharacterData.webidl \
   ClientRect.webidl \
   ClientRectList.webidl \
+  ClipboardEvent.webidl \
   CommandEvent.webidl \
   Comment.webidl \
+  CompositionEvent.webidl \
   CSS.webidl \
   CSSPrimitiveValue.webidl \
   CSSStyleDeclaration.webidl \
@@ -91,7 +95,9 @@ webidl_files = \
   HTMLHeadingElement.webidl \
   HTMLHRElement.webidl \
   HTMLHtmlElement.webidl \
+  HTMLIFrameElement.webidl \
   HTMLImageElement.webidl \
+  HTMLInputElement.webidl \
   HTMLLabelElement.webidl \
   HTMLLegendElement.webidl \
   HTMLLIElement.webidl \
@@ -124,11 +130,13 @@ webidl_files = \
   HTMLTableElement.webidl \
   HTMLTableRowElement.webidl \
   HTMLTableSectionElement.webidl \
+  HTMLTemplateElement.webidl \
   HTMLTextAreaElement.webidl \
   HTMLTimeElement.webidl \
   HTMLTitleElement.webidl \
   HTMLUListElement.webidl \
   HTMLVideoElement.webidl \
+  IDBFactory.webidl \
   IDBVersionChangeEvent.webidl \
   ImageData.webidl \
   InspectorUtils.webidl \
@@ -158,6 +166,8 @@ webidl_files = \
   RGBColor.webidl \
   RTCConfiguration.webidl \
   Screen.webidl \
+  ScrollAreaEvent.webidl \
+  SimpleGestureEvent.webidl \
   StyleSheet.webidl \
   SVGAElement.webidl \
   SVGAltGlyphElement.webidl \
@@ -180,6 +190,7 @@ webidl_files = \
   SVGComponentTransferFunctionElement.webidl \
   SVGDefsElement.webidl \
   SVGDescElement.webidl \
+  SVGDocument.webidl \
   SVGElement.webidl \
   SVGEllipseElement.webidl \
   SVGFilterElement.webidl \
@@ -188,6 +199,9 @@ webidl_files = \
   SVGFEColorMatrixElement.webidl \
   SVGFEComponentTransferElement.webidl \
   SVGFECompositeElement.webidl \
+  SVGFEConvolveMatrixElement.webidl \
+  SVGFEDiffuseLightingElement.webidl \
+  SVGFEDisplacementMapElement.webidl \
   SVGFEDistantLightElement.webidl \
   SVGFEFloodElement.webidl \
   SVGFEFuncAElement.webidl \
@@ -198,8 +212,13 @@ webidl_files = \
   SVGFEImageElement.webidl \
   SVGFEMergeElement.webidl \
   SVGFEMergeNodeElement.webidl \
+  SVGFEMorphologyElement.webidl \
+  SVGFEOffsetElement.webidl \
   SVGFEPointLightElement.webidl \
+  SVGFESpecularLightingElement.webidl \
+  SVGFESpotLightElement.webidl \
   SVGFETileElement.webidl \
+  SVGFETurbulenceElement.webidl \
   SVGFitToViewBox.webidl \
   SVGForeignObjectElement.webidl \
   SVGGElement.webidl \
@@ -225,6 +244,7 @@ webidl_files = \
   SVGPolylineElement.webidl \
   SVGPreserveAspectRatio.webidl \
   SVGRadialGradientElement.webidl \
+  SVGRect.webidl \
   SVGRectElement.webidl \
   SVGScriptElement.webidl \
   SVGSetElement.webidl \
@@ -258,15 +278,19 @@ webidl_files = \
   ValidityState.webidl \
   WebComponents.webidl \
   WebSocket.webidl \
+  WheelEvent.webidl \
   UndoManager.webidl \
   URLUtils.webidl \
   USSDReceivedEvent.webidl \
+  XMLDocument.webidl \
   XMLHttpRequest.webidl \
   XMLHttpRequestEventTarget.webidl \
   XMLHttpRequestUpload.webidl \
   XMLSerializer.webidl \
   XMLStylesheetProcessingInstruction.webidl \
   XPathEvaluator.webidl \
+  XULCommandEvent.webidl \
+  XULDocument.webidl \
   XULElement.webidl \
   $(NULL)
 
@@ -295,12 +319,27 @@ webidl_files += \
   $(NULL)
 endif
 
+ifdef MOZ_WEBSPEECH
+webidl_files += \
+  SpeechGrammar.webidl \
+  SpeechGrammarList.webidl \
+  SpeechRecognitionAlternative.webidl \
+  SpeechRecognitionResultList.webidl \
+  SpeechRecognitionResult.webidl \
+  SpeechRecognition.webidl \
+  SpeechSynthesisUtterance.webidl \
+  SpeechSynthesisVoice.webidl \
+  SpeechSynthesis.webidl \
+  $(NULL)
+endif
+
 ifdef ENABLE_TESTS
 test_webidl_files := \
   TestCodeGen.webidl \
   TestDictionary.webidl \
   TestExampleGen.webidl \
   TestJSImplGen.webidl \
+  TestJSImplInheritanceGen.webidl \
   TestTypedef.webidl \
   $(NULL)
 else

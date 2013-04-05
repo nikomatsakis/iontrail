@@ -203,6 +203,10 @@ pref("media.navigator.enabled", true);
 #endif
 #endif
 
+#ifdef MOZ_WEBSPEECH
+pref("media.webspeech.recognition.enable", false);
+#endif
+
 // Whether to enable Web Audio support
 pref("media.webaudio.enabled", false);
 
@@ -327,6 +331,16 @@ pref("accessibility.tabfocus_applies_to_xul", true);
 // further checks.
 pref("accessibility.force_disabled", 0);
 
+#ifdef XP_WIN
+// Some accessibility tools poke at windows in the plugin process during setup
+// which can cause hangs.  To hack around this set accessibility.delay_plugins
+// to true, you can also try increasing accessibility.delay_plugin_time if your
+// machine is slow and you still experience hangs.
+// See bug 781791.
+pref("accessibility.delay_plugins", false);
+pref("accessibility.delay_plugin_time", 10000);
+#endif
+
 pref("focusmanager.testmode", false);
 
 pref("accessibility.usetexttospeech", "");
@@ -378,7 +392,7 @@ pref("toolkit.telemetry.server", "https://data.mozilla.com");
 // Telemetry server owner. Please change if you set toolkit.telemetry.server to a different server
 pref("toolkit.telemetry.server_owner", "Mozilla");
 // Information page about telemetry (temporary ; will be about:telemetry in the end)
-pref("toolkit.telemetry.infoURL", "http://www.mozilla.com/legal/privacy/firefox.html#telemetry");
+pref("toolkit.telemetry.infoURL", "https://www.mozilla.org/legal/privacy/firefox.html#telemetry");
 // Determines whether full SQL strings are returned when they might contain sensitive info
 // i.e. dynamically constructed SQL strings or SQL executed by addons against addon DBs
 pref("toolkit.telemetry.debugSlowSql", false);
@@ -715,6 +729,9 @@ pref("dom.min_background_timeout_value", 1000);
 // Run content XBL in a separate scope.
 pref("dom.xbl_scopes", true);
 
+// Stop defining the Components object in content.
+pref("dom.omit_components_in_content", true);
+
 // Don't use new input types
 pref("dom.experimental_forms", false);
 
@@ -751,6 +768,8 @@ pref("javascript.options.strict.debug",     true);
 #endif
 pref("javascript.options.methodjit.content", true);
 pref("javascript.options.methodjit.chrome",  true);
+pref("javascript.options.baselinejit.content", true);
+pref("javascript.options.baselinejit.chrome",  true);
 pref("javascript.options.ion.content",      true);
 #ifdef RELEASE_BUILD
 pref("javascript.options.experimental_asmjs", false);
@@ -788,6 +807,8 @@ pref("javascript.options.mem.gc_dynamic_mark_slice", true);
 pref("javascript.options.mem.gc_allocation_threshold_mb", 30);
 
 pref("javascript.options.mem.analysis_purge_mb", 100);
+
+pref("javascript.options.showInConsole", false);
 
 // advanced prefs
 pref("advanced.mailftp",                    false);
@@ -1693,18 +1714,10 @@ pref("layout.css.masking.enabled", true);
 #endif
 
 // Is support for the the @supports rule enabled?
-#ifdef RELEASE_BUILD
-pref("layout.css.supports-rule.enabled", false);
-#else
 pref("layout.css.supports-rule.enabled", true);
-#endif
 
 // Is support for CSS Flexbox enabled?
-#ifdef RELEASE_BUILD
-pref("layout.css.flexbox.enabled", false);
-#else
 pref("layout.css.flexbox.enabled", true);
-#endif
 
 // Are sets of prefixed properties supported?
 pref("layout.css.prefixes.border-image", true);
@@ -3839,6 +3852,10 @@ pref("image.high_quality_downscaling.enabled", true);
 // interpreted as a floating-point number / 1000.
 pref("image.high_quality_downscaling.min_factor", 1000);
 
+// The maximum memory size which we'll use high-quality uspcaling on,
+// interpreted as number of decoded bytes.
+pref("image.high_quality_upscaling.max_size", 20971520);
+
 //
 // Image memory management prefs
 //
@@ -3869,6 +3886,14 @@ pref("image.mem.max_ms_before_yield", 5);
 // The maximum amount of decoded image data we'll willingly keep around (we
 // might keep around more than this, but we'll try to get down to this value).
 pref("image.mem.max_decoded_image_kb", 51200);
+
+// Whether we decode images on multiple background threads rather than the
+// foreground thread.
+pref("image.multithreaded_decoding.enabled", true);
+
+// How many threads we'll use for multithreaded decoding. If < 0, will be
+// automatically determined based on the system's number of cores.
+pref("image.multithreaded_decoding.limit", -1);
 
 // WebGL prefs
 pref("gl.msaa-level", 2);
@@ -4024,6 +4049,9 @@ pref("dom.mozContacts.enabled", false);
 
 // WebAlarms
 pref("dom.mozAlarms.enabled", false);
+
+// SimplePush
+pref("services.push.enabled", false);
 
 // WebNetworkStats
 pref("dom.mozNetworkStats.enabled", false);

@@ -213,15 +213,18 @@ ion::ParCompareStrings(JSString *str1, JSString *str2)
 void
 ion::ParallelAbort(ParallelBailoutCause cause,
                    JSScript *script,
-                   jsbytecode *bytecode)
+                   jsbytecode *bytecode,
+                   JSScript *inlinerScript)
 {
     JS_ASSERT(ParallelJSActive());
     JS_ASSERT(script != NULL);
     ForkJoinSlice *slice = ForkJoinSlice::Current();
 
-    Spew(SpewBailouts, "Parallel abort with cause %d in %p:%s:%d at line %d",
+    Spew(SpewBailouts,
+         "Parallel abort with cause %d in %p:%s:%d at line %d",
          cause, script, script->filename(), script->lineno);
 
+    JS_ASSERT(inlinerScript->hasParallelIonScript());
     JS_ASSERT(slice->bailoutRecord->depth == 0);
     slice->bailoutRecord->setCause(cause, script, bytecode);
 }

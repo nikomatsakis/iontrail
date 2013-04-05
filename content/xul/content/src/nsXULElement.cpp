@@ -65,7 +65,7 @@
 #include "nsXULControllers.h"
 #include "nsIBoxObject.h"
 #include "nsPIBoxObject.h"
-#include "nsXULDocument.h"
+#include "XULDocument.h"
 #include "nsXULPopupListener.h"
 #include "nsRuleWalker.h"
 #include "nsIDOMCSSStyleDeclaration.h"
@@ -106,6 +106,7 @@
 #include "mozilla/dom/XULElementBinding.h"
 
 using namespace mozilla;
+using namespace mozilla::dom;
 
 //----------------------------------------------------------------------
 
@@ -436,7 +437,7 @@ nsXULElement::GetElementsByAttribute(const nsAString& aAttribute,
     void* attrValue = new nsString(aValue);
     nsRefPtr<nsContentList> list =
         new nsContentList(this,
-                          nsXULDocument::MatchAttribute,
+                          XULDocument::MatchAttribute,
                           nsContentUtils::DestroyMatchString,
                           attrValue,
                           true,
@@ -478,7 +479,7 @@ nsXULElement::GetElementsByAttributeNS(const nsAString& aNamespaceURI,
     void* attrValue = new nsString(aValue);
     nsRefPtr<nsContentList> list =
         new nsContentList(this,
-                          nsXULDocument::MatchAttribute,
+                          XULDocument::MatchAttribute,
                           nsContentUtils::DestroyMatchString,
                           attrValue,
                           true,
@@ -1188,7 +1189,7 @@ nsXULElement::PreHandleEvent(nsEventChainPreVisitor& aVisitor)
                     if (commandEvent) {
                         commandEvent->GetSourceEvent(getter_AddRefs(domEvent));
                     } else {
-                        domEvent = NULL;
+                        domEvent = nullptr;
                     }
                 }
 
@@ -1366,10 +1367,8 @@ nsXULElement::GetBoxObject(nsIBoxObject** aResult)
 already_AddRefed<nsIBoxObject>
 nsXULElement::GetBoxObject(ErrorResult& rv)
 {
-    nsCOMPtr<nsIBoxObject> boxObject;
     // XXX sXBL/XBL2 issue! Owner or current document?
-    rv = OwnerDoc()->GetBoxObjectFor(this, getter_AddRefs(boxObject));
-    return boxObject.forget();
+    return OwnerDoc()->GetBoxObjectFor(this, rv);
 }
 
 // Methods for setting/getting attributes from nsIDOMXULElement
@@ -2165,8 +2164,7 @@ nsXULPrototypeElement::Deserialize(nsIObjectInputStream* aStream,
     uint32_t numChildren = int32_t(number);
 
     if (numChildren > 0) {
-        if (!mChildren.SetCapacity(numChildren))
-            return NS_ERROR_OUT_OF_MEMORY;
+        mChildren.SetCapacity(numChildren);
 
         for (i = 0; i < numChildren; i++) {
             tmp = aStream->Read32(&number);
@@ -2347,7 +2345,7 @@ nsXULPrototypeElement::TraceAllScripts(JSTracer* aTrc)
         } else if (child->mType == nsXULPrototypeNode::eType_Script) {
             JSScript* script = static_cast<nsXULPrototypeScript*>(child)->GetScriptObject();
             if (script) {
-                JS_CALL_SCRIPT_TRACER(aTrc, script, "active window XUL prototype script");
+                JS_CallScriptTracer(aTrc, script, "active window XUL prototype script");
             }
         }
     }
@@ -2467,8 +2465,8 @@ nsXULPrototypeScript::Deserialize(nsIObjectInputStream* aStream,
     nsIScriptContext *context = aGlobal->GetScriptContext();
     NS_ASSERTION(context != nullptr, "Have no context for deserialization");
     NS_ENSURE_TRUE(context, NS_ERROR_UNEXPECTED);
-    nsScriptObjectHolder<JSScript> newScriptObject(context);
-    rv = context->Deserialize(aStream, newScriptObject);
+    JS::Rooted<JSScript*> newScriptObject(context->GetNativeContext());
+    rv = context->Deserialize(aStream, &newScriptObject);
     if (NS_FAILED(rv)) {
         NS_WARNING("Language deseralization failed");
         return rv;
@@ -2493,7 +2491,7 @@ nsXULPrototypeScript::DeserializeOutOfLine(nsIObjectInputStream* aInput,
         if (mSrcURI) {
             // NB: we must check the XUL script cache early, to avoid
             // multiple deserialization attempts for a given script.            
-            // Note that nsXULDocument::LoadScript
+            // Note that XULDocument::LoadScript
             // checks the XUL script cache too, in order to handle the
             // serialization case.
             //
@@ -2587,7 +2585,7 @@ nsXULPrototypeScript::Compile(const PRUnichar* aText,
 
     // Ok, compile it to create a prototype script object!
 
-    nsScriptObjectHolder<JSScript> newScriptObject(context);
+    JS::Rooted<JSScript*> newScriptObject(context->GetNativeContext());
 
     // If the script was inline, tell the JS parser to save source for
     // Function.prototype.toSource(). If it's out of line, we retrieve the
@@ -2601,12 +2599,12 @@ nsXULPrototypeScript::Compile(const PRUnichar* aText,
                                 // protodoc's?
                                 // If we start using the protodoc's, make sure
                                 // the DowngradePrincipalIfNeeded stuff in
-                                // nsXULDocument::OnStreamComplete still works!
+                                // XULDocument::OnStreamComplete still works!
                                 aDocument->NodePrincipal(),
                                 urlspec.get(),
                                 aLineNo,
                                 mLangVersion,
-                                newScriptObject,
+                                &newScriptObject,
                                 saveSource);
     if (NS_FAILED(rv))
         return rv;

@@ -5,11 +5,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+/* JS script descriptor. */
+
 #ifndef jsscript_h___
 #define jsscript_h___
-/*
- * JS script descriptor.
- */
+
+#include "mozilla/PodOperations.h"
 
 #include "jsdbgapi.h"
 #include "jsinfer.h"
@@ -25,11 +26,14 @@ namespace js {
 
 namespace ion {
     struct IonScript;
+    struct BaselineScript;
     struct IonScriptCounts;
 }
 
 # define ION_DISABLED_SCRIPT ((js::ion::IonScript *)0x1)
 # define ION_COMPILING_SCRIPT ((js::ion::IonScript *)0x2)
+
+# define BASELINE_DISABLED_SCRIPT ((js::ion::BaselineScript *)0x1)
 
 class Shape;
 
@@ -387,14 +391,6 @@ class JSScript : public js::gc::Cell
     // function; otherwise the enclosing scope
     js::HeapPtrObject   enclosingScopeOrOriginalFunction_;
 
-  public:
-    // We should be able to remove this soon.
-    js::HeapPtr<JSObject> asmJS;
-
-#if JS_BYTES_PER_WORD == 4
-    uint32_t        PADDING32;
-#endif
-
     // 32-bit fields.
 
   public:
@@ -598,7 +594,6 @@ class JSScript : public js::gc::Cell
     bool hasIonScript() const {
         return ion && ion != ION_DISABLED_SCRIPT && ion != ION_COMPILING_SCRIPT;
     }
-
     bool canIonCompile() const {
         return ion != ION_DISABLED_SCRIPT;
     }
@@ -611,6 +606,19 @@ class JSScript : public js::gc::Cell
         JS_ASSERT(hasIonScript());
         return ion;
     }
+
+    /* Information attached by the baseline compiler. */
+    js::ion::BaselineScript *baseline;
+
+    bool hasBaselineScript() const {
+        return baseline && baseline != BASELINE_DISABLED_SCRIPT;
+    }
+    js::ion::BaselineScript *baselineScript() const {
+        JS_ASSERT(hasBaselineScript());
+        return baseline;
+    }
+
+    uint32_t padding0;
 
     /* Information attached by Ion: script for parallel mode execution */
     js::ion::IonScript *parallelIon;
@@ -756,6 +764,7 @@ class JSScript : public js::gc::Cell
     uint32_t getUseCount() const  { return useCount; }
     uint32_t incUseCount(uint32_t amount = 1) { return useCount += amount; }
     uint32_t *addressOfUseCount() { return &useCount; }
+    static size_t offsetOfUseCount() { return offsetof(JSScript, useCount); }
     void resetUseCount() { useCount = 0; }
 
     void resetLoopCount() {
@@ -958,6 +967,8 @@ class JSScript : public js::gc::Cell
 
     void finalize(js::FreeOp *fop);
 
+    JS::Zone *zone() const { return tenuredZone(); }
+
     static inline void writeBarrierPre(js::RawScript script);
     static inline void writeBarrierPost(js::RawScript script, void *addr);
 
@@ -1115,7 +1126,7 @@ struct ScriptSource
         JS_ASSERT(hasSourceData());
         return argumentsNotIncluded_;
     }
-    JSFlatString *substring(JSContext *cx, uint32_t start, uint32_t stop);
+    JSStableString *substring(JSContext *cx, uint32_t start, uint32_t stop);
     size_t sizeOfIncludingThis(JSMallocSizeOfFun mallocSizeOf);
 
     // XDR handling
@@ -1292,7 +1303,7 @@ struct ScriptBytecodeHasher
     static bool match(SharedScriptData *entry, const Lookup &lookup) {
         if (entry->length != lookup.length)
             return false;
-        return PodEqual<jsbytecode>(entry->data, lookup.code, lookup.length);
+        return mozilla::PodEqual<jsbytecode>(entry->data, lookup.code, lookup.length);
     }
 };
 

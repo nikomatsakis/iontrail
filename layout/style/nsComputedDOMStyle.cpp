@@ -22,7 +22,6 @@
 #include "nsDOMCSSRect.h"
 #include "nsDOMCSSRGBColor.h"
 #include "nsDOMCSSValueList.h"
-#include "nsFlexContainerFrame.h"
 #include "nsGkAtoms.h"
 #include "nsHTMLReflowState.h"
 #include "nsStyleUtil.h"
@@ -376,6 +375,39 @@ nsComputedDOMStyle::GetStyleContextForElementNoFlush(Element* aElement,
   return sc.forget();
 }
 
+nsMargin
+nsComputedDOMStyle::GetAdjustedValuesForBoxSizing()
+{
+  // We want the width/height of whatever parts 'width' or 'height' controls,
+  // which can be different depending on the value of the 'box-sizing' property.
+  const nsStylePosition* stylePos = StylePosition();
+  nscoord borderPaddingLeft = 0;
+  nscoord borderPaddingRight = 0;
+  nscoord borderPaddingTop = 0;
+  nscoord borderPaddingBottom = 0;
+
+  nsMargin border = mInnerFrame->GetUsedBorder();
+  nsMargin padding = mInnerFrame->GetUsedPadding();
+
+  switch(stylePos->mBoxSizing) {
+    case NS_STYLE_BOX_SIZING_BORDER:
+      borderPaddingLeft += border.left;
+      borderPaddingRight += border.right;
+      borderPaddingTop += border.top;
+      borderPaddingBottom += border.bottom;
+      // fall through
+
+    case NS_STYLE_BOX_SIZING_PADDING:
+      borderPaddingLeft += padding.left;
+      borderPaddingRight += padding.right;
+      borderPaddingTop += padding.top;
+      borderPaddingBottom += padding.bottom;
+  }
+
+  return nsMargin(borderPaddingTop, borderPaddingRight, borderPaddingBottom,
+                  borderPaddingLeft);
+}
+
 /* static */
 nsIPresShell*
 nsComputedDOMStyle::GetPresShellForContent(nsIContent* aContent)
@@ -638,7 +670,7 @@ nsComputedDOMStyle::DoGetClear()
 }
 
 CSSValue*
-nsComputedDOMStyle::DoGetCssFloat()
+nsComputedDOMStyle::DoGetFloat()
 {
   nsROCSSPrimitiveValue* val = GetROCSSPrimitiveValue();
   val->SetIdent(nsCSSProps::ValueToKeywordEnum(StyleDisplay()->mFloats,
@@ -3326,8 +3358,9 @@ nsComputedDOMStyle::DoGetHeight()
 
   if (calcHeight) {
     AssertFlushedPendingReflows();
-
-    val->SetAppUnits(mInnerFrame->GetContentRect().height);
+    nsMargin adjustedValues = GetAdjustedValuesForBoxSizing();
+    val->SetAppUnits(mInnerFrame->GetContentRect().height +
+      adjustedValues.TopBottom());
   } else {
     const nsStylePosition *positionData = StylePosition();
 
@@ -3366,8 +3399,9 @@ nsComputedDOMStyle::DoGetWidth()
 
   if (calcWidth) {
     AssertFlushedPendingReflows();
-
-    val->SetAppUnits(mInnerFrame->GetContentRect().width);
+    nsMargin adjustedValues = GetAdjustedValuesForBoxSizing();
+    val->SetAppUnits(mInnerFrame->GetContentRect().width +
+      adjustedValues.LeftRight());
   } else {
     const nsStylePosition *positionData = StylePosition();
 
@@ -3410,17 +3444,7 @@ CSSValue*
 nsComputedDOMStyle::DoGetMinHeight()
 {
   nsROCSSPrimitiveValue *val = GetROCSSPrimitiveValue();
-  nsStyleCoord minHeight = StylePosition()->mMinHeight;
-
-  if (eStyleUnit_Auto == minHeight.GetUnit()) {
-    // In non-flexbox contexts, "min-height: auto" means "min-height: 0"
-    // XXXdholbert For flex items, we should set |minHeight| to the
-    // -moz-min-content keyword, instead of 0, once we support -moz-min-content
-    // as a height value.
-    minHeight.SetCoordValue(0);
-  }
-
-  SetValueToCoord(val, minHeight, true,
+  SetValueToCoord(val, StylePosition()->mMinHeight, true,
                   &nsComputedDOMStyle::GetCBContentHeight);
   return val;
 }
@@ -3429,27 +3453,7 @@ CSSValue*
 nsComputedDOMStyle::DoGetMinWidth()
 {
   nsROCSSPrimitiveValue *val = GetROCSSPrimitiveValue();
-
-  nsStyleCoord minWidth = StylePosition()->mMinWidth;
-
-  if (eStyleUnit_Auto == minWidth.GetUnit()) {
-    // "min-width: auto" means "0", unless we're a flex item in a horizontal
-    // flex container, in which case it means "min-content"
-    minWidth.SetCoordValue(0);
-#ifdef MOZ_FLEXBOX
-    if (mOuterFrame && mOuterFrame->IsFlexItem()) {
-      nsIFrame* flexContainer = mOuterFrame->GetParent();
-      MOZ_ASSERT(flexContainer &&
-                 flexContainer->GetType() == nsGkAtoms::flexContainerFrame,
-                 "IsFlexItem() lied...?");
-
-      if (static_cast<nsFlexContainerFrame*>(flexContainer)->IsHorizontal()) {
-        minWidth.SetIntValue(NS_STYLE_WIDTH_MIN_CONTENT, eStyleUnit_Enumerated);
-      }
-    }
-#endif // MOZ_FLEXBOX
-  }
-  SetValueToCoord(val, minWidth, true,
+  SetValueToCoord(val, StylePosition()->mMinWidth, true,
                   &nsComputedDOMStyle::GetCBContentWidth,
                   nsCSSProps::kWidthKTable);
   return val;
@@ -4766,7 +4770,7 @@ nsComputedDOMStyle::GetQueryablePropertyMap(uint32_t* aLength)
     COMPUTED_STYLE_MAP_ENTRY(flex_grow,                     FlexGrow),
     COMPUTED_STYLE_MAP_ENTRY(flex_shrink,                   FlexShrink),
 #endif // MOZ_FLEXBOX
-    COMPUTED_STYLE_MAP_ENTRY(float,                         CssFloat),
+    COMPUTED_STYLE_MAP_ENTRY(float,                         Float),
     //// COMPUTED_STYLE_MAP_ENTRY(font,                     Font),
     COMPUTED_STYLE_MAP_ENTRY(font_family,                   FontFamily),
     COMPUTED_STYLE_MAP_ENTRY(font_size,                     FontSize),

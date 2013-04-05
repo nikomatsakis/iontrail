@@ -67,7 +67,6 @@ pref("browser.chromeURL", "chrome://browser/content/");
 // When true, always show the tab strip and use desktop-style tabs (no thumbnails)
 pref("browser.tabs.tabsOnly", false);
 
-pref("browser.tabs.warnOnClose", true);
 pref("browser.tabs.remote", false);
 
 // Telemetry
@@ -172,7 +171,6 @@ pref("browser.helperApps.deleteTempFileOnExit", false);
 
 /* password manager */
 pref("signon.rememberSignons", true);
-pref("signon.expireMasterPassword", false);
 pref("signon.SignonFileName", "signons.txt");
 
 /* find helper */
@@ -474,12 +472,6 @@ pref("ui.dragThresholdY", 50);
 
 // prevent tooltips from showing up
 pref("browser.chrome.toolbar_tips", false);
-
-//  0: don't show fullscreen keyboard
-//  1: always show fullscreen keyboard
-// -1: show fullscreen keyboard based on threshold pref
-pref("widget.ime.android.landscape_fullscreen", -1);
-pref("widget.ime.android.fullscreen_threshold", 250); // in hundreths of inches
 
 // Completely disable pdf.js as an option to preview pdfs within firefox.
 // Note: if this is not disabled it does not necessarily mean pdf.js is the pdf

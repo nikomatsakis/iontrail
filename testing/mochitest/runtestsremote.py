@@ -10,6 +10,7 @@ import re
 import traceback
 import shutil
 import math
+import base64
 
 sys.path.insert(0, os.path.abspath(os.path.realpath(os.path.dirname(sys.argv[0]))))
 
@@ -311,7 +312,6 @@ class MochiRemote(Mochitest):
             shutil.rmtree(os.path.join(options.profilePath, 'extensions', 'staged', 'mochikit@mozilla.org'))
             shutil.rmtree(os.path.join(options.profilePath, 'extensions', 'staged', 'worker-test@mozilla.org'))
             shutil.rmtree(os.path.join(options.profilePath, 'extensions', 'staged', 'workerbootstrap-test@mozilla.org'))
-            shutil.rmtree(os.path.join(options.profilePath, 'extensions', 'staged', 'special-powers@mozilla.org'))
             os.remove(os.path.join(options.profilePath, 'userChrome.css'))
             if os.path.exists(os.path.join(options.profilePath, 'tests.jar')):
                 os.remove(os.path.join(options.profilePath, 'tests.jar'))
@@ -430,6 +430,16 @@ class MochiRemote(Mochitest):
         if failed > 0:
             return 1
         return 0
+
+    def printScreenshot(self):
+        try:
+            image = self._dm.pullFile("/mnt/sdcard/Robotium-Screenshots/robocop-screenshot.jpg")
+            encoded = base64.b64encode(image)
+            print "SCREENSHOT: data:image/jpg;base64,%s" % encoded
+        except:
+            # If the test passes, no screenshot will be generated and
+            # pullFile will fail -- continue silently.
+            pass
 
     def printDeviceInfo(self):
         try:
@@ -563,6 +573,7 @@ def main():
             options.browserArgs.append("org.mozilla.roboexample.test/%s.FennecInstrumentationTestRunner" % options.remoteappname)
 
             try:
+                dm.removeDir("/mnt/sdcard/Robotium-Screenshots")
                 dm.recordLogcat()
                 result = mochitest.runTests(options)
                 if result != 0:
@@ -570,6 +581,7 @@ def main():
                 log_result = mochitest.addLogData()
                 if result != 0 or log_result != 0:
                     mochitest.printDeviceInfo()
+                    mochitest.printScreenshot()
                 # Ensure earlier failures aren't overwritten by success on this run
                 if retVal is None or retVal == 0:
                     retVal = result

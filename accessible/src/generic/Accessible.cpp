@@ -14,6 +14,7 @@
 #include "nsAccessibleRelation.h"
 #include "nsAccessibilityService.h"
 #include "nsIAccessibleRelation.h"
+#include "nsIAccessibleRole.h"
 #include "nsEventShell.h"
 #include "nsTextEquivUtils.h"
 #include "Relation.h"
@@ -842,7 +843,7 @@ Accessible::ChildAtPoint(int32_t aX, int32_t aY,
   DocAccessible* contentDocAcc = GetAccService()->
     GetDocAccessible(content->OwnerDoc());
 
-  // contentDocAcc in some circumstances can be NULL. See bug 729861
+  // contentDocAcc in some circumstances can be nullptr. See bug 729861
   NS_ASSERTION(contentDocAcc, "could not get the document accessible");
   if (!contentDocAcc)
     return fallbackAnswer;
@@ -2654,7 +2655,8 @@ Accessible::InsertChildAt(uint32_t aIndex, Accessible* aChild)
       return false;
 
     for (uint32_t idx = aIndex + 1; idx < mChildren.Length(); idx++) {
-      NS_ASSERTION(mChildren[idx]->mIndexInParent == idx - 1, "Accessible child index doesn't match");
+      NS_ASSERTION(static_cast<uint32_t>(mChildren[idx]->mIndexInParent) == idx - 1,
+                   "Accessible child index doesn't match");
       mChildren[idx]->mIndexInParent = idx;
     }
 
@@ -2685,7 +2687,8 @@ Accessible::RemoveChild(Accessible* aChild)
   }
 
   for (uint32_t idx = index + 1; idx < mChildren.Length(); idx++) {
-    NS_ASSERTION(mChildren[idx]->mIndexInParent == idx, "Accessible child index doesn't match");
+    NS_ASSERTION(static_cast<uint32_t>(mChildren[idx]->mIndexInParent) == idx,
+                 "Accessible child index doesn't match");
     mChildren[idx]->mIndexInParent = idx - 1;
   }
 

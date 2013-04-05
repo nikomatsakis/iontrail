@@ -1,3 +1,10 @@
+function range(n, m) {
+  var result = [];
+  for (var i = n; i < m; i++)
+    result.push(i);
+  return result;
+}
+
 if (getBuildConfiguration().parallelJS) {
   var p = Proxy.create({
     has : function(id) {}
@@ -7,10 +14,4 @@ if (getBuildConfiguration().parallelJS) {
   var pa1 = new ParallelArray(256, function (x) {
     return pa0.map(function(y) {});
   });
-  function range(n, m) {
-    var result = [];
-    for (var i = n; i < m; i++)
-      result.push(i);
-    return result;
-  }
 }

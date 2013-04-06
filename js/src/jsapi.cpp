@@ -963,9 +963,6 @@ JSRuntime::init(uint32_t maxbytes)
     if (!scriptDataTable.init())
         return false;
 
-    if (!threadPool.init())
-        return false;
-
 #ifdef JS_THREADSAFE
     if (useHelperThreads() && !sourceCompressorThread.init())
         return false;

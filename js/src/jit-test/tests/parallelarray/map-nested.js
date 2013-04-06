@@ -1,3 +1,13 @@
+// |jit-test| thread-count: 1
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^ Note: use a low thread-count so as to keep
+//                            the total work under control when running
+//                            under --tbpl.  Otherwise, the arrays are so
+//                            large that the interpreted sequential
+//                            performance leads to timeouts.
+
+// Test that we can successfully run map() inside of another parallel
+// map().
+
 load(libdir + "parallelarray-helpers.js")
 
 function test() {

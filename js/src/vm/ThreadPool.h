@@ -68,6 +68,7 @@ class ThreadPool
 {
   private:
     friend class ThreadPoolWorker;
+    static const size_t sentinel = (size_t) -1;
 
     // Initialized at startup only:
     JSRuntime *const runtime_;
@@ -79,6 +80,7 @@ class ThreadPool
     // Next worker for |submitOne()|. Atomically modified.
     uint32_t nextId_;
 
+    void computeNumWorkers();
     bool lazyStartWorkers(JSContext *cx);
     void terminateWorkers();
     void terminateWorkersAndReportOOM(JSContext *cx);
@@ -87,10 +89,12 @@ class ThreadPool
     ThreadPool(JSRuntime *rt);
     ~ThreadPool();
 
-    bool init();
-
     // Return number of worker threads in the pool.
-    size_t numWorkers() { return numWorkers_; }
+    size_t numWorkers() {
+        if (numWorkers_ == sentinel)
+            computeNumWorkers();
+        return numWorkers_;
+    }
 
     // See comment on class:
     bool submitOne(JSContext *cx, TaskExecutor *executor);

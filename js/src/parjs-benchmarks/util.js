@@ -1,5 +1,5 @@
 DEFAULT_WARMUP = 10
-DEFAULT_MEASURE = 3
+DEFAULT_MEASURE = 5
 MODE = MODE || "compare" // MODE is often set on the command-line by run.sh
 
 /**

@@ -63,6 +63,7 @@ function edges1dArrayInParallel(data, width, height) {
           if ((newX >= 0) && (newX < width) && (newY >= 0) && (newY < height)) {
             var pointIndex = (x + offX) * height + (y + offY);
             var e = data[pointIndex];
+            print(e);
             totalX += e * sobelX[offY + 1][offX + 1];
             totalY += e * sobelY[offY + 1][offX + 1];
           }
@@ -127,9 +128,26 @@ function edges2dParallelArrayInParallel(pa) {
         for (var offX = -1; offX <= 1; offX++) {
           var newX = x + offX;
           if ((newX >= 0) && (newX < width) && (newY >= 0) && (newY < height)) {
-            var pointIndex = (x + offX) * height + (y + offY);
+            // Ideal:
+            // var pointIndex = (x + offX) * height + (y + offY);
             // var e = pa.buffer[pointIndex];
+
+            // More realstic:
+            // var e;
+            // var xDimension = pa.shape[0];
+            // var yDimension = pa.shape[1];
+            // if (x >= xDimension) {
+            //   e = undefined;
+            // } else if (y >= yDimension) {
+            //   e = undefined;
+            // } else {
+            //   var offset = y + x * yDimension;
+            //   e = pa.buffer[pa.offset + offset];
+            // }
+
+            // Actual:
             var e = pa.get(x + offX, y + offY);
+
             totalX += e * sobelX[offY + 1][offX + 1];
             totalY += e * sobelY[offY + 1][offX + 1];
           }

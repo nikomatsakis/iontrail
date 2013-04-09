@@ -1179,26 +1179,10 @@ static const VMFunction GetIntrinsicValueInfo =
 bool
 CodeGenerator::visitCallGetIntrinsicValue(LCallGetIntrinsicValue *lir)
 {
-    // When compiling parallel kernels, always bail.
-    switch (gen->info().executionMode()) {
-      case SequentialExecution: {
-        pushArg(ImmGCPtr(lir->mir()->name()));
-        return callVM(GetIntrinsicValueInfo, lir);
-      }
-
-      case ParallelExecution: {
-        OutOfLineParallelAbort *bail = oolParallelAbort(ParallelBailoutAccessToIntrinsic, lir);
-        if (!bail)
-            return false;
-
-        masm.jump(bail->entry());
-        return true;
-      }
-
-      default:
-        JS_NOT_REACHED("Bad execution mode");
-        return false;
-    }
+    // When compiling parallel kernels, CallGetIntrinsicValue is UNSAFE
+    JS_ASSERT(gen->info().executionMode() == SequentialExecution);
+    pushArg(ImmGCPtr(lir->mir()->name()));
+    return callVM(GetIntrinsicValueInfo, lir);
 }
 
 typedef bool (*InvokeFunctionFn)(JSContext *, HandleFunction, uint32_t, Value *, Value *);

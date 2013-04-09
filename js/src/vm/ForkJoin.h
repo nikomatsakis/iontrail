@@ -254,7 +254,6 @@ enum ParallelBailoutCause {
     ParallelBailoutMainScriptNotPresent,
     ParallelBailoutCalledToUncompiledScript,
     ParallelBailoutIllegalWrite,
-    ParallelBailoutAccessToIntrinsic,
     ParallelBailoutOverRecursed,
     ParallelBailoutOutOfMemory,
     ParallelBailoutUnsupported,

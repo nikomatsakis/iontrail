@@ -951,19 +951,6 @@ OptimizeMIR(MIRGenerator *mir)
 
         if (mir->shouldCancel("UCE"))
             return false;
-
-        // It's important for optimizations to re-run GVN (and in turn alias
-        // analysis) after UCE if we eliminated branches.
-        if (uce.reranAliasAnalysis() && js_IonOptions.gvn) {
-            ValueNumberer gvn(mir, graph, js_IonOptions.gvnIsOptimistic);
-            if (!gvn.clear() || !gvn.analyze())
-                return false;
-            IonSpewPass("GVN (after UCE)");
-            AssertExtendedGraphCoherency(graph);
-
-            if (mir->shouldCancel("GVN (after UCE)"))
-                return false;
-        }
     }
 
     if (js_IonOptions.licm) {

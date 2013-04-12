@@ -541,8 +541,7 @@ js::ParallelDo::compileForParallelExecution()
 
     Spew(SpewOps, "Compiling all reachable functions");
 
-    ParallelCompileContext compileContext(cx_);
-    MethodStatus status = compileContext.compileTransitively(script);
+    MethodStatus status = ParallelCompileContext::compileTransitively(cx_, script);
     if (status != Method_Compiled)
         return status;
 

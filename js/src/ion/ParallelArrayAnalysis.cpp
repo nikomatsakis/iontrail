@@ -280,23 +280,25 @@ class ParallelArrayVisitor : public MInstructionVisitor
 };
 
 bool
-ParallelCompileContext::appendCallTargetsToWorklist(AutoScriptVector& worklist,
+ParallelCompileContext::appendCallTargetsToWorklist(JSContext *cx,
+                                                    AutoScriptVector& worklist,
                                                     IonScript *ion)
 {
-    RootedScript target(cx_);
+    RootedScript target(cx);
     for (uint32_t i = 0; i < ion->callTargetEntries(); i++) {
         target = ion->callTargetList()[i];
         parallel::Spew(parallel::SpewCompile,
                        "Adding call target %s:%u",
                        target->filename(), target->lineno);
-        if (!appendToWorklist(worklist, target))
+        if (!appendToWorklist(cx, worklist, target))
             return false;
     }
     return true;
 }
 
 bool
-ParallelCompileContext::appendToWorklist(AutoScriptVector& worklist,
+ParallelCompileContext::appendToWorklist(JSContext *cx,
+                                         AutoScriptVector& worklist,
                                          HandleScript script)
 {
     JS_ASSERT(script);

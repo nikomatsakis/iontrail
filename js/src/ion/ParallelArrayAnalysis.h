@@ -30,14 +30,18 @@ class ParallelCompileContext
 
     bool removeResumePointOperands(MIRGenerator *mir, MIRGraph &graph);
     void replaceOperandsOnResumePoint(MResumePoint *resumePoint, MDefinition *withDef);
-    bool appendCallTargetsToWorklist(AutoScriptVector& worklist, IonScript *ion);
+    static bool appendCallTargetsToWorklist(JSContext *cx,
+                                            AutoScriptVector& worklist,
+                                            IonScript *ion);
 
   public:
     ParallelCompileContext(JSContext *cx)
       : cx_(cx)
     { }
 
-    bool appendToWorklist(AutoScriptVector& worklist, HandleScript script);
+    static bool appendToWorklist(JSContext *cx,
+                                 AutoScriptVector& worklist,
+                                 HandleScript script);
 
     ExecutionMode executionMode() {
         return ParallelExecution;
@@ -45,7 +49,7 @@ class ParallelCompileContext
 
     // Defined in Ion.cpp, so that they can make use of static fns defined there
     MethodStatus checkScriptSize(JSContext *cx, RawScript script);
-    MethodStatus compileTransitively(HandleScript script);
+    static MethodStatus compileTransitively(JSContext *cx, HandleScript script);
     AbortReason compile(IonBuilder *builder, MIRGraph *graph,
                         ScopedJSDeletePtr<LifoAlloc> &autoDelete);
 };

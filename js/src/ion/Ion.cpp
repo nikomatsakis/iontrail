@@ -1641,16 +1641,17 @@ ParallelCompileContext::checkScriptSize(JSContext *cx, RawScript script)
 }
 
 MethodStatus
-ParallelCompileContext::compileTransitively(HandleScript startScript)
+ParallelCompileContext::compileTransitively(JSContext *cx,
+                                            HandleScript startScript)
 {
     using parallel::SpewBeginCompile;
     using parallel::SpewEndCompile;
 
-    RootedFunction fun(cx_);
-    RootedScript script(cx_);
-    AutoScriptVector worklist(cx_);
+    RootedFunction fun(cx);
+    RootedScript script(cx);
+    AutoScriptVector worklist(cx);
 
-    appendToWorklist(worklist, startScript);
+    appendToWorklist(cx, worklist, startScript);
 
     // We wish to compile all callees of the current script.
     // Sometimes compiling one of these callees will cause another
@@ -1669,16 +1670,17 @@ ParallelCompileContext::compileTransitively(HandleScript startScript)
             // If this script is not yet compiled, try to compile it.
             if (!script->hasParallelIonScript()) {
                 // Attempt compilation. Returns Method_Compiled if already compiled.
-                MethodStatus status = Compile(cx_, script, fun, NULL, false, *this);
+                ParallelCompileContext pcc(cx);
+                MethodStatus status = Compile(cx, script, fun, NULL, false, pcc);
                 if (status != Method_Compiled) {
                     if (status == Method_CantCompile)
-                        ForbidCompilation(cx_, script, ParallelExecution);
+                        ForbidCompilation(cx, script, ParallelExecution);
                     return SpewEndCompile(status);
                 }
 
                 // This can GC, so afterward, script->parallelIon is
                 // not guaranteed to be valid.
-                if (!cx_->compartment->ionCompartment()->enterJIT())
+                if (!cx->compartment->ionCompartment()->enterJIT())
                     return SpewEndCompile(Method_Error);
 
                 // Subtle: it is possible for GC to occur during
@@ -1705,7 +1707,8 @@ ParallelCompileContext::compileTransitively(HandleScript startScript)
             }
 
             // Append newly discovered outgoing callgraph edges to the worklist.
-            if (!appendCallTargetsToWorklist(worklist,
+            if (!appendCallTargetsToWorklist(cx,
+                                             worklist,
                                              script->parallelIonScript()))
                 return SpewEndCompile(Method_Error);
 

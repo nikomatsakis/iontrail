@@ -25,22 +25,19 @@ class ParallelCompileContext
   private:
     JSContext *cx_;
 
-    // Compilation is transitive from some set of root(s).
-    AutoScriptVector worklist_;
-
     // Is a function compilable for parallel execution?
     bool analyzeAndGrowWorklist(MIRGenerator *mir, MIRGraph &graph);
 
     bool removeResumePointOperands(MIRGenerator *mir, MIRGraph &graph);
     void replaceOperandsOnResumePoint(MResumePoint *resumePoint, MDefinition *withDef);
+    bool appendCallTargetsToWorklist(AutoScriptVector& worklist, IonScript *ion);
 
   public:
     ParallelCompileContext(JSContext *cx)
-      : cx_(cx),
-        worklist_(cx)
+      : cx_(cx)
     { }
 
-    bool appendToWorklist(HandleScript script);
+    bool appendToWorklist(AutoScriptVector& worklist, HandleScript script);
 
     ExecutionMode executionMode() {
         return ParallelExecution;
@@ -48,7 +45,7 @@ class ParallelCompileContext
 
     // Defined in Ion.cpp, so that they can make use of static fns defined there
     MethodStatus checkScriptSize(JSContext *cx, RawScript script);
-    MethodStatus compileTransitively();
+    MethodStatus compileTransitively(HandleScript script);
     AbortReason compile(IonBuilder *builder, MIRGraph *graph,
                         ScopedJSDeletePtr<LifoAlloc> &autoDelete);
 };

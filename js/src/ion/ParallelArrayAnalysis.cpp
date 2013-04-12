@@ -280,7 +280,24 @@ class ParallelArrayVisitor : public MInstructionVisitor
 };
 
 bool
-ParallelCompileContext::appendToWorklist(HandleScript script)
+ParallelCompileContext::appendCallTargetsToWorklist(AutoScriptVector& worklist,
+                                                    IonScript *ion)
+{
+    RootedScript target(cx_);
+    for (uint32_t i = 0; i < ion->callTargetEntries(); i++) {
+        target = ion->callTargetList()[i];
+        parallel::Spew(parallel::SpewCompile,
+                       "Adding call target %s:%u",
+                       target->filename(), target->lineno);
+        if (!appendToWorklist(worklist, target))
+            return false;
+    }
+    return true;
+}
+
+bool
+ParallelCompileContext::appendToWorklist(AutoScriptVector& worklist,
+                                         HandleScript script)
 {
     JS_ASSERT(script);
 
@@ -315,16 +332,19 @@ ParallelCompileContext::appendToWorklist(HandleScript script)
         return true;
     }
 
-    for (uint32_t i = 0; i < worklist_.length(); i++) {
-        if (worklist_[i] == script)
+    for (uint32_t i = 0; i < worklist.length(); i++) {
+        if (worklist[i] == script) {
+            Spew(SpewCompile, "Skipping %p:%s:%u, already in worklist",
+                 script.get(), script->filename(), script->lineno);
             return true;
+        }
     }
 
     // Note that we add all possibly compilable functions to the worklist,
     // even if they're already compiled. This is so that we can return
     // Method_Compiled and not Method_Skipped if we have a worklist full of
     // already-compiled functions.
-    return worklist_.append(script);
+    return worklist.append(script);
 }
 
 bool
@@ -394,13 +414,6 @@ ParallelCompileContext::analyzeAndGrowWorklist(MIRGenerator *mir, MIRGraph &grap
                 JS_ASSERT(!block->isMarked());
             }
         }
-    }
-
-    // Append newly discovered outgoing callgraph edges to the worklist.
-    RootedScript scriptRoot(cx_);
-    for (uint32_t i = 0; i < graph.numCallTargets(); i++) {
-        scriptRoot = graph.callTargets()[i];
-        appendToWorklist(scriptRoot);
     }
 
     Spew(SpewCompile, "Safe");

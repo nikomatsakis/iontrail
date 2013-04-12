@@ -1640,85 +1640,90 @@ ParallelCompileContext::checkScriptSize(JSContext *cx, RawScript script)
     return Method_Compiled;
 }
 
-class AutoEnterTransitiveCompilation
-{
-    JSContext *cx_;
-
-  public:
-    AutoEnterTransitiveCompilation(JSContext *cx, AutoScriptVector &worklist)
-      : cx_(cx)
-    {
-        JS_ASSERT(!cx->compartment->types.transitiveCompilationWorklist);
-        cx->compartment->types.transitiveCompilationWorklist = &worklist;
-    }
-
-    ~AutoEnterTransitiveCompilation()
-    {
-        JS_ASSERT(cx_->compartment->types.transitiveCompilationWorklist);
-        cx_->compartment->types.transitiveCompilationWorklist = NULL;
-    }
-};
-
 MethodStatus
-ParallelCompileContext::compileTransitively()
+ParallelCompileContext::compileTransitively(HandleScript startScript)
 {
     using parallel::SpewBeginCompile;
     using parallel::SpewEndCompile;
 
-    if (worklist_.empty())
-        return Method_Skipped;
-
-    AutoEnterTransitiveCompilation transCompile(cx_, worklist_);
-
     RootedFunction fun(cx_);
     RootedScript script(cx_);
-    while (!worklist_.empty()) {
-        script = worklist_.popCopy();
-        fun = script->function();
+    AutoScriptVector worklist(cx_);
 
-        SpewBeginCompile(script);
+    appendToWorklist(worklist, startScript);
 
-        // If we had invalidations last time the parallel script ran, the bit
-        // to check its call targets will be set.
-        if (script->hasParallelIonScript()) {
-            IonScript *ion = script->parallelIonScript();
-            if (ion->hasInvalidatedCallTarget()) {
-                ion->clearHasInvalidatedCallTarget();
-                RootedScript target(cx_);
-                for (uint32_t i = 0; i < ion->callTargetEntries(); i++) {
-                    target = ion->callTargetList()[i];
-                    parallel::Spew(parallel::SpewCompile,
-                                   "Adding previously invalidated function %p:%s:%u",
-                                   fun.get(), target->filename(), target->lineno);
-                    appendToWorklist(target);
+    // We wish to compile all callees of the current script.
+    // Sometimes compiling one of these callees will cause another
+    // callee to be invalidated, in which case we wish to repeat the
+    // compilation until things stabilize.  However, I cap the total
+    // number of repeats at 5 simply because it makes me nervous to
+    // have an open-ended loop, though I think it should be valid.
+    for (uint32_t attempts = 0; attempts < 5; attempts++) {
+
+        for (uint32_t i = 0; i < worklist.length(); i++) {
+            script = worklist[i];
+            fun = script->function();
+
+            SpewBeginCompile(script);
+
+            // If this script is not yet compiled, try to compile it.
+            if (!script->hasParallelIonScript()) {
+                // Attempt compilation. Returns Method_Compiled if already compiled.
+                MethodStatus status = Compile(cx_, script, fun, NULL, false, *this);
+                if (status != Method_Compiled) {
+                    if (status == Method_CantCompile)
+                        ForbidCompilation(cx_, script, ParallelExecution);
+                    return SpewEndCompile(status);
                 }
+
+                // This can GC, so afterward, script->parallelIon is
+                // not guaranteed to be valid.
+                if (!cx_->compartment->ionCompartment()->enterJIT())
+                    return SpewEndCompile(Method_Error);
+
+                // Subtle: it is possible for GC to occur during
+                // compilation of one of the invoked functions, which
+                // would cause the earlier functions (such as the
+                // kernel itself) to be collected.  In this event, we
+                // give up and fallback to sequential for now.
+                if (!script->hasParallelIonScript()) {
+                    parallel::Spew(
+                        parallel::SpewCompile,
+                        "Function %p:%s:%u was garbage-collected or invalidated",
+                        fun.get(), script->filename(), script->lineno);
+                    return SpewEndCompile(Method_Skipped);
+                }
+            } else {
+                // If the script was already compiled, check for the invalidated
+                // call target flag and clear it, since we are going to be walking
+                // the list of call targets right now and recompiling them.
+                // XXX --- This seems a bit premature.  Maybe we should wait
+                // until the end?
+                IonScript *ion = script->parallelIonScript();
+                if (ion->hasInvalidatedCallTarget())
+                    ion->clearHasInvalidatedCallTarget();
+            }
+
+            // Append newly discovered outgoing callgraph edges to the worklist.
+            if (!appendCallTargetsToWorklist(worklist,
+                                             script->parallelIonScript()))
+                return SpewEndCompile(Method_Error);
+
+            SpewEndCompile(Method_Compiled);
+        }
+
+        // Check whether anything got invalidated during compilation.
+        // If so, cycle around again.
+        bool stabilized = true;
+        for (uint32_t i = 0; i < worklist.length(); i++) {
+            script = worklist[i];
+            if (!script->hasParallelIonScript()) {
+                stabilized = false;
+                break;
             }
         }
-
-        // Attempt compilation. Returns Method_Compiled if already compiled.
-        MethodStatus status = Compile(cx_, script, fun, NULL, false, *this);
-        if (status != Method_Compiled) {
-            if (status == Method_CantCompile)
-                ForbidCompilation(cx_, script, ParallelExecution);
-            return SpewEndCompile(status);
-        }
-
-        // This can GC, so afterward, script->parallelIon is not guaranteed to be valid.
-        if (!cx_->compartment->ionCompartment()->enterJIT())
-            return SpewEndCompile(Method_Error);
-
-        // Subtle: it is possible for GC to occur during compilation of
-        // one of the invoked functions, which would cause the earlier
-        // functions (such as the kernel itself) to be collected.  In this
-        // event, we give up and fallback to sequential for now.
-        if (!script->hasParallelIonScript()) {
-            parallel::Spew(parallel::SpewCompile,
-                           "Function %p:%s:%u was garbage-collected or invalidated",
-                           fun.get(), script->filename(), script->lineno);
-            return SpewEndCompile(Method_Skipped);
-        }
-
-        SpewEndCompile(Method_Compiled);
+        if (stabilized)
+            break;
     }
 
     return Method_Compiled;

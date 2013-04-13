@@ -25,7 +25,6 @@ class AutoDestroyAllocator;
 // graph and replaces them with MParBailout blocks.
 class ParallelArrayAnalysis
 {
-    JSContext *cx_;
     MIRGenerator *mir_;
     MIRGraph &graph_;
 
@@ -33,11 +32,9 @@ class ParallelArrayAnalysis
     void replaceOperandsOnResumePoint(MResumePoint *resumePoint, MDefinition *withDef);
 
   public:
-    ParallelArrayAnalysis(JSContext *cx,
-                          MIRGenerator *mir,
+    ParallelArrayAnalysis(MIRGenerator *mir,
                           MIRGraph &graph)
-      : cx_(cx),
-        mir_(mir),
+      : mir_(mir),
         graph_(graph)
     {}
 

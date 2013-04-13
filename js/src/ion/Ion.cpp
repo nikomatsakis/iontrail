@@ -1054,6 +1054,12 @@ OptimizeMIR(MIRGenerator *mir)
     IonSpewPass("Bounds Check Elimination");
     AssertGraphCoherency(graph);
 
+    if (graph.entryBlock()->info().executionMode() == ParallelExecution) {
+        ParallelArrayAnalysis analysis(mir, graph);
+        if (!analysis.analyze())
+            return false;
+    }
+
     return true;
 }
 
@@ -1702,19 +1708,7 @@ ParallelCompileContext::compile(IonBuilder *builder,
         return builder->abortReason();
     builder->clearForBackEnd();
 
-    // For the time being, we do not enable parallel compilation.
-
-    if (!OptimizeMIR(builder)) {
-        IonSpew(IonSpew_Abort, "Failed during back-end compilation.");
-        return AbortReason_Disable;
-    }
-
-    ParallelArrayAnalysis analysis(cx, builder, *graph);
-    if (!analysis.analyze()) {
-        return AbortReason_Disable;
-    }
-
-    CodeGenerator *codegen = GenerateLIR(builder);
+    CodeGenerator *codegen = CompileBackEnd(builder);
     if (!codegen)  {
         IonSpew(IonSpew_Abort, "Failed during back-end compilation.");
         return AbortReason_Disable;

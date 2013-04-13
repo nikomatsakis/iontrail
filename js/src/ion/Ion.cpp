@@ -1167,15 +1167,19 @@ CompileBackEnd(MIRGenerator *mir, MacroAssembler *maybeMasm)
     return GenerateLIR(mir, maybeMasm);
 }
 
-class SequentialCompileContext {
-public:
+class BaseCompileContext {
+  public:
+    AbortReason compile(IonBuilder *builder, MIRGraph *graph,
+                        ScopedJSDeletePtr<LifoAlloc> &autoDelete);
+};
+
+class SequentialCompileContext : public BaseCompileContext {
+  public:
     ExecutionMode executionMode() {
         return SequentialExecution;
     }
 
     MethodStatus checkScriptSize(JSContext *cx, RawScript script);
-    AbortReason compile(IonBuilder *builder, MIRGraph *graph,
-                        ScopedJSDeletePtr<LifoAlloc> &autoDelete);
 };
 
 void
@@ -1328,10 +1332,12 @@ OffThreadCompilationAvailable(JSContext *cx)
 }
 
 AbortReason
-SequentialCompileContext::compile(IonBuilder *builder, MIRGraph *graph,
-                                  ScopedJSDeletePtr<LifoAlloc> &autoDelete)
+BaseCompileContext::compile(IonBuilder *builder, MIRGraph *graph,
+                            ScopedJSDeletePtr<LifoAlloc> &autoDelete)
 {
-    JS_ASSERT(!builder->script()->ion);
+    ExecutionMode cmode = builder->info().executionMode();
+
+    JS_ASSERT(!GetIonScript(builder->script(), cmode));
     JSContext *cx = GetIonContext()->cx;
 
     RootedScript builderScript(cx, builder->script());
@@ -1344,8 +1350,8 @@ SequentialCompileContext::compile(IonBuilder *builder, MIRGraph *graph,
     builder->clearForBackEnd();
 
     // If possible, compile the script off thread.
-    if (OffThreadCompilationAvailable(cx)) {
-        builder->script()->ion = ION_COMPILING_SCRIPT;
+    if (OffThreadCompilationAvailable(cx) && cmode == SequentialExecution) {
+        SetIonScript(builder->script(), cmode, ION_COMPILING_SCRIPT);
 
         if (!StartOffThreadIonCompile(cx, builder)) {
             IonSpew(IonSpew_Abort, "Unable to start off-thread ion compilation.");
@@ -1621,7 +1627,7 @@ ion::CanEnter(JSContext *cx, JSScript *script, AbstractFramePtr fp, bool isConst
     return Method_Compiled;
 }
 
-class ParallelCompileContext
+class ParallelCompileContext : public BaseCompileContext
 {
   public:
     ParallelCompileContext() {}
@@ -1632,8 +1638,6 @@ class ParallelCompileContext
 
     // Defined in Ion.cpp, so that they can make use of static fns defined there
     MethodStatus checkScriptSize(JSContext *cx, RawScript script);
-    AbortReason compile(IonBuilder *builder, MIRGraph *graph,
-                        ScopedJSDeletePtr<LifoAlloc> &autoDelete);
 };
 
 MethodStatus
@@ -1691,35 +1695,6 @@ ParallelCompileContext::checkScriptSize(JSContext *cx, RawScript script)
     }
 
     return Method_Compiled;
-}
-
-AbortReason
-ParallelCompileContext::compile(IonBuilder *builder,
-                                MIRGraph *graph,
-                                ScopedJSDeletePtr<LifoAlloc> &autoDelete)
-{
-    JS_ASSERT(!builder->script()->parallelIon);
-
-    JSContext *cx = GetIonContext()->cx;
-    RootedScript builderScript(cx, builder->script());
-    IonSpewNewFunction(graph, builderScript);
-
-    if (!builder->build())
-        return builder->abortReason();
-    builder->clearForBackEnd();
-
-    CodeGenerator *codegen = CompileBackEnd(builder);
-    if (!codegen)  {
-        IonSpew(IonSpew_Abort, "Failed during back-end compilation.");
-        return AbortReason_Disable;
-    }
-
-    bool success = codegen->link();
-    js_delete(codegen);
-
-    IonSpewEndFunction();
-
-    return success ? AbortReason_NoAbort : AbortReason_Disable;
 }
 
 MethodStatus

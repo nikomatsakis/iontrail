@@ -173,7 +173,16 @@ class ParallelDo
 
     bool executeSequentially();
 
+    static bool appendToWorklist(JSContext *cx,
+                                 AutoScriptVector& worklist,
+                                 HandleScript script);
+
+    static bool appendCallTargetsToWorklist(JSContext *cx,
+                                            AutoScriptVector& worklist,
+                                            IonScript *ion);
+
     MethodStatus compileForParallelExecution();
+    MethodStatus compileTransitively(HandleScript startScript);
     ExecutionStatus disqualifyFromParallelExecution();
     void determineBailoutCause();
     bool invalidateBailedOutScripts();
@@ -502,6 +511,76 @@ js::ParallelDo::apply()
     return SpewEndOp(disqualifyFromParallelExecution());
 }
 
+MethodStatus
+js::ParallelDo::compileTransitively(HandleScript startScript)
+{
+    using parallel::SpewBeginCompile;
+    using parallel::SpewEndCompile;
+
+    RootedFunction fun(cx_);
+    RootedScript script(cx_);
+    AutoScriptVector worklist(cx_);
+
+    appendToWorklist(cx_, worklist, startScript);
+
+    // We wish to compile all callees of the current script.
+    // Sometimes compiling one of these callees will cause another
+    // callee to be invalidated, in which case we wish to repeat the
+    // compilation until things stabilize.  However, I cap the total
+    // number of repeats at 5 simply because it makes me nervous to
+    // have an open-ended loop, though I think it should be valid.
+    for (uint32_t attempts = 0; attempts < 5; attempts++) {
+
+        for (uint32_t i = 0; i < worklist.length(); i++) {
+            script = worklist[i];
+            fun = script->function();
+
+            SpewBeginCompile(script);
+
+            // If this script is not yet compiled, try to compile it.
+            if (!script->hasParallelIonScript()) {
+                // Attempt compilation. Returns Method_Compiled if already compiled.
+                ParallelCompileContext pcc(cx_);
+                MethodStatus status = pcc.compileScript(script, fun);
+                if (status != Method_Compiled)
+                    return SpewEndCompile(status);
+            } else {
+                // If the script was already compiled, check for the invalidated
+                // call target flag and clear it, since we are going to be walking
+                // the list of call targets right now and recompiling them.
+                // XXX --- This seems a bit premature.  Maybe we should wait
+                // until the end?
+                IonScript *ion = script->parallelIonScript();
+                if (ion->hasInvalidatedCallTarget())
+                    ion->clearHasInvalidatedCallTarget();
+            }
+
+            // Append newly discovered outgoing callgraph edges to the worklist.
+            if (!appendCallTargetsToWorklist(cx_,
+                                             worklist,
+                                             script->parallelIonScript()))
+                return SpewEndCompile(Method_Error);
+
+            SpewEndCompile(Method_Compiled);
+        }
+
+        // Check whether anything got invalidated during compilation.
+        // If so, cycle around again.
+        bool stabilized = true;
+        for (uint32_t i = 0; i < worklist.length(); i++) {
+            script = worklist[i];
+            if (!script->hasParallelIonScript()) {
+                stabilized = false;
+                break;
+            }
+        }
+        if (stabilized)
+            break;
+    }
+
+    return Method_Compiled;
+}
+
 bool
 js::ParallelDo::executeSequentially()
 {
@@ -541,7 +620,7 @@ js::ParallelDo::compileForParallelExecution()
 
     Spew(SpewOps, "Compiling all reachable functions");
 
-    MethodStatus status = ParallelCompileContext::compileTransitively(cx_, script);
+    MethodStatus status = compileTransitively(script);
     if (status != Method_Compiled)
         return status;
 
@@ -553,6 +632,76 @@ js::ParallelDo::compileForParallelExecution()
         return Method_Skipped;
 
     return Method_Compiled;
+}
+
+bool
+js::ParallelDo::appendCallTargetsToWorklist(JSContext *cx,
+                                            AutoScriptVector& worklist,
+                                            IonScript *ion)
+{
+    RootedScript target(cx);
+    for (uint32_t i = 0; i < ion->callTargetEntries(); i++) {
+        target = ion->callTargetList()[i];
+        parallel::Spew(parallel::SpewCompile,
+                       "Adding call target %s:%u",
+                       target->filename(), target->lineno);
+        if (!appendToWorklist(cx, worklist, target))
+            return false;
+    }
+    return true;
+}
+
+bool
+js::ParallelDo::appendToWorklist(JSContext *cx,
+                                 AutoScriptVector& worklist,
+                                 HandleScript script)
+{
+    JS_ASSERT(script);
+
+    // Skip if we're disabled.
+    if (!script->canParallelIonCompile()) {
+        Spew(SpewCompile, "Skipping %p:%s:%u, canParallelIonCompile() is false",
+             script.get(), script->filename(), script->lineno);
+        return true;
+    }
+
+    // Skip if we're compiling off thread.
+    if (script->parallelIon == ION_COMPILING_SCRIPT) {
+        Spew(SpewCompile, "Skipping %p:%s:%u, off-main-thread compilation in progress",
+             script.get(), script->filename(), script->lineno);
+        return true;
+    }
+
+    // Skip if the code is expected to result in a bailout.
+    if (script->parallelIon && script->parallelIon->bailoutExpected()) {
+        Spew(SpewCompile, "Skipping %p:%s:%u, bailout expected",
+             script.get(), script->filename(), script->lineno);
+        return true;
+    }
+
+    // Skip if we haven't warmed up to get some type info. We're betting
+    // that the parallel kernel will be non-branchy for the most part, so
+    // this threshold is usually very low (1).
+    if (script->getUseCount() < js_IonOptions.usesBeforeCompileParallel) {
+        Spew(SpewCompile, "Skipping %p:%s:%u, use count %u < %u",
+             script.get(), script->filename(), script->lineno,
+             script->getUseCount(), js_IonOptions.usesBeforeCompileParallel);
+        return true;
+    }
+
+    for (uint32_t i = 0; i < worklist.length(); i++) {
+        if (worklist[i] == script) {
+            Spew(SpewCompile, "Skipping %p:%s:%u, already in worklist",
+                 script.get(), script->filename(), script->lineno);
+            return true;
+        }
+    }
+
+    // Note that we add all possibly compilable functions to the worklist,
+    // even if they're already compiled. This is so that we can return
+    // Method_Compiled and not Method_Skipped if we have a worklist full of
+    // already-compiled functions.
+    return worklist.append(script);
 }
 
 ExecutionStatus

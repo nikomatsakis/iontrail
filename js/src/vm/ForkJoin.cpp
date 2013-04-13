@@ -540,8 +540,7 @@ js::ParallelDo::compileTransitively(HandleScript startScript)
             // If this script is not yet compiled, try to compile it.
             if (!script->hasParallelIonScript()) {
                 // Attempt compilation. Returns Method_Compiled if already compiled.
-                ParallelCompileContext pcc(cx_);
-                MethodStatus status = pcc.compileScript(script, fun);
+                MethodStatus status = ion::CanEnterInParallel(cx_, script, fun);
                 if (status != Method_Compiled)
                     return SpewEndCompile(status);
             } else {

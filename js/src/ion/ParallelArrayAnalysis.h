@@ -20,33 +20,29 @@ namespace ion {
 class MIRGraph;
 class AutoDestroyAllocator;
 
-class ParallelCompileContext
+// Determines whether a function is compatible for parallel execution.
+// Removes basic blocks containing unsafe MIR operations from the
+// graph and replaces them with MParBailout blocks.
+class ParallelArrayAnalysis
 {
-  private:
     JSContext *cx_;
+    MIRGenerator *mir_;
+    MIRGraph &graph_;
 
-    // Is a function compilable for parallel execution?
-    bool analyzeAndGrowWorklist(MIRGenerator *mir, MIRGraph &graph);
-
-    bool removeResumePointOperands(MIRGenerator *mir, MIRGraph &graph);
+    bool removeResumePointOperands();
     void replaceOperandsOnResumePoint(MResumePoint *resumePoint, MDefinition *withDef);
 
   public:
-    ParallelCompileContext(JSContext *cx)
-      : cx_(cx)
-    { }
+    ParallelArrayAnalysis(JSContext *cx,
+                          MIRGenerator *mir,
+                          MIRGraph &graph)
+      : cx_(cx),
+        mir_(mir),
+        graph_(graph)
+    {}
 
-    ExecutionMode executionMode() {
-        return ParallelExecution;
-    }
-
-    // Defined in Ion.cpp, so that they can make use of static fns defined there
-    MethodStatus checkScriptSize(JSContext *cx, RawScript script);
-    MethodStatus compileScript(HandleScript script, HandleFunction fun);
-    AbortReason compile(IonBuilder *builder, MIRGraph *graph,
-                        ScopedJSDeletePtr<LifoAlloc> &autoDelete);
+    bool analyze();
 };
-
 
 } // namespace ion
 } // namespace js

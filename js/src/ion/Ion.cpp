@@ -1615,6 +1615,53 @@ ion::CanEnter(JSContext *cx, JSScript *script, AbstractFramePtr fp, bool isConst
     return Method_Compiled;
 }
 
+class ParallelCompileContext
+{
+  public:
+    ParallelCompileContext() {}
+
+    ExecutionMode executionMode() {
+        return ParallelExecution;
+    }
+
+    // Defined in Ion.cpp, so that they can make use of static fns defined there
+    MethodStatus checkScriptSize(JSContext *cx, RawScript script);
+    AbortReason compile(IonBuilder *builder, MIRGraph *graph,
+                        ScopedJSDeletePtr<LifoAlloc> &autoDelete);
+};
+
+MethodStatus
+ion::CanEnterInParallel(JSContext *cx, HandleScript script, HandleFunction fun)
+{
+    ParallelCompileContext pcc;
+    MethodStatus status = Compile(cx, script, fun, NULL, false, pcc);
+    if (status != Method_Compiled) {
+        if (status == Method_CantCompile)
+            ForbidCompilation(cx, script, ParallelExecution);
+        return status;
+    }
+
+    // This can GC, so afterward, script->parallelIon is
+    // not guaranteed to be valid.
+    if (!cx->compartment->ionCompartment()->enterJIT())
+        return Method_Error;
+
+    // Subtle: it is possible for GC to occur during
+    // compilation of one of the invoked functions, which
+    // would cause the earlier functions (such as the
+    // kernel itself) to be collected.  In this event, we
+    // give up and fallback to sequential for now.
+    if (!script->hasParallelIonScript()) {
+        parallel::Spew(
+            parallel::SpewCompile,
+            "Function %p:%s:%u was garbage-collected or invalidated",
+            fun.get(), script->filename(), script->lineno);
+        return Method_Skipped;
+    }
+
+    return Method_Compiled;
+}
+
 MethodStatus
 ParallelCompileContext::checkScriptSize(JSContext *cx, RawScript script)
 {
@@ -1640,38 +1687,6 @@ ParallelCompileContext::checkScriptSize(JSContext *cx, RawScript script)
     return Method_Compiled;
 }
 
-MethodStatus
-ParallelCompileContext::compileScript(HandleScript script,
-                                      HandleFunction fun)
-{
-    MethodStatus status = Compile(cx_, script, fun, NULL, false, *this);
-    if (status != Method_Compiled) {
-        if (status == Method_CantCompile)
-            ForbidCompilation(cx_, script, ParallelExecution);
-        return status;
-    }
-
-    // This can GC, so afterward, script->parallelIon is
-    // not guaranteed to be valid.
-    if (!cx_->compartment->ionCompartment()->enterJIT())
-        return Method_Error;
-
-    // Subtle: it is possible for GC to occur during
-    // compilation of one of the invoked functions, which
-    // would cause the earlier functions (such as the
-    // kernel itself) to be collected.  In this event, we
-    // give up and fallback to sequential for now.
-    if (!script->hasParallelIonScript()) {
-        parallel::Spew(
-            parallel::SpewCompile,
-            "Function %p:%s:%u was garbage-collected or invalidated",
-            fun.get(), script->filename(), script->lineno);
-        return Method_Skipped;
-    }
-
-    return Method_Compiled;
-}
-
 AbortReason
 ParallelCompileContext::compile(IonBuilder *builder,
                                 MIRGraph *graph,
@@ -1679,7 +1694,8 @@ ParallelCompileContext::compile(IonBuilder *builder,
 {
     JS_ASSERT(!builder->script()->parallelIon);
 
-    RootedScript builderScript(cx_, builder->script());
+    JSContext *cx = GetIonContext()->cx;
+    RootedScript builderScript(cx, builder->script());
     IonSpewNewFunction(graph, builderScript);
 
     if (!builder->build())
@@ -1693,7 +1709,8 @@ ParallelCompileContext::compile(IonBuilder *builder,
         return AbortReason_Disable;
     }
 
-    if (!analyzeAndGrowWorklist(builder, *graph)) {
+    ParallelArrayAnalysis analysis(cx, builder, *graph);
+    if (!analysis.analyze()) {
         return AbortReason_Disable;
     }
 

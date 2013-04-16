@@ -431,6 +431,9 @@ enum ExecutionStatus {
     // Parallel exec failed and so we fell back to sequential
     ExecutionSequential,
 
+    // We completed the work in seq mode before parallel compilation completed
+    ExecutionWarmup,
+
     // Parallel exec was successful after some number of bailouts
     ExecutionParallel
 };

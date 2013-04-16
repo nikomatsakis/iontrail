@@ -49,7 +49,7 @@ using namespace js::ion;
 // altogether.
 
 static bool
-ExecuteSequentially(JSContext *cx_, HandleValue funVal);
+ExecuteSequentially(JSContext *cx_, HandleValue funVal, bool *complete);
 
 #if !defined(JS_THREADSAFE) || !defined(JS_ION)
 bool
@@ -116,7 +116,7 @@ ForkJoinSlice::check()
 // Some code that is shared between degenerate and parallel configurations.
 
 static bool
-ExecuteSequentially(JSContext *cx, HandleValue funVal)
+ExecuteSequentially(JSContext *cx, HandleValue funVal, bool *complete)
 {
     uint32_t numSlices = ForkJoinSlices(cx);
     FastInvokeGuard fig(cx, funVal);
@@ -131,6 +131,7 @@ ExecuteSequentially(JSContext *cx, HandleValue funVal)
         args[2].setBoolean(!!cx->runtime->parallelWarmup);
         if (!fig.invoke(cx))
             return false;
+        *complete = args.rval().toBoolean();
     }
     return true;
 }
@@ -167,11 +168,33 @@ class ParallelDo
     ExecutionStatus apply();
 
   private:
+    // Most of the functions involved in managing the parallel
+    // compilation follow a similar control-flow. They return RedLight
+    // if they have either encountered a fatal error or completed the
+    // execution, such that no further work is needed. In that event,
+    // they take an `ExecutionStatus*` which they use to report
+    // whether execution was successful or what. If the function
+    // returns `GreenLight`, then the parallel operation is not yet
+    // fully completed.
+    enum TrafficLight {
+        RedLight,
+        GreenLight
+    };
+
     JSContext *cx_;
     HeapPtrObject fun_;
-    Vector<ParallelBailoutRecord, 16> bailoutRecords;
+    Vector<ParallelBailoutRecord, 16> bailoutRecords_;
+    AutoScriptVector worklist_;
 
-    bool executeSequentially();
+    TrafficLight enqueueInitialScript(ExecutionStatus *status);
+    TrafficLight attemptParallel(ExecutionStatus *status);
+    TrafficLight warmupExecution(ExecutionStatus *status);
+    TrafficLight parallelExecution(ExecutionStatus *status);
+    TrafficLight sequentialExecution(bool disqualified, ExecutionStatus *status);
+    TrafficLight fatalError(ExecutionStatus *status);
+    void determineBailoutCause();
+    bool invalidateBailedOutScripts();
+    ExecutionStatus sequentialExecution(bool disqualified);
 
     static bool appendToWorklist(JSContext *cx,
                                  AutoScriptVector& worklist,
@@ -180,17 +203,8 @@ class ParallelDo
     static bool appendCallTargetsToWorklist(JSContext *cx,
                                             AutoScriptVector& worklist,
                                             IonScript *ion);
-
-    MethodStatus compileForParallelExecution();
-    MethodStatus compileTransitively(HandleScript startScript);
-    ExecutionStatus disqualifyFromParallelExecution();
-    void determineBailoutCause();
-    bool invalidateBailedOutScripts();
-    bool warmupForParallelExecution();
-    ParallelResult executeInParallel();
     inline bool hasScript(Vector<types::RecompileInfo> &scripts,
                           JSScript *script);
-
 }; // class ParallelDo
 
 class ForkJoinShared : public TaskExecutor, public Monitor
@@ -422,6 +436,10 @@ js::ForkJoin(JSContext *cx, CallArgs &args)
                 resultString = (op.bailouts == 0 ? "success" : "bailout");
                 break;
 
+              case ExecutionWarmup:
+                resultString = "warmup";
+                break;
+
               case ExecutionFatal:
               case ExecutionSequential:
                 resultString = "disqualified";
@@ -447,53 +465,39 @@ js::ParallelDo::ParallelDo(JSContext *cx, HandleObject fun)
     bailoutBytecode(NULL),
     cx_(cx),
     fun_(fun),
-    bailoutRecords(cx)
+    bailoutRecords_(cx),
+    worklist_(cx)
 { }
 
 ExecutionStatus
 js::ParallelDo::apply()
 {
+    ExecutionStatus status;
+
+    if (!ion::IsEnabled(cx_))
+        return sequentialExecution(true);
+
     SpewBeginOp(cx_, "ParallelDo");
 
     uint32_t slices = ForkJoinSlices(cx_);
 
-    if (!ion::IsEnabled(cx_))
-        return SpewEndOp(disqualifyFromParallelExecution());
-
-    if (!bailoutRecords.resize(slices))
+    if (!bailoutRecords_.resize(slices))
         return SpewEndOp(ExecutionFatal);
 
     for (uint32_t i = 0; i < slices; i++)
-        bailoutRecords[i].init(cx_);
+        bailoutRecords_[i].init(cx_);
 
-    // Try to execute in parallel.  If a bailout occurs, re-warmup
-    // and then try again.  Repeat this a few times.
+    if (enqueueInitialScript(&status) == RedLight)
+        return SpewEndOp(status);
+
+    // Try to execute in parallel.  Run warmup iterations until
+    // compilations have completed.
     while (bailouts < MAX_BAILOUTS) {
         for (uint32_t i = 0; i < slices; i++)
-            bailoutRecords[i].reset(cx_);
+            bailoutRecords_[i].reset(cx_);
 
-        MethodStatus status = compileForParallelExecution();
-        if (status == Method_Error)
-            return SpewEndOp(ExecutionFatal);
-        if (status != Method_Compiled)
-            return SpewEndOp(disqualifyFromParallelExecution());
-
-        ParallelResult result = executeInParallel();
-        switch (result) {
-          case TP_RETRY_AFTER_GC:
-            Spew(SpewBailouts, "Bailout due to GC request");
-            break;
-
-          case TP_RETRY_SEQUENTIALLY:
-            Spew(SpewBailouts, "Bailout not categorized");
-            break;
-
-          case TP_SUCCESS:
-            return SpewEndOp(ExecutionParallel);
-
-          case TP_FATAL:
-            return SpewEndOp(ExecutionFatal);
-        }
+        if (attemptParallel(&status) == RedLight)
+            return SpewEndOp(status);
 
         bailouts += 1;
         determineBailoutCause();
@@ -503,134 +507,131 @@ js::ParallelDo::apply()
         if (!invalidateBailedOutScripts())
             return SpewEndOp(ExecutionFatal);
 
-        if (!warmupForParallelExecution())
-            return SpewEndOp(ExecutionFatal);
+        if (warmupExecution(&status) == RedLight)
+            return SpewEndOp(status);
     }
 
     // After enough tries, just execute sequentially.
-    return SpewEndOp(disqualifyFromParallelExecution());
+    return SpewEndOp(sequentialExecution(true));
 }
 
-MethodStatus
-js::ParallelDo::compileTransitively(HandleScript startScript)
-{
-    using parallel::SpewBeginCompile;
-    using parallel::SpewEndCompile;
-
-    RootedFunction fun(cx_);
-    RootedScript script(cx_);
-    AutoScriptVector worklist(cx_);
-
-    appendToWorklist(cx_, worklist, startScript);
-
-    // We wish to compile all callees of the current script.
-    // Sometimes compiling one of these callees will cause another
-    // callee to be invalidated, in which case we wish to repeat the
-    // compilation until things stabilize.  However, I cap the total
-    // number of repeats at 5 simply because it makes me nervous to
-    // have an open-ended loop, though I think it should be valid.
-    for (uint32_t attempts = 0; attempts < 5; attempts++) {
-
-        for (uint32_t i = 0; i < worklist.length(); i++) {
-            script = worklist[i];
-            fun = script->function();
-
-            SpewBeginCompile(script);
-
-            // If this script is not yet compiled, try to compile it.
-            if (!script->hasParallelIonScript()) {
-                // Attempt compilation. Returns Method_Compiled if already compiled.
-                MethodStatus status = ion::CanEnterInParallel(cx_, script, fun);
-                if (status != Method_Compiled)
-                    return SpewEndCompile(status);
-            } else {
-                // If the script was already compiled, check for the invalidated
-                // call target flag and clear it, since we are going to be walking
-                // the list of call targets right now and recompiling them.
-                // XXX --- This seems a bit premature.  Maybe we should wait
-                // until the end?
-                IonScript *ion = script->parallelIonScript();
-                if (ion->hasInvalidatedCallTarget())
-                    ion->clearHasInvalidatedCallTarget();
-            }
-
-            // Append newly discovered outgoing callgraph edges to the worklist.
-            if (!appendCallTargetsToWorklist(cx_,
-                                             worklist,
-                                             script->parallelIonScript()))
-                return SpewEndCompile(Method_Error);
-
-            SpewEndCompile(Method_Compiled);
-        }
-
-        // Check whether anything got invalidated during compilation.
-        // If so, cycle around again.
-        bool stabilized = true;
-        for (uint32_t i = 0; i < worklist.length(); i++) {
-            script = worklist[i];
-            if (!script->hasParallelIonScript()) {
-                stabilized = false;
-                break;
-            }
-        }
-        if (stabilized)
-            break;
-    }
-
-    return Method_Compiled;
-}
-
-bool
-js::ParallelDo::executeSequentially()
-{
-    RootedValue funVal(cx_, ObjectValue(*fun_));
-    return ExecuteSequentially(cx_, funVal);
-}
-
-MethodStatus
-js::ParallelDo::compileForParallelExecution()
+js::ParallelDo::TrafficLight
+js::ParallelDo::enqueueInitialScript(ExecutionStatus *status)
 {
     // The kernel should be a self-hosted function.
     if (!fun_->isFunction())
-        return Method_Skipped;
+        return sequentialExecution(true, status);
 
     RootedFunction callee(cx_, fun_->toFunction());
 
     if (!callee->isInterpreted() || !callee->isSelfHostedBuiltin())
-        return Method_Skipped;
+        return sequentialExecution(true, status);
 
     if (callee->isInterpretedLazy() && !callee->initializeLazyScript(cx_))
-        return Method_Error;
+        return sequentialExecution(true, status);
 
     // If this function has not been run enough to enable parallel
     // execution, perform a warmup.
     RootedScript script(cx_, callee->nonLazyScript());
-    if (script->getUseCount() < js_IonOptions.usesBeforeCompileParallel) {
-        if (!warmupForParallelExecution())
-            return Method_Error;
+    if (script->getUseCount() < js_IonOptions.usesBeforeCompileParallel)
+        return warmupExecution(status);
+
+    // The function is already compiled and we have no reason to
+    // suspect any of its callees are not compiled.
+    if (script->hasParallelIonScript()) {
+        if (!script->parallelIonScript()->hasUncompiledCallTarget()) {
+            Spew(SpewOps, "Already compiled");
+            return GreenLight;
+        }
+
+        // Otherwise, add to the worklist of scripts to process.
+        if (!appendToWorklist(cx_, worklist_, script))
+            return fatalError(status);
+        return GreenLight;
     }
 
-    if (script->hasParallelIonScript() &&
-        !script->parallelIonScript()->hasInvalidatedCallTarget())
-    {
-        Spew(SpewOps, "Already compiled");
-        return Method_Compiled;
+    return GreenLight;
+}
+
+js::ParallelDo::TrafficLight
+js::ParallelDo::attemptParallel(ExecutionStatus *status)
+{
+    // This routine attempts to do whatever compilation is necessary
+    // to execute a single parallel attempt. When it returns, either
+    // (1) we have fallen back to sequential; (2) we have run enough
+    // warmup runs to complete all the work; or (3) we have attempted
+    // parallel execution (and possibly succeeded) exactly once.
+
+    RootedFunction fun(cx_);
+    RootedScript script(cx_);
+
+    // This loop continues to iterate until the full contents of
+    // `worklist` have been successfully compiled for parallel
+    // execution. The compilations themselves typically occur on
+    // helper threads. While we wait for the compilations to complete,
+    // we execute warmup iterations.
+    while (true) {
+        bool pending = false;
+
+        // Walk over the worklist to check on the status of each entry.
+        for (uint32_t i = 0; i < worklist_.length(); i++) {
+            script = worklist_[i];
+            fun = script->function();
+
+            if (script->hasParallelIonScript()) {
+                // This script has already been compiled.  Check
+                // whether its "uncompiled call target" flag is set
+                // and add the targets to our worklist if so. Clear
+                // the flag after that, since we will be compiling the
+                // call targets.
+
+                IonScript *ion = script->parallelIonScript();
+                if (ion->hasUncompiledCallTarget()) {
+                    ion->clearHasUncompiledCallTarget();
+                    if (!appendCallTargetsToWorklist(cx_,
+                                                     worklist_,
+                                                     script->parallelIonScript())) {
+                        SpewEndCompile(Method_Error);
+                        return fatalError(status);
+                    }
+                }
+            } else {
+                // Script has not yet been compiled. Attempt to compile it.
+                SpewBeginCompile(script);
+                MethodStatus mstatus = ion::CanEnterInParallel(cx_, script, fun);
+                SpewEndCompile(mstatus);
+
+                switch (mstatus) {
+                  case Method_Error:
+                    return fatalError(status);
+
+                  case Method_CantCompile:
+                    return sequentialExecution(true, status);
+
+                  case Method_Skipped:
+                    // A "skipped" result either means that we are compiling
+                    // in parallel OR some other transient error occurred.
+                    if (script->isParallelIonCompilingOffThread()) {
+                        pending = true;
+                        continue;
+                    }
+                    return sequentialExecution(false, status);
+
+                  case Method_Compiled:
+                    JS_ASSERT(script->hasParallelIonScript());
+                    break;
+                }
+            }
+        }
+
+        if (!pending)
+            break;
+
+        if (warmupExecution(status) == RedLight)
+            return RedLight;
     }
 
-    Spew(SpewOps, "Compiling all reachable functions");
-
-    MethodStatus status = compileTransitively(script);
-    if (status != Method_Compiled)
-        return status;
-
-    // it can happen that during transitive compilation, our
-    // callee's parallel ion script is invalidated or GC'd. So
-    // before we declare success, double check that it's still
-    // compiled!
-    if (!script->hasParallelIonScript())
-        return Method_Skipped;
-
-    return Method_Compiled;
+    return parallelExecution(status);
 }
 
 bool
@@ -703,29 +704,51 @@ js::ParallelDo::appendToWorklist(JSContext *cx,
     return worklist.append(script);
 }
 
-ExecutionStatus
-js::ParallelDo::disqualifyFromParallelExecution()
+js::ParallelDo::TrafficLight
+js::ParallelDo::sequentialExecution(bool disqualified, ExecutionStatus *status)
 {
-    if (!executeSequentially())
+    *status = sequentialExecution(disqualified);
+    return RedLight;
+}
+
+ExecutionStatus
+js::ParallelDo::sequentialExecution(bool disqualified)
+{
+    // XXX use disqualified to set parallelIon to ION_DISABLED_SCRIPT?
+
+    bool complete = false;
+    RootedValue funVal(cx_, ObjectValue(*fun_));
+    if (!ExecuteSequentially(cx_, funVal, &complete))
         return ExecutionFatal;
+
+    // When invoked without the warmup flag set to true, the kernel
+    // function OUGHT to complete successfully, barring an exception.
+    JS_ASSERT(complete);
     return ExecutionSequential;
+}
+
+js::ParallelDo::TrafficLight
+js::ParallelDo::fatalError(ExecutionStatus *status)
+{
+    *status = ExecutionFatal;
+    return RedLight;
 }
 
 void
 js::ParallelDo::determineBailoutCause()
 {
     bailoutCause = ParallelBailoutNone;
-    for (uint32_t i = 0; i < bailoutRecords.length(); i++) {
-        if (bailoutRecords[i].cause == ParallelBailoutNone)
+    for (uint32_t i = 0; i < bailoutRecords_.length(); i++) {
+        if (bailoutRecords_[i].cause == ParallelBailoutNone)
             continue;
 
-        if (bailoutRecords[i].cause == ParallelBailoutInterrupt)
+        if (bailoutRecords_[i].cause == ParallelBailoutInterrupt)
             continue;
 
-        bailoutCause = bailoutRecords[i].cause;
-        if (bailoutRecords[i].depth) {
-            bailoutScript = bailoutRecords[i].trace[0].script;
-            bailoutBytecode = bailoutRecords[i].trace[0].bytecode;
+        bailoutCause = bailoutRecords_[i].cause;
+        if (bailoutRecords_[i].depth) {
+            bailoutScript = bailoutRecords_[i].trace[0].script;
+            bailoutBytecode = bailoutRecords_[i].trace[0].bytecode;
         }
     }
 }
@@ -742,14 +765,14 @@ js::ParallelDo::invalidateBailedOutScripts()
     }
 
     Vector<types::RecompileInfo> invalid(cx_);
-    for (uint32_t i = 0; i < bailoutRecords.length(); i++) {
-        JSScript *script = bailoutRecords[i].topScript;
+    for (uint32_t i = 0; i < bailoutRecords_.length(); i++) {
+        JSScript *script = bailoutRecords_[i].topScript;
 
         // No script to invalidate.
         if (!script || !script->hasParallelIonScript())
             continue;
 
-        switch (bailoutRecords[i].cause) {
+        switch (bailoutRecords_[i].cause) {
           // An interrupt is not the fault of the script, so don't
           // invalidate it.
           case ParallelBailoutInterrupt: continue;
@@ -772,11 +795,23 @@ js::ParallelDo::invalidateBailedOutScripts()
     return true;
 }
 
-bool
-js::ParallelDo::warmupForParallelExecution()
+js::ParallelDo::TrafficLight
+js::ParallelDo::warmupExecution(ExecutionStatus *status)
 {
     AutoEnterWarmup warmup(cx_->runtime);
-    return executeSequentially();
+    RootedValue funVal(cx_, ObjectValue(*fun_));
+    bool complete;
+    if (!ExecuteSequentially(cx_, funVal, &complete)) {
+        *status = ExecutionFatal;
+        return RedLight;
+    }
+
+    if (complete) {
+        *status = ExecutionWarmup;
+        return RedLight;
+    }
+
+    return GreenLight;
 }
 
 class AutoEnterParallelSection
@@ -808,12 +843,13 @@ class AutoEnterParallelSection
     }
 };
 
-ParallelResult
-js::ParallelDo::executeInParallel()
+js::ParallelDo::TrafficLight
+js::ParallelDo::parallelExecution(ExecutionStatus *status)
 {
-    // Recursive use of the ThreadPool is not supported.
-    if (ForkJoinSlice::Current() != NULL)
-        return TP_RETRY_SEQUENTIALLY;
+    // Recursive use of the ThreadPool is not supported.  Right now we
+    // cannot get here because parallel code cannot invoke native
+    // functions such as ForkJoin().
+    JS_ASSERT(ForkJoinSlice::Current() == NULL);
 
     AutoEnterParallelSection enter(cx_);
 
@@ -821,11 +857,26 @@ js::ParallelDo::executeInParallel()
     uint32_t numSlices = ForkJoinSlices(cx_);
 
     RootedObject rootedFun(cx_, fun_);
-    ForkJoinShared shared(cx_, threadPool, rootedFun, numSlices, numSlices - 1, &bailoutRecords[0]);
-    if (!shared.init())
-        return TP_RETRY_SEQUENTIALLY;
+    ForkJoinShared shared(cx_, threadPool, rootedFun, numSlices, numSlices - 1,
+                          &bailoutRecords_[0]);
+    if (!shared.init()) {
+        *status = ExecutionFatal;
+        return RedLight;
+    }
 
-    return shared.execute();
+    switch (shared.execute()) {
+      case TP_SUCCESS:
+        *status = ExecutionParallel;
+        return RedLight;
+
+      case TP_RETRY_SEQUENTIALLY:
+      case TP_RETRY_AFTER_GC:
+        return GreenLight; // bailout
+
+      case TP_FATAL:
+        *status = ExecutionFatal;
+        return RedLight;
+    }
 }
 
 bool
@@ -1562,6 +1613,8 @@ ExecutionStatusToString(ExecutionStatus status)
         return "fatal";
       case ExecutionSequential:
         return "sequential";
+      case ExecutionWarmup:
+        return "warmup";
       case ExecutionParallel:
         return "parallel";
     }

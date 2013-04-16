@@ -4555,6 +4555,14 @@ CodeGenerator::link()
                      graph.mir().numCallTargets(), cachesUseDispatch);
     SetIonScript(script, executionMode, ionScript);
 
+    // In parallel execution mode, when we first compile a script, we
+    // don't know that its potential callees are compiled, so set a
+    // flag warning that the callees may not be fully compiled.
+    if (executionMode == ParallelExecution) {
+        if (ionScript->callTargetEntries() != 0)
+            ionScript->setHasUncompiledCallTarget();
+    }
+
     if (!ionScript)
         return false;
     invalidateEpilogueData_.fixup(&masm);

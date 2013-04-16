@@ -231,7 +231,7 @@ ion::PropagateParallelAbort(JSScript *script)
 {
     JS_ASSERT(ParallelJSActive());
     ForkJoinSlice *slice = ForkJoinSlice::Current();
-    script->parallelIonScript()->setHasInvalidatedCallTarget();
+    script->parallelIonScript()->setHasUncompiledCallTarget();
     slice->bailoutRecord->addTrace(script, NULL);
 }
 

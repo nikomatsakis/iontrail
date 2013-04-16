@@ -323,6 +323,8 @@ function ParallelArrayBuild(self, shape, func, mode) {
       computefunc(indexStart, indexEnd);
       UnsafeSetElement(info, SLICE_POS(sliceId), ++chunkPos);
     }
+
+    return chunkEnd == info[SLICE_END(sliceId)];
   }
 
   function fill1(indexStart, indexEnd) {
@@ -419,6 +421,8 @@ function ParallelArrayMap(func, mode) {
 
       UnsafeSetElement(info, SLICE_POS(sliceId), ++chunkPos);
     }
+
+    return chunkEnd == info[SLICE_END(sliceId)];
   }
 }
 
@@ -495,6 +499,8 @@ function ParallelArrayReduce(func, mode) {
       UnsafeSetElement(subreductions, sliceId, accumulator,
                        info, SLICE_POS(sliceId), ++chunkPos);
     }
+
+    return chunkEnd == info[SLICE_END(sliceId)];
   }
 
   function reduceChunk(accumulator, from, to) {
@@ -616,6 +622,8 @@ function ParallelArrayScan(func, mode) {
       scan(accumulator, indexStart, indexEnd);
       UnsafeSetElement(info, SLICE_POS(sliceId), ++chunkPos);
     }
+
+    return chunkEnd == info[SLICE_END(sliceId)];
   }
 
   /**
@@ -683,6 +691,8 @@ function ParallelArrayScan(func, mode) {
       UnsafeSetElement(buffer, indexPos, func(intermediate, buffer[indexPos]),
                        info, SLICE_POS(sliceId), indexPos + 1);
     }
+
+    return indexEnd == info[SLICE_END(sliceId)];
   }
 }
 
@@ -839,6 +849,8 @@ function ParallelArrayScatter(targets, defaultValue, conflictFunc, length, mode)
                          conflicts, t, true,
                          checkpoints, sliceId, indexPos + 1);
       }
+
+      return indexEnd == targetsLength;
     }
   }
 
@@ -889,6 +901,8 @@ function ParallelArrayScatter(targets, defaultValue, conflictFunc, length, mode)
                          conflicts, t, true,
                          info, SLICE_POS(sliceId), ++indexPos);
       }
+
+      return indexEnd == info[SLICE_END(sliceId)];
     }
 
     /**
@@ -1012,7 +1026,6 @@ function ParallelArrayFilter(func, mode) {
    * the next chunk sliceId, lest we should bail.
    */
   function findSurvivorsInSlice(sliceId, numSlices, warmup) {
-
     var chunkPos = info[SLICE_POS(sliceId)];
     var chunkEnd = info[SLICE_END(sliceId)];
 
@@ -1035,6 +1048,8 @@ function ParallelArrayFilter(func, mode) {
                        counts, sliceId, count,
                        info, SLICE_POS(sliceId), ++chunkPos);
     }
+
+    return chunkEnd == info[SLICE_END(sliceId)];
   }
 
   function copySurvivorsInSlice(sliceId, numSlices, warmup) {
@@ -1082,6 +1097,9 @@ function ParallelArrayFilter(func, mode) {
         }
       }
     }
+
+    // FIXME
+    return !warmup;
   }
 }
 

@@ -869,14 +869,16 @@ js::ParallelDo::parallelExecution(ExecutionStatus *status)
         *status = ExecutionParallel;
         return RedLight;
 
-      case TP_RETRY_SEQUENTIALLY:
-      case TP_RETRY_AFTER_GC:
-        return GreenLight; // bailout
-
       case TP_FATAL:
         *status = ExecutionFatal;
         return RedLight;
+
+      case TP_RETRY_SEQUENTIALLY:
+      case TP_RETRY_AFTER_GC:
+        break; // bailout
     }
+
+    return GreenLight;
 }
 
 bool

@@ -533,8 +533,10 @@ js::ParallelDo::enqueueInitialScript(ExecutionStatus *status)
     // If this function has not been run enough to enable parallel
     // execution, perform a warmup.
     RootedScript script(cx_, callee->nonLazyScript());
-    if (script->getUseCount() < js_IonOptions.usesBeforeCompileParallel)
-        return warmupExecution(status);
+    if (script->getUseCount() < js_IonOptions.usesBeforeCompileParallel) {
+        if (warmupExecution(status) == RedLight)
+            return RedLight;
+    }
 
     // The function is already compiled and we have no reason to
     // suspect any of its callees are not compiled.
@@ -543,13 +545,11 @@ js::ParallelDo::enqueueInitialScript(ExecutionStatus *status)
             Spew(SpewOps, "Already compiled");
             return GreenLight;
         }
-
-        // Otherwise, add to the worklist of scripts to process.
-        if (!appendToWorklist(cx_, worklist_, script))
-            return fatalError(status);
-        return GreenLight;
     }
 
+    // Otherwise, add to the worklist of scripts to process.
+    if (!appendToWorklist(cx_, worklist_, script))
+        return fatalError(status);
     return GreenLight;
 }
 
@@ -578,24 +578,7 @@ js::ParallelDo::attemptParallel(ExecutionStatus *status)
             script = worklist_[i];
             fun = script->function();
 
-            if (script->hasParallelIonScript()) {
-                // This script has already been compiled.  Check
-                // whether its "uncompiled call target" flag is set
-                // and add the targets to our worklist if so. Clear
-                // the flag after that, since we will be compiling the
-                // call targets.
-
-                IonScript *ion = script->parallelIonScript();
-                if (ion->hasUncompiledCallTarget()) {
-                    ion->clearHasUncompiledCallTarget();
-                    if (!appendCallTargetsToWorklist(cx_,
-                                                     worklist_,
-                                                     script->parallelIonScript())) {
-                        SpewEndCompile(Method_Error);
-                        return fatalError(status);
-                    }
-                }
-            } else {
+            if (!script->hasParallelIonScript()) {
                 // Script has not yet been compiled. Attempt to compile it.
                 SpewBeginCompile(script);
                 MethodStatus mstatus = ion::CanEnterInParallel(cx_, script, fun);
@@ -620,6 +603,23 @@ js::ParallelDo::attemptParallel(ExecutionStatus *status)
                   case Method_Compiled:
                     JS_ASSERT(script->hasParallelIonScript());
                     break;
+                }
+            }
+
+            // At this point, either the script was already compiled
+            // or we just compiled it.  Check whether its "uncompiled
+            // call target" flag is set and add the targets to our
+            // worklist if so. Clear the flag after that, since we
+            // will be compiling the call targets.
+            JS_ASSERT(script->hasParallelIonScript());
+            IonScript *ion = script->parallelIonScript();
+            if (ion->hasUncompiledCallTarget()) {
+                ion->clearHasUncompiledCallTarget();
+                if (!appendCallTargetsToWorklist(cx_,
+                                                 worklist_,
+                                                 script->parallelIonScript())) {
+                    SpewEndCompile(Method_Error);
+                    return fatalError(status);
                 }
             }
         }

@@ -678,7 +678,7 @@ function ParallelArrayScan(func, mode) {
    */
   function phase2(sliceId, numSlices, warmup) {
     if (sliceId == 0)
-      return; // No work to do for the 0th slice.
+      return true; // No work to do for the 0th slice.
 
     var indexPos = info[SLICE_POS(sliceId)];
     var indexEnd = info[SLICE_END(sliceId)];
@@ -1074,7 +1074,7 @@ function ParallelArrayFilter(func, mode) {
     // Compute the final index we expect to write.
     var total = count + counts[sliceId];
     if (count == total)
-      return;
+      return true;
 
     // Iterate over the chunks assigned to us. Read the bitset for
     // each chunk. Copy values where a 1 appears until we have

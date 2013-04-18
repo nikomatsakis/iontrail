@@ -120,6 +120,7 @@ ExecuteSequentially(JSContext *cx, HandleValue funVal, bool *complete)
 {
     uint32_t numSlices = ForkJoinSlices(cx);
     FastInvokeGuard fig(cx, funVal);
+    bool allComplete = true;
     for (uint32_t i = 0; i < numSlices; i++) {
         InvokeArgsGuard &args = fig.args();
         if (!args.pushed() && !cx->stack.pushInvokeArgs(cx, 3, &args))
@@ -131,8 +132,9 @@ ExecuteSequentially(JSContext *cx, HandleValue funVal, bool *complete)
         args[2].setBoolean(!!cx->runtime->parallelWarmup);
         if (!fig.invoke(cx))
             return false;
-        *complete = args.rval().toBoolean();
+        allComplete = allComplete & args.rval().toBoolean();
     }
+    *complete = allComplete;
     return true;
 }
 
@@ -716,6 +718,9 @@ js::ParallelDo::sequentialExecution(bool disqualified)
 {
     // XXX use disqualified to set parallelIon to ION_DISABLED_SCRIPT?
 
+    Spew(SpewOps, "Executing sequential execution (disqualified=%d).",
+         disqualified);
+
     bool complete = false;
     RootedValue funVal(cx_, ObjectValue(*fun_));
     if (!ExecuteSequentially(cx_, funVal, &complete))
@@ -798,6 +803,8 @@ js::ParallelDo::invalidateBailedOutScripts()
 js::ParallelDo::TrafficLight
 js::ParallelDo::warmupExecution(ExecutionStatus *status)
 {
+    Spew(SpewOps, "Executing warmup.");
+
     AutoEnterWarmup warmup(cx_->runtime);
     RootedValue funVal(cx_, ObjectValue(*fun_));
     bool complete;
@@ -807,6 +814,7 @@ js::ParallelDo::warmupExecution(ExecutionStatus *status)
     }
 
     if (complete) {
+        Spew(SpewOps, "Warmup execution finished all the work.");
         *status = ExecutionWarmup;
         return RedLight;
     }

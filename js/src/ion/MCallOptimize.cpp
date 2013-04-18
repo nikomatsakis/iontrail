@@ -1319,7 +1319,7 @@ IonBuilder::inlineDump(CallInfo &callInfo)
 
     callInfo.unwrapArgs();
 
-    MParDump *dump = new MParDump(callInfo.getArg(1));
+    MParDump *dump = new MParDump(callInfo.getArg(0));
     current->add(dump);
 
     MConstant *udef = MConstant::New(UndefinedValue());

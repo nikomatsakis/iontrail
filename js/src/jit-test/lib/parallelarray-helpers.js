@@ -27,6 +27,16 @@
 
 var minItemsTestingThreshold = 1024;
 
+// The standard sequence of modes to test.
+// First mode compiles for parallel exec.
+// Second mode checks that parallel exec does not bail.
+// Final mode tests the sequential fallback path.
+var MODE_STRINGS = ["compile", "par", "seq"];
+var MODES = MODE_STRINGS.map(s => ({mode: s}));
+
+var INVALIDATE_MODE_STRINGS = ["seq", "compile", "par", "seq"];
+var INVALIDATE_MODES = INVALIDATE_MODE_STRINGS.map(s => ({mode: s}));
+
 function build(n, f) {
   var result = [];
   for (var i = 0; i < n; i++)
@@ -146,68 +156,92 @@ function assertEqParallelArray(a, b) {
   } while (bump(iv));
 }
 
-function assertParallelArrayModesEq(modes, acc, opFunction, cmpFunction) {
+// Checks that whenever we execute this in parallel mode,
+// it bails out. `opFunction` should be a closure that takes a
+// mode parameter and performs some parallel array operation.
+// This closure will be invoked repeatedly.
+//
+// Here is an example of the expected usage:
+//
+//    assertParallelExecWillBail(function(m) {
+//        new ParallelArray(..., m)
+//    });
+//
+// where the `new ParallelArray(...)` is a stand-in
+// for some parallel array operation.
+function assertParallelExecWillBail(opFunction) {
+  opFunction({mode:"compile"}); // get the script compiled
+  opFunction({mode:"bailout"}); // check that it bails when executed
+}
+
+// Checks that when we execute this in parallel mode,
+// some bailouts will occur but we will recover and
+// return to parallel execution mode. `opFunction` is a closure
+// that expects a mode, just as in `assertParallelExecWillBail`.
+function assertParallelExecWillRecover(opFunction) {
+  opFunction({mode:"compile"}); // get the script compiled
+  opFunction({mode:"bailout"}); // check that it bails when executed
+}
+
+// Checks that we will (eventually) be able to compile and exection
+// `opFunction` in parallel mode, and that the result is equal to
+// `expected` (as asserted by `cmpFunction`).  For some tests, it
+// takes many compile rounds to reach a TI fixed point. So this
+// function will repeatedly attempt to invoke `opFunction` with
+// `compile` and then `par` mode until getting a successful `par` run.
+// After enough tries, of course, we give up and declare a test failure.
+function assertParallelExecEquals(expected, opFunction, cmpFunction) {
   if (!cmpFunction) { cmpFunction = assertStructuralEq; }
-  modes.forEach(function (mode) {
-    var result = opFunction({ mode: mode, expect: "success" });
-    cmpFunction(acc, result);
-  });
-}
 
-function assertParallelArrayModesCommute(modes, opFunction) {
-    var acc = opFunction({ mode: modes[0], expect: "success" });
-    assertParallelArrayModesEq(modes.slice(1), acc, opFunction);
-}
+  var failures = 0;
+  while (true) {
+    print("Attempting compile #", failures);
+    var result = opFunction({mode:"compile"});
+    cmpFunction(expected, result);
 
-function comparePerformance(opts) {
-    var measurements = [];
-    for (var i = 0; i < opts.length; i++) {
-        var start = new Date();
-        opts[i].func();
-        var end = new Date();
-        var diff = (end.getTime() - start.getTime());
-        measurements.push(diff);
-        print("Option " + opts[i].name + " took " + diff + "ms");
+    try {
+      print("Attempting parallel run #", failures);
+      var result = opFunction({mode:"par"});
+      cmpFunction(expected, result);
+      break;
+    } catch (e) {
+      failures++;
+      if (failures > 5) {
+        throw e; // doesn't seem to be reaching a fixed point!
+      } else {
+        print(e);
+      }
     }
+  }
 
-    for (var i = 1; i < opts.length; i++) {
-        var rel = (measurements[i] - measurements[0]) * 100 / measurements[0];
-        print("Option " + opts[i].name + " relative to option " +
-              opts[0].name + ": " + (rel|0) + "%");
-    }
+  print("Attempting sequential run");
+  var result = opFunction({mode:"seq"});
+  cmpFunction(expected, result);
 }
 
+// Compares a ParallelArray function against its equivalent on the
+// `Array` prototype. `func` should be the closure to provide as
+// argument. For example:
+//
+//    compareAgainstArray([1, 2, 3], "map", i => i + 1)
+//
+// would check that `[1, 2, 3].map(i => i+1)` and `new
+// ParallelArray([1, 2, 3]).map(i => i+1)` yield the same result.
+//
+// Based on `assertParallelExecEquals`
 function compareAgainstArray(jsarray, opname, func, cmpFunction) {
   var expected = jsarray[opname].apply(jsarray, [func]);
   var parray = new ParallelArray(jsarray);
-
-  // Unfortunately, it sometimes happens that running 'par' twice in a
-  // row causes bailouts and other unfortunate things!
-
-  assertParallelArrayModesEq(["seq", "par", "par"], expected, function(m) {
-    print(m.mode + " " + m.expect);
-    var result = parray[opname].apply(parray, [func, m]);
-    // print(result.toString());
-    return result;
-  }, cmpFunction);
+  assertParallelExecEquals(
+    expected,
+    function(m) {
+      return parray[opname].apply(parray, [func, m]);
+    },
+    cmpFunction);
 }
 
-function testFilter(jsarray, func, cmpFunction) {
-  compareAgainstArray(jsarray, "filter", func, cmpFunction);
-
-  // var expected = jsarray.filter(func);
-  // var filters = jsarray.map(func);
-  // var parray = new ParallelArray(jsarray);
-  //
-  // // Unfortunately, it sometimes happens that running 'par' twice in a
-  // // row causes bailouts and other unfortunate things!
-  //
-  // assertParallelArrayModesEq(["seq", "par", "par"], expected, function(m) {
-  //   print(m.mode + " " + m.expect);
-  //   return parray.filter(filters, m);
-  // }, cmpFunction);
-}
-
+// Similar to `compareAgainstArray`, but for the `scan` method which
+// does not appear on array.
 function testScan(jsarray, func, cmpFunction) {
   var expected = seq_scan(jsarray, func);
   var parray = new ParallelArray(jsarray);
@@ -215,9 +249,51 @@ function testScan(jsarray, func, cmpFunction) {
   // Unfortunately, it sometimes happens that running 'par' twice in a
   // row causes bailouts and other unfortunate things!
 
-  assertParallelArrayModesEq(["seq", "par", "par"], expected, function(m) {
-    print(m.mode + " " + m.expect);
-    var p = parray.scan(func, m);
-    return p;
-  }, cmpFunction);
+  assertParallelExecEquals(
+    expected,
+    function(m) {
+      print(m.mode + " " + m.expect);
+      var p = parray.scan(func, m);
+      return p;
+    }, cmpFunction);
+}
+
+// Similar to `compareAgainstArray`, but for the `scatter` method.
+// In this case, because scatter is so complex, we do not attempt
+// to compute the expected result and instead simply invoke
+// `cmpFunction(r)` with the result `r` of the scatter operation.
+function testScatter(opFunction, cmpFunction) {
+  var strategies = ["divide-scatter-version", "divide-output-range"];
+  for (var i in strategies) {
+    assertParallelExecEquals(
+      null,
+      function(m) {
+        var m1 = {mode: m.mode,
+                  strategy: strategies[i]};
+        print(JSON.stringify(m1));
+        return opFunction(m1);
+      },
+      function(e, a) {
+        cmpFunction(a);
+      });
+  }
+}
+
+// Checks that `opFunction`, when run with each of the modes
+// in `modes`, returns a value that is equal to `expected`.
+// `cmpFunction` is an optional comparator that defaults to
+// `assertStructuralEq`.
+function assertParallelArrayModesEq(modes, expected, opFunction, cmpFunction) {
+  if (!cmpFunction) { cmpFunction = assertStructuralEq; }
+  for (i in modes) {
+    var result = opFunction(modes[i]);
+    cmpFunction(expected, result);
+  }
+}
+
+// Checks that `opFunction`, when run with each of the modes
+// in `modes`, returns the same value each time.
+function assertParallelArrayModesCommute(modes, opFunction) {
+    var acc = opFunction(modes[0]);
+    assertParallelArrayModesEq(modes.slice(1), acc, opFunction);
 }

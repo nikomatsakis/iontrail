@@ -151,6 +151,39 @@ ExecuteSequentially(JSContext *cx, HandleValue funVal, bool *complete)
 
 namespace js {
 
+// When writing tests, it is often useful to specify different modes
+// of operation.
+enum ForkJoinMode {
+    // WARNING: If you change this enum, you MUST update
+    // ForkJoinMode() in ParallelArray.js
+
+    // The "normal" behavior: attempt parallel, fallback to
+    // sequential.  If compilation is ongoing in a helper thread, then
+    // run sequential warmup iterations in the meantime. If those
+    // iterations wind up completing all the work, just abort.
+    ModeNormal,
+
+    // Like normal, except that we will keep running warmup iterations
+    // until compilations are complete, even if there is no more work
+    // to do. This is useful in tests as a "setup" run.
+    ModeCompile,
+
+    // Requires that compilation has already completed. Expects parallel
+    // execution to proceed without a hitch. (Reports an error otherwise)
+    ModeParallel,
+
+    // Requires that compilation has already completed. Expects
+    // parallel execution to bailout once but continue after that without
+    // further bailouts. (Reports an error otherwise)
+    ModeRecover,
+
+    // Expects any parallel executions to yield a bailout.  If this is not
+    // the case, reports an error.
+    ModeBailout,
+
+    ModeMax
+};
+
 unsigned ForkJoinSlice::ThreadPrivateIndex;
 bool ForkJoinSlice::TLSInitialized;
 
@@ -166,7 +199,7 @@ class ParallelDo
     RootedScript bailoutScript;
     jsbytecode *bailoutBytecode;
 
-    ParallelDo(JSContext *cx, HandleObject fun);
+    ParallelDo(JSContext *cx, HandleObject fun, ForkJoinMode mode);
     ExecutionStatus apply();
 
   private:
@@ -187,6 +220,7 @@ class ParallelDo
     HeapPtrObject fun_;
     Vector<ParallelBailoutRecord, 16> bailoutRecords_;
     AutoScriptVector worklist_;
+    ForkJoinMode mode_;
 
     TrafficLight enqueueInitialScript(ExecutionStatus *status);
     TrafficLight attemptParallel(ExecutionStatus *status);
@@ -416,51 +450,67 @@ class AutoMarkWorldStoppedForGC
 bool
 js::ForkJoin(JSContext *cx, CallArgs &args)
 {
-    JS_ASSERT(args[0].isObject());
+    JS_ASSERT(args[0].isObject()); // else the self-hosted code is wrong
     JS_ASSERT(args[0].toObject().isFunction());
 
+    ForkJoinMode mode = ModeNormal;
+    if (args.length() > 1) {
+        JS_ASSERT(args[1].isInt32()); // else the self-hosted code is wrong
+        JS_ASSERT(args[1].toInt32() < ModeMax);
+        mode = (ForkJoinMode) args[1].toInt32();
+    }
+
     RootedObject fun(cx, &args[0].toObject());
-    ParallelDo op(cx, fun);
+    ParallelDo op(cx, fun, mode);
     ExecutionStatus status = op.apply();
     if (status == ExecutionFatal)
         return false;
 
-    if (args[1].isObject()) {
-        RootedObject feedback(cx, &args[1].toObject());
-        if (feedback && feedback->isFunction()) {
-            InvokeArgsGuard feedbackArgs;
-            if (!cx->stack.pushInvokeArgs(cx, 3, &feedbackArgs))
-                return false;
+    const char *modeString = "?";
+    switch (mode) {
+      case ModeNormal:
+      case ModeCompile:
+        return true;
 
-            const char *resultString;
-            switch (status) {
-              case ExecutionParallel:
-                resultString = (op.bailouts == 0 ? "success" : "bailout");
-                break;
+      case ModeParallel:
+        if (status == ExecutionParallel && op.bailouts == 0)
+            return true;
+        modeString = "par";
+        break;
 
-              case ExecutionWarmup:
-                resultString = "warmup";
-                break;
+      case ModeRecover:
+        if (status != ExecutionSequential && op.bailouts > 0)
+            return true;
+        modeString = "recover";
+        break;
 
-              case ExecutionFatal:
-              case ExecutionSequential:
-                resultString = "disqualified";
-                break;
-            }
-            feedbackArgs.setCallee(ObjectValue(*feedback));
-            feedbackArgs.setThis(UndefinedValue());
-            feedbackArgs[0].setString(JS_NewStringCopyZ(cx, resultString));
-            feedbackArgs[1].setInt32(op.bailouts);
-            feedbackArgs[2].setInt32(op.bailoutCause);
-            if (!Invoke(cx, feedbackArgs))
-                return false;
-        }
+      case ModeBailout:
+        if (status != ExecutionParallel)
+            return true;
+        modeString = "bailout";
+        break;
+
+      case ModeMax:
+        modeString = "max";
+        break;
     }
 
-    return true;
+    const char *statusString = "?";
+    switch (status) {
+      case ExecutionSequential: statusString = "seq"; break;
+      case ExecutionParallel: statusString = "par"; break;
+      case ExecutionWarmup: statusString = "warmup"; break;
+      case ExecutionFatal: statusString = "fatal"; break;
+    }
+
+    JS_ReportError(cx, "ForkJoin: mode=%s status=%s bailouts=%d",
+                   modeString, statusString, op.bailouts);
+    return false;
 }
 
-js::ParallelDo::ParallelDo(JSContext *cx, HandleObject fun)
+js::ParallelDo::ParallelDo(JSContext *cx,
+                           HandleObject fun,
+                           ForkJoinMode mode)
   : bailouts(0),
     bailoutCause(ParallelBailoutNone),
     bailoutScript(cx),
@@ -468,7 +518,8 @@ js::ParallelDo::ParallelDo(JSContext *cx, HandleObject fun)
     cx_(cx),
     fun_(fun),
     bailoutRecords_(cx),
-    worklist_(cx)
+    worklist_(cx),
+    mode_(mode)
 { }
 
 ExecutionStatus
@@ -491,6 +542,24 @@ js::ParallelDo::apply()
 
     if (enqueueInitialScript(&status) == RedLight)
         return SpewEndOp(status);
+
+    switch (mode_) {
+      case ModeNormal:
+      case ModeCompile:
+      case ModeBailout:
+        break;
+
+      case ModeParallel:
+      case ModeRecover:
+        if (worklist_.length() != 0) {
+            JS_ReportError(cx_, "ForkJoin: compilation required in par or bailout mode");
+            return ExecutionFatal;
+        }
+        break;
+
+      case ModeMax:
+        JS_NOT_REACHED("Invalid mode");
+    }
 
     // Try to execute in parallel.  Run warmup iterations until
     // compilations have completed.
@@ -815,8 +884,12 @@ js::ParallelDo::warmupExecution(ExecutionStatus *status)
 
     if (complete) {
         Spew(SpewOps, "Warmup execution finished all the work.");
-        *status = ExecutionWarmup;
-        return RedLight;
+        if (mode_ != ModeCompile) {
+            *status = ExecutionWarmup;
+            return RedLight;
+        } else {
+            Spew(SpewOps, "Compile mode, so continuing to wait");
+        }
     }
 
     return GreenLight;

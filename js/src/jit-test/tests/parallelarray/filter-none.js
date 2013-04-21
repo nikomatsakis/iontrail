@@ -1,2 +1,2 @@
 load(libdir + "parallelarray-helpers.js");
-testFilter(range(0, 1024), function() { return false; });
+compareAgainstArray(range(0, 1024), "filter", function() { return false; });

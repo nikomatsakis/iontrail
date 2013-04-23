@@ -118,6 +118,7 @@ LIRGenerator::visitParCheckOverRecursed(MParCheckOverRecursed *ins)
     LParCheckOverRecursed *lir = new LParCheckOverRecursed(
         useRegister(ins->parSlice()),
         temp());
+    lir->setMir(ins);
     if (!add(lir))
         return false;
     if (!assignSafepoint(lir, ins))
@@ -1606,15 +1607,18 @@ bool
 LIRGenerator::visitParSlice(MParSlice *ins)
 {
     LParSlice *lir = new LParSlice(tempFixed(CallTempReg0));
+    lir->setMir(ins);
     return defineReturn(lir, ins);
 }
 
 bool
 LIRGenerator::visitParWriteGuard(MParWriteGuard *ins)
 {
-    return add(new LParWriteGuard(useFixed(ins->parSlice(), CallTempReg0),
-                                  useFixed(ins->object(), CallTempReg1),
-                                  tempFixed(CallTempReg2)));
+    LParWriteGuard *lir = new LParWriteGuard(useFixed(ins->parSlice(), CallTempReg0),
+                                             useFixed(ins->object(), CallTempReg1),
+                                             tempFixed(CallTempReg2));
+    lir->setMir(ins);
+    return add(lir);
 }
 
 bool
@@ -1623,6 +1627,7 @@ LIRGenerator::visitParCheckInterrupt(MParCheckInterrupt *ins)
     LParCheckInterrupt *lir = new LParCheckInterrupt(
         useRegister(ins->parSlice()),
         temp());
+    lir->setMir(ins);
     if (!add(lir))
         return false;
     if (!assignSafepoint(lir, ins))

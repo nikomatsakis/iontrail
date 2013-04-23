@@ -134,14 +134,37 @@
 // parallel code encountered an unexpected path that cannot safely be executed
 // in parallel (writes to shared state, say).
 //
+// Bailout tracing and recording:
+//
+// When a bailout occurs, we have to record a bit of state so that we
+// can recover with grace.  The caller of ForkJoin is responsible for
+// passing in a.  This state falls into two categories: one is
+// mandatory state that we track unconditionally, the other is
+// optional state that we track only when we plan to inform the user
+// about why a bailout occurred.
+//
+// The mandatory state consists of two things.
+//
+// - First, we track the top-most script on the stack.  This script
+//   will be invalidated.  As part of ParallelDo, the top-most script
+//   from each stack frame will be invalidated.
+//
+// - Second, for each script on the stack, we will set the flag
+//   HasInvalidatedCallTarget, indicating that some callee of this
+//   script was invalidated.  This flag is set as the stack is unwound
+//   during the bailout.
+//
+// The optional state consists of a backtrace of (script, bytecode)
+// pairs.  The rooting on these is currently screwed up and needs to
+// be fixed.
+//
 // Garbage collection and allocation:
 //
 // Code which executes on these parallel threads must be very careful
-// with respect to garbage collection and allocation.  Currently, we
-// do not permit GC to occur when executing in parallel.  Furthermore,
-// the typical allocation paths are UNSAFE in parallel code because
-// they access shared state (the compartment's arena lists and so
-// forth) without any synchronization.
+// with respect to garbage collection and allocation.  The typical
+// allocation paths are UNSAFE in parallel code because they access
+// shared state (the compartment's arena lists and so forth) without
+// any synchronization.  They can also trigger GC in an ad-hoc way.
 //
 // To deal with this, the forkjoin code creates a distinct |Allocator|
 // object for each slice.  You can access the appropriate object via
@@ -176,7 +199,6 @@
 
 namespace js {
 
-struct ForkJoinShared;
 struct ForkJoinSlice;
 
 bool ForkJoin(JSContext *cx, CallArgs &args);
@@ -203,6 +225,67 @@ struct IonLIRTraceData {
 // Different subcategories of the "bail" state are encoded as variants of
 // TP_RETRY_*.
 enum ParallelResult { TP_SUCCESS, TP_RETRY_SEQUENTIALLY, TP_RETRY_AFTER_GC, TP_FATAL };
+
+///////////////////////////////////////////////////////////////////////////
+// Bailout tracking
+
+enum ParallelBailoutCause {
+    ParallelBailoutNone,
+
+    // compiler returned Method_Skipped
+    ParallelBailoutCompilationSkipped,
+
+    // compiler returned Method_CantCompile
+    ParallelBailoutCompilationFailure,
+
+    // the periodic interrupt failed, which can mean that either
+    // another thread canceled, the user interrupted us, etc
+    ParallelBailoutInterrupt,
+
+    // an IC update failed
+    ParallelBailoutFailedIC,
+
+    // Heap busy flag was set during interrupt
+    ParallelBailoutHeapBusy,
+
+    ParallelBailoutMainScriptNotPresent,
+    ParallelBailoutCalledToUncompiledScript,
+    ParallelBailoutIllegalWrite,
+    ParallelBailoutAccessToIntrinsic,
+    ParallelBailoutOverRecursed,
+    ParallelBailoutOutOfMemory,
+    ParallelBailoutUnsupported,
+    ParallelBailoutUnsupportedStringComparison,
+    ParallelBailoutUnsupportedSparseArray,
+};
+
+struct ParallelBailoutTrace {
+    JSScript* script;
+    jsbytecode *bytecode;
+};
+
+// See "Bailouts" section in comment above.
+struct ParallelBailoutRecord {
+    JSScript* topScript;
+    ParallelBailoutCause cause;
+
+    // Eventually we will support deeper traces,
+    // but for now we gather at most a single frame.
+    static const uint32_t maxDepth = 1;
+    uint32_t depth;
+    ParallelBailoutTrace trace[maxDepth];
+
+    void init(JSContext *cx);
+    void reset(JSContext *cx);
+    void setCause(ParallelBailoutCause cause,
+                  JSScript *script,
+                  jsbytecode *pc);
+    void addTrace(JSScript *script,
+                  jsbytecode *pc);
+};
+
+struct ForkJoinShared;
+
 struct ForkJoinSlice
 {
   public:
@@ -220,8 +303,7 @@ struct ForkJoinSlice
     // |perThreadData|.
     Allocator *const allocator;
 
-    // If we took a parallel bailout, the script that bailed out is stored here.
-    JSScript *abortedScript;
+    ParallelBailoutRecord *const bailoutRecord;
 
 #ifdef DEBUG
     // Records the last instr. to execute on this thread.
@@ -229,7 +311,8 @@ struct ForkJoinSlice
 #endif
 
     ForkJoinSlice(PerThreadData *perThreadData, uint32_t sliceId, uint32_t numSlices,
-                  Allocator *arenaLists, ForkJoinShared *shared);
+                  Allocator *arenaLists, ForkJoinShared *shared,
+                  ParallelBailoutRecord *bailoutRecord);
 
     // True if this is the main thread, false if it is one of the parallel workers.
     bool isMainThread();
@@ -353,7 +436,8 @@ enum SpewChannel {
 bool SpewEnabled(SpewChannel channel);
 void Spew(SpewChannel channel, const char *fmt, ...);
 void SpewBeginOp(JSContext *cx, const char *name);
-void SpewBailout(uint32_t count);
+void SpewBailout(uint32_t count, HandleScript script, jsbytecode *pc,
+                 ParallelBailoutCause cause);
 ExecutionStatus SpewEndOp(ExecutionStatus status);
 void SpewBeginCompile(HandleScript script);
 ion::MethodStatus SpewEndCompile(ion::MethodStatus status);
@@ -366,7 +450,8 @@ void SpewBailoutIR(uint32_t bblockId, uint32_t lirId,
 static inline bool SpewEnabled(SpewChannel channel) { return false; }
 static inline void Spew(SpewChannel channel, const char *fmt, ...) { }
 static inline void SpewBeginOp(JSContext *cx, const char *name) { }
-static inline void SpewBailout(uint32_t count) {}
+static inline void SpewBailout(uint32_t count, HandleScript script,
+                               jsbytecode *pc, ParallelBailoutCause cause) {}
 static inline ExecutionStatus SpewEndOp(ExecutionStatus status) { return status; }
 static inline void SpewBeginCompile(HandleScript script) { }
 #ifdef JS_ION

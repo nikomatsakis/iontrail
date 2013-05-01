@@ -248,8 +248,6 @@ IonCompartment::initialize(JSContext *cx)
 void
 ion::FinishOffThreadBuilder(IonBuilder *builder)
 {
-    JS_ASSERT(builder->info().executionMode() == SequentialExecution);
-
     // Clean up if compilation did not succeed.
     if (builder->script()->isIonCompilingOffThread()) {
         types::TypeCompartment &types = builder->script()->compartment()->types;

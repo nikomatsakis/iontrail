@@ -1315,7 +1315,7 @@ ForkJoinShared::check(ForkJoinSlice &slice)
             // right now to abort rather than prove it cannot arise,
             // and safer for short-term than asserting !isHeapBusy.
             setAbortFlag(false);
-            records_->setCause(ParallelBailoutHeapBusy, NULL, NULL);
+            records_->setCause(ParallelBailoutHeapBusy, NULL, NULL, NULL);
             return false;
         }
 
@@ -1339,7 +1339,7 @@ ForkJoinShared::check(ForkJoinSlice &slice)
 
         // (3). Invoke the callback and abort if it returns false.
         if (!js_InvokeOperationCallback(cx_)) {
-            records_->setCause(ParallelBailoutInterrupt, NULL, NULL);
+            records_->setCause(ParallelBailoutInterrupt, NULL, NULL, NULL);
             setAbortFlag(true);
             return false;
         }

@@ -138,7 +138,8 @@ ion::ParCheckOverRecursed(ForkJoinSlice *slice)
     }
 
     if (!JS_CHECK_STACK_SIZE(realStackLimit, &stackDummy_)) {
-        slice->bailoutRecord->setCause(ParallelBailoutOverRecursed, NULL, NULL);
+        slice->bailoutRecord->setCause(ParallelBailoutOverRecursed,
+                                       NULL, NULL, NULL);
         return false;
     }
 
@@ -375,27 +376,47 @@ js::ion::ParStringsUnequal(ForkJoinSlice *slice, HandleString v1, HandleString v
 
 void
 ion::ParallelAbort(ParallelBailoutCause cause,
-                   JSScript *script,
+                   JSScript *outermostScript,
+                   JSScript *currentScript,
                    jsbytecode *bytecode)
 {
+    // Spew before asserts to help with diagnosing failures.
+    Spew(SpewBailouts,
+         "Parallel abort with cause %d in %p:%s:%d "
+         "(%p:%s:%d at line %d)",
+         cause,
+         outermostScript, outermostScript->filename(), outermostScript->lineno,
+         currentScript, currentScript->filename(), currentScript->lineno);
+
     JS_ASSERT(InParallelSection());
-    JS_ASSERT(script != NULL);
+    JS_ASSERT(outermostScript != NULL);
+    JS_ASSERT(currentScript != NULL);
+    JS_ASSERT(outermostScript->hasParallelIonScript());
+
     ForkJoinSlice *slice = ForkJoinSlice::Current();
 
-    Spew(SpewBailouts, "Parallel abort with cause %d in %p:%s:%d at line %d",
-         cause, script, script->filename(), script->lineno);
-
     JS_ASSERT(slice->bailoutRecord->depth == 0);
-    slice->bailoutRecord->setCause(cause, script, bytecode);
+    slice->bailoutRecord->setCause(cause, outermostScript,
+                                   currentScript, bytecode);
 }
 
 void
-ion::PropagateParallelAbort(JSScript *script)
+ion::PropagateParallelAbort(JSScript *outermostScript,
+                            JSScript *currentScript)
 {
+    Spew(SpewBailouts,
+         "Propagate parallel abort via %p:%s:%d (%p:%s:%d)",
+         outermostScript, outermostScript->filename(), outermostScript->lineno,
+         currentScript, currentScript->filename(), currentScript->lineno);
+
     JS_ASSERT(InParallelSection());
+    JS_ASSERT(outermostScript->hasParallelIonScript());
+
+    outermostScript->parallelIonScript()->setHasInvalidatedCallTarget();
+
     ForkJoinSlice *slice = ForkJoinSlice::Current();
-    script->parallelIonScript()->setHasInvalidatedCallTarget();
-    slice->bailoutRecord->addTrace(script, NULL);
+    if (currentScript)
+        slice->bailoutRecord->addTrace(currentScript, NULL);
 }
 
 void

@@ -920,7 +920,8 @@ ForkJoinShared::executePortion(PerThreadData *perThread,
         // op and reaching this point.  In that case, we just fail
         // and fallback.
         Spew(SpewOps, "Down (Script no longer present)");
-        slice.bailoutRecord->setCause(ParallelBailoutMainScriptNotPresent, NULL, NULL);
+        slice.bailoutRecord->setCause(ParallelBailoutMainScriptNotPresent,
+                                      NULL, NULL, NULL);
         setAbortFlag(false);
     } else {
         ParallelIonInvoke<3> fii(cx_, callee, 3);
@@ -1194,16 +1195,23 @@ js::ParallelBailoutRecord::reset(JSContext *cx)
 
 void
 js::ParallelBailoutRecord::setCause(ParallelBailoutCause cause,
-                                    JSScript *script,
-                                    jsbytecode *pc)
+                                    JSScript *outermostScript,
+                                    JSScript *currentScript,
+                                    jsbytecode *currentPc)
 {
+    JS_ASSERT_IF(outermostScript, currentScript);
+    JS_ASSERT_IF(outermostScript, outermostScript->hasParallelIonScript());
+    JS_ASSERT_IF(currentScript, outermostScript);
+    JS_ASSERT_IF(!currentScript, !currentPc);
+
     this->cause = cause;
 
-    if (script) {
-        this->topScript = script;
-        addTrace(script, pc);
-    } else {
-        JS_ASSERT(!pc);
+    if (outermostScript) {
+        this->topScript = outermostScript;
+    }
+
+    if (currentScript) {
+        addTrace(currentScript, currentPc);
     }
 }
 

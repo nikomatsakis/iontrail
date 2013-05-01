@@ -278,8 +278,9 @@ struct ParallelBailoutRecord {
     void init(JSContext *cx);
     void reset(JSContext *cx);
     void setCause(ParallelBailoutCause cause,
-                  JSScript *script,
-                  jsbytecode *pc);
+                  JSScript *outermostScript,   // inliner (if applicable)
+                  JSScript *currentScript,     // inlinee (if applicable)
+                  jsbytecode *currentPc);
     void addTrace(JSScript *script,
                   jsbytecode *pc);
 };

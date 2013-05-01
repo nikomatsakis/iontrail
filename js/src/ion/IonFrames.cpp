@@ -536,7 +536,8 @@ HandleParallelFailure(ResumeFromException *rfe)
     while (!iter.isEntry()) {
         parallel::Spew(parallel::SpewBailouts, "Bailing from VM reentry");
         if (iter.isScripted()) {
-            slice->bailoutRecord->setCause(ParallelBailoutFailedIC, iter.script(), NULL);
+            slice->bailoutRecord->setCause(ParallelBailoutFailedIC,
+                                           iter.script(), iter.script(), NULL);
             break;
         }
         ++iter;
@@ -544,7 +545,7 @@ HandleParallelFailure(ResumeFromException *rfe)
 
     while (!iter.isEntry()) {
         if (iter.isScripted())
-            PropagateParallelAbort(iter.script());
+            PropagateParallelAbort(iter.script(), iter.script());
         ++iter;
     }
 

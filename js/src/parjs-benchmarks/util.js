@@ -92,6 +92,7 @@ function measureN(iters, f) {
 
   for (var i = 0; i < iters; i++) {
     [measurement, result] = measure1(f);
+    print(measurement);
     measurements.push(measurement);
   }
 

@@ -180,7 +180,7 @@ function assertParallelExecWillBail(opFunction) {
 // that expects a mode, just as in `assertParallelExecWillBail`.
 function assertParallelExecWillRecover(opFunction) {
   opFunction({mode:"compile"}); // get the script compiled
-  opFunction({mode:"bailout"}); // check that it bails when executed
+  opFunction({mode:"recover"}); // check that it bails when executed
 }
 
 // Checks that we will (eventually) be able to compile and exection

@@ -223,7 +223,8 @@ ion::ParallelAbort(ParallelBailoutCause cause,
          "(%p:%s:%d at line %d)",
          cause,
          outermostScript, outermostScript->filename(), outermostScript->lineno,
-         currentScript, currentScript->filename(), currentScript->lineno);
+         currentScript, currentScript->filename(), currentScript->lineno,
+         (currentScript ? PCToLineNumber(currentScript, bytecode) : 0));
 
     JS_ASSERT(ParallelJSActive());
     JS_ASSERT(outermostScript != NULL);

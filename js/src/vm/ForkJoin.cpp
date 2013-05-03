@@ -177,7 +177,7 @@ enum ForkJoinMode {
     // further bailouts. (Reports an error otherwise)
     ModeRecover,
 
-    // Expects any parallel executions to yield a bailout.  If this is not
+    // Expects all parallel executions to yield a bailout.  If this is not
     // the case, reports an error.
     ModeBailout,
 
@@ -220,6 +220,7 @@ class ParallelDo
     HeapPtrObject fun_;
     Vector<ParallelBailoutRecord, 16> bailoutRecords_;
     AutoScriptVector worklist_;
+    Vector<bool, 16> calleesEnqueued_;
     ForkJoinMode mode_;
 
     TrafficLight enqueueInitialScript(ExecutionStatus *status);
@@ -232,15 +233,9 @@ class ParallelDo
     bool invalidateBailedOutScripts();
     ExecutionStatus sequentialExecution(bool disqualified);
 
-    static bool appendToWorklist(JSContext *cx,
-                                 AutoScriptVector& worklist,
-                                 HandleScript script);
-
-    static bool appendCallTargetsToWorklist(JSContext *cx,
-                                            AutoScriptVector& worklist,
-                                            IonScript *ion);
-    inline bool hasScript(Vector<types::RecompileInfo> &scripts,
-                          JSScript *script);
+    bool appendCallTargetsToWorklist(uint32_t index);
+    bool appendToWorklist(HandleScript script);
+    inline bool hasScript(Vector<types::RecompileInfo> &scripts, JSScript *script);
 }; // class ParallelDo
 
 class ForkJoinShared : public TaskExecutor, public Monitor
@@ -447,6 +442,8 @@ class AutoMarkWorldStoppedForGC
 // They handle parallel compilation (if necessary), triggering
 // parallel execution, and recovering from bailouts.
 
+static const char *ForkJoinModeString(ForkJoinMode mode);
+
 bool
 js::ForkJoin(JSContext *cx, CallArgs &args)
 {
@@ -466,7 +463,6 @@ js::ForkJoin(JSContext *cx, CallArgs &args)
     if (status == ExecutionFatal)
         return false;
 
-    const char *modeString = "?";
     switch (mode) {
       case ModeNormal:
       case ModeCompile:
@@ -475,23 +471,19 @@ js::ForkJoin(JSContext *cx, CallArgs &args)
       case ModeParallel:
         if (status == ExecutionParallel && op.bailouts == 0)
             return true;
-        modeString = "par";
         break;
 
       case ModeRecover:
         if (status != ExecutionSequential && op.bailouts > 0)
             return true;
-        modeString = "recover";
         break;
 
       case ModeBailout:
         if (status != ExecutionParallel)
             return true;
-        modeString = "bailout";
         break;
 
       case ModeMax:
-        modeString = "max";
         break;
     }
 
@@ -504,8 +496,21 @@ js::ForkJoin(JSContext *cx, CallArgs &args)
     }
 
     JS_ReportError(cx, "ForkJoin: mode=%s status=%s bailouts=%d",
-                   modeString, statusString, op.bailouts);
+                   ForkJoinModeString(mode), statusString, op.bailouts);
     return false;
+}
+
+static const char *
+ForkJoinModeString(ForkJoinMode mode) {
+    switch (mode) {
+      case ModeNormal: return "normal";
+      case ModeCompile: return "compile";
+      case ModeParallel: return "parallel";
+      case ModeRecover: return "recover";
+      case ModeBailout: return "bailout";
+      case ModeMax: return "max";
+    }
+    return "???";
 }
 
 js::ParallelDo::ParallelDo(JSContext *cx,
@@ -519,6 +524,7 @@ js::ParallelDo::ParallelDo(JSContext *cx,
     fun_(fun),
     bailoutRecords_(cx),
     worklist_(cx),
+    calleesEnqueued_(cx),
     mode_(mode)
 { }
 
@@ -542,6 +548,10 @@ js::ParallelDo::apply()
 
     if (enqueueInitialScript(&status) == RedLight)
         return SpewEndOp(status);
+
+    if (mode_ != ModeNormal) {
+        Spew(SpewOps, "Execution mode: %s", ForkJoinModeString(mode_));
+    }
 
     switch (mode_) {
       case ModeNormal:
@@ -613,13 +623,17 @@ js::ParallelDo::enqueueInitialScript(ExecutionStatus *status)
     // suspect any of its callees are not compiled.
     if (script->hasParallelIonScript()) {
         if (!script->parallelIonScript()->hasUncompiledCallTarget()) {
-            Spew(SpewOps, "Already compiled");
+            Spew(SpewOps, "Script %p:%s:%d already compiled, no uncompiled callees",
+                 script.get(), script->filename(), script->lineno);
             return GreenLight;
         }
+
+        Spew(SpewOps, "Script %p:%s:%d already compiled, may have uncompiled callees",
+             script.get(), script->filename(), script->lineno);
     }
 
     // Otherwise, add to the worklist of scripts to process.
-    if (!appendToWorklist(cx_, worklist_, script))
+    if (!appendToWorklist(script))
         return fatalError(status);
     return GreenLight;
 }
@@ -660,12 +674,19 @@ js::ParallelDo::attemptParallel(ExecutionStatus *status)
                     return fatalError(status);
 
                   case Method_CantCompile:
+                    Spew(SpewCompile,
+                         "Script %p:%s:%d cannot be compiled, "
+                         "falling back to sequential execution",
+                         script.get(), script->filename(), script->lineno);
                     return sequentialExecution(true, status);
 
                   case Method_Skipped:
                     // A "skipped" result either means that we are compiling
                     // in parallel OR some other transient error occurred.
                     if (script->isParallelIonCompilingOffThread()) {
+                        Spew(SpewCompile,
+                             "Script %p:%s:%d compiling off-thread",
+                             script.get(), script->filename(), script->lineno);
                         pending = true;
                         continue;
                     }
@@ -683,16 +704,7 @@ js::ParallelDo::attemptParallel(ExecutionStatus *status)
             // worklist if so. Clear the flag after that, since we
             // will be compiling the call targets.
             JS_ASSERT(script->hasParallelIonScript());
-            IonScript *ion = script->parallelIonScript();
-            if (ion->hasUncompiledCallTarget()) {
-                ion->clearHasUncompiledCallTarget();
-                if (!appendCallTargetsToWorklist(cx_,
-                                                 worklist_,
-                                                 script->parallelIonScript())) {
-                    SpewEndCompile(Method_Error);
-                    return fatalError(status);
-                }
-            }
+            appendCallTargetsToWorklist(i);
         }
 
         if (!pending)
@@ -702,30 +714,58 @@ js::ParallelDo::attemptParallel(ExecutionStatus *status)
             return RedLight;
     }
 
+    // At this point, all scripts are in a compiled state.
+    // We can now clear the uncompiled callee flag on all of them.
+    for (uint32_t i = 0; i < worklist_.length(); i++) {
+        JS_ASSERT(worklist_[i]->hasParallelIonScript());
+        JS_ASSERT(calleesEnqueued_[i]);
+        worklist_[i]->parallelIonScript()->clearHasUncompiledCallTarget();
+    }
+
+    // Reset the worklist.
+    worklist_.clear();
+    calleesEnqueued_.clear();
+
     return parallelExecution(status);
 }
 
 bool
-js::ParallelDo::appendCallTargetsToWorklist(JSContext *cx,
-                                            AutoScriptVector& worklist,
-                                            IonScript *ion)
+js::ParallelDo::appendCallTargetsToWorklist(uint32_t index)
 {
-    RootedScript target(cx);
+    JS_ASSERT(worklist_[index]->hasParallelIonScript());
+
+    // Check whether we have already enqueued the targets for
+    // this entry and avoid doing it again if so.
+    if (calleesEnqueued_[index])
+        return true;
+    calleesEnqueued_[index] = true;
+
+    // Check whether the callees of this script are considered to have
+    // been compiled already. Note that, in fact, it is possible that
+    // this flag is out of date, but we'll take that change (see large
+    // discussion in header file about the general compilation
+    // strategy for more details).
+    IonScript *ion = worklist_[index]->parallelIonScript();
+    if (!ion->hasUncompiledCallTarget())
+        return true; // not worth the trouble
+
+    // Iterate through the callees and attempt to enqueue them.  Note
+    // that we do not clear the hasUncompiledCallTarget() flag at this
+    // time, because the entries have not yet been compiled!
+    RootedScript target(cx_);
     for (uint32_t i = 0; i < ion->callTargetEntries(); i++) {
         target = ion->callTargetList()[i];
         parallel::Spew(parallel::SpewCompile,
                        "Adding call target %s:%u",
                        target->filename(), target->lineno);
-        if (!appendToWorklist(cx, worklist, target))
+        if (!appendToWorklist(target))
             return false;
     }
     return true;
 }
 
 bool
-js::ParallelDo::appendToWorklist(JSContext *cx,
-                                 AutoScriptVector& worklist,
-                                 HandleScript script)
+js::ParallelDo::appendToWorklist(HandleScript script)
 {
     JS_ASSERT(script);
 
@@ -760,19 +800,29 @@ js::ParallelDo::appendToWorklist(JSContext *cx,
         return true;
     }
 
-    for (uint32_t i = 0; i < worklist.length(); i++) {
-        if (worklist[i] == script) {
+    for (uint32_t i = 0; i < worklist_.length(); i++) {
+        if (worklist_[i] == script) {
             Spew(SpewCompile, "Skipping %p:%s:%u, already in worklist",
                  script.get(), script->filename(), script->lineno);
             return true;
         }
     }
 
+    Spew(SpewCompile, "Enqueued %p:%s:%u",
+         script.get(), script->filename(), script->lineno);
+
     // Note that we add all possibly compilable functions to the worklist,
     // even if they're already compiled. This is so that we can return
     // Method_Compiled and not Method_Skipped if we have a worklist full of
     // already-compiled functions.
-    return worklist.append(script);
+    if (!worklist_.append(script))
+        return false;
+
+    // we have not yet enqueued the callees of this script
+    if (!calleesEnqueued_.append(false))
+        return false;
+
+    return true;
 }
 
 js::ParallelDo::TrafficLight
@@ -840,7 +890,7 @@ js::ParallelDo::invalidateBailedOutScripts()
 
     Vector<types::RecompileInfo> invalid(cx_);
     for (uint32_t i = 0; i < bailoutRecords_.length(); i++) {
-        JSScript *script = bailoutRecords_[i].topScript;
+        RootedScript script(cx_, bailoutRecords_[i].topScript);
 
         // No script to invalidate.
         if (!script || !script->hasParallelIonScript())
@@ -862,10 +912,31 @@ js::ParallelDo::invalidateBailedOutScripts()
         if (hasScript(invalid, script))
             continue;
 
-        if (!invalid.append(script->parallelIonScript()->recompileInfo()))
+        Spew(SpewBailouts, "Invalidating script %p:%s:%d due to cause %d",
+             script.get(), script->filename(), script->lineno,
+             bailoutRecords_[i].cause);
+
+        types::RecompileInfo co = script->parallelIonScript()->recompileInfo();
+
+        const types::CompilerOutput &cout = *co.compilerOutput(
+            cx_->compartment->types); // XXX
+        Spew(SpewBailouts, "co.script=%p, co.kind=%d, isValid=%d", // XXX
+             cout.script, cout.kind(), cout.isValid()); // XXX
+
+        if (!invalid.append(co))
             return false;
     }
+
     Invalidate(cx_, invalid);
+
+    // now that the invalidations have occurred, iterate back over and
+    // enqueue those same scripts for recompilation.
+    for (uint32_t i = 0; i < bailoutRecords_.length(); i++) {
+        RootedScript script(cx_, bailoutRecords_[i].topScript);
+        if (script)
+            appendToWorklist(script);
+    }
+
     return true;
 }
 

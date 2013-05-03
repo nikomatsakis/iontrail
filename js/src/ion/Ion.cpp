@@ -1208,7 +1208,7 @@ AttachFinishedCompilations(JSContext *cx)
             }
 
             if (success) {
-                if (script->hasIonScript())
+                if (executionMode == SequentialExecution && script->hasIonScript())
                     mjit::DisableScriptCodeForIon(script, script->ionScript()->osrPc());
             } else {
                 // Silently ignore OOM during code generation, we're at an

@@ -1208,9 +1208,8 @@ AttachFinishedCompilations(JSContext *cx)
             }
 
             if (success) {
-                if (HasIonScript(script, executionMode))
-                    mjit::DisableScriptCodeForIon(
-                        script, GetIonScript(script, executionMode)->osrPc());
+                if (script->hasIonScript())
+                    mjit::DisableScriptCodeForIon(script, script->ionScript()->osrPc());
             } else {
                 // Silently ignore OOM during code generation, we're at an
                 // operation callback and can't propagate failures.

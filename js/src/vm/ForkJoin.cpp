@@ -738,6 +738,9 @@ js::ParallelDo::compileForParallelExecution(ExecutionStatus *status)
                     return sequentialExecution(false, status);
 
                   case Method_Compiled:
+                    Spew(SpewCompile,
+                         "Script %p:%s:%d compiled",
+                         script.get(), script->filename(), script->lineno);
                     JS_ASSERT(script->hasParallelIonScript());
                     break;
                 }
@@ -759,6 +762,9 @@ js::ParallelDo::compileForParallelExecution(ExecutionStatus *status)
         if (warmupExecution(status) == RedLight)
             return RedLight;
     }
+
+    Spew(SpewCompile, "Compilation complete (final worklist length %d)",
+         worklist_.length());
 
     // At this point, all scripts and their transitive callees are in
     // a compiled state.  Therefore we can clear the
@@ -970,9 +976,19 @@ js::ParallelDo::determineBailoutCause()
             int line = JS_PCToLineNumber(cx_, bailoutScript, bailoutBytecode);
             JS_ReportWarning(cx_, "Bailed out of parallel operation: %s at %s:%d",
                              causeStr, filename, line);
+
+            Spew(SpewBailouts, "Bailout from thread %d: cause %d at loc %s:%d",
+                 i,
+                 bailoutCause,
+                 bailoutScript->filename(),
+                 PCToLineNumber(bailoutScript, bailoutBytecode));
         } else {
             JS_ReportWarning(cx_, "Bailed out of parallel operation: %s",
                              causeStr);
+
+            Spew(SpewBailouts, "Bailout from thread %d: cause %d, unknown loc",
+                 i,
+                 bailoutCause);
         }
     }
 }
@@ -987,6 +1003,12 @@ js::ParallelDo::invalidateBailedOutScripts()
         // No script to invalidate.
         if (!script || !script->hasParallelIonScript())
             continue;
+
+        Spew(SpewBailouts,
+             "Bailout from thread %d: cause %d, topScript %p:%s:%d",
+             i,
+             bailoutRecords_[i].cause,
+             script.get(), script->filename(), script->lineno);
 
         switch (bailoutRecords_[i].cause) {
           // An interrupt is not the fault of the script, so don't

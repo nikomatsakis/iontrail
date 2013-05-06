@@ -162,15 +162,15 @@ class ParallelDo
     JSContext *cx_;
     HeapPtrObject fun_;
 
-    bool executeSequentially();
+    inline bool executeSequentially();
 
     MethodStatus compileForParallelExecution();
     ExecutionStatus disqualifyFromParallelExecution();
     bool invalidateBailedOutScripts();
     bool warmupForParallelExecution();
     ParallelResult executeInParallel();
-    inline bool hasScript(Vector<types::RecompileInfo> &scripts,
-                          JSScript *script);
+    inline static bool hasScript(Vector<types::RecompileInfo> &scripts,
+                                 JSScript *script);
     inline bool hasNoPendingInvalidations();
 }; // class ParallelDo
 
@@ -470,7 +470,7 @@ js::ParallelDo::compileForParallelExecution()
     if (status != Method_Compiled)
         return status;
 
-    // it can happen that during transitive compilation, our
+    // It can happen that during transitive compilation, our
     // callee's parallel ion script is invalidated or GC'd. So
     // before we declare success, double check that it's still
     // compiled!
@@ -571,7 +571,7 @@ js::ParallelDo::executeInParallel()
     return shared.execute();
 }
 
-bool
+/*static*/ bool
 js::ParallelDo::hasScript(Vector<types::RecompileInfo> &scripts, JSScript *script)
 {
     for (uint32_t i = 0; i < scripts.length(); i++) {

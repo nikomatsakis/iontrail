@@ -10,11 +10,6 @@ VPATH   = @srcdir@
 
 include $(DEPTH)/config/autoconf.mk
 
-GRE_MODULE	= 1
-
-EXPORTS		= \
-      nsIAccessibilityService.h \
-      $(NULL)
 
 include $(topsrcdir)/config/rules.mk
 

@@ -5,7 +5,7 @@
 
 #include "base/basictypes.h"
 
-/* This must occur *after* layers/PLayers.h to avoid typedefs conflicts. */
+/* This must occur *after* layers/PLayerTransaction.h to avoid typedefs conflicts. */
 #include "mozilla/Util.h"
 
 #include "prmem.h"
@@ -26,8 +26,6 @@
 
 #include "nsPluginsDir.h"
 #include "nsPluginLogging.h"
-
-#include "nsIJSContextStack.h"
 
 #include "nsIDOMElement.h"
 #include "nsPIDOMWindow.h"
@@ -249,7 +247,7 @@ void
 nsNPAPIPlugin::PluginCrashed(const nsAString& pluginDumpID,
                              const nsAString& browserDumpID)
 {
-  nsRefPtr<nsPluginHost> host = dont_AddRef(nsPluginHost::GetInst());
+  nsRefPtr<nsPluginHost> host = nsPluginHost::GetInst();
   host->PluginCrashed(this, pluginDumpID, browserDumpID);
 }
 
@@ -888,7 +886,7 @@ _geturl(NPP npp, const char* relativeURL, const char* target)
 
     
     const char *name = nullptr;
-    nsRefPtr<nsPluginHost> host = dont_AddRef(nsPluginHost::GetInst());
+    nsRefPtr<nsPluginHost> host = nsPluginHost::GetInst();
     host->GetPluginName(inst, &name);
 
     if (name && strstr(name, "Adobe") && strstr(name, "Acrobat")) {
@@ -1145,7 +1143,7 @@ _reloadplugins(NPBool reloadPages)
   if (!pluginHost)
     return;
 
-  pluginHost->ReloadPlugins(reloadPages);
+  pluginHost->ReloadPlugins();
 }
 
 void NP_CALLBACK
@@ -1246,8 +1244,8 @@ _getpluginelement(NPP npp)
                   getter_AddRefs(holder));
   NS_ENSURE_TRUE(holder, nullptr);
 
-  JSObject* obj = nullptr;
-  holder->GetJSObject(&obj);
+  JS::Rooted<JSObject*> obj(cx);
+  holder->GetJSObject(obj.address());
   NS_ENSURE_TRUE(obj, nullptr);
 
   return nsJSObjWrapper::GetNewOrUsed(npp, cx, obj);
@@ -1264,16 +1262,7 @@ _getstringidentifier(const NPUTF8* name)
     NPN_PLUGIN_LOG(PLUGIN_LOG_ALWAYS,("NPN_getstringidentifier called from the wrong thread\n"));
   }
 
-  nsCOMPtr<nsIThreadJSContextStack> stack =
-    do_GetService("@mozilla.org/js/xpc/ContextStack;1");
-  if (!stack)
-    return NULL;
-
-  JSContext* cx = stack->GetSafeJSContext();
-  if (!cx) {
-    return NULL;
-  }
-
+  AutoSafeJSContext cx;
   JSAutoRequest ar(cx);
   return doGetIdentifier(cx, name);
 }
@@ -1285,16 +1274,8 @@ _getstringidentifiers(const NPUTF8** names, int32_t nameCount,
   if (!NS_IsMainThread()) {
     NPN_PLUGIN_LOG(PLUGIN_LOG_ALWAYS,("NPN_getstringidentifiers called from the wrong thread\n"));
   }
-  nsCOMPtr<nsIThreadJSContextStack> stack =
-    do_GetService("@mozilla.org/js/xpc/ContextStack;1");
-  if (!stack)
-    return;
 
-  JSContext* cx = stack->GetSafeJSContext();
-  if (!cx) {
-    return;
-  }
-
+  AutoSafeJSContext cx;
   JSAutoRequest ar(cx);
 
   for (int32_t i = 0; i < nameCount; ++i) {
@@ -1513,8 +1494,7 @@ _evaluate(NPP npp, NPObject* npobj, NPString *script, NPVariant *result)
 
   JSAutoRequest req(cx);
 
-  JSObject *obj =
-    nsNPObjWrapper::GetNewOrUsed(npp, cx, npobj);
+  JS::Rooted<JSObject*> obj(cx, nsNPObjWrapper::GetNewOrUsed(npp, cx, npobj));
 
   if (!obj) {
     return false;
@@ -1525,9 +1505,9 @@ _evaluate(NPP npp, NPObject* npobj, NPString *script, NPVariant *result)
     "JS_ObjectToInnerObject should never return null with non-null input.");
 
   // Root obj and the rval (below).
-  jsval vec[] = { OBJECT_TO_JSVAL(obj), JSVAL_NULL };
+  JS::Value vec[] = { OBJECT_TO_JSVAL(obj), JSVAL_NULL };
   JS::AutoArrayRooter tvr(cx, ArrayLength(vec), vec);
-  jsval *rval = &vec[1];
+  JS::Value *rval = &vec[1];
 
   if (result) {
     // Initialize the out param to void
@@ -1623,7 +1603,7 @@ _getproperty(NPP npp, NPObject* npobj, NPIdentifier property,
   nsNPAPIPlugin* plugin = inst->GetPlugin();
   if (!plugin)
     return false;
-  nsRefPtr<nsPluginHost> host = dont_AddRef(nsPluginHost::GetInst());
+  nsRefPtr<nsPluginHost> host = nsPluginHost::GetInst();
   nsPluginTag* pluginTag = host->TagForPlugin(plugin);
   if (!pluginTag->mIsJavaPlugin)
     return true;
@@ -2420,24 +2400,9 @@ _setvalue(NPP npp, NPPVariable variable, void *result)
       return inst->SetTransparent(bTransparent);
     }
 
-    case NPPVjavascriptPushCallerBool:
-      {
-        nsresult rv;
-        nsCOMPtr<nsIJSContextStack> contextStack =
-          do_GetService("@mozilla.org/js/xpc/ContextStack;1", &rv);
-        if (NS_SUCCEEDED(rv)) {
-          NPBool bPushCaller = (result != nullptr);
-          if (bPushCaller) {
-            JSContext *cx;
-            rv = inst->GetJSContext(&cx);
-            if (NS_SUCCEEDED(rv))
-              rv = contextStack->Push(cx);
-          } else {
-            rv = contextStack->Pop(nullptr);
-          }
-        }
-        return NS_SUCCEEDED(rv) ? NPERR_NO_ERROR : NPERR_GENERIC_ERROR;
-      }
+    case NPPVjavascriptPushCallerBool: {
+      return NPERR_NO_ERROR;
+    }
 
     case NPPVpluginKeepLibraryInMemory: {
       NPBool bCached = (result != nullptr);
@@ -2645,7 +2610,7 @@ _getvalueforurl(NPP instance, NPNURLVariable variable, const char *url,
       nsCOMPtr<nsIPluginHost> pluginHostCOM(do_GetService(MOZ_PLUGIN_HOST_CONTRACTID));
       nsPluginHost *pluginHost = static_cast<nsPluginHost*>(pluginHostCOM.get());
       if (pluginHost && NS_SUCCEEDED(pluginHost->FindProxyForURL(url, value))) {
-        *len = *value ? PL_strlen(*value) : 0;
+        *len = *value ? strlen(*value) : 0;
         return NPERR_NO_ERROR;
       }
       break;
@@ -2671,7 +2636,7 @@ _getvalueforurl(NPP instance, NPNURLVariable variable, const char *url,
         return NPERR_GENERIC_ERROR;
       }
 
-      *len = PL_strlen(*value);
+      *len = strlen(*value);
       return NPERR_NO_ERROR;
     }
 

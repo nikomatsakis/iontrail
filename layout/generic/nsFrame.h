@@ -87,8 +87,8 @@
 // memory is allocated for a frame object).
 
 #define NS_DECL_FRAMEARENA_HELPERS                                \
-  NS_MUST_OVERRIDE void* operator new(size_t, nsIPresShell*);     \
-  virtual NS_MUST_OVERRIDE nsQueryFrame::FrameIID GetFrameId();
+  void* operator new(size_t, nsIPresShell*) MOZ_MUST_OVERRIDE;    \
+  virtual nsQueryFrame::FrameIID GetFrameId() MOZ_MUST_OVERRIDE;
 
 #define NS_IMPL_FRAMEARENA_HELPERS(class)                         \
   void* class::operator new(size_t sz, nsIPresShell* aShell)      \
@@ -444,21 +444,6 @@ public:
   // object. Returns -1 on error or if the frame doesn't have a content object
   static int32_t ContentIndexInContainer(const nsIFrame* aFrame);
 
-  static void IndentBy(FILE* out, int32_t aIndent) {
-    while (--aIndent >= 0) fputs("  ", out);
-  }
-  
-  void ListTag(FILE* out) const {
-    ListTag(out, this);
-  }
-
-  static void ListTag(FILE* out, const nsIFrame* aFrame) {
-    nsAutoString tmp;
-    aFrame->GetFrameName(tmp);
-    fputs(NS_LossyConvertUTF16toASCII(tmp).get(), out);
-    fprintf(out, "@%p", static_cast<const void*>(aFrame));
-  }
-
   static void XMLQuote(nsString& aString);
 
   /**
@@ -591,8 +576,8 @@ public:
   /**
    * Returns true if aFrame should apply overflow clipping.
    */
-  static bool ApplyOverflowClipping(const nsIFrame* aFrame,
-                                    const nsStyleDisplay* aDisp)
+  static bool ShouldApplyOverflowClipping(const nsIFrame* aFrame,
+                                          const nsStyleDisplay* aDisp)
   {
     // clip overflow:-moz-hidden-unscrollable ...
     if (MOZ_UNLIKELY(aDisp->mOverflowX == NS_STYLE_OVERFLOW_CLIP)) {
@@ -676,18 +661,6 @@ private:
 
 #ifdef DEBUG
 public:
-  // Formerly the nsIFrameDebug interface
-
-  NS_IMETHOD  List(FILE* out, int32_t aIndent, uint32_t aFlags = 0) const;
-  /**
-   * lists the frames beginning from the root frame
-   * - calls root frame's List(...)
-   */
-  static void RootFrameList(nsPresContext* aPresContext,
-                            FILE* out, int32_t aIndent);
-
-  static void DumpFrameTree(nsIFrame* aFrame);
-
   /**
    * Get a printable from of the name of the frame type.
    * XXX This should be eliminated and we use GetType() instead...
@@ -815,7 +788,9 @@ public:
 
   struct DR_init_offsets_cookie {
     DR_init_offsets_cookie(nsIFrame* aFrame, nsCSSOffsetState* aState,
-                           nscoord aCBWidth, const nsMargin* aBorder,
+                           nscoord aHorizontalPercentBasis,
+                           nscoord aVerticalPercentBasis,
+                           const nsMargin* aBorder,
                            const nsMargin* aPadding);
     ~DR_init_offsets_cookie();
 
@@ -853,8 +828,8 @@ public:
                                  dr_bdr, dr_pad)                           \
   DR_init_constraints_cookie dr_cookie(dr_frame, dr_state, dr_cbw, dr_cbh, \
                                        dr_bdr, dr_pad)
-#define DISPLAY_INIT_OFFSETS(dr_frame, dr_state, dr_cbw, dr_bdr, dr_pad)  \
-  DR_init_offsets_cookie dr_cookie(dr_frame, dr_state, dr_cbw, dr_bdr, dr_pad)
+#define DISPLAY_INIT_OFFSETS(dr_frame, dr_state, dr_hpb, dr_vpb, dr_bdr, dr_pad)  \
+  DR_init_offsets_cookie dr_cookie(dr_frame, dr_state, dr_hpb, dr_vpb, dr_bdr, dr_pad)
 #define DISPLAY_INIT_TYPE(dr_frame, dr_result) \
   DR_init_type_cookie dr_cookie(dr_frame, dr_result)
 
@@ -871,7 +846,7 @@ public:
 #define DISPLAY_INIT_CONSTRAINTS(dr_frame, dr_state, dr_cbw, dr_cbh,       \
                                  dr_bdr, dr_pad)                           \
   PR_BEGIN_MACRO PR_END_MACRO
-#define DISPLAY_INIT_OFFSETS(dr_frame, dr_state, dr_cbw, dr_bdr, dr_pad)  \
+#define DISPLAY_INIT_OFFSETS(dr_frame, dr_state, dr_hpb, dr_vpb, dr_bdr, dr_pad)  \
   PR_BEGIN_MACRO PR_END_MACRO
 #define DISPLAY_INIT_TYPE(dr_frame, dr_result) PR_BEGIN_MACRO PR_END_MACRO
 

@@ -5,7 +5,7 @@
 MOZ_APP_BASENAME=Fennec
 MOZ_APP_VENDOR=Mozilla
 
-MOZ_APP_VERSION=22.0a1
+MOZ_APP_VERSION=23.0a1
 MOZ_APP_UA_NAME=Firefox
 
 MOZ_BRANDING_DIRECTORY=mobile/android/branding/unofficial
@@ -18,6 +18,12 @@ MOZ_DISABLE_CRYPTOLEGACY=1
 
 # Enable getUserMedia
 MOZ_MEDIA_NAVIGATOR=1
+
+# Enable SET_WALLPAPER permission
+MOZ_ANDROID_WALLPAPER=1
+
+# Enable NFC permission
+MOZ_ANDROID_BEAM=1
 
 if test "$LIBXUL_SDK"; then
 MOZ_XULRUNNER=1
@@ -49,3 +55,6 @@ MOZ_APP_STATIC_INI=1
 MOZ_FENNEC=1
 
 MOZ_FOLD_LIBS=1
+
+# Enable navigator.mozPay
+MOZ_PAY=1

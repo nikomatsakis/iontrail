@@ -1,6 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=8 sw=4 et tw=78:
- *
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -94,20 +93,41 @@ ForkJoinSlice::runtime()
     JS_NOT_REACHED("Not THREADSAFE build");
 }
 
-void
-ParallelBailoutRecord::setCause(ParallelBailoutCause cause,
-                                JSScript *script,
-                                jsbytecode *pc)
-{
-    JS_NOT_REACHED("Not THREADSAFE build");
-}
-
 bool
 ForkJoinSlice::check()
 {
     JS_NOT_REACHED("Not THREADSAFE build");
     return true;
 }
+
+void
+ForkJoinSlice::requestGC(JS::gcreason::Reason reason)
+{
+    JS_NOT_REACHED("Not THREADSAFE build");
+}
+
+void
+ForkJoinSlice::requestZoneGC(JS::Zone *zone, JS::gcreason::Reason reason)
+{
+    JS_NOT_REACHED("Not THREADSAFE build");
+}
+
+void
+ParallelBailoutRecord::setCause(ParallelBailoutCause cause,
+                                JSScript *outermostScript,
+                                JSScript *currentScript,
+                                jsbytecode *currentPc)
+{
+    JS_NOT_REACHED("Not THREADSAFE build");
+}
+
+void
+ParallelBailoutRecord::addTrace(JSScript *script,
+                                jsbytecode *pc)
+{
+    JS_NOT_REACHED("Not THREADSAFE build");
+}
+
 #endif // !JS_THREADSAFE || !JS_ION
 
 ///////////////////////////////////////////////////////////////////////////
@@ -691,7 +711,7 @@ js::ParallelDo::compileForParallelExecution(ExecutionStatus *status)
             if (!script->hasParallelIonScript()) {
                 // Script has not yet been compiled. Attempt to compile it.
                 SpewBeginCompile(script);
-                MethodStatus mstatus = ion::CanEnterInParallel(cx_, script, fun);
+                MethodStatus mstatus = ion::CanEnterInParallel(cx_, script);
                 SpewEndCompile(mstatus);
 
                 switch (mstatus) {
@@ -801,7 +821,7 @@ js::ParallelDo::appendCallTargetToWorklist(HandleScript script,
 
     if (script->hasParallelIonScript()) {
         // Skip if the code is expected to result in a bailout.
-        if (script->parallelIon && script->parallelIon->bailoutExpected()) {
+        if (script->parallelIonScript()->bailoutExpected()) {
             Spew(SpewCompile, "Skipping %p:%s:%u, bailout expected",
                  script.get(), script->filename(), script->lineno);
             return sequentialExecution(false, status);
@@ -890,6 +910,45 @@ js::ParallelDo::fatalError(ExecutionStatus *status)
     return RedLight;
 }
 
+static const char *
+BailoutExplanation(ParallelBailoutCause cause)
+{
+    switch (cause) {
+      case ParallelBailoutNone:
+        return "no particular reason";
+      case ParallelBailoutCompilationSkipped:
+        return "compilation failed (method skipped)";
+      case ParallelBailoutCompilationFailure:
+        return "compilation failed";
+      case ParallelBailoutInterrupt:
+        return "interrupted";
+      case ParallelBailoutFailedIC:
+        return "at runtime, the behavior changed, invalidating compiled code (IC update)";
+      case ParallelBailoutHeapBusy:
+        return "heap busy flag set during interrupt";
+      case ParallelBailoutMainScriptNotPresent:
+        return "main script not present";
+      case ParallelBailoutCalledToUncompiledScript:
+        return "called to uncompiled script";
+      case ParallelBailoutIllegalWrite:
+        return "illegal write";
+      case ParallelBailoutAccessToIntrinsic:
+        return "access to intrinsic";
+      case ParallelBailoutOverRecursed:
+        return "over recursed";
+      case ParallelBailoutOutOfMemory:
+        return "out of memory";
+      case ParallelBailoutUnsupported:
+        return "unsupported";
+      case ParallelBailoutUnsupportedStringComparison:
+        return "unsupported string comparison";
+      case ParallelBailoutUnsupportedSparseArray:
+        return "unsupported sparse array";
+      default:
+        return "no known reason";
+    }
+}
+
 void
 js::ParallelDo::determineBailoutCause()
 {
@@ -902,9 +961,18 @@ js::ParallelDo::determineBailoutCause()
             continue;
 
         bailoutCause = bailoutRecords_[i].cause;
+        const char *causeStr = BailoutExplanation(bailoutCause);
         if (bailoutRecords_[i].depth) {
             bailoutScript = bailoutRecords_[i].trace[0].script;
             bailoutBytecode = bailoutRecords_[i].trace[0].bytecode;
+
+            const char *filename = bailoutScript->filename();
+            int line = JS_PCToLineNumber(cx_, bailoutScript, bailoutBytecode);
+            JS_ReportWarning(cx_, "Bailed out of parallel operation: %s at %s:%d",
+                             causeStr, filename, line);
+        } else {
+            JS_ReportWarning(cx_, "Bailed out of parallel operation: %s",
+                             causeStr);
         }
     }
 }
@@ -1111,7 +1179,9 @@ class ParallelIonInvoke
   public:
     Value *args;
 
-    ParallelIonInvoke(JSContext *cx, HandleFunction callee, uint32_t argc)
+    ParallelIonInvoke(JSCompartment *compartment,
+                      HandleFunction callee,
+                      uint32_t argc)
       : argc_(argc),
         args(argv_ + 2)
     {
@@ -1125,13 +1195,13 @@ class ParallelIonInvoke
         IonScript *ion = callee->nonLazyScript()->parallelIonScript();
         IonCode *code = ion->method();
         jitcode_ = code->raw();
-        enter_ = cx->compartment->ionCompartment()->enterJIT();
+        enter_ = compartment->ionCompartment()->enterJIT();
         calleeToken_ = CalleeToParallelToken(callee);
     }
 
-    bool invoke() {
-        Value result;
-        enter_(jitcode_, argc_ + 1, argv_ + 1, NULL, calleeToken_, &result);
+    bool invoke(PerThreadData *perThread) {
+        RootedValue result(perThread);
+        enter_(jitcode_, argc_ + 1, argv_ + 1, NULL, calleeToken_, NULL, 0, result.address());
         return !result.isMagic();
     }
 };
@@ -1228,8 +1298,7 @@ ForkJoinShared::~ForkJoinShared()
     if (rendezvousEnd_)
         PR_DestroyCondVar(rendezvousEnd_);
 
-    if (cxLock_)
-        PR_DestroyLock(cxLock_);
+    PR_DestroyLock(cxLock_);
 
     while (allocators_.length() > 0)
         js_delete(allocators_.popCopy());
@@ -1316,6 +1385,8 @@ ForkJoinShared::executeFromWorker(uint32_t workerId, uintptr_t stackLimit)
 
     PerThreadData thisThread(cx_->runtime);
     TlsPerThreadData.set(&thisThread);
+    // Don't use setIonStackLimit() because that acquires the ionStackLimitLock, and the
+    // lock has not been initialized in these cases.
     thisThread.ionStackLimit = stackLimit;
     executePortion(&thisThread, workerId);
     TlsPerThreadData.set(NULL);
@@ -1340,6 +1411,9 @@ void
 ForkJoinShared::executePortion(PerThreadData *perThread,
                                uint32_t threadId)
 {
+    // WARNING: This code runs ON THE PARALLEL WORKER THREAD.
+    // Therefore, it should NOT access `cx_` in any way!
+
     Allocator *allocator = allocators_[threadId];
     ForkJoinSlice slice(perThread, threadId, numSlices_, allocator,
                         this, &records_[threadId]);
@@ -1372,13 +1446,13 @@ ForkJoinShared::executePortion(PerThreadData *perThread,
                                       NULL, NULL, NULL);
         setAbortFlag(false);
     } else {
-        ParallelIonInvoke<3> fii(cx_, callee, 3);
+        ParallelIonInvoke<3> fii(cx_->compartment, callee, 3);
 
         fii.args[0] = Int32Value(slice.sliceId);
         fii.args[1] = Int32Value(slice.numSlices);
         fii.args[2] = BooleanValue(false);
 
-        bool ok = fii.invoke();
+        bool ok = fii.invoke(perThread);
         JS_ASSERT(ok == !slice.bailoutRecord->topScript);
         if (!ok)
             setAbortFlag(false);
@@ -1807,7 +1881,7 @@ js::ParallelBailoutRecord::addTrace(JSScript *script,
     if (topScript == NULL && script != NULL)
         topScript = script;
 
-    if (depth < maxDepth) {
+    if (depth < MaxDepth) {
         trace[depth].script = script;
         trace[depth].bytecode = pc;
         depth += 1;
@@ -1892,7 +1966,7 @@ class ParallelSpewer
     {
         const char *env;
 
-        PodArrayZero(active);
+        mozilla::PodArrayZero(active);
         env = getenv("PAFLAGS");
         if (env) {
             if (strstr(env, "ops"))

@@ -1,6 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=8 sw=4 et tw=99:
- *
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -12,7 +11,6 @@
 
 #include "jsscript.h"
 
-#include "frontend/ParseMaps.h"
 #include "frontend/TokenStream.h"
 
 namespace js {
@@ -68,18 +66,8 @@ class UpvarCookie
     F(COMMA) \
     F(CONDITIONAL) \
     F(COLON) \
-    F(OR) \
-    F(AND) \
-    F(BITOR) \
-    F(BITXOR) \
-    F(BITAND) \
     F(POS) \
     F(NEG) \
-    F(ADD) \
-    F(SUB) \
-    F(STAR) \
-    F(DIV) \
-    F(MOD) \
     F(PREINCREMENT) \
     F(POSTINCREMENT) \
     F(PREDECREMENT) \
@@ -109,7 +97,6 @@ class UpvarCookie
     F(FOR) \
     F(BREAK) \
     F(CONTINUE) \
-    F(IN) \
     F(VAR) \
     F(CONST) \
     F(WITH) \
@@ -121,7 +108,6 @@ class UpvarCookie
     F(CATCHLIST) \
     F(FINALLY) \
     F(THROW) \
-    F(INSTANCEOF) \
     F(DEBUGGER) \
     F(YIELD) \
     F(GENEXP) \
@@ -136,28 +122,39 @@ class UpvarCookie
     F(SPREAD) \
     F(MODULE) \
     \
-    /* Equality operators. */ \
-    F(STRICTEQ) \
-    F(EQ) \
-    F(STRICTNE) \
-    F(NE) \
-    \
     /* Unary operators. */ \
     F(TYPEOF) \
     F(VOID) \
     F(NOT) \
     F(BITNOT) \
     \
-    /* Relational operators (< <= > >=). */ \
+    /* \
+     * Binary operators. \
+     * These must be in the same order as TOK_OR and friends in TokenStream.h. \
+     */ \
+    F(OR) \
+    F(AND) \
+    F(BITOR) \
+    F(BITXOR) \
+    F(BITAND) \
+    F(STRICTEQ) \
+    F(EQ) \
+    F(STRICTNE) \
+    F(NE) \
     F(LT) \
     F(LE) \
     F(GT) \
     F(GE) \
-    \
-    /* Shift operators (<< >> >>>). */ \
+    F(INSTANCEOF) \
+    F(IN) \
     F(LSH) \
     F(RSH) \
     F(URSH) \
+    F(ADD) \
+    F(SUB) \
+    F(STAR) \
+    F(DIV) \
+    F(MOD) \
     \
     /* Assignment operators (= += -= etc.). */ \
     /* ParseNode::isAssignment assumes all these are consecutive. */ \
@@ -189,6 +186,8 @@ enum ParseNodeKind {
     FOR_EACH_PARSE_NODE_KIND(EMIT_ENUM)
 #undef EMIT_ENUM
     PNK_LIMIT, /* domain size */
+    PNK_BINOP_FIRST = PNK_OR,
+    PNK_BINOP_LAST = PNK_MOD,
     PNK_ASSIGNMENT_START = PNK_ASSIGN,
     PNK_ASSIGNMENT_LAST = PNK_MODASSIGN
 };
@@ -1214,7 +1213,7 @@ struct Definition : public ParseNode
         return pn_cookie.isFree();
     }
 
-    enum Kind { VAR, CONST, LET, ARG, NAMED_LAMBDA, PLACEHOLDER };
+    enum Kind { MISSING = 0, VAR, CONST, LET, ARG, NAMED_LAMBDA, PLACEHOLDER };
 
     bool canHaveInitializer() { return int(kind()) <= int(ARG); }
 
@@ -1295,19 +1294,6 @@ ParseNode::isConstant()
       default:
         return false;
     }
-}
-
-inline void
-LinkUseToDef(ParseNode *pn, Definition *dn)
-{
-    JS_ASSERT(!pn->isUsed());
-    JS_ASSERT(!pn->isDefn());
-    JS_ASSERT(pn != dn->dn_uses);
-    pn->pn_link = dn->dn_uses;
-    dn->dn_uses = pn;
-    dn->pn_dflags |= pn->pn_dflags & PND_USE2DEF_FLAGS;
-    pn->setUsed(true);
-    pn->pn_lexdef = dn;
 }
 
 class ObjectBox {

@@ -7,5 +7,6 @@ function testScatter3() {
   assertStructuralEq(r, p2);
 }
 
-testScatter3();
+if (getBuildConfiguration().parallelJS)
+  testScatter3();
 

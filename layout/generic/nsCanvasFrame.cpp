@@ -27,10 +27,9 @@
 #include "nsIScrollableFrame.h"
 #include "nsIDocShell.h"
 
-#ifdef DEBUG_rods
 //#define DEBUG_CANVAS_FOCUS
-#endif
 
+using namespace mozilla::layout;
 
 nsIFrame*
 NS_NewCanvasFrame(nsIPresShell* aPresShell, nsStyleContext* aContext)
@@ -221,7 +220,7 @@ nsDisplayCanvasBackgroundImage::Paint(nsDisplayListBuilder* aBuilder,
     // Snap image rectangle to nearest pixel boundaries. This is the right way
     // to snap for this context, because we checked HasNonIntegerTranslation above.
     destRect.Round();
-    surf = static_cast<gfxASurface*>(GetUnderlyingFrame()->Properties().Get(nsIFrame::CachedBackgroundImage()));
+    surf = static_cast<gfxASurface*>(Frame()->Properties().Get(nsIFrame::CachedBackgroundImage()));
     nsRefPtr<gfxASurface> destSurf = dest->CurrentSurface();
     if (surf && surf->GetType() == destSurf->GetType()) {
       BlitSurface(dest, destRect, surf);
@@ -430,7 +429,8 @@ nsCanvasFrame::Reflow(nsPresContext*           aPresContext,
   nsCanvasFrame* prevCanvasFrame = static_cast<nsCanvasFrame*>
                                                (GetPrevInFlow());
   if (prevCanvasFrame) {
-    nsAutoPtr<nsFrameList> overflow(prevCanvasFrame->StealOverflowFrames());
+    AutoFrameListPtr overflow(aPresContext,
+                              prevCanvasFrame->StealOverflowFrames());
     if (overflow) {
       NS_ASSERTION(overflow->OnlyChild(),
                    "must have doc root as canvas frame's only child");

@@ -101,23 +101,6 @@ function getDOMWindow(aChannel) {
   return win;
 }
 
-function isEnabled() {
-  if (MOZ_CENTRAL) {
-    var disabled = getBoolPref(PREF_PREFIX + '.disabled', false);
-    if (disabled)
-      return false;
-    // To also be considered enabled the "Preview in Firefox" option must be
-    // selected in the Application preferences.
-    var handlerInfo = Svc.mime
-                         .getFromTypeAndExtension('application/pdf', 'pdf');
-    return !handlerInfo.alwaysAskBeforeHandling &&
-           handlerInfo.preferredAction == Ci.nsIHandlerInfo.handleInternally;
-  }
-  // Always returns true for the extension since enabling/disabling is handled
-  // by the add-on manager.
-  return true;
-}
-
 function getLocalizedStrings(path) {
   var stringBundle = Cc['@mozilla.org/intl/stringbundle;1'].
       getService(Ci.nsIStringBundleService).
@@ -268,10 +251,13 @@ ChromeActions.prototype = {
       var channel = Cc['@mozilla.org/network/input-stream-channel;1'].
                        createInstance(Ci.nsIInputStreamChannel);
       channel.QueryInterface(Ci.nsIChannel);
-      channel.contentDisposition = Ci.nsIChannel.DISPOSITION_ATTACHMENT;
-      if (self.contentDispositionFilename) {
-        channel.contentDispositionFilename = self.contentDispositionFilename;
-      }
+      try {
+        // contentDisposition/contentDispositionFilename is readonly before FF18
+        channel.contentDisposition = Ci.nsIChannel.DISPOSITION_ATTACHMENT;
+        if (self.contentDispositionFilename) {
+           channel.contentDispositionFilename = self.contentDispositionFilename;
+        }
+      } catch (e) {}
       channel.setURI(originalUri);
       channel.contentStream = aInputStream;
       if ('nsIPrivateBrowsingChannel' in Ci &&
@@ -337,6 +323,7 @@ ChromeActions.prototype = {
       }, '*');
     };
 
+    var self = this;
     this.dataListener.oncomplete =
       function ChromeActions_dataListenerComplete(data, errorCode) {
 
@@ -346,7 +333,7 @@ ChromeActions.prototype = {
         errorCode: errorCode
       }, '*');
 
-      delete this.dataListener;
+      delete self.dataListener;
     };
 
     return true;
@@ -375,8 +362,12 @@ ChromeActions.prototype = {
            'updateControlState' in getChromeWindow(this.domWindow).gFindBar;
   },
   supportsDocumentFonts: function() {
-    var pref = getIntPref('browser.display.use_document_fonts', 1);
-    return !!pref;
+    var prefBrowser = getIntPref('browser.display.use_document_fonts', 1);
+    var prefGfx = getBoolPref('gfx.downloadable_fonts.enabled', true);
+    return (!!prefBrowser && prefGfx);
+  },
+  supportsDocumentColors: function() {
+    return getBoolPref('browser.display.use_document_colors', true);
   },
   fallback: function(url, sendResponse) {
     var self = this;
@@ -385,21 +376,19 @@ ChromeActions.prototype = {
     var message = getLocalizedString(strings, 'unsupported_feature');
 
     var notificationBox = null;
-    // Multiple browser windows can be opened, finding one for notification box
-    var windowsEnum = Services.wm
-                      .getZOrderDOMWindowEnumerator('navigator:browser', true);
-    while (windowsEnum.hasMoreElements()) {
-      var win = windowsEnum.getNext();
-      if (win.closed)
-        continue;
-      var browser = win.gBrowser.getBrowserForDocument(domWindow.top.document);
-      if (browser) {
-        // right window/browser is found, getting the notification box
-        notificationBox = win.gBrowser.getNotificationBox(browser);
-        break;
-      }
-    }
-    if (!notificationBox) {
+    try {
+      // Based on MDN's "Working with windows in chrome code"
+      var mainWindow = domWindow
+        .QueryInterface(Components.interfaces.nsIInterfaceRequestor)
+        .getInterface(Components.interfaces.nsIWebNavigation)
+        .QueryInterface(Components.interfaces.nsIDocShellTreeItem)
+        .rootTreeItem
+        .QueryInterface(Components.interfaces.nsIInterfaceRequestor)
+        .getInterface(Components.interfaces.nsIDOMWindow);
+      var browser = mainWindow.gBrowser
+                              .getBrowserForDocument(domWindow.top.document);
+      notificationBox = mainWindow.gBrowser.getNotificationBox(browser);
+    } catch (e) {
       log('Unable to get a notification box for the fallback message');
       return;
     }
@@ -577,9 +566,6 @@ PdfStreamConverter.prototype = {
 
   // nsIStreamConverter::asyncConvertData
   asyncConvertData: function(aFromType, aToType, aListener, aCtxt) {
-    if (!isEnabled())
-      throw Cr.NS_ERROR_NOT_IMPLEMENTED;
-
     // Store the listener passed to us
     this.listener = aListener;
   },

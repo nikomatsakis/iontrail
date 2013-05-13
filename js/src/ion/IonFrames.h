@@ -1,6 +1,5 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=4 sw=4 et tw=99:
- *
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -45,14 +44,14 @@ CalleeToToken(JSFunction *fun)
     return CalleeToken(uintptr_t(fun) | uintptr_t(CalleeToken_Function));
 }
 static inline CalleeToken
-CalleeToToken(RawScript script)
-{
-    return CalleeToken(uintptr_t(script) | uintptr_t(CalleeToken_Script));
-}
-static inline CalleeToken
 CalleeToParallelToken(JSFunction *fun)
 {
     return CalleeToken(uintptr_t(fun) | uintptr_t(CalleeToken_ParallelFunction));
+}
+static inline CalleeToken
+CalleeToToken(JSScript *script)
+{
+    return CalleeToken(uintptr_t(script) | uintptr_t(CalleeToken_Script));
 }
 static inline bool
 CalleeTokenIsFunction(CalleeToken token)
@@ -65,20 +64,20 @@ CalleeTokenToFunction(CalleeToken token)
     JS_ASSERT(CalleeTokenIsFunction(token));
     return (JSFunction *)token;
 }
-static inline RawFunction
+static inline JSFunction *
 CalleeTokenToParallelFunction(CalleeToken token)
 {
     JS_ASSERT(GetCalleeTokenTag(token) == CalleeToken_ParallelFunction);
-    return (RawFunction)(uintptr_t(token) & ~uintptr_t(0x3));
+    return (JSFunction *)(uintptr_t(token) & ~uintptr_t(0x3));
 }
-static inline RawScript
+static inline JSScript *
 CalleeTokenToScript(CalleeToken token)
 {
     JS_ASSERT(GetCalleeTokenTag(token) == CalleeToken_Script);
-    return (RawScript)(uintptr_t(token) & ~uintptr_t(0x3));
+    return (JSScript *)(uintptr_t(token) & ~uintptr_t(0x3));
 }
 
-static inline RawScript
+static inline JSScript *
 ScriptFromCalleeToken(CalleeToken token)
 {
     switch (GetCalleeTokenTag(token)) {
@@ -190,8 +189,8 @@ class OsiIndex
 // The descriptor is organized into three sections:
 // [ frame size | constructing bit | frame type ]
 // < highest - - - - - - - - - - - - - - lowest >
-static const uintptr_t FRAMESIZE_SHIFT = 3;
-static const uintptr_t FRAMETYPE_BITS = 3;
+static const uintptr_t FRAMESIZE_SHIFT = 4;
+static const uintptr_t FRAMETYPE_BITS = 4;
 static const uintptr_t FRAMETYPE_MASK = (1 << FRAMETYPE_BITS) - 1;
 
 // Ion frames have a few important numbers associated with them:
@@ -223,7 +222,7 @@ class FrameSizeClass
 
     explicit FrameSizeClass(uint32_t class_) : class_(class_)
     { }
-
+  
   public:
     FrameSizeClass()
     { }
@@ -256,7 +255,14 @@ class FrameSizeClass
 // Data needed to recover from an exception.
 struct ResumeFromException
 {
-    void *stackPointer;
+    static const uint32_t RESUME_ENTRY_FRAME = 0;
+    static const uint32_t RESUME_CATCH = 1;
+    static const uint32_t RESUME_FORCED_RETURN = 2;
+
+    uint8_t *framePointer;
+    uint8_t *stackPointer;
+    uint8_t *target;
+    uint32_t kind;
 };
 
 void HandleException(ResumeFromException *rfe);
@@ -287,7 +293,7 @@ MakeFrameDescriptor(uint32_t frameSize, FrameType type)
 namespace js {
 namespace ion {
 
-RawScript
+JSScript *
 GetTopIonJSScript(JSContext *cx,
                   const SafepointIndex **safepointIndexOut = NULL,
                   void **returnAddrOut = NULL);
@@ -318,7 +324,11 @@ ReadFrameDoubleSlot(IonJSFrameLayout *fp, int32_t slot)
     return *(double *)((char *)fp + OffsetOfFrameSlot(slot));
 }
 
+void
+MarkCalleeToken(JSTracer *trc, CalleeToken token);
+
 } /* namespace ion */
 } /* namespace js */
 
 #endif // jsion_frames_h__
+

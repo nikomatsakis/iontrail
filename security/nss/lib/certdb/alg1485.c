@@ -83,6 +83,9 @@ static const NameToKind name2kinds[] = {
                                                     SEC_ASN1_PRINTABLE_STRING},
     { "businessCategory",       64, SEC_OID_BUSINESS_CATEGORY, SEC_ASN1_DS},
 
+/* values defined in X.520 */
+    { "name",           64, SEC_OID_AVA_NAME,           SEC_ASN1_DS},
+
     { 0,               256, SEC_OID_UNKNOWN,            0},
 };
 
@@ -1195,7 +1198,7 @@ avaToString(PRArenaPool *arena, CERTAVA *ava)
  * This code returns the FIRST one found, the most general one found.
  */
 static char *
-CERT_GetNameElement(PRArenaPool *arena, CERTName *name, int wantedTag)
+CERT_GetNameElement(PRArenaPool *arena, const CERTName *name, int wantedTag)
 {
     CERTRDN** rdns = name->rdns;
     CERTRDN*  rdn;
@@ -1219,7 +1222,7 @@ CERT_GetNameElement(PRArenaPool *arena, CERTName *name, int wantedTag)
  * This is particularly appropriate for Common Name.  See RFC 2818.
  */
 static char *
-CERT_GetLastNameElement(PRArenaPool *arena, CERTName *name, int wantedTag)
+CERT_GetLastNameElement(PRArenaPool *arena, const CERTName *name, int wantedTag)
 {
     CERTRDN** rdns    = name->rdns;
     CERTRDN*  rdn;
@@ -1481,7 +1484,7 @@ CERT_GetNextEmailAddress(CERTCertificate * cert, const char * prev)
 ** Returns a string allocated by PORT_StrDup, which the caller must free.
 */
 char *
-CERT_GetCertEmailAddress(CERTName *name)
+CERT_GetCertEmailAddress(const CERTName *name)
 {
     char *rawEmailAddr;
     char *emailAddr;
@@ -1500,55 +1503,55 @@ CERT_GetCertEmailAddress(CERTName *name)
 
 /* The return value must be freed with PORT_Free. */
 char *
-CERT_GetCommonName(CERTName *name)
+CERT_GetCommonName(const CERTName *name)
 {
     return(CERT_GetLastNameElement(NULL, name, SEC_OID_AVA_COMMON_NAME));
 }
 
 char *
-CERT_GetCountryName(CERTName *name)
+CERT_GetCountryName(const CERTName *name)
 {
     return(CERT_GetNameElement(NULL, name, SEC_OID_AVA_COUNTRY_NAME));
 }
 
 char *
-CERT_GetLocalityName(CERTName *name)
+CERT_GetLocalityName(const CERTName *name)
 {
     return(CERT_GetNameElement(NULL, name, SEC_OID_AVA_LOCALITY));
 }
 
 char *
-CERT_GetStateName(CERTName *name)
+CERT_GetStateName(const CERTName *name)
 {
     return(CERT_GetNameElement(NULL, name, SEC_OID_AVA_STATE_OR_PROVINCE));
 }
 
 char *
-CERT_GetOrgName(CERTName *name)
+CERT_GetOrgName(const CERTName *name)
 {
     return(CERT_GetNameElement(NULL, name, SEC_OID_AVA_ORGANIZATION_NAME));
 }
 
 char *
-CERT_GetDomainComponentName(CERTName *name)
+CERT_GetDomainComponentName(const CERTName *name)
 {
     return(CERT_GetNameElement(NULL, name, SEC_OID_AVA_DC));
 }
 
 char *
-CERT_GetOrgUnitName(CERTName *name)
+CERT_GetOrgUnitName(const CERTName *name)
 {
     return(CERT_GetNameElement(NULL, name, SEC_OID_AVA_ORGANIZATIONAL_UNIT_NAME));
 }
 
 char *
-CERT_GetDnQualifier(CERTName *name)
+CERT_GetDnQualifier(const CERTName *name)
 {
     return(CERT_GetNameElement(NULL, name, SEC_OID_AVA_DN_QUALIFIER));
 }
 
 char *
-CERT_GetCertUid(CERTName *name)
+CERT_GetCertUid(const CERTName *name)
 {
     return(CERT_GetNameElement(NULL, name, SEC_OID_RFC1274_UID));
 }

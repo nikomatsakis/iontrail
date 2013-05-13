@@ -5,6 +5,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#ifndef nsGenericHTMLFrameElement_h
+#define nsGenericHTMLFrameElement_h
+
 #include "nsGenericHTMLElement.h"
 #include "nsIFrameLoader.h"
 #include "nsIMozBrowserFrame.h"
@@ -68,28 +71,6 @@ public:
   void SwapFrameLoaders(nsXULElement& aOtherOwner, mozilla::ErrorResult& aError);
 
 protected:
-  /**
-   * Listens to titlechanged events from the document inside the iframe and
-   * forwards them along to the iframe so it can fire a mozbrowsertitlechange
-   * event if appropriate.
-   */
-  class TitleChangedListener MOZ_FINAL : public nsIDOMEventListener
-  {
-  public:
-    TitleChangedListener(nsGenericHTMLFrameElement *aElement,
-                         nsIDOMEventTarget *aChromeHandler);
-
-    /* Unregister this listener. */
-    void Unregister();
-
-    NS_DECL_ISUPPORTS
-    NS_DECL_NSIDOMEVENTLISTENER
-
-  private:
-    nsWeakPtr mElement; /* nsGenericHTMLFrameElement */
-    nsWeakPtr mChromeHandler; /* nsIDOMEventTarget */
-  };
-
   // This doesn't really ensure a frame loade in all cases, only when
   // it makes sense.
   void EnsureFrameLoader();
@@ -109,3 +90,5 @@ protected:
   bool                    mBrowserFrameListenersRegistered;
   bool                    mFrameLoaderCreationDisallowed;
 };
+
+#endif // nsGenericHTMLFrameElement_h

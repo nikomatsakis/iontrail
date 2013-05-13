@@ -1,6 +1,5 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=4 sw=4 et tw=99:
- *
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -16,9 +15,12 @@
  * allocations in the same native method.
  */
 
+#include "jsstr.h"
+
 #include "mozilla/Attributes.h"
 #include "mozilla/CheckedInt.h"
 #include "mozilla/FloatingPoint.h"
+#include "mozilla/PodOperations.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -32,16 +34,12 @@
 #include "jscntxt.h"
 #include "jsgc.h"
 #include "jsinterp.h"
-#include "jslock.h"
 #include "jsnum.h"
 #include "jsobj.h"
 #include "jsopcode.h"
-#include "jsprobes.h"
-#include "jsstr.h"
 #include "jsversion.h"
 
 #include "builtin/RegExp.h"
-#include "js/HashTable.h"
 #include "vm/GlobalObject.h"
 #include "vm/NumericConversions.h"
 #include "vm/RegExpObject.h"
@@ -65,8 +63,11 @@ using namespace js::types;
 using namespace js::unicode;
 
 using mozilla::CheckedInt;
+using mozilla::IsNaN;
+using mozilla::IsNegativeZero;
+using mozilla::PodCopy;
+using mozilla::PodEqual;
 
-typedef Rooted<JSLinearString*> RootedLinearString;
 typedef Handle<JSLinearString*> HandleLinearString;
 
 static JSLinearString *
@@ -352,7 +353,7 @@ str_uneval(JSContext *cx, unsigned argc, Value *vp)
 }
 #endif
 
-static JSFunctionSpec string_functions[] = {
+static const JSFunctionSpec string_functions[] = {
     JS_FN(js_escape_str,             str_escape,                1,0),
     JS_FN(js_unescape_str,           str_unescape,              1,0),
 #if JS_HAS_UNEVAL
@@ -422,7 +423,7 @@ Class js::StringClass = {
     JSCLASS_HAS_RESERVED_SLOTS(StringObject::RESERVED_SLOTS) |
     JSCLASS_NEW_RESOLVE | JSCLASS_HAS_CACHED_PROTO(JSProto_String),
     JS_PropertyStub,         /* addProperty */
-    JS_PropertyStub,         /* delProperty */
+    JS_DeletePropertyStub,   /* delProperty */
     JS_PropertyStub,         /* getProperty */
     JS_StrictPropertyStub,   /* setProperty */
     str_enumerate,
@@ -685,7 +686,7 @@ str_toLocaleLowerCase(JSContext *cx, unsigned argc, Value *vp)
         if (!str)
             return false;
 
-        Value result;
+        RootedValue result(cx);
         if (!cx->runtime->localeCallbacks->localeToLowerCase(cx, str, &result))
             return false;
 
@@ -752,7 +753,7 @@ str_toLocaleUpperCase(JSContext *cx, unsigned argc, Value *vp)
         if (!str)
             return false;
 
-        Value result;
+        RootedValue result(cx);
         if (!cx->runtime->localeCallbacks->localeToUpperCase(cx, str, &result))
             return false;
 
@@ -763,6 +764,7 @@ str_toLocaleUpperCase(JSContext *cx, unsigned argc, Value *vp)
     return ToUpperCaseHelper(cx, args);
 }
 
+#if !ENABLE_INTL_API
 static JSBool
 str_localeCompare(JSContext *cx, unsigned argc, Value *vp)
 {
@@ -777,7 +779,7 @@ str_localeCompare(JSContext *cx, unsigned argc, Value *vp)
         return false;
 
     if (cx->runtime->localeCallbacks && cx->runtime->localeCallbacks->localeCompare) {
-        Value result;
+        RootedValue result(cx);
         if (!cx->runtime->localeCallbacks->localeCompare(cx, str, thatStr, &result))
             return false;
 
@@ -792,6 +794,7 @@ str_localeCompare(JSContext *cx, unsigned argc, Value *vp)
     args.rval().setInt32(result);
     return true;
 }
+#endif
 
 JSBool
 js_str_charAt(JSContext *cx, unsigned argc, Value *vp)
@@ -1285,7 +1288,7 @@ str_lastIndexOf(JSContext *cx, unsigned argc, Value *vp)
             double d;
             if (!ToNumber(cx, args[1], &d))
                 return false;
-            if (!MOZ_DOUBLE_IS_NaN(d)) {
+            if (!IsNaN(d)) {
                 d = ToInteger(d);
                 if (d <= 0)
                     i = 0;
@@ -1594,7 +1597,8 @@ class StringRegExpGuard
     bool init(JSContext *cx, CallArgs args, bool convertVoid = false)
     {
         if (args.length() != 0 && IsObjectWithClass(args[0], ESClass_RegExp, cx)) {
-            if (!RegExpToShared(cx, args[0].toObject(), &re_))
+            RootedObject obj(cx, &args[0].toObject());
+            if (!RegExpToShared(cx, obj, &re_))
                 return false;
         } else {
             if (convertVoid && !args.hasDefined(0)) {
@@ -2463,16 +2467,18 @@ str_replace_regexp_remove(JSContext *cx, CallArgs args, HandleString str, RegExp
         lazyIndex = lastIndex;
         lastIndex = startIndex;
 
+        if (match.isEmpty())
+            startIndex++;
+
         /* Non-global removal executes at most once. */
         if (!re.global())
             break;
-
-        if (match.isEmpty())
-            startIndex++;
     }
 
     /* If unmatched, return the input string. */
     if (!lastIndex) {
+        if (startIndex > 0)
+            cx->regExpStatics()->updateLazily(cx, stableStr, &re, lazyIndex);
         args.rval().setString(str);
         return true;
     }
@@ -2611,7 +2617,7 @@ LambdaIsGetElem(JSObject &lambda)
     if (!fun->hasScript())
         return NULL;
 
-    RawScript script = fun->nonLazyScript();
+    JSScript *script = fun->nonLazyScript();
     jsbytecode *pc = script->code;
 
     /*
@@ -2981,7 +2987,8 @@ js::str_split(JSContext *cx, unsigned argc, Value *vp)
     bool sepDefined = args.hasDefined(0);
     if (sepDefined) {
         if (IsObjectWithClass(args[0], ESClass_RegExp, cx)) {
-            if (!RegExpToShared(cx, args[0].toObject(), &re))
+            RootedObject obj(cx, &args[0].toObject());
+            if (!RegExpToShared(cx, obj, &re))
                 return false;
         } else {
             sepstr = ArgToRootedString(cx, args, 0);
@@ -3349,7 +3356,7 @@ str_sub(JSContext *cx, unsigned argc, Value *vp)
 }
 #endif /* JS_HAS_STR_HTML_HELPERS */
 
-static JSFunctionSpec string_methods[] = {
+static const JSFunctionSpec string_methods[] = {
 #if JS_HAS_TOSOURCE
     JS_FN("quote",             str_quote,             0,JSFUN_GENERIC_NATIVE),
     JS_FN(js_toSource_str,     str_toSource,          0,0),
@@ -3373,7 +3380,11 @@ static JSFunctionSpec string_methods[] = {
     JS_FN("trimRight",         str_trimRight,         0,JSFUN_GENERIC_NATIVE),
     JS_FN("toLocaleLowerCase", str_toLocaleLowerCase, 0,JSFUN_GENERIC_NATIVE),
     JS_FN("toLocaleUpperCase", str_toLocaleUpperCase, 0,JSFUN_GENERIC_NATIVE),
+#if ENABLE_INTL_API
+         {"localeCompare",     {NULL, NULL},          1,0, "String_localeCompare"},
+#else
     JS_FN("localeCompare",     str_localeCompare,     1,JSFUN_GENERIC_NATIVE),
+#endif
 
     /* Perl-ish methods (search is actually Python-esque). */
     JS_FN("match",             str_match,             1,JSFUN_GENERIC_NATIVE),
@@ -3471,12 +3482,18 @@ js::str_fromCharCode(JSContext *cx, unsigned argc, Value *vp)
     return JS_TRUE;
 }
 
-static JSFunctionSpec string_static_methods[] = {
+static const JSFunctionSpec string_static_methods[] = {
     JS_FN("fromCharCode", js::str_fromCharCode, 1, 0),
+
+    // This must be at the end because of bug 853075: functions listed after
+    // self-hosted methods aren't available in self-hosted code.
+#if ENABLE_INTL_API
+         {"localeCompare",     {NULL, NULL},          2,0, "String_static_localeCompare"},
+#endif
     JS_FS_END
 };
 
-RawShape
+Shape *
 StringObject::assignInitialShape(JSContext *cx)
 {
     JS_ASSERT(nativeEmpty());
@@ -3529,10 +3546,7 @@ template <AllowGC allowGC>
 JSStableString *
 js_NewString(JSContext *cx, jschar *chars, size_t length)
 {
-    JSStableString *s = JSStableString::new_<allowGC>(cx, chars, length);
-    if (s)
-        Probes::createString(cx, s, length);
-    return s;
+    return JSStableString::new_<allowGC>(cx, chars, length);
 }
 
 template JSStableString *
@@ -3559,9 +3573,7 @@ js_NewDependentString(JSContext *cx, JSString *baseArg, size_t start, size_t len
     if (JSLinearString *staticStr = cx->runtime->staticStrings.lookup(chars, length))
         return staticStr;
 
-    JSLinearString *s = JSDependentString::new_(cx, base, chars, length);
-    Probes::createString(cx, s, length);
-    return s;
+    return JSDependentString::new_(cx, base, chars, length);
 }
 
 template <AllowGC allowGC>
@@ -3716,7 +3728,7 @@ js::ValueToSource(JSContext *cx, const Value &v)
         return js_QuoteString(cx, v.toString(), '"');
     if (v.isPrimitive()) {
         /* Special case to preserve negative zero, _contra_ toString. */
-        if (v.isDouble() && MOZ_DOUBLE_IS_NEGATIVE_ZERO(v.toDouble())) {
+        if (v.isDouble() && IsNegativeZero(v.toDouble())) {
             /* NB: _ucNstr rather than _ucstr to indicate non-terminated. */
             static const jschar js_negzero_ucNstr[] = {'-', '0'};
 
@@ -3727,9 +3739,8 @@ js::ValueToSource(JSContext *cx, const Value &v)
 
     RootedValue rval(cx, NullValue());
     RootedValue fval(cx);
-    RootedId id(cx, NameToId(cx->names().toSource));
-    Rooted<JSObject*> obj(cx, &v.toObject());
-    if (!GetMethod(cx, obj, id, 0, &fval))
+    RootedObject obj(cx, &v.toObject());
+    if (!JSObject::getProperty(cx, obj, obj, cx->names().toSource, &fval))
         return NULL;
     if (js_IsCallable(fval)) {
         if (!Invoke(cx, ObjectValue(*obj), fval, 0, NULL, rval.address()))
@@ -4228,7 +4239,7 @@ const bool js_isspace[] = {
 static inline bool
 TransferBufferToString(StringBuffer &sb, MutableHandleValue rval)
 {
-    RawString str = sb.finishString();
+    JSString *str = sb.finishString();
     if (!str)
         return false;
     rval.setString(str);

@@ -6,8 +6,8 @@
 const {utils: Cu} = Components;
 
 Cu.import("resource://gre/modules/Metrics.jsm");
+Cu.import("resource://gre/modules/Preferences.jsm");
 Cu.import("resource://gre/modules/Task.jsm");
-Cu.import("resource://services-common/preferences.js");
 Cu.import("resource://testing-common/services/metrics/mocks.jsm");
 
 
@@ -96,6 +96,10 @@ add_task(function test_measurement_storage_basic() {
 
   count = yield provider.storage.getDailyCounterCountFromFieldID(counterID, yesterday);
   do_check_eq(count, 1);
+
+  yield m.incrementDailyCounter("daily-counter", now, 4);
+  count = yield provider.storage.getDailyCounterCountFromFieldID(counterID, now);
+  do_check_eq(count, 6);
 
   // Daily discrete numeric.
   let dailyDiscreteNumericID = m.fieldID("daily-discrete-numeric");
@@ -271,6 +275,22 @@ add_task(function test_serialize_json_default() {
 
   formatted = serializer.daily(data.days.getDay(yesterday));
   do_check_eq(formatted["daily-last-numeric"], 5);
+  do_check_eq(formatted["daily-last-text"], "orange");
+
+  // Now let's turn off a field so that it's present in the DB
+  // but not present in the output.
+  let called = false;
+  let excluded = "daily-last-numeric";
+  Object.defineProperty(m, "shouldIncludeField", {
+    value: function fakeShouldIncludeField(field) {
+      called = true;
+      return field != excluded;
+    },
+  });
+
+  let limited = serializer.daily(data.days.getDay(yesterday));
+  do_check_true(called);
+  do_check_false(excluded in limited);
   do_check_eq(formatted["daily-last-text"], "orange");
 
   yield provider.storage.close();

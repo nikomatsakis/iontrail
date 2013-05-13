@@ -1,6 +1,5 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=4 sw=4 et tw=99:
- *
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -74,9 +73,6 @@ class CodeGeneratorShared : public LInstructionVisitor
     // List of stack slots that have been pushed as arguments to an MCall.
     js::Vector<uint32_t, 0, SystemAllocPolicy> pushedArgumentSlots_;
 
-    // List of labels that need to be patched for dispatch-style ICs.
-    js::Vector<CodeOffsetLabel, 0, SystemAllocPolicy> cacheDispatchLabels_;
-
     // When profiling is enabled, this is the instrumentation manager which
     // maintains state of what script is currently being generated (for inline
     // scripts) and when instrumentation needs to be emitted or skipped.
@@ -93,6 +89,18 @@ class CodeGeneratorShared : public LInstructionVisitor
     }
     inline size_t getOsrEntryOffset() const {
         return osrEntryOffset_;
+    }
+
+    // The offset of the first instruction of the body.
+    // This skips the arguments type checks.
+    size_t skipArgCheckEntryOffset_;
+
+    inline void setSkipArgCheckEntryOffset(size_t offset) {
+        JS_ASSERT(skipArgCheckEntryOffset_ == 0);
+        skipArgCheckEntryOffset_ = offset;
+    }
+    inline size_t getSkipArgCheckEntryOffset() const {
+        return skipArgCheckEntryOffset_;
     }
 
     typedef js::Vector<SafepointIndex, 8, SystemAllocPolicy> SafepointIndices;
@@ -176,6 +184,7 @@ class CodeGeneratorShared : public LInstructionVisitor
         return index;
     }
 
+  public:
     // This is needed by addCache to update the cache with the jump
     // informations provided by the out-of-line path.
     IonCache *getCache(size_t index) {
@@ -315,9 +324,7 @@ class CodeGeneratorShared : public LInstructionVisitor
     inline OutOfLineCode *oolCallVM(const VMFunction &fun, LInstruction *ins, const ArgSeq &args,
                                     const StoreOutputTo &out);
 
-    void setCacheInfo(IonCache *cache, LInstruction *lir);
-    bool addRepatchCache(LInstruction *lir, size_t cacheIndex);
-    bool addDispatchCache(LInstruction *lir, size_t cacheIndex, Register scratch);
+    bool addCache(LInstruction *lir, size_t cacheIndex);
 
   protected:
     bool addOutOfLineCode(OutOfLineCode *code);
@@ -361,13 +368,6 @@ class CodeGeneratorShared : public LInstructionVisitor
     virtual bool visitOutOfLinePropagateParallelAbort(OutOfLinePropagateParallelAbort *ool) = 0;
 };
 
-// Wrapper around Label, on the heap, to avoid a bogus assert with OOM.
-struct HeapLabel
-  : public TempObject,
-    public Label
-{
-};
-
 // An out-of-line path is generated at the end of the function.
 class OutOfLineCode : public TempObject
 {
@@ -401,14 +401,14 @@ class OutOfLineCode : public TempObject
     uint32_t framePushed() const {
         return framePushed_;
     }
-    void setSource(RawScript script, jsbytecode *pc) {
+    void setSource(JSScript *script, jsbytecode *pc) {
         script_ = script;
         pc_ = pc;
     }
     jsbytecode *pc() {
         return pc_;
     }
-    RawScript script() {
+    JSScript *script() {
         return script_;
     }
 };
@@ -660,3 +660,4 @@ class OutOfLinePropagateParallelAbort : public OutOfLineCode
 } // namespace js
 
 #endif // jsion_codegen_shared_h__
+

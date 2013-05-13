@@ -20,6 +20,7 @@
 #include "nsISSLSocketControl.h"
 #include "prnetdb.h"
 #include "mozilla/Telemetry.h"
+#include "mozilla/VisualEventTracer.h"
 #include <algorithm>
 
 using namespace mozilla;
@@ -62,6 +63,7 @@ nsHttpConnectionMgr::nsHttpConnectionMgr()
     , mIsShuttingDown(false)
     , mNumActiveConns(0)
     , mNumIdleConns(0)
+    , mNumSpdyActiveConns(0)
     , mNumHalfOpenConns(0)
     , mTimeOfNextWakeUp(UINT64_MAX)
     , mTimeoutTickArmed(false)
@@ -309,9 +311,15 @@ nsHttpConnectionMgr::PruneDeadConnections()
 }
 
 nsresult
-nsHttpConnectionMgr::ClosePersistentConnections()
+nsHttpConnectionMgr::DoShiftReloadConnectionCleanup(nsHttpConnectionInfo *aCI)
 {
-    return PostEvent(&nsHttpConnectionMgr::OnMsgClosePersistentConnections);
+    nsRefPtr<nsHttpConnectionInfo> connInfo(aCI);
+
+    nsresult rv = PostEvent(&nsHttpConnectionMgr::OnMsgDoShiftReloadConnectionCleanup,
+                            0, connInfo);
+    if (NS_SUCCEEDED(rv))
+        connInfo.forget();
+    return rv;
 }
 
 nsresult
@@ -412,6 +420,28 @@ nsHttpConnectionMgr::ProcessPendingQ()
     return PostEvent(&nsHttpConnectionMgr::OnMsgProcessPendingQ, 0, nullptr);
 }
 
+void
+nsHttpConnectionMgr::OnMsgUpdateRequestTokenBucket(int32_t, void *param)
+{
+    nsRefPtr<EventTokenBucket> tokenBucket =
+        dont_AddRef(static_cast<EventTokenBucket *>(param));
+    gHttpHandler->SetRequestTokenBucket(tokenBucket);
+}
+
+nsresult
+nsHttpConnectionMgr::UpdateRequestTokenBucket(EventTokenBucket *aBucket)
+{
+    nsRefPtr<EventTokenBucket> bucket(aBucket);
+    
+    // Call From main thread when a new EventTokenBucket has been made in order
+    // to post the new value to the socket thread.
+    nsresult rv = PostEvent(&nsHttpConnectionMgr::OnMsgUpdateRequestTokenBucket,
+                            0, bucket.get());
+    if (NS_SUCCEEDED(rv))
+        bucket.forget();
+    return rv;
+}
+
 // Given a nsHttpConnectionInfo find the connection entry object that
 // contains either the nshttpconnection or nshttptransaction parameter.
 // Normally this is done by the hashkey lookup of connectioninfo,
@@ -422,6 +452,7 @@ nsHttpConnectionMgr::LookupConnectionEntry(nsHttpConnectionInfo *ci,
                                            nsHttpConnection *conn,
                                            nsHttpTransaction *trans)
 {
+    MOZ_ASSERT(PR_GetCurrentThread() == gSocketThread);
     if (!ci)
         return nullptr;
 
@@ -501,8 +532,9 @@ nsHttpConnectionMgr::ReportSpdyConnection(nsHttpConnection *conn,
 
     if (!usingSpdy)
         return;
-    
+
     ent->mUsingSpdy = true;
+    mNumSpdyActiveConns++;
 
     uint32_t ttl = conn->TimeToLive();
     uint64_t timeOfExpire = NowInSeconds() + ttl;
@@ -549,6 +581,8 @@ void
 nsHttpConnectionMgr::ReportSpdyCWNDSetting(nsHttpConnectionInfo *ci,
                                            uint32_t cwndValue)
 {
+    MOZ_ASSERT(PR_GetCurrentThread() == gSocketThread);
+
     if (!gHttpHandler->UseSpdyPersistentSettings())
         return;
 
@@ -575,6 +609,8 @@ nsHttpConnectionMgr::ReportSpdyCWNDSetting(nsHttpConnectionInfo *ci,
 uint32_t
 nsHttpConnectionMgr::GetSpdyCWNDSetting(nsHttpConnectionInfo *ci)
 {
+    MOZ_ASSERT(PR_GetCurrentThread() == gSocketThread);
+
     if (!gHttpHandler->UseSpdyPersistentSettings())
         return 0;
 
@@ -861,6 +897,7 @@ nsHttpConnectionMgr::PruneDeadConnectionsCB(const nsACString &key,
                                             nsAutoPtr<nsConnectionEntry> &ent,
                                             void *closure)
 {
+    MOZ_ASSERT(PR_GetCurrentThread() == gSocketThread);
     nsHttpConnectionMgr *self = (nsHttpConnectionMgr *) closure;
 
     LOG(("  pruning [ci=%s]\n", ent->mConnInfo->HashKey().get()));
@@ -956,7 +993,7 @@ nsHttpConnectionMgr::ShutdownPassCB(const nsACString &key,
         conn = ent->mActiveConns[0];
 
         ent->mActiveConns.RemoveElementAt(0);
-        self->mNumActiveConns--;
+        self->DecrementActiveConnCount(conn);
 
         conn->Close(NS_ERROR_ABORT);
         NS_RELEASE(conn);
@@ -1587,6 +1624,23 @@ nsHttpConnectionMgr::TryDispatchTransaction(nsConnectionEntry *ent,
         }
     }
 
+    // Subject most transactions at high parallelism to rate pacing.
+    // It will only be actually submitted to the
+    // token bucket once, and if possible it is granted admission synchronously.
+    // It is important to leave a transaction in the pending queue when blocked by
+    // pacing so it can be found on cancel if necessary.
+    // Transactions that cause blocking or bypass it (e.g. js/css) are not rate
+    // limited.
+    if (gHttpHandler->UseRequestTokenBucket() &&
+        (mNumActiveConns >= mNumSpdyActiveConns) && // just check for robustness sake
+        ((mNumActiveConns - mNumSpdyActiveConns) >= gHttpHandler->RequestTokenBucketMinParallelism()) &&
+        !(caps & (NS_HTTP_LOAD_AS_BLOCKING | NS_HTTP_LOAD_UNBLOCKED))) {
+        if (!trans->TryToRunPacedRequest()) {
+            LOG(("   blocked due to rate pacing\n"));
+            return NS_ERROR_NOT_AVAILABLE;
+        }
+    }
+
     // step 2
     // consider an idle persistent connection
     if (caps & NS_HTTP_ALLOW_KEEPALIVE) {
@@ -1677,6 +1731,11 @@ nsHttpConnectionMgr::DispatchTransaction(nsConnectionEntry *ent,
          "[ci=%s trans=%x caps=%x conn=%x priority=%d]\n",
          ent->mConnInfo->HashKey().get(), trans, caps, conn, priority));
 
+    // It is possible for a rate-paced transaction to be dispatched independent
+    // of the token bucket when the amount of parallelization has changed or
+    // when a muxed connection (e.g. spdy or pipelines) becomes available.
+    trans->CancelPacing(NS_OK);
+
     if (conn->UsingSpdy()) {
         LOG(("Spdy Dispatch Transaction via Activate(). Transaction host = %s,"
              "Connection host = %s\n",
@@ -1764,7 +1823,7 @@ nsHttpConnectionMgr::DispatchAbstractTransaction(nsConnectionEntry *ent,
         ent->mActiveConns.RemoveElement(conn);
         if (conn == ent->mYellowConnection)
             ent->OnYellowComplete();
-        mNumActiveConns--;
+        DecrementActiveConnCount(conn);
         ConditionallyStopTimeoutTick();
 
         // sever back references to connection, and do so without triggering
@@ -1898,6 +1957,14 @@ nsHttpConnectionMgr::AddActiveConn(nsHttpConnection *conn,
     ent->mActiveConns.AppendElement(conn);
     mNumActiveConns++;
     ActivateTimeoutTick();
+}
+
+void
+nsHttpConnectionMgr::DecrementActiveConnCount(nsHttpConnection *conn)
+{
+    mNumActiveConns--;
+    if (conn->EverUsedSpdy())
+        mNumSpdyActiveConns--;
 }
 
 void
@@ -2164,11 +2231,17 @@ nsHttpConnectionMgr::OnMsgPruneDeadConnections(int32_t, void *)
 }
 
 void
-nsHttpConnectionMgr::OnMsgClosePersistentConnections(int32_t, void *)
+nsHttpConnectionMgr::OnMsgDoShiftReloadConnectionCleanup(int32_t, void *param)
 {
-    LOG(("nsHttpConnectionMgr::OnMsgClosePersistentConnections\n"));
+    LOG(("nsHttpConnectionMgr::OnMsgDoShiftReloadConnectionCleanup\n"));
+    MOZ_ASSERT(PR_GetCurrentThread() == gSocketThread);
+
+    nsRefPtr<nsHttpConnectionInfo> ci =
+        dont_AddRef(static_cast<nsHttpConnectionInfo *>(param));
 
     mCT.Enumerate(ClosePersistentConnectionsCB, this);
+    if (ci)
+        ResetIPFamilyPreference(ci);
 }
 
 void
@@ -2212,13 +2285,13 @@ nsHttpConnectionMgr::OnMsgReclaimConnection(int32_t, void *param)
             // reused.
             conn->DontReuse();
         }
-        
+
         if (ent->mActiveConns.RemoveElement(conn)) {
             if (conn == ent->mYellowConnection)
                 ent->OnYellowComplete();
             nsHttpConnection *temp = conn;
             NS_RELEASE(temp);
-            mNumActiveConns--;
+            DecrementActiveConnCount(conn);
             ConditionallyStopTimeoutTick();
         }
 
@@ -2496,7 +2569,7 @@ nsHttpConnectionMgr::OnMsgSpeculativeConnect(int32_t, void *param)
     if (preferredEntry)
         ent = preferredEntry;
 
-    if (mNumHalfOpenConns <= gHttpHandler->ParallelSpeculativeConnectLimit() &&
+    if (mNumHalfOpenConns < gHttpHandler->ParallelSpeculativeConnectLimit() &&
         !ent->mIdleConns.Length() && !RestrictConnections(ent) &&
         !AtActiveConnectionLimit(ent, trans->Caps())) {
         CreateTransport(ent, trans, trans->Caps(), true);
@@ -2661,7 +2734,7 @@ nsHttpConnectionMgr::nsHalfOpenSocket::SetupPrimaryStreams()
                       getter_AddRefs(mStreamIn),
                       getter_AddRefs(mStreamOut),
                       false);
-    LOG(("nsHalfOpenSocket::SetupPrimaryStreams [this=%p ent=%s rv=%x]",
+    LOG(("nsHalfOpenSocket::SetupPrimaryStream [this=%p ent=%s rv=%x]",
          this, mEnt->mConnInfo->Host(), rv));
     if (NS_FAILED(rv)) {
         if (mStreamOut)
@@ -2810,17 +2883,13 @@ nsHalfOpenSocket::OnOutputStreamReady(nsIAsyncOutputStream *out)
     nsCOMPtr<nsIInterfaceRequestor> callbacks;
     mTransaction->GetSecurityCallbacks(getter_AddRefs(callbacks));
     if (out == mStreamOut) {
-        if (static_cast<uint32_t>(mPrimarySynRTT.ToMilliseconds()) <= 125)
-            gHttpHandler->mCacheEffectExperimentFastConn++;
-        else
-            gHttpHandler->mCacheEffectExperimentSlowConn++;
-        
+        TimeDuration rtt = TimeStamp::Now() - mPrimarySynStarted;
         rv = conn->Init(mEnt->mConnInfo,
                         gHttpHandler->ConnMgr()->mMaxRequestDelay,
                         mSocketTransport, mStreamIn, mStreamOut,
                         callbacks,
                         PR_MillisecondsToInterval(
-                          static_cast<uint32_t>(mPrimarySynRTT.ToMilliseconds())));
+                          static_cast<uint32_t>(rtt.ToMilliseconds())));
 
         if (NS_SUCCEEDED(mSocketTransport->GetPeerAddr(&peeraddr)))
             mEnt->RecordIPFamilyPreference(peeraddr.raw.family);
@@ -2930,7 +2999,6 @@ nsHttpConnectionMgr::nsHalfOpenSocket::OnTransportStatus(nsITransport *trans,
     if (mTransaction)
         mTransaction->OnTransportStatus(trans, status, progress);
 
-    // Do not process status events for the backup transport
     if (trans != mSocketTransport)
         return NS_OK;
 
@@ -2979,21 +3047,14 @@ nsHttpConnectionMgr::nsHalfOpenSocket::OnTransportStatus(nsITransport *trans,
         // nsHttpConnectionMgr::Shutdown and nsSocketTransportService::Shutdown
         // where the first abandones all half open socket instances and only
         // after that the second stops the socket thread.
-        if (mEnt) {
-            // update timestamp to get a more accurate rtt
-            mPrimarySynStarted = TimeStamp::Now();
-
-            if (!mBackupTransport && !mSynTimer)
-                SetupBackupTimer();
-        }
+        if (mEnt && !mBackupTransport && !mSynTimer)
+            SetupBackupTimer();
         break;
 
     case NS_NET_STATUS_CONNECTED_TO:
         // TCP connection's up, now transfer or SSL negotiantion starts,
         // no need for backup socket
         CancelBackupTimer();
-        if (mEnt && !mPrimarySynStarted.IsNull())
-            mPrimarySynRTT = TimeStamp::Now() - mPrimarySynStarted;
         break;
 
     default:
@@ -3342,8 +3403,9 @@ nsHttpConnectionMgr::GetConnectionData(nsTArray<mozilla::net::HttpRetParams> *aA
 }
 
 void
-nsHttpConnectionMgr::ResetIPFamillyPreference(nsHttpConnectionInfo *ci)
+nsHttpConnectionMgr::ResetIPFamilyPreference(nsHttpConnectionInfo *ci)
 {
+    MOZ_ASSERT(PR_GetCurrentThread() == gSocketThread);
     nsConnectionEntry *ent = LookupConnectionEntry(ci, nullptr, nullptr);
     if (ent)
         ent->ResetIPFamilyPreference();

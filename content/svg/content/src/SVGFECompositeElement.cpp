@@ -12,7 +12,7 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGFECompositeElement::WrapNode(JSContext* aCx, JSObject* aScope)
+SVGFECompositeElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aScope)
 {
   return SVGFECompositeElementBinding::Wrap(aCx, aScope, this);
 }
@@ -51,23 +51,9 @@ nsSVGElement::StringInfo SVGFECompositeElement::sStringInfo[3] =
 };
 
 //----------------------------------------------------------------------
-// nsISupports methods
-
-NS_IMPL_ADDREF_INHERITED(SVGFECompositeElement,SVGFECompositeElementBase)
-NS_IMPL_RELEASE_INHERITED(SVGFECompositeElement,SVGFECompositeElementBase)
-
-NS_INTERFACE_TABLE_HEAD(SVGFECompositeElement)
-  NS_NODE_INTERFACE_TABLE3(SVGFECompositeElement, nsIDOMNode, nsIDOMElement,
-                           nsIDOMSVGElement)
-NS_INTERFACE_MAP_END_INHERITING(SVGFECompositeElementBase)
-
-//----------------------------------------------------------------------
 // nsIDOMNode methods
 
 NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGFECompositeElement)
-
-//----------------------------------------------------------------------
-// SVGFECompositeElement methods
 
 already_AddRefed<nsIDOMSVGAnimatedString>
 SVGFECompositeElement::In1()

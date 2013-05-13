@@ -6,34 +6,35 @@ load('utility.js');
 load('annotations.js');
 load('suppressedPoints.js');
 
-var sourceRoot = null;
+var sourceRoot = (environment['SOURCE_ROOT'] || '') + '/'
 
 var functionName;
 var functionBodies;
 
 if (typeof arguments[0] != 'string' || typeof arguments[1] != 'string')
-    throw "Usage: analyzeRoots.js <gcFunctions.txt> <gcTypes.txt> [start end [tmpfile]]";
+    throw "Usage: analyzeRoots.js <gcFunctions.lst> <suppressedFunctions.lst> <gcTypes.txt> [start end [tmpfile]]";
 
 var gcFunctionsFile = arguments[0];
-var gcTypesFile = arguments[1];
-var start = arguments[2]|0;
-var end = arguments[3]|0;
-var tmpfile = arguments[4];
-if (!start)
-    start = 1;
-if (!tmpfile)
-    tmpfile = "tmp.txt";
+var suppressedFunctionsFile = arguments[1];
+var gcTypesFile = arguments[2];
+var batch = (arguments[3]|0) || 1;
+var numBatches = (arguments[4]|0) || 1;
+var tmpfile = arguments[5] || "tmp.txt";
 
 var gcFunctions = {};
-var suppressedFunctions = {};
-var gcFunctionsText = snarf(gcFunctionsFile).split('\n');
-for (var line of gcFunctionsText) {
-    if (match = /GC Function: (.*)/.exec(line))
-        gcFunctions[match[1]] = true;
-    if (match = /Suppressed Function: (.*)/.exec(line))
-        suppressedFunctions[match[1]] = true;
+var text = snarf("gcFunctions.lst").split('\n');
+assert(text.pop().length == 0);
+for (var line of text) {
+    gcFunctions[line] = true;
 }
-gcFunctionsText = null;
+
+var suppressedFunctions = {};
+var text = snarf("suppressedFunctions.lst").split('\n');
+assert(text.pop().length == 0);
+for (var line of text) {
+    suppressedFunctions[line] = true;
+}
+text = null;
 
 var match;
 var gcThings = {};
@@ -191,8 +192,8 @@ function edgeCanGC(edge)
     if (callee.Exp[0].Kind == "Fld") {
         var field = callee.Exp[0].Field;
         var csuName = field.FieldCSU.Type.Name;
-        var fieldName = field.Name[0];
-        return fieldCallCannotGC(csuName, fieldName) ? null : csuName + "." + fieldName;
+        var fullFieldName = csuName + "." + field.Name[0];
+        return fieldCallCannotGC(csuName, fullFieldName) ? null : fullFieldName;
     }
     assert(callee.Exp[0].Kind == "Var");
     var calleeName = callee.Exp[0].Variable.Name[0];
@@ -477,7 +478,7 @@ function processBodies()
     }
 }
 
-if (start == 1)
+if (batch == 1)
     print("Time: " + new Date);
 
 var xdb = xdbLibrary();
@@ -486,24 +487,10 @@ xdb.open("src_body.xdb");
 var minStream = xdb.min_data_stream()|0;
 var maxStream = xdb.max_data_stream()|0;
 
-start += minStream - 1;
-end += minStream - 1;
-
-// Find the source tree
-for (let nameIndex = minStream; nameIndex <= maxStream; nameIndex++) {
-    var name = xdb.read_key(nameIndex);
-    functionName = name.readString();
-    var data = xdb.read_entry(name);
-    functionBodies = JSON.parse(data.readString());
-    let filename = functionBodies[0].Location[0].CacheString;
-    let match = /(.*\/)js\/src\//.exec(filename);
-    if (match) {
-        sourceRoot = match[1];
-        printErr("sourceRoot = " + sourceRoot);
-        break;
-    }
-}
-assert(sourceRoot);
+var N = (maxStream - minStream) + 1;
+var each = Math.floor(N/numBatches);
+var start = minStream + each * (batch - 1);
+var end = Math.min(minStream + each * batch - 1, maxStream);
 
 for (var nameIndex = start; nameIndex <= end; nameIndex++) {
     var name = xdb.read_key(nameIndex);
@@ -515,7 +502,7 @@ for (var nameIndex = start; nameIndex <= end; nameIndex++) {
         body.suppressed = [];
     for (var body of functionBodies)
         computeSuppressedPoints(body);
-     processBodies();
+    processBodies();
 
     xdb.free_string(name);
     xdb.free_string(data);

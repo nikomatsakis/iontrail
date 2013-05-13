@@ -1,7 +1,7 @@
 ac_add_options --enable-update-packaging
 ac_add_options --enable-codesighs
 
-. $topsrcdir/build/unix/mozconfig.linux
+. $topsrcdir/build/unix/mozconfig.linux32
 
 # Avoid dependency on libstdc++ 4.5
 ac_add_options --enable-stdcxx-compat
@@ -10,7 +10,7 @@ ac_add_options --enable-stdcxx-compat
 export MOZILLA_OFFICIAL=1
 
 # PGO
-mk_add_options PROFILE_GEN_SCRIPT='$(PYTHON) @MOZ_OBJDIR@/_profile/pgo/profileserver.py 10'
+mk_add_options PROFILE_GEN_SCRIPT='EXTRA_TEST_ARGS=10 $(MAKE) -C $(MOZ_OBJDIR) pgo-profile-run'
 
 #Use ccache
 ac_add_options --with-ccache=/usr/bin/ccache

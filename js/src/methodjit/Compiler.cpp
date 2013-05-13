@@ -1,6 +1,5 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=4 sw=4 et tw=99:
- *
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -25,6 +24,7 @@
 #include "InlineFrameAssembler.h"
 #include "jscompartment.h"
 #include "jsopcodeinlines.h"
+#include "jsworkers.h"
 
 #include "builtin/RegExp.h"
 #include "vm/RegExpStatics.h"
@@ -34,6 +34,7 @@
 #include "jstypedarrayinlines.h"
 #include "vm/RegExpObject-inl.h"
 
+#include "ion/BaselineJIT.h"
 #include "ion/Ion.h"
 
 #if JS_TRACE_LOGGING
@@ -120,6 +121,8 @@ mjit::Compiler::Compiler(JSContext *cx, JSScript *outerScript,
     gcNumber(cx->runtime->gcNumber),
     pcLengths(NULL)
 {
+    JS_ASSERT(cx->jaegerCompilationAllowed());
+
     if (!IsIonEnabled(cx)) {
         /* Once a script starts getting really hot we will inline calls in it. */
         if (!debugMode() && cx->typeInferenceEnabled() && globalObj &&
@@ -144,6 +147,8 @@ mjit::Compiler::compile()
 
     CompileStatus status = performCompilation();
     if (status != Compile_Okay && status != Compile_Retry) {
+        mjit::ExpandInlineFrames(cx->zone());
+        mjit::Recompiler::clearStackReferences(cx->runtime->defaultFreeOp(), outerScript);
         if (!outerScript->ensureHasMJITInfo(cx))
             return Compile_Error;
         JSScript::JITScriptHandle *jith = outerScript->jitHandle(isConstructing, cx->zone()->compileBarriers());
@@ -834,7 +839,7 @@ MakeJITScript(JSContext *cx, JSScript *script)
                     return NULL;
 
                 /* Add an edge for fallthrough from this chunk to the next one. */
-                if (!BytecodeNoFallThrough(op)) {
+                if (BytecodeFallsThrough(op)) {
                     CrossChunkEdge edge;
                     edge.source = offset;
                     edge.target = nextOffset;
@@ -958,14 +963,14 @@ IonGetsFirstChance(JSContext *cx, JSScript *script, jsbytecode *pc, CompileReque
         return false;
 
     // If we cannot enter Ion because bailouts are expected, let JM take over.
-    if (script->hasIonScript() && script->ion->bailoutExpected())
+    if (script->hasIonScript() && script->ionScript()->bailoutExpected())
         return false;
 
     // If we cannot enter Ion because it was compiled for OSR at a different PC,
     // let JM take over until the PC is reached. Don't do this until the script
     // reaches a high use count, as if we do this prematurely we may get stuck
     // in JM code.
-    if (ion::js_IonOptions.parallelCompilation && script->hasIonScript() &&
+    if (OffThreadCompilationEnabled(cx) && script->hasIonScript() &&
         pc && script->ionScript()->osrPc() && script->ionScript()->osrPc() != pc &&
         script->getUseCount() >= ion::js_IonOptions.usesBeforeCompile * 2)
     {
@@ -974,7 +979,7 @@ IonGetsFirstChance(JSContext *cx, JSScript *script, jsbytecode *pc, CompileReque
 
     // If ion compilation is pending or in progress on another thread, continue
     // using JM until that compilation finishes.
-    if (script->ion == ION_COMPILING_SCRIPT)
+    if (script->isIonCompilingOffThread())
         return false;
 
     return true;
@@ -990,6 +995,14 @@ mjit::CanMethodJIT(JSContext *cx, JSScript *script, jsbytecode *pc,
   checkOutput:
     if (!cx->methodJitEnabled)
         return Compile_Abort;
+
+    if (!cx->jaegerCompilationAllowed())
+        return Compile_Abort;
+
+#ifdef JS_ION
+    if (ion::IsBaselineEnabled(cx) || ion::IsEnabled(cx))
+        return Compile_Abort;
+#endif
 
     /*
      * If SPS (profiling) is enabled, then the emitted instrumentation has to be
@@ -4017,7 +4030,7 @@ mjit::Compiler::ionCompileHelper()
     if (!recompileCheckForIon)
         return;
 
-    void *ionScriptAddress = &script_->ion;
+    const void *ionScriptAddress = script_->addressOfIonScript();
 
 #ifdef JS_CPU_X64
     // Allocate a temp register. Note that we have to do this before calling
@@ -4048,7 +4061,8 @@ mjit::Compiler::ionCompileHelper()
     trigger.inlineJump = masm.branch32(Assembler::GreaterThanOrEqual,
                                        AbsoluteAddress(useCountAddress),
                                        Imm32(minUses));
-    Jump scriptJump = stubcc.masm.branch32(Assembler::Equal, AbsoluteAddress(ionScriptAddress),
+    Jump scriptJump = stubcc.masm.branch32(Assembler::Equal,
+                                           AbsoluteAddress((void *)ionScriptAddress),
                                            Imm32(0));
 #elif defined(JS_CPU_X64)
     /* Handle processors that can't load from absolute addresses. */
@@ -4056,7 +4070,7 @@ mjit::Compiler::ionCompileHelper()
     trigger.inlineJump = masm.branch32(Assembler::GreaterThanOrEqual,
                                        Address(reg),
                                        Imm32(minUses));
-    stubcc.masm.move(ImmPtr(ionScriptAddress), reg);
+    stubcc.masm.move(ImmPtr((void *)ionScriptAddress), reg);
     Jump scriptJump = stubcc.masm.branchPtr(Assembler::Equal, Address(reg), ImmPtr(NULL));
     frame.freeReg(reg);
 #else
@@ -4064,7 +4078,7 @@ mjit::Compiler::ionCompileHelper()
 #endif
 
     stubcc.linkExitDirect(trigger.inlineJump,
-                          ion::js_IonOptions.parallelCompilation
+                          OffThreadCompilationEnabled(cx)
                           ? secondTest
                           : trigger.stubLabel);
 
@@ -6099,7 +6113,7 @@ mjit::Compiler::jsop_aliasedVar(ScopeCoordinate sc, bool get, bool poppedAfter)
     for (unsigned i = 0; i < sc.hops; i++)
         masm.loadPayload(Address(reg, ScopeObject::offsetOfEnclosingScope()), reg);
 
-    RawShape shape = ScopeCoordinateToStaticScopeShape(cx, script_, PC);
+    Shape *shape = ScopeCoordinateToStaticScopeShape(cx, script_, PC);
     Address addr;
     if (shape->numFixedSlots() <= sc.slot) {
         masm.loadPtr(Address(reg, JSObject::offsetOfSlots()), reg);
@@ -6247,7 +6261,7 @@ mjit::Compiler::iter(unsigned flags)
     masm.loadPtr(Address(T1, offsetof(types::TypeObject, proto)), T1);
     masm.loadShape(T1, T1);
     masm.loadPtr(Address(nireg, offsetof(NativeIterator, shapes_array)), T2);
-    masm.loadPtr(Address(T2, sizeof(RawShape)), T2);
+    masm.loadPtr(Address(T2, sizeof(Shape *)), T2);
     Jump mismatchedProto = masm.branchPtr(Assembler::NotEqual, T1, T2);
     stubcc.linkExit(mismatchedProto, Uses(1));
 
@@ -6554,7 +6568,7 @@ mjit::Compiler::jsop_getgname(uint32_t index)
          * reallocation of the global object's slots.
          */
         RootedId id(cx, NameToId(name));
-        RawShape shape = globalObj->nativeLookup(cx, id);
+        Shape *shape = globalObj->nativeLookup(cx, id);
         if (shape && shape->hasDefaultGetter() && shape->hasSlot()) {
             HeapSlot *value = &globalObj->getSlotRef(shape->slot());
             if (!value->isUndefined() && !propertyTypes->isOwnProperty(cx, globalType, true)) {
@@ -7658,9 +7672,11 @@ mjit::Compiler::jsop_in()
 
     if (cx->typeInferenceEnabled() && id->isType(JSVAL_TYPE_INT32)) {
         types::StackTypeSet *types = analysis->poppedTypes(PC, 0);
+        bool isNegative = id->isConstant() && id->getValue().toInt32() < 0;
 
         if (obj->mightBeType(JSVAL_TYPE_OBJECT) &&
             types->getKnownClass() == &ArrayClass &&
+            !isNegative &&
             !types->hasObjectFlags(cx, types::OBJECT_FLAG_SPARSE_INDEXES) &&
             !types::ArrayPrototypeHasIndexedProperty(cx, outerScript))
         {
@@ -7677,6 +7693,11 @@ mjit::Compiler::jsop_in()
             Int32Key key = id->isConstant()
                          ? Int32Key::FromConstant(id->getValue().toInt32())
                          : Int32Key::FromRegister(frame.tempRegForData(id));
+
+            if (!id->isConstant()) {
+                Jump isNegative = masm.branch32(Assembler::LessThan, key.reg(), Imm32(0));
+                stubcc.linkExit(isNegative, Uses(2));
+            }
 
             masm.loadPtr(Address(dataReg, JSObject::offsetOfElements()), dataReg);
 
@@ -7707,10 +7728,8 @@ mjit::Compiler::jsop_in()
             if (dataReg != Registers::ReturnReg)
                 stubcc.masm.move(Registers::ReturnReg, dataReg);
 
-            frame.pushTypedPayload(JSVAL_TYPE_BOOLEAN, dataReg);
-
             stubcc.rejoin(Changes(2));
-
+            frame.pushTypedPayload(JSVAL_TYPE_BOOLEAN, dataReg);
             return;
         }
     }
@@ -8109,7 +8128,7 @@ mjit::Compiler::testBarrier(RegisterID typeReg, RegisterID dataReg,
     if (!cx->typeInferenceEnabled() || !(js_CodeSpec[*PC].format & JOF_TYPESET))
         return state;
 
-    types::StackTypeSet *types = analysis->bytecodeTypes(PC);
+    types::StackTypeSet *types = types::TypeScript::BytecodeTypes(script_, PC);
     if (types->unknown()) {
         /*
          * If the result of this opcode is already unknown, there is no way for
@@ -8174,7 +8193,7 @@ mjit::Compiler::testPushedType(RejoinState rejoin, int which, bool ool)
     if (!cx->typeInferenceEnabled() || !(js_CodeSpec[*PC].format & JOF_TYPESET))
         return;
 
-    types::TypeSet *types = analysis->bytecodeTypes(PC);
+    types::TypeSet *types = types::TypeScript::BytecodeTypes(script_, PC);
     if (types->unknown())
         return;
 

@@ -11,4 +11,5 @@ function testClosureCreationAndInvocation() {
   }
 }
 
-testClosureCreationAndInvocation();
+if (getBuildConfiguration().parallelJS)
+  testClosureCreationAndInvocation();

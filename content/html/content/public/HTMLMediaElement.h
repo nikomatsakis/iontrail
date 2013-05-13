@@ -229,10 +229,11 @@ public:
   // Return true if we can activate autoplay assuming enough data has arrived.
   bool CanActivateAutoplay();
 
-  // Notify that enough data has arrived to start autoplaying.
+  // Notify that state has changed that might cause an autoplay element to
+  // start playing.
   // If the element is 'autoplay' and is ready to play back (not paused,
   // autoplay pref enabled, etc), it should start playing back.
-  virtual void NotifyAutoplayDataReady() MOZ_FINAL MOZ_OVERRIDE;
+  void CheckAutoplayDataReady();
 
   // Check if the media element had crossorigin set when loading started
   bool ShouldCheckAllowOrigin();
@@ -466,8 +467,6 @@ public:
 
   void SetMozSrcObject(DOMMediaStream& aValue);
 
-  double InitialTime();
-
   bool MozPreservesPitch() const
   {
     return mPreservesPitch;
@@ -519,14 +518,25 @@ protected:
 
   class WakeLockBoolWrapper {
   public:
-    WakeLockBoolWrapper(bool val = false) : mValue(val), mOuter(NULL), mWakeLock(NULL) {}
+    WakeLockBoolWrapper(bool val = false)
+      : mValue(val), mCanPlay(true), mOuter(nullptr) {}
+
     void SetOuter(HTMLMediaElement* outer) { mOuter = outer; }
+    void SetCanPlay(bool aCanPlay);
+
     operator bool() const { return mValue; }
+
     WakeLockBoolWrapper& operator=(bool val);
+
     bool operator !() const { return !mValue; }
+
   private:
+    void UpdateWakeLock();
+
     bool mValue;
+    bool mCanPlay;
     HTMLMediaElement* mOuter;
+
     nsCOMPtr<nsIDOMMozWakeLock> mWakeLock;
   };
 
@@ -803,7 +813,7 @@ protected:
   nsresult UpdateChannelMuteState(bool aCanPlay);
 
   // Update the audio channel playing state
-  void UpdateAudioChannelPlayingState();
+  virtual void UpdateAudioChannelPlayingState();
 
   // The current decoder. Load() has been called on this decoder.
   // At most one of mDecoder and mSrcStream can be non-null.
@@ -957,7 +967,7 @@ protected:
   nsAutoPtr<AudioStream> mAudioStream;
 
   // Range of time played.
-  TimeRanges mPlayed;
+  nsRefPtr<TimeRanges> mPlayed;
 
   // Stores the time at the start of the current 'played' range.
   double mCurrentPlayRangeStart;

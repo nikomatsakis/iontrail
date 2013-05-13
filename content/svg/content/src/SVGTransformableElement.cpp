@@ -3,33 +3,28 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "mozilla/dom/SVGAnimatedTransformList.h"
 #include "mozilla/dom/SVGTransformableElement.h"
 #include "mozilla/dom/SVGMatrix.h"
 #include "mozilla/dom/SVGSVGElement.h"
-#include "DOMSVGAnimatedTransformList.h"
 #include "nsContentUtils.h"
 #include "nsIDOMMutationEvent.h"
 #include "nsIFrame.h"
 #include "nsISVGChildFrame.h"
-#include "nsSVGRect.h"
+#include "mozilla/dom/SVGRect.h"
 #include "nsSVGUtils.h"
 #include "SVGContentUtils.h"
 
 namespace mozilla {
 namespace dom {
 
-//----------------------------------------------------------------------
-// nsISupports methods
-
-NS_IMPL_ISUPPORTS_INHERITED0(SVGTransformableElement, nsSVGElement)
-
-already_AddRefed<DOMSVGAnimatedTransformList>
+already_AddRefed<SVGAnimatedTransformList>
 SVGTransformableElement::Transform()
 {
   // We're creating a DOM wrapper, so we must tell GetAnimatedTransformList
   // to allocate the SVGAnimatedTransformList if it hasn't already done so:
-  return DOMSVGAnimatedTransformList::GetDOMWrapper(
-           GetAnimatedTransformList(DO_ALLOCATE), this).get();
+  return SVGAnimatedTransformList::GetDOMWrapper(
+           GetAnimatedTransformList(DO_ALLOCATE), this);
 
 }
 
@@ -65,7 +60,9 @@ SVGTransformableElement::GetAttributeChangeHint(const nsIAtom* aAttribute,
       return retval; // no change
     }
     if (aModType == nsIDOMMutationEvent::ADDITION ||
-        aModType == nsIDOMMutationEvent::REMOVAL) {
+        aModType == nsIDOMMutationEvent::REMOVAL ||
+        (aModType == nsIDOMMutationEvent::MODIFICATION &&
+         !(mTransforms && mTransforms->HasTransform()))) {
       // Reconstruct the frame tree to handle stacking context changes:
       NS_UpdateHint(retval, nsChangeHint_ReconstructFrame);
     } else {
@@ -139,11 +136,11 @@ SVGTransformableElement::SetAnimateMotionTransform(const gfxMatrix* aMatrix)
   DidAnimateTransformList();
 }
 
-SVGAnimatedTransformList*
+nsSVGAnimatedTransformList*
 SVGTransformableElement::GetAnimatedTransformList(uint32_t aFlags)
 {
   if (!mTransforms && (aFlags & DO_ALLOCATE)) {
-    mTransforms = new SVGAnimatedTransformList();
+    mTransforms = new nsSVGAnimatedTransformList();
   }
   return mTransforms;
 }
@@ -160,7 +157,7 @@ SVGTransformableElement::GetFarthestViewportElement()
   return SVGContentUtils::GetOuterSVGElement(this);
 }
 
-already_AddRefed<nsIDOMSVGRect>
+already_AddRefed<SVGIRect>
 SVGTransformableElement::GetBBox(ErrorResult& rv)
 {
   nsIFrame* frame = GetPrimaryFrame(Flush_Layout);
@@ -176,9 +173,7 @@ SVGTransformableElement::GetBBox(ErrorResult& rv)
     return nullptr;
   }
 
-  nsCOMPtr<nsIDOMSVGRect> rect;
-  rv = NS_NewSVGRect(getter_AddRefs(rect), nsSVGUtils::GetBBox(frame));
-  return rect.forget();
+  return NS_NewSVGRect(this, nsSVGUtils::GetBBox(frame));
 }
 
 already_AddRefed<SVGMatrix>

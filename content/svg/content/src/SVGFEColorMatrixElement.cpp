@@ -16,7 +16,7 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGFEColorMatrixElement::WrapNode(JSContext* aCx, JSObject* aScope)
+SVGFEColorMatrixElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aScope)
 {
   return SVGFEColorMatrixElementBinding::Wrap(aCx, aScope, this);
 }
@@ -47,18 +47,6 @@ nsSVGElement::NumberListInfo SVGFEColorMatrixElement::sNumberListInfo[1] =
 {
   { &nsGkAtoms::values }
 };
-
-//----------------------------------------------------------------------
-// nsISupports methods
-
-NS_IMPL_ADDREF_INHERITED(SVGFEColorMatrixElement,SVGFEColorMatrixElementBase)
-NS_IMPL_RELEASE_INHERITED(SVGFEColorMatrixElement,SVGFEColorMatrixElementBase)
-
-NS_INTERFACE_TABLE_HEAD(SVGFEColorMatrixElement)
-  NS_NODE_INTERFACE_TABLE3(SVGFEColorMatrixElement, nsIDOMNode, nsIDOMElement,
-                           nsIDOMSVGElement)
-NS_INTERFACE_MAP_END_INHERITING(SVGFEColorMatrixElementBase)
-
 
 //----------------------------------------------------------------------
 // nsIDOMNode methods

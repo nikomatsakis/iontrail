@@ -40,13 +40,13 @@
 @BINPATH@/@DLL_PREFIX@plds4@DLL_SUFFIX@
 @BINPATH@/@DLL_PREFIX@nspr4@DLL_SUFFIX@
 #endif
-@BINPATH@/@DLL_PREFIX@xpcom@DLL_SUFFIX@
 @BINPATH@/@DLL_PREFIX@mozalloc@DLL_SUFFIX@
 @BINPATH@/@DLL_PREFIX@mozglue@DLL_SUFFIX@
 @BINPATH@/@DLL_PREFIX@omxplugin@DLL_SUFFIX@
 @BINPATH@/@DLL_PREFIX@omxplugingb@DLL_SUFFIX@
 @BINPATH@/@DLL_PREFIX@omxplugingb235@DLL_SUFFIX@
 @BINPATH@/@DLL_PREFIX@omxpluginhc@DLL_SUFFIX@
+@BINPATH@/@DLL_PREFIX@omxpluginjb-htc@DLL_SUFFIX@
 @BINPATH@/@DLL_PREFIX@omxpluginsony@DLL_SUFFIX@
 @BINPATH@/@DLL_PREFIX@omxpluginfroyo@DLL_SUFFIX@
 @BINPATH@/@DLL_PREFIX@xul@DLL_SUFFIX@
@@ -129,7 +129,9 @@
 @BINPATH@/components/dom_offline.xpt
 @BINPATH@/components/dom_json.xpt
 @BINPATH@/components/dom_browserelement.xpt
+@BINPATH@/components/dom_payment.xpt
 @BINPATH@/components/dom_power.xpt
+@BINPATH@/components/dom_quota.xpt
 @BINPATH@/components/dom_range.xpt
 @BINPATH@/components/dom_settings.xpt
 @BINPATH@/components/dom_sidebar.xpt
@@ -140,6 +142,9 @@
 @BINPATH@/components/dom_threads.xpt
 @BINPATH@/components/dom_traversal.xpt
 @BINPATH@/components/dom_views.xpt
+#ifdef MOZ_WEBSPEECH
+@BINPATH@/components/dom_webspeechrecognition.xpt
+#endif
 @BINPATH@/components/dom_xbl.xpt
 @BINPATH@/components/dom_xpath.xpt
 @BINPATH@/components/dom_xul.xpt
@@ -164,12 +169,10 @@
 @BINPATH@/components/inspector.xpt
 @BINPATH@/components/intl.xpt
 @BINPATH@/components/jar.xpt
-@BINPATH@/components/jetpack.xpt
 @BINPATH@/components/jsdservice.xpt
 @BINPATH@/components/jsdebugger.xpt
 @BINPATH@/components/jsinspector.xpt
 @BINPATH@/components/layout_base.xpt
-@BINPATH@/components/layout_forms.xpt
 #ifdef NS_PRINTING
 @BINPATH@/components/layout_printing.xpt
 #endif
@@ -191,6 +194,7 @@
 @BINPATH@/components/necko_socket.xpt
 @BINPATH@/components/necko_strconv.xpt
 @BINPATH@/components/necko_viewsource.xpt
+@BINPATH@/components/necko_websocket.xpt
 @BINPATH@/components/necko_wifi.xpt
 @BINPATH@/components/necko_wyciwyg.xpt
 @BINPATH@/components/necko.xpt
@@ -259,6 +263,8 @@
 @BINPATH@/components/ConsoleAPI.js
 @BINPATH@/components/ContactManager.js
 @BINPATH@/components/ContactManager.manifest
+@BINPATH@/components/NavigatorPropertyHelper.js
+@BINPATH@/components/NavigatorPropertyHelper.manifest
 @BINPATH@/components/SettingsManager.js
 @BINPATH@/components/SettingsManager.manifest
 @BINPATH@/components/SettingsService.js
@@ -302,8 +308,6 @@
 @BINPATH@/components/nsDownloadManagerUI.js
 @BINPATH@/components/NetworkGeolocationProvider.manifest
 @BINPATH@/components/NetworkGeolocationProvider.js
-@BINPATH@/components/GPSDGeolocationProvider.manifest
-@BINPATH@/components/GPSDGeolocationProvider.js
 @BINPATH@/components/nsSidebar.manifest
 @BINPATH@/components/nsSidebar.js
 @BINPATH@/components/extensions.manifest
@@ -363,6 +367,15 @@
 @BINPATH@/components/Webapps.manifest
 @BINPATH@/components/AppsService.js
 @BINPATH@/components/AppsService.manifest
+@BINPATH@/components/AppProtocolHandler.js
+@BINPATH@/components/AppProtocolHandler.manifest
+
+@BINPATH@/components/Push.js
+@BINPATH@/components/Push.manifest
+
+@BINPATH@/components/SystemMessageInternal.js
+@BINPATH@/components/SystemMessageManager.js
+@BINPATH@/components/SystemMessageManager.manifest
 
 @BINPATH@/components/TCPSocket.js
 @BINPATH@/components/TCPSocketParentIntermediary.js
@@ -381,6 +394,10 @@
 #ifdef MOZ_CAPTIVEDETECT
 @BINPATH@/components/CaptivePortalDetectComponents.manifest
 @BINPATH@/components/captivedetect.js
+#endif
+
+#ifdef MOZ_WEBSPEECH
+@BINPATH@/components/dom_webspeechsynth.xpt
 #endif
 
 ; Modules
@@ -406,9 +423,6 @@
 @BINPATH@/extensions/{972ce4c6-7e08-4474-a285-3208198ce6fd}/install.rdf
 @BINPATH@/extensions/{972ce4c6-7e08-4474-a285-3208198ce6fd}/icon.png
 @BINPATH@/extensions/{972ce4c6-7e08-4474-a285-3208198ce6fd}/preview.png
-#if MOZ_UPDATE_CHANNEL == beta
-@BINPATH@/extensions/testpilot@labs.mozilla.com/*
-#endif
 @BINPATH@/chrome/toolkit@JAREXT@
 @BINPATH@/chrome/toolkit.manifest
 #ifdef XP_UNIX
@@ -546,7 +560,6 @@ bin/components/@DLL_PREFIX@nkgnomevfs@DLL_SUFFIX@
 @BINPATH@/components/ContentPermissionPrompt.js
 @BINPATH@/components/DirectoryProvider.js
 @BINPATH@/components/DownloadManagerUI.js
-@BINPATH@/components/FormAutoComplete.js
 @BINPATH@/components/HelperAppDialog.js
 @BINPATH@/components/LoginManagerPrompter.js
 @BINPATH@/components/MobileComponents.manifest
@@ -555,7 +568,13 @@ bin/components/@DLL_PREFIX@nkgnomevfs@DLL_SUFFIX@
 @BINPATH@/components/PromptService.js
 @BINPATH@/components/SessionStore.js
 @BINPATH@/components/Sidebar.js
-@BINPATH@/components/SiteSpecificUserAgent.js
+
+@BINPATH@/components/Payment.js
+@BINPATH@/components/PaymentFlowInfo.js
+@BINPATH@/components/PaymentRequestInfo.js
+@BINPATH@/components/Payment.manifest
+@BINPATH@/components/PaymentsUI.js
+
 #ifdef MOZ_SAFE_BROWSING
 @BINPATH@/components/SafeBrowsing.jsm
 #endif

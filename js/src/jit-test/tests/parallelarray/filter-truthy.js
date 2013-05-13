@@ -15,4 +15,5 @@ function testFilterMisc() {
   compareAgainstArray(range(0, 1024), "filter", truthy);
 }
 
-testFilterMisc();
+if (getBuildConfiguration().parallelJS)
+  testFilterMisc();

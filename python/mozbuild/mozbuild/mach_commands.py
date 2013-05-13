@@ -4,6 +4,7 @@
 
 from __future__ import print_function, unicode_literals
 
+import getpass
 import logging
 import operator
 import os
@@ -21,8 +22,10 @@ from mozbuild.base import MachCommandBase
 
 BUILD_WHAT_HELP = '''
 What to build. Can be a top-level make target or a relative directory. If
-multiple options are provided, they will be built serially. BUILDING ONLY PARTS
-OF THE TREE CAN RESULT IN BAD TREE STATE. USE AT YOUR OWN RISK.
+multiple options are provided, they will be built serially. Takes dependency
+information from `topsrcdir/build/dumbmake-dependencies` to build additional
+targets as needed. BUILDING ONLY PARTS OF THE TREE CAN RESULT IN BAD TREE
+STATE. USE AT YOUR OWN RISK.
 '''.strip()
 
 FINDER_SLOW_MESSAGE = '''
@@ -44,9 +47,14 @@ Preferences.
 class Build(MachCommandBase):
     """Interface to build the tree."""
 
-    @Command('build', help='Build the tree.')
+    @Command('build', category='build', description='Build the tree.')
+    @CommandArgument('--jobs', '-j', default='0', metavar='jobs', type=int,
+        help='Number of concurrent jobs to run. Default is the number of CPUs.')
     @CommandArgument('what', default=None, nargs='*', help=BUILD_WHAT_HELP)
-    def build(self, what=None):
+    @CommandArgument('-X', '--disable-extra-make-dependencies',
+                     default=False, action='store_true',
+                     help='Do not add extra make dependencies.')
+    def build(self, what=None, disable_extra_make_dependencies=None, jobs=0):
         # This code is only meant to be temporary until the more robust tree
         # building code in bug 780329 lands.
         from mozbuild.compilation.warnings import WarningsCollector
@@ -87,6 +95,8 @@ class Build(MachCommandBase):
                     '|mach build| with no arguments.')
                 return 1
 
+            # Collect target pairs.
+            target_pairs = []
             for target in what:
                 path_arg = self._wrap_path_argument(target)
 
@@ -96,16 +106,36 @@ class Build(MachCommandBase):
                 if make_dir is None and make_target is None:
                     return 1
 
+                target_pairs.append((make_dir, make_target))
+
+            # Possibly add extra make depencies using dumbmake.
+            if not disable_extra_make_dependencies:
+                from dumbmake.dumbmake import (dependency_map,
+                                               add_extra_dependencies)
+                depfile = os.path.join(self.topsrcdir, 'build',
+                                       'dumbmake-dependencies')
+                with open(depfile) as f:
+                    dm = dependency_map(f.readlines())
+                new_pairs = list(add_extra_dependencies(target_pairs, dm))
+                self.log(logging.DEBUG, 'dumbmake',
+                         {'target_pairs': target_pairs,
+                          'new_pairs': new_pairs},
+                         'Added extra dependencies: will build {new_pairs} ' +
+                         'instead of {target_pairs}.')
+                target_pairs = new_pairs
+
+            # Build target pairs.
+            for make_dir, make_target in target_pairs:
                 status = self._run_make(directory=make_dir, target=make_target,
                     line_handler=on_line, log=False, print_directory=False,
-                    ensure_exit_code=False)
+                    ensure_exit_code=False, num_jobs=jobs)
 
                 if status != 0:
                     break
         else:
             status = self._run_make(srcdir=True, filename='client.mk',
                 line_handler=on_line, log=False, print_directory=False,
-                allow_parallel=False, ensure_exit_code=False)
+                allow_parallel=False, ensure_exit_code=False, num_jobs=jobs)
 
             self.log(logging.WARNING, 'warning_summary',
                 {'count': len(warnings_collector.database)},
@@ -115,9 +145,31 @@ class Build(MachCommandBase):
         warnings_database.save_to_file(warnings_path)
 
         time_end = time.time()
-        self._handle_finder_cpu_usage(time_end - time_start, finder_start_cpu)
+        time_elapsed = time_end - time_start
+        self._handle_finder_cpu_usage(time_elapsed, finder_start_cpu)
 
-        print('Finished building. Built files are in %s' % self.topobjdir)
+        long_build = time_elapsed > 600
+
+        if status:
+            return status
+
+        if long_build:
+            print('We know it took a while, but your build finally finished successfully!')
+        else:
+            print('Your build was successful!')
+
+        # Only for full builds because incremental builders likely don't
+        # need to be burdened with this.
+        if not what:
+            # Fennec doesn't have useful output from just building. We should
+            # arguably make the build action useful for Fennec. Another day...
+            if self.substs['MOZ_BUILD_APP'] != 'mobile/android':
+                app_path = self.get_binary_path('app')
+                print('To take your build for a test drive, run: %s' % app_path)
+            app = self.substs['MOZ_BUILD_APP']
+            if app in ('browser', 'mobile/android'):
+                print('For more information on what to do now, see '
+                    'https://developer.mozilla.org/docs/Developer_Guide/So_You_Just_Built_Firefox')
 
         return status
 
@@ -136,6 +188,9 @@ class Build(MachCommandBase):
 
         for proc in psutil.process_iter():
             if proc.name != 'Finder':
+                continue
+
+            if proc.username != getpass.getuser():
                 continue
 
             # Try to isolate system finder as opposed to other "Finder"
@@ -173,7 +228,25 @@ class Build(MachCommandBase):
         print(FINDER_SLOW_MESSAGE % finder_percent)
 
 
-    @Command('clobber', help='Clobber the tree (delete the object directory).')
+    @Command('configure', category='build',
+        description='Configure the tree (run configure and config.status')
+    def configure(self):
+        def on_line(line):
+            self.log(logging.INFO, 'build_output', {'line': line}, '{line}')
+
+        status = self._run_make(srcdir=True, filename='client.mk',
+            target='configure', line_handler=on_line, log=False,
+            print_directory=False, allow_parallel=False, ensure_exit_code=False)
+
+        if not status:
+            print('Configure complete!')
+            print('Be sure to run |mach build| to pick up any changes');
+
+        return status
+
+
+    @Command('clobber', category='build',
+        description='Clobber the tree (delete the object directory).')
     def clobber(self):
         try:
             self.remove_objdir()
@@ -209,8 +282,8 @@ class Warnings(MachCommandBase):
 
         return database
 
-    @Command('warnings-summary',
-        help='Show a summary of compiler warnings.')
+    @Command('warnings-summary', category='post-build',
+        description='Show a summary of compiler warnings.')
     @CommandArgument('report', default=None, nargs='?',
         help='Warnings report to display. If not defined, show the most '
             'recent report.')
@@ -228,7 +301,8 @@ class Warnings(MachCommandBase):
 
         print('%d\tTotal' % total)
 
-    @Command('warnings-list', help='Show a list of compiler warnings.')
+    @Command('warnings-list', category='post-build',
+        description='Show a list of compiler warnings.')
     @CommandArgument('report', default=None, nargs='?',
         help='Warnings report to display. If not defined, show the most '
             'recent report.')
@@ -251,8 +325,72 @@ class Warnings(MachCommandBase):
                     warning['flag'], warning['message']))
 
 @CommandProvider
+class GTestCommands(MachCommandBase):
+    @Command('gtest', category='testing',
+        description='Run GTest unit tests.')
+    @CommandArgument('gtest_filter', default=b"*", nargs='?', metavar='gtest_filter',
+        help="test_filter is a ':'-separated list of wildcard patterns (called the positive patterns),"
+             "optionally followed by a '-' and another ':'-separated pattern list (called the negative patterns).")
+    @CommandArgument('--jobs', '-j', default='1', nargs='?', metavar='jobs', type=int,
+        help='Run the tests in parallel using multiple processes.')
+    @CommandArgument('--tbpl-parser', '-t', action='store_true',
+        help='Output test results in a format that can be parsed by TBPL.')
+    @CommandArgument('--shuffle', '-s', action='store_true',
+        help='Randomize the execution order of tests.')
+    def gtest(self, shuffle, jobs, gtest_filter, tbpl_parser):
+        app_path = self.get_binary_path('app')
+
+        # Use GTest environment variable to control test execution
+        # For details see:
+        # https://code.google.com/p/googletest/wiki/AdvancedGuide#Running_Test_Programs:_Advanced_Options
+        gtest_env = {b'GTEST_FILTER': gtest_filter}
+
+        if shuffle:
+            gtest_env[b"GTEST_SHUFFLE"] = b"True"
+
+        if tbpl_parser:
+            gtest_env[b"MOZ_TBPL_PARSER"] = b"True"
+
+        if jobs == 1:
+            return self.run_process([app_path, "-unittest"],
+                                    append_env=gtest_env,
+                                    ensure_exit_code=False,
+                                    pass_thru=True)
+
+        from mozprocess import ProcessHandlerMixin
+        import functools
+        def handle_line(job_id, line):
+            # Prepend the jobId
+            line = '[%d] %s' % (job_id + 1, line.strip())
+            self.log(logging.INFO, "GTest", {'line': line}, '{line}')
+
+        gtest_env["GTEST_TOTAL_SHARDS"] = str(jobs)
+        processes = {}
+        for i in range(0, jobs):
+            gtest_env["GTEST_SHARD_INDEX"] = str(i)
+            processes[i] = ProcessHandlerMixin([app_path, "-unittest"],
+                             env=gtest_env,
+                             processOutputLine=[functools.partial(handle_line, i)],
+                             universal_newlines=True)
+            processes[i].run()
+
+        exit_code = 0
+        for process in processes.values():
+            status = process.wait()
+            if status:
+                exit_code = status
+
+        # Clamp error code to 255 to prevent overflowing multiple of
+        # 256 into 0
+        if exit_code > 255:
+            exit_code = 255
+
+        return exit_code
+
+@CommandProvider
 class ClangCommands(MachCommandBase):
-    @Command('clang-complete', help='Generate a .clang_complete file.')
+    @Command('clang-complete', category='devenv',
+        description='Generate a .clang_complete file.')
     def clang_complete(self):
         import shlex
 
@@ -306,7 +444,8 @@ class ClangCommands(MachCommandBase):
 class Package(MachCommandBase):
     """Package the built product for distribution."""
 
-    @Command('package', help='Package the built product for distribution as an APK, DMG, etc.')
+    @Command('package', category='post-build',
+        description='Package the built product for distribution as an APK, DMG, etc.')
     def package(self):
         return self._run_make(directory=".", target='package', ensure_exit_code=False)
 
@@ -314,21 +453,73 @@ class Package(MachCommandBase):
 class Install(MachCommandBase):
     """Install a package."""
 
-    @Command('install', help='Install the package on the machine, or on a device.')
+    @Command('install', category='post-build',
+        description='Install the package on the machine, or on a device.')
     def install(self):
         return self._run_make(directory=".", target='install', ensure_exit_code=False)
+
+@CommandProvider
+class RunProgram(MachCommandBase):
+    """Launch the compiled binary"""
+
+    @Command('run', category='post-build', allow_all_args=True,
+        description='Run the compiled program.')
+    @CommandArgument('params', default=None, nargs='...',
+        help='Command-line arguments to pass to the program.')
+    def run(self, params):
+        try:
+            args = [self.get_binary_path('app'), '-no-remote']
+        except Exception as e:
+            print("It looks like your program isn't built.",
+                "You can run |mach build| to build it.")
+            print(e)
+            return 1
+        if params:
+            args.extend(params)
+        return self.run_process(args=args, ensure_exit_code=False,
+            pass_thru=True)
+
+@CommandProvider
+class DebugProgram(MachCommandBase):
+    """Debug the compiled binary"""
+
+    @Command('debug', category='post-build', allow_all_args=True,
+        description='Debug the compiled program.')
+    @CommandArgument('params', default=None, nargs='...',
+        help='Command-line arguments to pass to the program.')
+    def debug(self, params):
+        import which
+        try:
+            debugger = which.which('gdb')
+        except Exception as e:
+            print("You don't have gdb in your PATH")
+            print(e)
+            return 1
+        try:
+            args = [debugger, '--args', self.get_binary_path('app'), '-no-remote']
+        except Exception as e:
+            print("It looks like your program isn't built.",
+                "You can run |mach build| to build it.")
+            print(e)
+            return 1
+        if params:
+            args.extend(params)
+        return self.run_process(args=args, ensure_exit_code=False,
+            pass_thru=True)
 
 @CommandProvider
 class Buildsymbols(MachCommandBase):
     """Produce a package of debug symbols suitable for use with Breakpad."""
 
-    @Command('buildsymbols', help='Produce a package of Breakpad-format symbols.')
+    @Command('buildsymbols', category='post-build',
+        description='Produce a package of Breakpad-format symbols.')
     def buildsymbols(self):
         return self._run_make(directory=".", target='buildsymbols', ensure_exit_code=False)
 
 @CommandProvider
 class Makefiles(MachCommandBase):
-    @Command('empty-makefiles', help='Find empty Makefile.in in the tree.')
+    @Command('empty-makefiles', category='build-dev',
+        description='Find empty Makefile.in in the tree.')
     def empty(self):
         import pymake.parser
         import pymake.parserdata

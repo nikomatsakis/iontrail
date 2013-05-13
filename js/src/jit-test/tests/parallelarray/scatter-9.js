@@ -8,4 +8,5 @@ function testScatter9() {
   assertEqParallelArray(r, p2);
 }
 
-testScatter9();
+if (getBuildConfiguration().parallelJS)
+  testScatter9();

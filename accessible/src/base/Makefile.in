@@ -19,13 +19,13 @@ CPPSRCS = \
   AccGroupInfo.cpp \
   AccIterator.cpp \
   Filters.cpp \
+  ARIAMap.cpp \
   ARIAStateMap.cpp \
   DocManager.cpp \
   EventQueue.cpp \
   FocusManager.cpp \
   NotificationController.cpp \
   nsAccessNode.cpp \
-  nsARIAMap.cpp \
   nsCoreUtils.cpp \
   nsAccUtils.cpp \
   nsAccessibilityService.cpp \
@@ -46,30 +46,6 @@ CPPSRCS += \
   $(NULL)
 endif
 
-EXPORTS = \
-  AccEvent.h \
-  nsAccessibilityService.h \
-  nsAccessNode.h \
-  $(NULL)
-
-EXPORTS_NAMESPACES = mozilla/a11y
-
-EXPORTS_mozilla/a11y = \
-  DocManager.h \
-  FocusManager.h \
-  AccTypes.h \
-  Platform.h \
-  States.h \
-  SelectionManager.h \
-  Role.h \
-  $(NULL)
-
-ifdef MOZ_DEBUG
-EXPORTS_mozilla/a11y += \
-  Logging.h \
-  $(NULL)
-endif
-
 # we don't want the shared lib, but we want to force the creation of a static lib.
 FORCE_STATIC_LIB = 1
 
@@ -85,6 +61,7 @@ LOCAL_INCLUDES += \
   -I$(srcdir)/../../../layout/style \
   -I$(srcdir)/../../../layout/svg \
   -I$(srcdir)/../../../layout/xul/base/src \
+  -I$(srcdir)/../../../layout/xul/tree/ \
   $(NULL)
 
 ifeq ($(MOZ_WIDGET_TOOLKIT),gtk2)

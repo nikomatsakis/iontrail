@@ -11,6 +11,7 @@
 
 #include "nsGUIEvent.h"
 #include "nsClientRect.h"
+#include "mozilla/dom/ScrollAreaEventBinding.h"
 
 class nsDOMScrollAreaEvent : public nsDOMUIEvent,
                              public nsIDOMScrollAreaEvent
@@ -35,6 +36,12 @@ public:
   NS_IMETHOD_(void) Serialize(IPC::Message* aMsg, bool aSerializeInterfaceType);
   NS_IMETHOD_(bool) Deserialize(const IPC::Message* aMsg, void** aIter);
 
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aScope) MOZ_OVERRIDE
+  {
+    return mozilla::dom::ScrollAreaEventBinding::Wrap(aCx, aScope, this);
+  }
+
   float X() const
   {
     return mClientArea.Left();
@@ -53,6 +60,19 @@ public:
   float Height() const
   {
     return mClientArea.Height();
+  }
+
+  void InitScrollAreaEvent(const nsAString& aType,
+                           bool aCanBubble,
+                           bool aCancelable,
+                           nsIDOMWindow* aView,
+                           int32_t aDetail,
+                           float aX, float aY,
+                           float aWidth, float aHeight,
+                           mozilla::ErrorResult& aRv)
+  {
+    aRv = InitScrollAreaEvent(aType, aCanBubble, aCancelable, aView,
+                              aDetail, aX, aY, aWidth, aHeight);
   }
 
 protected:

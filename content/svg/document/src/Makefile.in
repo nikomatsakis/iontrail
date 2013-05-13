@@ -15,7 +15,7 @@ LIBXUL_LIBRARY	= 1
 FAIL_ON_WARNINGS = 1
 
 CPPSRCS		= \
-		nsSVGDocument.cpp \
+		SVGDocument.cpp \
 		$(NULL)
 
 # we don't want the shared lib, but we want to force the creation of a static lib.
@@ -31,6 +31,7 @@ INCLUDES	+= \
 		-I$(srcdir)/../../../base/src \
 		-I$(srcdir)/../../../events/src \
 		-I$(topsrcdir)/xpcom/ds \
+		-I$(topsrcdir)/content/svg/content/src \
 		$(NULL)
 
 DEFINES += -D_IMPL_NS_LAYOUT

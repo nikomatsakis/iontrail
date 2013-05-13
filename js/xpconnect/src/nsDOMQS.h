@@ -17,12 +17,15 @@
 #include "nsICSSDeclaration.h"
 #include "nsSVGElement.h"
 #include "nsDOMEvent.h"
+#include "nsDOMMouseEvent.h"
+#include "nsDOMUIEvent.h"
 #include "mozilla/dom/EventTargetBinding.h"
 #include "mozilla/dom/NodeBinding.h"
 #include "mozilla/dom/ElementBinding.h"
 #include "mozilla/dom/HTMLElementBinding.h"
 #include "mozilla/dom/DocumentBinding.h"
 #include "mozilla/dom/SVGElementBinding.h"
+#include "mozilla/dom/HTMLDocumentBinding.h"
 
 template<class T>
 struct ProtoIDAndDepth
@@ -50,14 +53,17 @@ NEW_BINDING(mozilla::dom::Element, Element);
 NEW_BINDING(nsGenericHTMLElement, HTMLElement);
 NEW_BINDING(nsIDocument, Document);
 NEW_BINDING(nsDocument, Document);
+NEW_BINDING(nsHTMLDocument, HTMLDocument);
 NEW_BINDING(nsSVGElement, SVGElement);
 NEW_BINDING(nsDOMEvent, Event);
+NEW_BINDING(nsDOMMouseEvent, MouseEvent);
+NEW_BINDING(nsDOMUIEvent, UIEvent);
 
 #define DEFINE_UNWRAP_CAST(_interface, _base, _bit)                           \
 template <>                                                                   \
 MOZ_ALWAYS_INLINE JSBool                                                      \
 xpc_qsUnwrapThis<_interface>(JSContext *cx,                                   \
-                             JSObject *obj,                                   \
+                             JS::HandleObject obj,                            \
                              _interface **ppThis,                             \
                              nsISupports **pThisRef,                          \
                              jsval *pThisVal,                                 \

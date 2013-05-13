@@ -23,31 +23,15 @@ class nsIArray;
 class nsIVariant;
 class nsIObjectInputStream;
 class nsIObjectOutputStream;
-template<class> class nsScriptObjectHolder;
 class nsIScriptObjectPrincipal;
 class nsIDOMWindow;
 class nsIURI;
 
 typedef void (*nsScriptTerminationFunc)(nsISupports* aRef);
 
-#define NS_ISCRIPTCONTEXTPRINCIPAL_IID \
-  { 0xd012cdb3, 0x8f1e, 0x4440, \
-    { 0x8c, 0xbd, 0x32, 0x7f, 0x98, 0x1d, 0x37, 0xb4 } }
-
-class nsIScriptContextPrincipal : public nsISupports
-{
-public:
-  NS_DECLARE_STATIC_IID_ACCESSOR(NS_ISCRIPTCONTEXTPRINCIPAL_IID)
-
-  virtual nsIScriptObjectPrincipal* GetObjectPrincipal() = 0;
-};
-
-NS_DEFINE_STATIC_IID_ACCESSOR(nsIScriptContextPrincipal,
-                              NS_ISCRIPTCONTEXTPRINCIPAL_IID)
-
 #define NS_ISCRIPTCONTEXT_IID \
-{ 0xa2210341, 0x3123, 0x4477, \
-    { 0xb5, 0xa9, 0x91, 0x95, 0xbd, 0x77, 0xb1, 0xe6 } }
+{ 0x821c5be9, 0xbf9e, 0x4041, \
+  { 0x9f, 0xf2, 0x1f, 0xca, 0x39, 0xf7, 0x89, 0xf3 } }
 
 /* This MUST match JSVERSION_DEFAULT.  This version stuff if we don't
    know what language we have is a little silly... */
@@ -57,7 +41,7 @@ NS_DEFINE_STATIC_IID_ACCESSOR(nsIScriptContextPrincipal,
  * It is used by the application to initialize a runtime and run scripts.
  * A script runtime would implement this interface.
  */
-class nsIScriptContext : public nsIScriptContextPrincipal
+class nsIScriptContext : public nsISupports
 {
 public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_ISCRIPTCONTEXT_IID)
@@ -104,7 +88,7 @@ public:
                                  const char* aURL,
                                  uint32_t aLineNo,
                                  uint32_t aVersion,
-                                 nsScriptObjectHolder<JSScript>& aScriptObject,
+                                 JS::MutableHandle<JSScript*> aScriptObject,
                                  bool aSaveSource = false) = 0;
 
   /**
@@ -123,22 +107,6 @@ public:
    */
   virtual nsresult ExecuteScript(JSScript* aScriptObject,
                                  JSObject* aScopeObject) = 0;
-
-  /**
-   * Call the function object with given args and return its boolean result,
-   * or true if the result isn't boolean.
-   *
-   * @param aTarget the event target
-   * @param aScript an object telling the scope in which to call the compiled
-   *        event handler function.
-   * @param aHandler function object (function and static scope) to invoke.
-   * @param argv array of arguments.  Note each element is assumed to
-   *        be an nsIVariant.
-   * @param rval out parameter returning result
-   **/
-  virtual nsresult CallEventHandler(nsISupports* aTarget,
-                                    JSObject* aScope, JSObject* aHandler,
-                                    nsIArray *argv, nsIVariant **rval) = 0;
 
   /**
    * Bind an already-compiled event handler function to the given
@@ -164,7 +132,7 @@ public:
   virtual nsresult BindCompiledEventHandler(nsISupports* aTarget,
                                             JSObject* aScope,
                                             JSObject* aHandler,
-                                            nsScriptObjectHolder<JSObject>& aBoundHandler) = 0;
+                                            JS::MutableHandle<JSObject*> aBoundHandler) = 0;
 
   /**
    * Return the global object.
@@ -226,7 +194,7 @@ public:
   /* Deserialize a script from a stream.
    */
   virtual nsresult Deserialize(nsIObjectInputStream* aStream,
-                               nsScriptObjectHolder<JSScript>& aResult) = 0;
+                               JS::MutableHandle<JSScript*> aResult) = 0;
 
   /**
    * JS only - this function need not be implemented by languages other
@@ -279,16 +247,6 @@ public:
    * Tell the context we're done reinitializing it.
    */
   virtual void DidInitializeContext() = 0;
-
-  /* Memory managment for script objects.  Used by the implementation of
-   * nsScriptObjectHolder to manage the lifetimes of the held script objects.
-   *
-   * See also nsIScriptRuntime, which has identical methods and is useful
-   * in situations when you do not have an nsIScriptContext.
-   * 
-   */
-  virtual nsresult DropScriptObject(void *object) = 0;
-  virtual nsresult HoldScriptObject(void *object) = 0;
 
   virtual void EnterModalState() = 0;
   virtual void LeaveModalState() = 0;

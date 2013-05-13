@@ -4,8 +4,6 @@
 
 /*
  * Code for dealing with x.509 v3 crl and crl entries extensions.
- *
- * $Id: crlv2.c,v 1.7 2012/04/25 14:49:27 gerv%gerv.net Exp $
  */
 
 #include "cert.h"

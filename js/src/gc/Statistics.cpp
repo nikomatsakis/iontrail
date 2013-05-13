@@ -1,12 +1,13 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=8 sw=4 et tw=78:
- *
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include <stdio.h>
 #include <stdarg.h>
+
+#include "mozilla/PodOperations.h"
 
 #include "jscntxt.h"
 #include "jscompartment.h"
@@ -24,6 +25,8 @@
 
 using namespace js;
 using namespace js::gcstats;
+
+using mozilla::PodArrayZero;
 
 /* Except for the first and last, slices of less than 42ms are not reported. */
 static const int64_t SLICE_MIN_REPORT_TIME = 42 * PRMJ_USEC_PER_MSEC;
@@ -529,14 +532,11 @@ Statistics::beginGC()
     nonincrementalReason = NULL;
 
     preBytes = runtime->gcBytes;
-
-    Probes::GCStart();
 }
 
 void
 Statistics::endGC()
 {
-    Probes::GCEnd();
     crash::SnapshotGCStack();
 
     for (int i = 0; i < PHASE_LIMIT; i++)
@@ -640,11 +640,6 @@ Statistics::beginPhase(Phase phase)
 #endif
 
     phaseStartTimes[phase] = PRMJ_Now();
-
-    if (phase == gcstats::PHASE_MARK)
-        Probes::GCStartMarkPhase();
-    else if (phase == gcstats::PHASE_SWEEP)
-        Probes::GCStartSweepPhase();
 }
 
 void
@@ -656,11 +651,6 @@ Statistics::endPhase(Phase phase)
     slices.back().phaseTimes[phase] += t;
     phaseTimes[phase] += t;
     phaseStartTimes[phase] = 0;
-
-    if (phase == gcstats::PHASE_MARK)
-        Probes::GCEndMarkPhase();
-    else if (phase == gcstats::PHASE_SWEEP)
-        Probes::GCEndSweepPhase();
 }
 
 int64_t

@@ -13,4 +13,5 @@ function testClosureCreation() {
   }
 }
 
-testClosureCreation();
+if (getBuildConfiguration().parallelJS)
+  testClosureCreation();

@@ -53,7 +53,7 @@ public:
    * @result The new view.  Never null.
    */
   nsView* CreateView(const nsRect& aBounds,
-                     const nsView* aParent,
+                     nsView* aParent,
                      nsViewVisibility aVisibilityFlag = nsViewVisibility_kShow);
 
   /**
@@ -232,9 +232,11 @@ public:
 
   /**
    * Get the device context associated with this manager
-   * @result device context
    */
-  void GetDeviceContext(nsDeviceContext *&aContext);
+  nsDeviceContext* GetDeviceContext() const
+  {
+    return mContext;
+  }
 
   /**
    * A stack class for disallowing changes that would enter painting. For
@@ -248,7 +250,7 @@ public:
    * since popup widget geometry is observable from script and expected to
    * update synchronously.
    */
-  class NS_STACK_CLASS AutoDisableRefresh {
+  class MOZ_STACK_CLASS AutoDisableRefresh {
   public:
     AutoDisableRefresh(nsViewManager* aVM) {
       if (aVM) {

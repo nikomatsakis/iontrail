@@ -13,5 +13,6 @@ function test() {
   assertEqParallelArray(r, p2);
 }
 
-test();
+if (getBuildConfiguration().parallelJS)
+  test();
 

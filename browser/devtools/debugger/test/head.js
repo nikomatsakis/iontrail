@@ -12,14 +12,14 @@ Cu.import("resource://gre/modules/devtools/dbg-server.jsm", tempScope);
 Cu.import("resource://gre/modules/devtools/dbg-client.jsm", tempScope);
 Cu.import("resource:///modules/source-editor.jsm", tempScope);
 Cu.import("resource:///modules/devtools/gDevTools.jsm", tempScope);
-Cu.import("resource:///modules/devtools/Target.jsm", tempScope);
 let Services = tempScope.Services;
 let SourceEditor = tempScope.SourceEditor;
 let DebuggerServer = tempScope.DebuggerServer;
 let DebuggerTransport = tempScope.DebuggerTransport;
 let DebuggerClient = tempScope.DebuggerClient;
 let gDevTools = tempScope.gDevTools;
-let TargetFactory = tempScope.TargetFactory;
+let devtools = tempScope.devtools;
+let TargetFactory = devtools.TargetFactory;
 
 // Import the GCLI test helper
 let testDir = gTestPath.substr(0, gTestPath.lastIndexOf("/"));
@@ -156,12 +156,10 @@ function wait_for_connect_and_resume(aOnDebugging, aTab) {
 
   gDevTools.showToolbox(target, "jsdebugger").then(function(toolbox) {
     let dbg = toolbox.getCurrentPanel();
-    dbg.once("connected", function dbgConnected() {
 
-      // Wait for the initial resume...
-      dbg.panelWin.gClient.addOneTimeListener("resumed", function() {
-        aOnDebugging();
-      });
+    // Wait for the initial resume...
+    dbg.panelWin.gClient.addOneTimeListener("resumed", function() {
+      aOnDebugging();
     });
   });
 }
@@ -176,16 +174,16 @@ function debug_tab_pane(aURL, aOnDebugging, aBeforeTabAdded) {
     let debuggee = gBrowser.selectedTab.linkedBrowser.contentWindow.wrappedJSObject;
     let target = TargetFactory.forTab(gBrowser.selectedTab);
 
+    info("Opening Debugger");
     gDevTools.showToolbox(target, "jsdebugger").then(function(toolbox) {
       let dbg = toolbox.getCurrentPanel();
-      dbg.once("connected", function() {
 
-        // Wait for the initial resume...
-        dbg.panelWin.gClient.addOneTimeListener("resumed", function() {
-          dbg._view.Variables.lazyEmpty = false;
-          dbg._view.Variables.lazyAppend = false;
-          aOnDebugging(tab, debuggee, dbg);
-        });
+      // Wait for the initial resume...
+      dbg.panelWin.gClient.addOneTimeListener("resumed", function() {
+        info("Debugger has started");
+        dbg._view.Variables.lazyEmpty = false;
+        dbg._view.Variables.lazyAppend = false;
+        aOnDebugging(tab, debuggee, dbg);
       });
     });
   });
@@ -200,17 +198,16 @@ function debug_remote(aURL, aOnDebugging, aBeforeTabAdded) {
   let tab = addTab(aURL, function() {
     let debuggee = tab.linkedBrowser.contentWindow.wrappedJSObject;
 
+    info("Opening Remote Debugger");
     let win = DebuggerUI.toggleRemoteDebugger();
-    win._dbgwin.addEventListener("Debugger:Connected", function dbgConnected() {
-      win._dbgwin.removeEventListener("Debugger:Connected", dbgConnected, true);
 
-      // Wait for the initial resume...
-      win.panelWin.gClient.addOneTimeListener("resumed", function() {
-        win._dbgwin.DebuggerView.Variables.lazyEmpty = false;
-        win._dbgwin.DebuggerView.Variables.lazyAppend = false;
-        aOnDebugging(tab, debuggee, win);
-      });
-    }, true);
+    // Wait for the initial resume...
+    win.panelWin.gClient.addOneTimeListener("resumed", function() {
+      info("Remote Debugger has started");
+      win._dbgwin.DebuggerView.Variables.lazyEmpty = false;
+      win._dbgwin.DebuggerView.Variables.lazyAppend = false;
+      aOnDebugging(tab, debuggee, win);
+    });
   });
 }
 
@@ -219,10 +216,10 @@ function debug_chrome(aURL, aOnClosing, aOnDebugging) {
     let debuggee = tab.linkedBrowser.contentWindow.wrappedJSObject;
 
     info("Opening Browser Debugger");
-    DebuggerUI.toggleChromeDebugger(aOnClosing, function dbgRan(process) {
-      info("Browser Debugger has started");
+    let win = DebuggerUI.toggleChromeDebugger(aOnClosing, function(process) {
 
-      // Wait for the remote debugging process to start...
+      // The remote debugging process has started...
+      info("Browser Debugger has started");
       aOnDebugging(tab, debuggee, process);
     });
   });

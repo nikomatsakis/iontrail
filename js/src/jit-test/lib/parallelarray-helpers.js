@@ -184,25 +184,23 @@ function assertParallelExecWillRecover(opFunction) {
 }
 
 // Checks that we will (eventually) be able to compile and exection
-// `opFunction` in parallel mode, and that the result is equal to
-// `expected` (as asserted by `cmpFunction`).  For some tests, it
-// takes many compile rounds to reach a TI fixed point. So this
-// function will repeatedly attempt to invoke `opFunction` with
-// `compile` and then `par` mode until getting a successful `par` run.
-// After enough tries, of course, we give up and declare a test failure.
-function assertParallelExecEquals(expected, opFunction, cmpFunction) {
-  if (!cmpFunction) { cmpFunction = assertStructuralEq; }
-
+// `opFunction` in parallel mode. Invokes `cmpFunction` with the
+// result.  For some tests, it takes many compile rounds to reach a TI
+// fixed point. So this function will repeatedly attempt to invoke
+// `opFunction` with `compile` and then `par` mode until getting a
+// successful `par` run.  After enough tries, of course, we give up
+// and declare a test failure.
+function assertParallelExecSucceeds(opFunction, cmpFunction) {
   var failures = 0;
   while (true) {
     print("Attempting compile #", failures);
     var result = opFunction({mode:"compile"});
-    cmpFunction(expected, result);
+    cmpFunction(result);
 
     try {
       print("Attempting parallel run #", failures);
       var result = opFunction({mode:"par"});
-      cmpFunction(expected, result);
+      cmpFunction(result);
       break;
     } catch (e) {
       failures++;
@@ -216,7 +214,7 @@ function assertParallelExecEquals(expected, opFunction, cmpFunction) {
 
   print("Attempting sequential run");
   var result = opFunction({mode:"seq"});
-  cmpFunction(expected, result);
+  cmpFunction(result);
 }
 
 // Compares a ParallelArray function against its equivalent on the
@@ -228,34 +226,41 @@ function assertParallelExecEquals(expected, opFunction, cmpFunction) {
 // would check that `[1, 2, 3].map(i => i+1)` and `new
 // ParallelArray([1, 2, 3]).map(i => i+1)` yield the same result.
 //
-// Based on `assertParallelExecEquals`
+// Based on `assertParallelExecSucceeds`
 function compareAgainstArray(jsarray, opname, func, cmpFunction) {
+  if (!cmpFunction)
+    cmpFunction = assertStructuralEq;
   var expected = jsarray[opname].apply(jsarray, [func]);
   var parray = new ParallelArray(jsarray);
-  assertParallelExecEquals(
-    expected,
+  assertParallelExecSucceeds(
     function(m) {
       return parray[opname].apply(parray, [func, m]);
     },
-    cmpFunction);
+    function(r) {
+      cmpFunction(expected, r);
+    });
 }
 
 // Similar to `compareAgainstArray`, but for the `scan` method which
 // does not appear on array.
 function testScan(jsarray, func, cmpFunction) {
+  if (!cmpFunction)
+    cmpFunction = assertStructuralEq;
   var expected = seq_scan(jsarray, func);
   var parray = new ParallelArray(jsarray);
 
   // Unfortunately, it sometimes happens that running 'par' twice in a
   // row causes bailouts and other unfortunate things!
 
-  assertParallelExecEquals(
-    expected,
+  assertParallelExecSucceeds(
     function(m) {
       print(m.mode + " " + m.expect);
       var p = parray.scan(func, m);
       return p;
-    }, cmpFunction);
+    },
+    function(r) {
+      cmpFunction(expected, r);
+    });
 }
 
 // Similar to `compareAgainstArray`, but for the `scatter` method.
@@ -265,29 +270,14 @@ function testScan(jsarray, func, cmpFunction) {
 function testScatter(opFunction, cmpFunction) {
   var strategies = ["divide-scatter-version", "divide-output-range"];
   for (var i in strategies) {
-    assertParallelExecEquals(
-      null,
+    assertParallelExecSucceeds(
       function(m) {
         var m1 = {mode: m.mode,
                   strategy: strategies[i]};
         print(JSON.stringify(m1));
         return opFunction(m1);
       },
-      function(e, a) {
-        cmpFunction(a);
-      });
-  }
-}
-
-// Checks that `opFunction`, when run with each of the modes
-// in `modes`, returns a value that is equal to `expected`.
-// `cmpFunction` is an optional comparator that defaults to
-// `assertStructuralEq`.
-function assertParallelArrayModesEq(modes, expected, opFunction, cmpFunction) {
-  if (!cmpFunction) { cmpFunction = assertStructuralEq; }
-  for (i in modes) {
-    var result = opFunction(modes[i]);
-    cmpFunction(expected, result);
+      cmpFunction);
   }
 }
 

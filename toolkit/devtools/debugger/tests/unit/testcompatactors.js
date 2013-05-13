@@ -30,29 +30,26 @@ function createRootActor()
         };
 
         actor.thread.requestTypes["scripts"] = function (aRequest) {
-          this._discoverScriptsAndSources();
-
-          let scripts = [];
-          for (let url in this._scripts) {
-            for (let i = 0; i < this._scripts[url].length; i++) {
-              if (!this._scripts[url][i]) {
+          return this._discoverScriptsAndSources().then(function () {
+            let scripts = [];
+            for (let s of this.dbg.findScripts()) {
+              if (!s.url) {
                 continue;
               }
-
               let script = {
-                url: url,
-                startLine: i,
-                lineCount: this._scripts[url][i].lineCount,
-                source: this._getSource(url).form()
+                url: s.url,
+                startLine: s.startLine,
+                lineCount: s.lineCount,
+                source: this.sources.source(s.url).form()
               };
               scripts.push(script);
             }
-          }
 
-          return {
-            from: this.actorID,
-            scripts: scripts
-          };
+            return {
+              from: this.actorID,
+              scripts: scripts
+            };
+          }.bind(this));
         };
 
         // Pretend that we do not know about the "sources" packet to force the
@@ -73,7 +70,7 @@ function createRootActor()
               url: aScript.url,
               startLine: aScript.startLine,
               lineCount: aScript.lineCount,
-              source: actor.thread._getSource(aScript.url).form()
+              source: actor.thread.sources.source(aScript.url).form()
             });
           };
         }(actor.thread.onNewScript));

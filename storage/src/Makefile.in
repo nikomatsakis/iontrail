@@ -13,7 +13,6 @@ include $(DEPTH)/config/autoconf.mk
 LIBRARY_NAME     = storage_s
 MODULE_NAME      = mozStorageModule
 FORCE_STATIC_LIB = 1
-GRE_MODULE       = 1
 LIBXUL_LIBRARY = 1
 
 # TODO: we do this in crashreporter and xpcom/base too, should be centralized
@@ -32,13 +31,6 @@ ifneq ($(OS_TARGET), Android)
 DEFINES += -DMOZ_STORAGE_MEMORY
 endif
 endif
-
-EXPORTS_NAMESPACES = mozilla/storage
-
-EXPORTS_mozilla/storage = \
-  Variant.h \
-  Variant_inl.h \
-  $(NULL)
 
 CPPSRCS = \
   mozStorageService.cpp \

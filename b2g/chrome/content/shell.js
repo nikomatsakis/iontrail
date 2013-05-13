@@ -12,12 +12,14 @@ Cu.import('resource://gre/modules/DOMFMRadioParent.jsm');
 Cu.import('resource://gre/modules/AlarmService.jsm');
 Cu.import('resource://gre/modules/ActivitiesService.jsm');
 Cu.import('resource://gre/modules/PermissionPromptHelper.jsm');
+Cu.import('resource://gre/modules/PushService.jsm');
 Cu.import('resource://gre/modules/ObjectWrapper.jsm');
 Cu.import('resource://gre/modules/accessibility/AccessFu.jsm');
 Cu.import('resource://gre/modules/Payment.jsm');
 Cu.import("resource://gre/modules/AppsUtils.jsm");
 Cu.import('resource://gre/modules/UserAgentOverrides.jsm');
 Cu.import('resource://gre/modules/Keyboard.jsm');
+Cu.import('resource://gre/modules/ErrorPage.jsm');
 #ifdef MOZ_B2G_RIL
 Cu.import('resource://gre/modules/NetworkStatsService.jsm');
 #endif
@@ -83,6 +85,14 @@ function debug(str) {
   dump(' -*- Shell.js: ' + str + '\n');
 }
 
+#ifdef MOZ_CRASHREPORTER
+function debugCrashReport(aStr) {
+  dump('Crash reporter : ' + aStr);
+}
+#else
+function debugCrashReport(aStr) {}
+#endif
+
 var shell = {
 
   get CrashSubmit() {
@@ -91,6 +101,7 @@ var shell = {
     Cu.import("resource://gre/modules/CrashSubmit.jsm", this);
     return this.CrashSubmit;
 #else
+    dump('Crash reporter : disabled at build time.');
     return this.CrashSubmit = null;
 #endif
   },
@@ -110,7 +121,10 @@ var shell = {
         crashID = Cc["@mozilla.org/xre/app-info;1"]
                     .getService(Ci.nsIXULRuntime).lastRunCrashID;
       }
-    } catch(e) { }
+    } catch(e) {
+      debugCrashReport('Failed to fetch crash id. Crash ID is "' + crashID
+                       + '" Exception: ' + e);
+    }
 
     // Bail if there isn't a valid crashID.
     if (!this.CrashSubmit || !crashID && !this.CrashSubmit.pendingIDs().length) {
@@ -122,10 +136,14 @@ var shell = {
 
     try {
       // Check if we should automatically submit this crash.
-      if (Services.prefs.getBoolPref("app.reportCrashes")) {
+      if (Services.prefs.getBoolPref('app.reportCrashes')) {
         this.submitCrash(crashID);
+      } else {
+        debugCrashReport('app.reportCrashes is disabled');
       }
-    } catch (e) { }
+    } catch (e) {
+      debugCrashReport('Can\'t fetch app.reportCrashes. Exception: ' + e);
+    }
 
     // We can get here if we're just submitting old pending crashes.
     // Check that there's a valid crashID so that we only notify the
@@ -145,6 +163,7 @@ var shell = {
     // submit the pending queue.
     let pending = shell.CrashSubmit.pendingIDs();
     for (let crashid of pending) {
+      debugCrashReport('Submitting crash: ' + crashid);
       shell.CrashSubmit.submit(crashid);
     }
   },
@@ -155,6 +174,8 @@ var shell = {
       this.submitQueuedCrashes();
       return;
     }
+
+    debugCrashReport('Not online, postponing.');
 
     Services.obs.addObserver(function observer(subject, topic, state) {
       let network = subject.QueryInterface(Ci.nsINetworkInterface);
@@ -241,7 +262,7 @@ var shell = {
       });
 #endif
     } catch(e) {
-      dump("exception: " + e);
+      debugCrashReport('exception: ' + e);
     }
 
     let homeURL = this.homeURL;
@@ -406,7 +427,7 @@ var shell = {
   needBufferSysMsgs: true,
   bufferedSysMsgs: [],
   timer: null,
-  visibleAudioActive: false,
+  visibleNormalAudioActive: false,
 
   handleEvent: function shell_handleEvent(evt) {
     let content = this.contentBrowser.contentWindow;
@@ -424,7 +445,7 @@ var shell = {
           Services.fm.focusedWindow = window;
         break;
       case 'sizemodechange':
-        if (window.windowState == window.STATE_MINIMIZED && !this.visibleAudioActive) {
+        if (window.windowState == window.STATE_MINIMIZED && !this.visibleNormalAudioActive) {
           this.contentBrowser.setVisible(false);
         } else {
           this.contentBrowser.setVisible(true);
@@ -855,6 +876,7 @@ var WebappsHelper = {
   init: function webapps_init() {
     Services.obs.addObserver(this, "webapps-launch", false);
     Services.obs.addObserver(this, "webapps-ask-install", false);
+    Services.obs.addObserver(this, "webapps-close", false);
   },
 
   registerInstaller: function webapps_registerInstaller(data) {
@@ -906,6 +928,12 @@ var WebappsHelper = {
           app: json.app
         });
         break;
+      case "webapps-close":
+        shell.sendChromeEvent({
+          "type": "webapps-close",
+          "manifestURL": json.manifestURL
+        });
+        break;
     }
   }
 }
@@ -921,7 +949,7 @@ let IndexedDBPromptHelper = {
 
   uninit:
   function IndexedDBPromptHelper_uninit() {
-    Services.obs.removeObserver(this, this._quotaPrompt, false);
+    Services.obs.removeObserver(this, this._quotaPrompt);
   },
 
   observe:
@@ -1127,7 +1155,7 @@ window.addEventListener('ContentStart', function update_onContentStart() {
       type: 'visible-audio-channel-changed',
       channel: aData
     });
-    shell.visibleAudioActive = (aData !== 'none');
+    shell.visibleNormalAudioActive = (aData == 'normal');
 }, "visible-audio-channel-changed", false);
 })();
 

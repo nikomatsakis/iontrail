@@ -16,7 +16,6 @@
 #include "nsString.h"
 #include "nsCOMPtr.h"
 #include "nsWeakReference.h"
-#include "mozilla/Telemetry.h"
 
 #include "nsIHttpProtocolHandler.h"
 #include "nsIProtocolProxyService.h"
@@ -36,6 +35,14 @@ class nsHttpTransaction;
 class nsAHttpTransaction;
 class nsIHttpChannel;
 class nsIPrefBranch;
+class nsICancelable;
+
+namespace mozilla {
+namespace net {
+class ATokenBucketEvent;
+class EventTokenBucket;
+}
+}
 
 //-----------------------------------------------------------------------------
 // nsHttpHandler - protocol handler for HTTP and HTTPS
@@ -99,6 +106,11 @@ public:
     uint32_t       ConnectTimeout()  { return mConnectTimeout; }
     uint32_t       ParallelSpeculativeConnectLimit() { return mParallelSpeculativeConnectLimit; }
     bool           CritialRequestPrioritization() { return mCritialRequestPrioritization; }
+
+    bool           UseRequestTokenBucket() { return mRequestTokenBucketEnabled; }
+    uint16_t       RequestTokenBucketMinParallelism() { return mRequestTokenBucketMinParallelism; }
+    uint32_t       RequestTokenBucketHz() { return mRequestTokenBucketHz; }
+    uint32_t       RequestTokenBucketBurst() {return mRequestTokenBucketBurst; }
 
     bool           PromptTempRedirect()      { return mPromptTempRedirect; }
 
@@ -377,7 +389,7 @@ private:
 
     // For broadcasting tracking preference
     bool           mDoNotTrackEnabled;
-    PRUint8        mDoNotTrackValue;
+    uint8_t        mDoNotTrackValue;
 
     // Whether telemetry is reported or not
     bool           mTelemetryEnabled;
@@ -409,31 +421,39 @@ private:
     // when starting a new speculative connection.
     uint32_t       mParallelSpeculativeConnectLimit;
 
+    // For Rate Pacing of HTTP/1 requests through a netwerk/base/src/EventTokenBucket
+    // Active requests <= *MinParallelism are not subject to the rate pacing
+    bool           mRequestTokenBucketEnabled;
+    uint16_t       mRequestTokenBucketMinParallelism;
+    uint32_t       mRequestTokenBucketHz;  // EventTokenBucket HZ
+    uint32_t       mRequestTokenBucketBurst; // EventTokenBucket Burst
+
     // Whether or not to block requests for non head js/css items (e.g. media)
     // while those elements load.
     bool           mCritialRequestPrioritization;
 
+private:
+    // For Rate Pacing Certain Network Events. Only assign this pointer on
+    // socket thread.
+    void MakeNewRequestTokenBucket();
+    nsRefPtr<mozilla::net::EventTokenBucket> mRequestTokenBucket;
 
 public:
-    // For the Cache Effect Experiment (see StartCacheExperiment in cpp)
+    // Socket thread only
+    nsresult SubmitPacedRequest(mozilla::net::ATokenBucketEvent *event,
+                                nsICancelable **cancel)
+    {
+        if (!mRequestTokenBucket)
+            return NS_ERROR_UNEXPECTED;
+        return mRequestTokenBucket->SubmitEvent(event, cancel);
+    }
 
-    static void StartCacheExperiment(nsITimer * aTimer, void * aClosure);
-    static void FinishCacheExperiment(nsITimer * aTimer, void * aClosure);
-
-    const static uint32_t kExperimentStartupDelay = 1000 * 60 * 2; // 2 mins
-    const static uint32_t kExperimentStartupDuration = 1000 * 60 * 15; // 15 mins
-    const static mozilla::Telemetry::ID kNullTelemetryID = static_cast<mozilla::Telemetry::ID>(0);
-
-    mozilla::Telemetry::ID mCacheEffectExperimentTelemetryID;
-    bool     mCacheEffectExperimentOnce;
-    nsCOMPtr<nsITimer> mCacheEffectExperimentTimer;
-
-    // only update these on the socket thread, but reading them from the main thread is ok
-    uint64_t mCacheEffectExperimentSlowConn;
-    uint64_t mCacheEffectExperimentFastConn;
+    // Socket thread only
+    void SetRequestTokenBucket(mozilla::net::EventTokenBucket *aTokenBucket)
+    {
+        mRequestTokenBucket = aTokenBucket;
+    }
 };
-
-//-----------------------------------------------------------------------------
 
 extern nsHttpHandler *gHttpHandler;
 

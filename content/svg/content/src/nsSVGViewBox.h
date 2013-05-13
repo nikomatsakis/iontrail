@@ -9,11 +9,12 @@
 #include "nsAutoPtr.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsError.h"
-#include "nsIDOMSVGAnimatedRect.h"
-#include "nsIDOMSVGRect.h"
+#include "mozilla/dom/SVGAnimatedRect.h"
+#include "mozilla/dom/SVGIRect.h"
 #include "nsISMILAttr.h"
 #include "nsSVGElement.h"
 #include "mozilla/Attributes.h"
+#include "nsSVGAttrTearoffTable.h"
 
 class nsSMILValue;
 
@@ -79,10 +80,12 @@ public:
                               bool aDoSetAttr);
   void GetBaseValueString(nsAString& aValue) const;
 
-  nsresult ToDOMAnimatedRect(nsIDOMSVGAnimatedRect **aResult,
+  nsresult ToDOMAnimatedRect(mozilla::dom::SVGAnimatedRect **aResult,
                              nsSVGElement *aSVGElement);
-  nsresult ToDOMBaseVal(nsIDOMSVGRect **aResult, nsSVGElement* aSVGElement);
-  nsresult ToDOMAnimVal(nsIDOMSVGRect **aResult, nsSVGElement* aSVGElement);
+  nsresult ToDOMBaseVal(mozilla::dom::SVGIRect **aResult,
+                        nsSVGElement* aSVGElement);
+  nsresult ToDOMAnimVal(mozilla::dom::SVGIRect **aResult,
+                        nsSVGElement* aSVGElement);
   // Returns a new nsISMILAttr object that the caller must delete
   nsISMILAttr* ToSMILAttr(nsSVGElement* aSVGElement);
 
@@ -93,40 +96,57 @@ private:
   bool mHasBaseVal;
 
 public:
-  struct DOMBaseVal MOZ_FINAL : public nsIDOMSVGRect
+  struct DOMBaseVal MOZ_FINAL : public mozilla::dom::SVGIRect
   {
     NS_DECL_CYCLE_COLLECTING_ISUPPORTS
     NS_DECL_CYCLE_COLLECTION_CLASS(DOMBaseVal)
 
     DOMBaseVal(nsSVGViewBox *aVal, nsSVGElement *aSVGElement)
-      : mVal(aVal), mSVGElement(aSVGElement) {}
+      : mozilla::dom::SVGIRect(aSVGElement)
+      , mVal(aVal)
+      , mSVGElement(aSVGElement)
+    {}
     virtual ~DOMBaseVal();
 
     nsSVGViewBox* mVal; // kept alive because it belongs to content
     nsRefPtr<nsSVGElement> mSVGElement;
 
-    NS_IMETHOD GetX(float *aX)
-      { *aX = mVal->GetBaseValue().x; return NS_OK; }
-    NS_IMETHOD GetY(float *aY)
-      { *aY = mVal->GetBaseValue().y; return NS_OK; }
-    NS_IMETHOD GetWidth(float *aWidth)
-      { *aWidth = mVal->GetBaseValue().width; return NS_OK; }
-    NS_IMETHOD GetHeight(float *aHeight)
-      { *aHeight = mVal->GetBaseValue().height; return NS_OK; }
+    float X() const MOZ_OVERRIDE MOZ_FINAL
+    {
+      return mVal->GetBaseValue().x;
+    }
 
-    NS_IMETHOD SetX(float aX);
-    NS_IMETHOD SetY(float aY);
-    NS_IMETHOD SetWidth(float aWidth);
-    NS_IMETHOD SetHeight(float aHeight);
+    float Y() const MOZ_OVERRIDE MOZ_FINAL
+    {
+      return mVal->GetBaseValue().y;
+    }
+
+    float Width() const MOZ_OVERRIDE MOZ_FINAL
+    {
+      return mVal->GetBaseValue().width;
+    }
+
+    float Height() const MOZ_OVERRIDE MOZ_FINAL
+    {
+      return mVal->GetBaseValue().height;
+    }
+
+    void SetX(float aX, mozilla::ErrorResult& aRv) MOZ_FINAL;
+    void SetY(float aY, mozilla::ErrorResult& aRv) MOZ_FINAL;
+    void SetWidth(float aWidth, mozilla::ErrorResult& aRv) MOZ_FINAL;
+    void SetHeight(float aHeight, mozilla::ErrorResult& aRv) MOZ_FINAL;
   };
 
-  struct DOMAnimVal MOZ_FINAL : public nsIDOMSVGRect
+  struct DOMAnimVal MOZ_FINAL : public mozilla::dom::SVGIRect
   {
     NS_DECL_CYCLE_COLLECTING_ISUPPORTS
     NS_DECL_CYCLE_COLLECTION_CLASS(DOMAnimVal)
 
     DOMAnimVal(nsSVGViewBox *aVal, nsSVGElement *aSVGElement)
-      : mVal(aVal), mSVGElement(aSVGElement) {}
+      : mozilla::dom::SVGIRect(aSVGElement)
+      , mVal(aVal)
+      , mSVGElement(aSVGElement)
+    {}
     virtual ~DOMAnimVal();
 
     nsSVGViewBox* mVal; // kept alive because it belongs to content
@@ -134,58 +154,49 @@ public:
 
     // Script may have modified animation parameters or timeline -- DOM getters
     // need to flush any resample requests to reflect these modifications.
-    NS_IMETHOD GetX(float *aX)
+    float X() const MOZ_OVERRIDE MOZ_FINAL
     {
       mSVGElement->FlushAnimations();
-      *aX = mVal->GetAnimValue().x;
-      return NS_OK;
+      return mVal->GetAnimValue().x;
     }
-    NS_IMETHOD GetY(float *aY)
+
+    float Y() const MOZ_OVERRIDE MOZ_FINAL
     {
       mSVGElement->FlushAnimations();
-      *aY = mVal->GetAnimValue().y;
-      return NS_OK;
+      return mVal->GetAnimValue().y;
     }
-    NS_IMETHOD GetWidth(float *aWidth)
+
+    float Width() const MOZ_OVERRIDE MOZ_FINAL
     {
       mSVGElement->FlushAnimations();
-      *aWidth = mVal->GetAnimValue().width;
-      return NS_OK;
+      return mVal->GetAnimValue().width;
     }
-    NS_IMETHOD GetHeight(float *aHeight)
+
+    float Height() const MOZ_OVERRIDE MOZ_FINAL
     {
       mSVGElement->FlushAnimations();
-      *aHeight = mVal->GetAnimValue().height;
-      return NS_OK;
+      return mVal->GetAnimValue().height;
     }
 
-    NS_IMETHOD SetX(float aX)
-      { return NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR; }
-    NS_IMETHOD SetY(float aY)
-      { return NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR; }
-    NS_IMETHOD SetWidth(float aWidth)
-      { return NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR; }
-    NS_IMETHOD SetHeight(float aHeight)
-      { return NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR; }
-  };
+    void SetX(float aX, mozilla::ErrorResult& aRv) MOZ_FINAL
+    {
+      aRv.Throw(NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR);
+    }
 
-  struct DOMAnimatedRect MOZ_FINAL : public nsIDOMSVGAnimatedRect
-  {
-    NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-    NS_DECL_CYCLE_COLLECTION_CLASS(DOMAnimatedRect)
+    void SetY(float aY, mozilla::ErrorResult& aRv) MOZ_FINAL
+    {
+      aRv.Throw(NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR);
+    }
 
-    DOMAnimatedRect(nsSVGViewBox *aVal, nsSVGElement *aSVGElement)
-      : mVal(aVal), mSVGElement(aSVGElement) {}
-    virtual ~DOMAnimatedRect();
+    void SetWidth(float aWidth, mozilla::ErrorResult& aRv) MOZ_FINAL
+    {
+      aRv.Throw(NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR);
+    }
 
-    nsSVGViewBox* mVal; // kept alive because it belongs to content
-    nsRefPtr<nsSVGElement> mSVGElement;
-
-    NS_IMETHOD GetBaseVal(nsIDOMSVGRect **aBaseVal)
-      { return mVal->ToDOMBaseVal(aBaseVal, mSVGElement); }
-
-    NS_IMETHOD GetAnimVal(nsIDOMSVGRect **aAnimVal)
-      { return mVal->ToDOMAnimVal(aAnimVal, mSVGElement); }
+    void SetHeight(float aHeight, mozilla::ErrorResult& aRv) MOZ_FINAL
+    {
+      aRv.Throw(NS_ERROR_DOM_NO_MODIFICATION_ALLOWED_ERR);
+    }
   };
 
   struct SMILViewBox : public nsISMILAttr
@@ -209,6 +220,9 @@ public:
     virtual void ClearAnimValue();
     virtual nsresult SetAnimValue(const nsSMILValue& aValue);
   };
+
+  static nsSVGAttrTearoffTable<nsSVGViewBox, mozilla::dom::SVGAnimatedRect>
+    sSVGAnimatedRectTearoffTable;
 };
 
 #endif // __NS_SVGVIEWBOX_H__

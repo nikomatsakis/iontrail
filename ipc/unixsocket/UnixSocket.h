@@ -11,9 +11,11 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
+#include <netinet/in.h>
 #ifdef MOZ_B2G_BT
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/sco.h>
+#include <bluetooth/l2cap.h>
 #include <bluetooth/rfcomm.h>
 #endif
 #include <stdlib.h>
@@ -32,6 +34,7 @@ union sockaddr_any {
 #ifdef MOZ_B2G_BT
   sockaddr_sco sco;
   sockaddr_rc rc;
+  sockaddr_l2 l2;
 #endif
   // ... others
 };
@@ -141,7 +144,7 @@ public:
 
   virtual ~UnixSocketConsumer();
 
-  SocketConnectionStatus GetConnectionStatus()
+  SocketConnectionStatus GetConnectionStatus() const
   {
     return mConnectionStatus;
   }

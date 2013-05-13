@@ -89,17 +89,15 @@ AssertMainProcess()
 }
 
 bool
-WindowIsActive(nsIDOMWindow *window)
+WindowIsActive(nsIDOMWindow* aWindow)
 {
+  nsCOMPtr<nsPIDOMWindow> window = do_QueryInterface(aWindow);
   NS_ENSURE_TRUE(window, false);
 
-  nsCOMPtr<nsIDOMDocument> doc;
-  window->GetDocument(getter_AddRefs(doc));
-  NS_ENSURE_TRUE(doc, false);
+  nsIDocument* document = window->GetDoc();
+  NS_ENSURE_TRUE(document, false);
 
-  bool hidden = true;
-  doc->GetHidden(&hidden);
-  return !hidden;
+  return !document->Hidden();
 }
 
 StaticAutoPtr<WindowIdentifier::IDArrayType> gLastIDToVibrate;
@@ -627,6 +625,16 @@ void StartForceQuitWatchdog(ShutdownMode aMode, int32_t aTimeoutSecs)
   AssertMainProcess();
   AssertMainThread();
   PROXY_IF_SANDBOXED(StartForceQuitWatchdog(aMode, aTimeoutSecs));
+}
+
+void StartMonitoringGamepadStatus()
+{
+  PROXY_IF_SANDBOXED(StartMonitoringGamepadStatus());
+}
+
+void StopMonitoringGamepadStatus()
+{
+  PROXY_IF_SANDBOXED(StopMonitoringGamepadStatus());
 }
 
 void

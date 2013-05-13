@@ -1,6 +1,5 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=4 sw=4 et tw=99:
- *
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -199,7 +198,7 @@ static const JSC::MacroAssembler::RegisterID JSParamReg_Argc  = JSC::MIPSRegiste
         loadPtr(Address(obj, JSObject::offsetOfShape()), shape);
     }
 
-    Jump guardShape(RegisterID objReg, RawShape shape) {
+    Jump guardShape(RegisterID objReg, Shape *shape) {
         return branchPtr(NotEqual, Address(objReg, JSObject::offsetOfShape()), ImmPtr(shape));
     }
 
@@ -983,7 +982,7 @@ static const JSC::MacroAssembler::RegisterID JSParamReg_Argc  = JSC::MIPSRegiste
     }
 
     void loadObjProp(JSObject *obj, RegisterID objReg,
-                     js::RawShape shape,
+                     js::Shape *shape,
                      RegisterID typeReg, RegisterID dataReg)
     {
         if (obj->isFixedSlot(shape->slot()))
@@ -1147,6 +1146,9 @@ static const JSC::MacroAssembler::RegisterID JSParamReg_Argc  = JSC::MIPSRegiste
     }
 
     template <typename T>
+#if defined(__GNUC__) && __GNUC__ == 4 && __GNUC_MINOR__ == 7 && defined(JS_CPU_ARM)
+    __attribute__((optimize("-O1")))
+#endif
     void storeToTypedArray(int atype, ValueRemat vr, T address)
     {
         if (atype == js::TypedArray::TYPE_FLOAT32 || atype == js::TypedArray::TYPE_FLOAT64) {
@@ -1344,7 +1346,7 @@ static const JSC::MacroAssembler::RegisterID JSParamReg_Argc  = JSC::MIPSRegiste
      */
     Jump getNewObject(JSContext *cx, RegisterID result, JSObject *templateObject)
     {
-        gc::AllocKind allocKind = templateObject->getAllocKind();
+        gc::AllocKind allocKind = templateObject->tenuredGetAllocKind();
 
         JS_ASSERT(allocKind >= gc::FINALIZE_OBJECT0 && allocKind <= gc::FINALIZE_OBJECT_LAST);
         int thingSize = (int)gc::Arena::thingSize(allocKind);

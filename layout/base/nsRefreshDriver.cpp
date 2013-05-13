@@ -40,8 +40,10 @@
 #include "nsContentUtils.h"
 #include "mozilla/Preferences.h"
 #include "nsViewManager.h"
-#include "sampler.h"
+#include "GeckoProfiler.h"
 #include "nsNPAPIPluginInstance.h"
+#include "nsPerformance.h"
+#include "mozilla/dom/WindowBinding.h"
 
 using mozilla::TimeStamp;
 using mozilla::TimeDuration;
@@ -816,6 +818,15 @@ nsRefreshDriver::DoTick()
   }
 }
 
+struct DocumentFrameCallbacks {
+  DocumentFrameCallbacks(nsIDocument* aDocument) :
+    mDocument(aDocument)
+  {}
+
+  nsCOMPtr<nsIDocument> mDocument;
+  nsIDocument::FrameRequestCallbackList mCallbacks;
+};
+
 void
 nsRefreshDriver::Tick(int64_t aNowEpoch, TimeStamp aNowTime)
 {
@@ -828,7 +839,7 @@ nsRefreshDriver::Tick(int64_t aNowEpoch, TimeStamp aNowTime)
     return;
   }
 
-  SAMPLE_LABEL("nsRefreshDriver", "Tick");
+  PROFILER_LABEL("nsRefreshDriver", "Tick");
 
   // We're either frozen or we were disconnected (likely in the middle
   // of a tick iteration).  Just do nothing here, since our
@@ -873,10 +884,12 @@ nsRefreshDriver::Tick(int64_t aNowEpoch, TimeStamp aNowTime)
 
     if (i == 0) {
       // Grab all of our frame request callbacks up front.
-      nsIDocument::FrameRequestCallbackList frameRequestCallbacks;
+      nsTArray<DocumentFrameCallbacks>
+        frameRequestCallbacks(mFrameRequestCallbackDocs.Length());
       for (uint32_t i = 0; i < mFrameRequestCallbackDocs.Length(); ++i) {
+        frameRequestCallbacks.AppendElement(mFrameRequestCallbackDocs[i]);
         mFrameRequestCallbackDocs[i]->
-          TakeFrameRequestCallbacks(frameRequestCallbacks);
+          TakeFrameRequestCallbacks(frameRequestCallbacks.LastElement().mCallbacks);
       }
       // OK, now reset mFrameRequestCallbackDocs so they can be
       // readded as needed.
@@ -884,8 +897,29 @@ nsRefreshDriver::Tick(int64_t aNowEpoch, TimeStamp aNowTime)
 
       int64_t eventTime = aNowEpoch / PR_USEC_PER_MSEC;
       for (uint32_t i = 0; i < frameRequestCallbacks.Length(); ++i) {
-        nsAutoMicroTask mt;
-        frameRequestCallbacks[i]->Sample(eventTime);
+        const DocumentFrameCallbacks& docCallbacks = frameRequestCallbacks[i];
+        // XXXbz Bug 863140: GetInnerWindow can return the outer
+        // window in some cases.
+        nsPIDOMWindow* innerWindow = docCallbacks.mDocument->GetInnerWindow();
+        DOMHighResTimeStamp timeStamp = 0;
+        if (innerWindow && innerWindow->IsInnerWindow()) {
+          nsPerformance* perf = innerWindow->GetPerformance();
+          if (perf) {
+            timeStamp = perf->GetDOMTiming()->TimeStampToDOMHighRes(aNowTime);
+          }
+          // else window is partially torn down already
+        }
+        for (uint32_t j = 0; j < docCallbacks.mCallbacks.Length(); ++j) {
+          const nsIDocument::FrameRequestCallbackHolder& holder =
+            docCallbacks.mCallbacks[j];
+          nsAutoMicroTask mt;
+          if (holder.HasWebIDLCallback()) {
+            ErrorResult ignored;
+            holder.GetWebIDLCallback()->Call(timeStamp, ignored);
+          } else {
+            holder.GetXPCOMCallback()->Sample(eventTime);
+          }
+        }
       }
 
       // This is the Flush_Style case.

@@ -21,6 +21,7 @@ this.EXPORTED_SYMBOLS = [
   "AppInfoProvider",
   "CrashDirectoryService",
   "CrashesProvider",
+  "HealthReportProvider",
   "PlacesProvider",
   "SearchesProvider",
   "SessionsProvider",
@@ -35,10 +36,10 @@ Cu.import("resource://gre/modules/Metrics.jsm");
 
 Cu.import("resource://gre/modules/commonjs/sdk/core/promise.js");
 Cu.import("resource://gre/modules/osfile.jsm");
+Cu.import("resource://gre/modules/Preferences.jsm");
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/Task.jsm");
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://services-common/preferences.js");
 Cu.import("resource://services-common/utils.js");
 
 XPCOMUtils.defineLazyModuleGetter(this, "AddonManager",
@@ -189,11 +190,11 @@ AppInfoProvider.prototype = Object.freeze({
     xpcomabi: "XPCOMABI",
   },
 
-  onInit: function () {
-    return Task.spawn(this._onInit.bind(this));
+  postInit: function () {
+    return Task.spawn(this._postInit.bind(this));
   },
 
-  _onInit: function () {
+  _postInit: function () {
     let recordEmptyAppInfo = function () {
       this._setCurrentAppVersion("");
       this._setCurrentPlatformVersion("");
@@ -279,9 +280,7 @@ AppInfoProvider.prototype = Object.freeze({
 
 
   collectConstantData: function () {
-    return this.enqueueStorageOperation(function collect() {
-      return Task.spawn(this._populateConstants.bind(this));
-    }.bind(this));
+    return this.storage.enqueueTransaction(this._populateConstants.bind(this));
   },
 
   _populateConstants: function () {
@@ -424,9 +423,7 @@ SysInfoProvider.prototype = Object.freeze({
   },
 
   collectConstantData: function () {
-    return this.enqueueStorageOperation(function collection() {
-      return Task.spawn(this._populateConstants.bind(this));
-    }.bind(this));
+    return this.storage.enqueueTransaction(this._populateConstants.bind(this));
   },
 
   _populateConstants: function () {
@@ -686,6 +683,29 @@ AddonCountsMeasurement.prototype = Object.freeze({
   __proto__: Metrics.Measurement.prototype,
 
   name: "counts",
+  version: 2,
+
+  fields: {
+    theme: DAILY_LAST_NUMERIC_FIELD,
+    lwtheme: DAILY_LAST_NUMERIC_FIELD,
+    plugin: DAILY_LAST_NUMERIC_FIELD,
+    extension: DAILY_LAST_NUMERIC_FIELD,
+    service: DAILY_LAST_NUMERIC_FIELD,
+  },
+});
+
+
+/**
+ * Legacy version of addons counts before services was added.
+ */
+function AddonCountsMeasurement1() {
+  Metrics.Measurement.call(this);
+}
+
+AddonCountsMeasurement1.prototype = Object.freeze({
+  __proto__: Metrics.Measurement.prototype,
+
+  name: "counts",
   version: 1,
 
   fields: {
@@ -723,16 +743,18 @@ AddonsProvider.prototype = Object.freeze({
   FULL_DETAIL_TYPES: [
     "plugin",
     "extension",
+    "service",
   ],
 
   name: "org.mozilla.addons",
 
   measurementTypes: [
     ActiveAddonsMeasurement,
+    AddonCountsMeasurement1,
     AddonCountsMeasurement,
   ],
 
-  onInit: function () {
+  postInit: function () {
     let listener = {};
 
     for (let method of this.ADDON_LISTENER_CALLBACKS) {
@@ -774,7 +796,8 @@ AddonsProvider.prototype = Object.freeze({
 
       let now = new Date();
       let active = this.getMeasurement("active", 1);
-      let counts = this.getMeasurement("counts", 1);
+      let counts = this.getMeasurement(AddonCountsMeasurement.prototype.name,
+                                       AddonCountsMeasurement.prototype.version);
 
       this.enqueueStorageOperation(function storageAddons() {
         for (let type in data.counts) {
@@ -878,7 +901,7 @@ CrashesProvider.prototype = Object.freeze({
   pullOnly: true,
 
   collectConstantData: function () {
-    return Task.spawn(this._populateCrashCounts.bind(this));
+    return this.storage.enqueueTransaction(this._populateCrashCounts.bind(this));
   },
 
   _populateCrashCounts: function () {
@@ -888,17 +911,27 @@ CrashesProvider.prototype = Object.freeze({
     let pending = yield service.getPendingFiles();
     let submitted = yield service.getSubmittedFiles();
 
+    function getAgeLimit() {
+      return 0;
+    }
+
     let lastCheck = yield this.getState("lastCheck");
     if (!lastCheck) {
-      lastCheck = 0;
+      lastCheck = getAgeLimit();
     } else {
       lastCheck = parseInt(lastCheck, 10);
       if (Number.isNaN(lastCheck)) {
-        lastCheck = 0;
+        lastCheck = getAgeLimit();
       }
     }
 
     let m = this.getMeasurement("crashes", 1);
+
+    // Aggregate counts locally to avoid excessive storage interaction.
+    let counts = {
+      pending: new Metrics.DailyValues(),
+      submitted: new Metrics.DailyValues(),
+    };
 
     // FUTURE detect mtimes in the future and react more intelligently.
     for (let filename in pending) {
@@ -908,7 +941,7 @@ CrashesProvider.prototype = Object.freeze({
         continue;
       }
 
-      yield m.incrementDailyCounter("pending", modified);
+      counts.pending.appendValue(modified, 1);
     }
 
     for (let filename in submitted) {
@@ -918,7 +951,15 @@ CrashesProvider.prototype = Object.freeze({
         continue;
       }
 
-      yield m.incrementDailyCounter("submitted", modified);
+      counts.submitted.appendValue(modified, 1);
+    }
+
+    for (let [date, values] in counts.pending) {
+      yield m.incrementDailyCounter("pending", date, values.length);
+    }
+
+    for (let [date, values] in counts.submitted) {
+      yield m.incrementDailyCounter("submitted", date, values.length);
     }
 
     yield this.setState("lastCheck", "" + now.getTime());
@@ -1071,15 +1112,11 @@ PlacesProvider.prototype = Object.freeze({
   },
 });
 
-
-/**
- * Records search counts per day per engine and where search initiated.
- */
-function SearchCountMeasurement() {
+function SearchCountMeasurement1() {
   Metrics.Measurement.call(this);
 }
 
-SearchCountMeasurement.prototype = Object.freeze({
+SearchCountMeasurement1.prototype = Object.freeze({
   __proto__: Metrics.Measurement.prototype,
 
   name: "counts",
@@ -1109,14 +1146,206 @@ SearchCountMeasurement.prototype = Object.freeze({
     "other.searchbar": DAILY_COUNTER_FIELD,
     "other.urlbar": DAILY_COUNTER_FIELD,
   },
+});
 
-  // If an engine is removed from this list, it may not be reported any more.
-  // Verify side-effects are sane before removing an entry.
-  PARTNER_ENGINES: [
-    "amazon.com",
+/**
+ * Records search counts per day per engine and where search initiated.
+ *
+ * We want to record granular details for individual locale-specific search
+ * providers, but only if they're Mozilla partners. In order to do this, we
+ * track the nsISearchEngine identifier, which denotes shipped search engines,
+ * and intersect those with our partner list.
+ *
+ * We don't use the search engine name directly, because it is shared across
+ * locales; e.g., eBay-de and eBay both share the name "eBay".
+ */
+function SearchCountMeasurement2() {
+  this._fieldSpecs = null;
+  this._interestingEngines = null;   // Name -> ID. ("Amazon.com" -> "amazondotcom")
+
+  Metrics.Measurement.call(this);
+}
+
+SearchCountMeasurement2.prototype = Object.freeze({
+  __proto__: Metrics.Measurement.prototype,
+
+  name: "counts",
+  version: 2,
+
+  /**
+   * Default implementation; can be overridden by test helpers.
+   */
+  getDefaultEngines: function () {
+    return Services.search.getDefaultEngines();
+  },
+
+  _initialize: function () {
+    // Don't create all of these for every profile.
+    // There are 61 partner engines, translating to 244 fields.
+    // Instead, compute only those that are possible -- those for whom the
+    // provider is one of the default search engines.
+    // This set can grow over time, and change as users run different localized
+    // Firefox instances.
+    this._fieldSpecs = {};
+    this._interestingEngines = {};
+
+    for (let source of this.SOURCES) {
+      this._fieldSpecs["other." + source] = DAILY_COUNTER_FIELD;
+    }
+
+    let engines = this.getDefaultEngines();
+    for (let engine of engines) {
+      let id = engine.identifier;
+      if (!id || (this.PROVIDERS.indexOf(id) == -1)) {
+        continue;
+      }
+
+      this._interestingEngines[engine.name] = id;
+      let fieldPrefix = id + ".";
+      for (let source of this.SOURCES) {
+        this._fieldSpecs[fieldPrefix + source] = DAILY_COUNTER_FIELD;
+      }
+    }
+  },
+
+  // Our fields are dynamic, so we compute them into _fieldSpecs by looking at
+  // the current set of interesting engines.
+  get fields() {
+    if (!this._fieldSpecs) {
+      this._initialize();
+    }
+    return this._fieldSpecs;
+  },
+
+  get interestingEngines() {
+    if (!this._fieldSpecs) {
+      this._initialize();
+    }
+    return this._interestingEngines;
+  },
+
+  /**
+   * Override the default behavior: serializers should include every counter
+   * field from the DB, even if we don't currently have it registered.
+   *
+   * Do this so we don't have to register several hundred fields to match
+   * various Firefox locales.
+   *
+   * We use the "provider.type" syntax as a rudimentary check for validity.
+   *
+   * We trust that measurement versioning is sufficient to exclude old provider
+   * data.
+   */
+  shouldIncludeField: function (name) {
+    return name.contains(".");
+  },
+
+  /**
+   * The measurement type mechanism doesn't introspect the DB. Override it
+   * so that we can assume all unknown fields are counters.
+   */
+  fieldType: function (name) {
+    if (name in this.fields) {
+      return this.fields[name].type;
+    }
+
+    // Default to a counter.
+    return Metrics.Storage.FIELD_DAILY_COUNTER;
+  },
+
+  // You can compute the total list of fields by unifying the entire l10n repo
+  // set with the list of partners:
+  //
+  //   sort -u */*/searchplugins/list.txt | tr -d '^M' | uniq | grep -f partners.txt
+  //
+  // where partners.txt contains
+  //
+  //   amazon
+  //   aol
+  //   bing
+  //   eBay
+  //   google
+  //   mailru
+  //   mercadolibre
+  //   seznam
+  //   twitter
+  //   yahoo
+  //   yandex
+  //
+  // Please update this list as the set of partners changes.
+  //
+  PROVIDERS: [
+    "amazon-co-uk",
+    "amazon-de",
+    "amazon-en-GB",
+    "amazon-france",
+    "amazon-it",
+    "amazon-jp",
+    "amazondotcn",
+    "amazondotcom",
+    "amazondotcom-de",
+
+    "aol-en-GB",
+    "aol-web-search",
+
     "bing",
+
+    "eBay",
+    "eBay-de",
+    "eBay-en-GB",
+    "eBay-es",
+    "eBay-fi",
+    "eBay-france",
+    "eBay-hu",
+    "eBay-in",
+    "eBay-it",
+
     "google",
+    "google-jp",
+    "google-ku",
+    "google-maps-zh-TW",
+
+    "mailru",
+
+    "mercadolibre-ar",
+    "mercadolibre-cl",
+    "mercadolibre-mx",
+
+    "seznam-cz",
+
+    "twitter",
+    "twitter-de",
+    "twitter-ja",
+
     "yahoo",
+    "yahoo-NO",
+    "yahoo-answer-zh-TW",
+    "yahoo-ar",
+    "yahoo-bid-zh-TW",
+    "yahoo-br",
+    "yahoo-ch",
+    "yahoo-cl",
+    "yahoo-de",
+    "yahoo-en-GB",
+    "yahoo-es",
+    "yahoo-fi",
+    "yahoo-france",
+    "yahoo-fy-NL",
+    "yahoo-id",
+    "yahoo-in",
+    "yahoo-it",
+    "yahoo-jp",
+    "yahoo-jp-auctions",
+    "yahoo-mx",
+    "yahoo-sv-SE",
+    "yahoo-zh-TW",
+
+    "yandex",
+    "yandex-ru",
+    "yandex-slovari",
+    "yandex-tr",
+    "yandex.by",
+    "yandex.ru-be",
   ],
 
   SOURCES: [
@@ -1135,7 +1364,22 @@ this.SearchesProvider.prototype = Object.freeze({
   __proto__: Metrics.Provider.prototype,
 
   name: "org.mozilla.searches",
-  measurementTypes: [SearchCountMeasurement],
+  measurementTypes: [
+    SearchCountMeasurement1,
+    SearchCountMeasurement2,
+  ],
+
+  /**
+   * Initialize the search service before our measurements are touched.
+   */
+  preInit: function (storage) {
+    // Initialize search service.
+    let deferred = Promise.defer();
+    Services.search.init(function onInitComplete () {
+      deferred.resolve();
+    });
+    return deferred.promise;
+  },
 
   /**
    * Record that a search occurred.
@@ -1145,26 +1389,61 @@ this.SearchesProvider.prototype = Object.freeze({
    *        the search will be attributed to "other".
    * @param source
    *        (string) Where the search was initiated from. Must be one of the
-   *        SearchCountMeasurement.SOURCES values.
+   *        SearchCountMeasurement2.SOURCES values.
    *
    * @return Promise<>
    *         The promise is resolved when the storage operation completes.
    */
   recordSearch: function (engine, source) {
-    let m = this.getMeasurement("counts", 1);
+    let m = this.getMeasurement("counts", 2);
 
     if (m.SOURCES.indexOf(source) == -1) {
       throw new Error("Unknown source for search: " + source);
     }
 
-    let normalizedEngine = engine.toLowerCase();
-    if (m.PARTNER_ENGINES.indexOf(normalizedEngine) == -1) {
-      normalizedEngine = "other";
-    }
-
+    let id = m.interestingEngines[engine] || "other";
+    let field = id + "." + source;
     return this.enqueueStorageOperation(function recordSearch() {
-      return m.incrementDailyCounter(normalizedEngine + "." + source);
+      return m.incrementDailyCounter(field);
     });
   },
 });
 
+function HealthReportSubmissionMeasurement1() {
+  Metrics.Measurement.call(this);
+}
+
+HealthReportSubmissionMeasurement1.prototype = Object.freeze({
+  __proto__: Metrics.Measurement.prototype,
+
+  name: "submissions",
+  version: 1,
+
+  fields: {
+    firstDocumentUploadAttempt: DAILY_COUNTER_FIELD,
+    continuationUploadAttempt: DAILY_COUNTER_FIELD,
+    uploadSuccess: DAILY_COUNTER_FIELD,
+    uploadTransportFailure: DAILY_COUNTER_FIELD,
+    uploadServerFailure: DAILY_COUNTER_FIELD,
+    uploadClientFailure: DAILY_COUNTER_FIELD,
+  },
+});
+
+this.HealthReportProvider = function () {
+  Metrics.Provider.call(this);
+}
+
+HealthReportProvider.prototype = Object.freeze({
+  __proto__: Metrics.Provider.prototype,
+
+  name: "org.mozilla.healthreport",
+
+  measurementTypes: [HealthReportSubmissionMeasurement1],
+
+  recordEvent: function (event, date=new Date()) {
+    let m = this.getMeasurement("submissions", 1);
+    return this.enqueueStorageOperation(function recordCounter() {
+      return m.incrementDailyCounter(event, date);
+    });
+  },
+});

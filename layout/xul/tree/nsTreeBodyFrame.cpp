@@ -60,6 +60,7 @@
 #include "nsRenderingContext.h"
 #include "nsIScriptableRegion.h"
 #include <algorithm>
+#include "ScrollbarActivity.h"
 
 #ifdef ACCESSIBILITY
 #include "nsAccessibilityService.h"
@@ -69,6 +70,7 @@
 #endif
 
 using namespace mozilla;
+using namespace mozilla::layout;
 
 // Enumeration function that cancels all the image requests in our cache
 static PLDHashOperator
@@ -102,6 +104,7 @@ NS_IMPL_FRAMEARENA_HELPERS(nsTreeBodyFrame)
 
 NS_QUERYFRAME_HEAD(nsTreeBodyFrame)
   NS_QUERYFRAME_ENTRY(nsIScrollbarMediator)
+  NS_QUERYFRAME_ENTRY(nsIScrollbarOwner)
   NS_QUERYFRAME_ENTRY(nsTreeBodyFrame)
 NS_QUERYFRAME_TAIL_INHERITING(nsLeafBoxFrame)
 
@@ -126,7 +129,7 @@ nsTreeBodyFrame::nsTreeBodyFrame(nsIPresShell* aPresShell, nsStyleContext* aCont
  mHorizontalOverflow(false),
  mReflowCallbackPosted(false)
 {
-  mColumns = new nsTreeColumns(nullptr);
+  mColumns = new nsTreeColumns(this);
 }
 
 // Destructor
@@ -169,6 +172,11 @@ nsTreeBodyFrame::Init(nsIContent*     aContent,
 
   mImageCache.Init(16);
   EnsureBoxObject();
+
+  if (LookAndFeel::GetInt(LookAndFeel::eIntID_UseOverlayScrollbars) != 0) {
+    mScrollbarActivity = new ScrollbarActivity(
+                           static_cast<nsIScrollbarOwner*>(this));
+  }
 }
 
 nsSize
@@ -266,6 +274,11 @@ nsTreeBodyFrame::CalcMaxRowWidth()
 void
 nsTreeBodyFrame::DestroyFrom(nsIFrame* aDestructRoot)
 {
+  if (mScrollbarActivity) {
+    mScrollbarActivity->Destroy();
+    mScrollbarActivity = nullptr;
+  }
+
   mScrollEvent.Revoke();
   // Make sure we cancel any posted callbacks. 
   if (mReflowCallbackPosted) {
@@ -313,9 +326,9 @@ nsTreeBodyFrame::EnsureBoxObject()
       nsIDocument* nsDoc = parent->GetDocument();
       if (!nsDoc) // there may be no document, if we're called from Destroy()
         return;
-      nsCOMPtr<nsIBoxObject> box;
-      nsCOMPtr<nsIDOMElement> domElem = do_QueryInterface(parent);
-      nsDoc->GetBoxObjectFor(domElem, getter_AddRefs(box));
+      ErrorResult ignored;
+      nsCOMPtr<nsIBoxObject> box =
+        nsDoc->GetBoxObjectFor(parent->AsElement(), ignored);
       // Ensure that we got a native box object.
       nsCOMPtr<nsPIBoxObject> pBox = do_QueryInterface(box);
       if (pBox) {
@@ -326,7 +339,6 @@ nsTreeBodyFrame::EnsureBoxObject()
               ->GetCachedTreeBody();
           ENSURE_TRUE(!innerTreeBoxObject || innerTreeBoxObject == this);
           mTreeBoxObject = realTreeBoxObject;
-          mColumns->SetTree(mTreeBoxObject);
         }
       }
     }
@@ -548,13 +560,6 @@ nsTreeBodyFrame::GetTreeBody(nsIDOMElement** aElement)
 }
 
 nsresult
-nsTreeBodyFrame::GetColumns(nsITreeColumns** aColumns)
-{
-  NS_IF_ADDREF(*aColumns = mColumns);
-  return NS_OK;
-}
-
-nsresult
 nsTreeBodyFrame::GetRowHeight(int32_t* _retval)
 {
   *_retval = nsPresContext::AppUnitsToIntCSSPixels(mRowHeight);
@@ -569,30 +574,9 @@ nsTreeBodyFrame::GetRowWidth(int32_t *aRowWidth)
 }
 
 nsresult
-nsTreeBodyFrame::GetFirstVisibleRow(int32_t *_retval)
-{
-  *_retval = mTopRowIndex;
-  return NS_OK;
-}
-
-nsresult
-nsTreeBodyFrame::GetLastVisibleRow(int32_t *_retval)
-{
-  *_retval = GetLastVisibleRow();
-  return NS_OK;
-}
-
-nsresult
 nsTreeBodyFrame::GetHorizontalPosition(int32_t *aHorizontalPosition)
 {
   *aHorizontalPosition = nsPresContext::AppUnitsToIntCSSPixels(mHorzPosition); 
-  return NS_OK;
-}
-
-nsresult
-nsTreeBodyFrame::GetPageLength(int32_t *_retval)
-{
-  *_retval = mPageLength;
   return NS_OK;
 }
 
@@ -620,7 +604,7 @@ nsTreeBodyFrame::GetSelectionRegion(nsIScriptableRegion **aRegion)
   int32_t x = nsPresContext::AppUnitsToIntCSSPixels(origin.x);
   int32_t y = nsPresContext::AppUnitsToIntCSSPixels(origin.y);
   int32_t top = y;
-  int32_t end = GetLastVisibleRow();
+  int32_t end = LastVisibleRow();
   int32_t rowHeight = nsPresContext::AppUnitsToIntCSSPixels(mRowHeight);
   for (int32_t i = mTopRowIndex; i <= end; i++) {
     bool isSelected;
@@ -734,7 +718,7 @@ nsTreeBodyFrame::InvalidateRange(int32_t aStart, int32_t aEnd)
   if (aStart == aEnd)
     return InvalidateRow(aStart);
 
-  int32_t last = GetLastVisibleRow();
+  int32_t last = LastVisibleRow();
   if (aStart > aEnd || aEnd < mTopRowIndex || aStart > last)
     return NS_OK;
 
@@ -771,7 +755,7 @@ nsTreeBodyFrame::InvalidateColumnRange(int32_t aStart, int32_t aEnd, nsITreeColu
   if (aStart == aEnd)
     return InvalidateCell(aStart, col);
 
-  int32_t last = GetLastVisibleRow();
+  int32_t last = LastVisibleRow();
   if (aStart > aEnd || aEnd < mTopRowIndex || aStart > last)
     return NS_OK;
 
@@ -866,15 +850,13 @@ nsTreeBodyFrame::UpdateScrollbars(const ScrollParts& aParts)
 {
   nscoord rowHeightAsPixels = nsPresContext::AppUnitsToIntCSSPixels(mRowHeight);
 
+  nsWeakFrame weakFrame(this);
+
   if (aParts.mVScrollbar) {
-    nsWeakFrame self(this);
     nsAutoString curPos;
     curPos.AppendInt(mTopRowIndex*rowHeightAsPixels);
     aParts.mVScrollbarContent->
       SetAttr(kNameSpaceID_None, nsGkAtoms::curpos, curPos, true);
-    if (!self.IsAlive()) {
-      return;
-    }
   }
 
   if (aParts.mHScrollbar) {
@@ -883,6 +865,10 @@ nsTreeBodyFrame::UpdateScrollbars(const ScrollParts& aParts)
     aParts.mHScrollbarContent->
       SetAttr(kNameSpaceID_None, nsGkAtoms::curpos, curPos, true);
     // 'this' might be deleted here
+  }
+
+  if (weakFrame.IsAlive() && mScrollbarActivity) {
+    mScrollbarActivity->ActivityOccurred();
   }
 }
 
@@ -985,6 +971,10 @@ nsTreeBodyFrame::InvalidateScrollbars(const ScrollParts& aParts, nsWeakFrame& aW
     pageStr.AppendInt(nsPresContext::CSSPixelsToAppUnits(16));
     aParts.mHScrollbarContent->
       SetAttr(kNameSpaceID_None, nsGkAtoms::increment, pageStr, true);
+  }
+
+  if (mScrollbarActivity) {
+    mScrollbarActivity->ActivityOccurred();
   }
 }
 
@@ -1828,8 +1818,8 @@ nsTreeBodyFrame::RowCountChanged(int32_t aIndex, int32_t aCount)
   NS_ASSERTION(rowCount == mRowCount, "row count did not change by the amount suggested, check caller");
 #endif
 
-  int32_t count = DeprecatedAbs(aCount);
-  int32_t last = GetLastVisibleRow();
+  int32_t count = Abs(aCount);
+  int32_t last = LastVisibleRow();
   if (aIndex >= mTopRowIndex && aIndex <= last)
     InvalidateRange(aIndex, last);
     

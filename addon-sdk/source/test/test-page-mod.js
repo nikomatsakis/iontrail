@@ -9,15 +9,16 @@ const { Loader } = require('sdk/test/loader');
 const tabs = require("sdk/tabs");
 const timer = require("sdk/timers");
 const { Cc, Ci } = require("chrome");
-const { open, openDialog, getFrames, getMostRecentBrowserWindow } = require('sdk/window/utils');
+const { open, getFrames, getMostRecentBrowserWindow } = require('sdk/window/utils');
 const windowUtils = require('sdk/deprecated/window-utils');
-const windowHelpers = require('sdk/window/helpers');
 const { getTabContentWindow, getActiveTab, setTabURL, openTab, closeTab } = require('sdk/tabs/utils');
 const xulApp = require("sdk/system/xul-app");
-const { data } = require('sdk/self');
+const { data, isPrivateBrowsingSupported } = require('sdk/self');
 const { isPrivate } = require('sdk/private-browsing');
-const { isTabPBSupported, isWindowPBSupported } = require('sdk/private-browsing/utils');
+const { openWebpage } = require('./private-browsing/helper');
+const { isTabPBSupported, isWindowPBSupported, isGlobalPBSupported } = require('sdk/private-browsing/utils');
 const promise = require("sdk/core/promise");
+const { pb } = require('./private-browsing/helper');
 
 /* XXX This can be used to delay closing the test Firefox instance for interactive
  * testing or visual inspection. This test is registered first so that it runs
@@ -374,10 +375,11 @@ exports.testRelatedTabNoRequireTab = function(test) {
     include: url,
     onAttach: function(worker) {
       test.assertEqual(worker.tab.url, url, "Worker.tab.url is valid");
-      worker.tab.close();
-      pageMod.destroy();
-      loader.unload();
-      test.done();
+      worker.tab.close(function() {
+        pageMod.destroy();
+        loader.unload();
+        test.done();
+      });
     }
   });
 
@@ -425,8 +427,7 @@ exports.testWorksWithExistingTabs = function(test) {
           timer.setTimeout(function() {
             pageModOnExisting.destroy();
             pageModOffExisting.destroy();
-            tab.close();
-            test.done();
+            tab.close(test.done.bind(test));
           }, 0);
         }
       });
@@ -470,11 +471,13 @@ exports.testTabWorkerOnMessage = function(test) {
             }
             else if (this.tab.url === url2) {
               mod.destroy();
-              worker1.tab.close();
-              worker1.destroy();
-              worker.tab.close();
-              worker.destroy();
-              test.done();
+              worker1.tab.close(function() {
+                worker1.destroy();
+                worker.tab.close(function() {
+                  worker.destroy();
+                  test.done();
+                });
+              });
             }
           }
         });
@@ -506,11 +509,9 @@ exports.testAutomaticDestroy = function(test) {
     url: "about:",
     onReady: function onReady(tab) {
       test.pass("check automatic destroy");
-      tab.close();
-      test.done();
+      tab.close(test.done.bind(test));
     }
   });
-
 }
 
 exports.testAttachToTabsOnly = function(test) {
@@ -555,7 +556,7 @@ exports.testAttachToTabsOnly = function(test) {
             openToplevelWindow();
           }
           else {
-            openBrowserIframe(); 
+            openBrowserIframe();
           }
         }, false);
         element.setAttribute('src', 'data:text/html;charset=utf-8,foo');
@@ -750,7 +751,7 @@ exports.testPageModCssList = function(test) {
         "data:text/css;charset=utf-8,div { border: 1px solid black; }",
         "data:text/css;charset=utf-8,div { border: 10px solid black; }",
         // Highlight evaluation order between contentStylesheet & contentStylesheetFile
-        "data:text/cs;charset=utf-8s,div { height: 1000px; }",
+        "data:text/css;charset=utf-8s,div { height: 1000px; }",
         // Highlight precedence between the author and user style sheet
         "data:text/css;charset=utf-8,div { width: 200px; max-width: 640px!important}",
       ],
@@ -778,13 +779,13 @@ exports.testPageModCssList = function(test) {
       test.assertEqual(
         style.width,
         "320px",
-        "PageMod author/user style sheet precedence works"
+        "PageMod add-on author/page author style sheet precedence works"
       );
 
       test.assertEqual(
         style.maxWidth,
-        "640px",
-        "PageMod author/user style sheet precedence with !important works"
+        "480px",
+        "PageMod add-on author/page author style sheet precedence with !important works"
       );
 
       done();
@@ -855,8 +856,7 @@ exports.testPageModCssAutomaticDestroy = function(test) {
         "PageMod contentStyle is removed after loader's unload"
       );
 
-      tab.close();
-      test.done();
+      tab.close(test.done.bind(test));
     }
   });
 };
@@ -881,10 +881,11 @@ exports.testPageModTimeout = function(test) {
         test.pass("timer was scheduled")
         worker.port.on("fired", function(data) {
           test.assertEqual(id, data, "timer was fired")
-          tab.close()
-          worker.destroy()
-          loader.unload()
-          test.done()
+          tab.close(function() {
+            worker.destroy()
+            loader.unload()
+            test.done()
+          });
         })
       })
     }
@@ -920,11 +921,12 @@ exports.testPageModcancelTimeout = function(test) {
       })
       worker.port.on("timeout", function(id) {
         test.pass("timer was scheduled")
-        tab.close();
-        worker.destroy();
-        mod.destroy();
-        loader.unload();
-        test.done();
+        tab.close(function() {
+          worker.destroy();
+          mod.destroy();
+          loader.unload();
+          test.done();
+        });
       })
     }
   });
@@ -1055,38 +1057,10 @@ exports.testEvents = function(test) {
   );
 };
 
-function openWebpage(url, enablePrivate) {
-  if (xulApp.is("Fennec")) {
-    let chromeWindow = getMostRecentBrowserWindow();
-    let rawTab = openTab(chromeWindow, url, {
-      isPrivate: enablePrivate
-    });
-    return {
-      close: function () {
-        closeTab(rawTab)
-        // Returns a resolved promise as there is no need to wait
-        return promise.resolve();
-      }
-    };
-  }
-  else {
-    let win = openDialog({
-      private: enablePrivate
-    });
-    win.addEventListener("load", function onLoad() {
-      win.removeEventListener("load", onLoad, false);
-      setTabURL(getActiveTab(win), url);
-    });
-    return {
-      close: function () {
-        return windowHelpers.close(win);
-      }
-    };
-  }
-}
-
 exports["test page-mod on private tab"] = function (test) {
   test.waitUntilDone();
+  let fail = test.fail.bind(test);
+
   let privateUri = "data:text/html;charset=utf-8," +
                    "<iframe src=\"data:text/html;charset=utf-8,frame\" />";
   let nonPrivateUri = "data:text/html;charset=utf-8,non-private";
@@ -1101,15 +1075,65 @@ exports["test page-mod on private tab"] = function (test) {
                          nonPrivateUri,
                          "page-mod should only attach to the non-private tab");
       }
+
       test.assert(!isPrivate(worker),
                   "The worker is really non-private");
       test.assert(!isPrivate(worker.tab),
                   "The document is really non-private");
       pageMod.destroy();
-      page1.close().then(page2.close).then(test.done.bind(test));
+
+      page1.close().
+        then(page2.close).
+        then(test.done.bind(test), fail);
     }
   });
 
-  let page1 = openWebpage(privateUri, true);
-  let page2 = openWebpage(nonPrivateUri, false);
+  let page1, page2;
+  page1 = openWebpage(privateUri, true);
+  page1.ready.then(function() {
+    page2 = openWebpage(nonPrivateUri, false);
+  }, fail);
+}
+
+exports["test page-mod on private tab in global pb"] = function (test) {
+  test.waitUntilDone();
+  if (!isGlobalPBSupported) {
+    test.pass();
+    return test.done();
+  }
+
+  let privateUri = "data:text/html;charset=utf-8," +
+                   "<iframe%20src=\"data:text/html;charset=utf-8,frame\"/>";
+
+  let pageMod = new PageMod({
+    include: privateUri,
+    onAttach: function(worker) {
+      test.assertEqual(worker.tab.url,
+                       privateUri,
+                       "page-mod should attach");
+      test.assertEqual(isPrivateBrowsingSupported,
+                       false,
+                       "private browsing is not supported");
+      test.assert(isPrivate(worker),
+                  "The worker is really non-private");
+      test.assert(isPrivate(worker.tab),
+                  "The document is really non-private");
+      pageMod.destroy();
+
+      worker.tab.close(function() {
+        pb.once('stop', function() {
+          test.pass('global pb stop');
+          test.done();
+        });
+        pb.deactivate();
+      });
+    }
+  });
+
+  let page1;
+  pb.once('start', function() {
+    test.pass('global pb start');
+    tabs.open({ url: privateUri });
+  });
+  pb.activate();
 }

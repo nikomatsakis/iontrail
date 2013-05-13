@@ -69,7 +69,6 @@
 #include "nsIDocumentInlines.h"
 #include "nsIDocumentEncoder.h" //for outputting selection
 #include "nsICachingChannel.h"
-#include "nsIJSContextStack.h"
 #include "nsIContentViewer.h"
 #include "nsIWyciwygChannel.h"
 #include "nsIScriptElement.h"
@@ -103,9 +102,12 @@
 #include "nsHtml5Parser.h"
 #include "nsIDOMJSWindow.h"
 #include "nsSandboxFlags.h"
+#include "nsIImageDocument.h"
 #include "mozilla/dom/HTMLBodyElement.h"
+#include "mozilla/dom/HTMLDocumentBinding.h"
 #include "nsCharsetSource.h"
 #include "nsIStringBundle.h"
+#include "nsDOMClassInfo.h"
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -204,6 +206,8 @@ nsHTMLDocument::nsHTMLDocument()
   mIsRegularHTML = true;
   mDefaultElementType = kNameSpaceID_XHTML;
   mCompatMode = eCompatibility_NavQuirks;
+
+  SetIsDOMBinding();
 }
 
 
@@ -251,6 +255,11 @@ NS_INTERFACE_TABLE_HEAD_CYCLE_COLLECTION_INHERITED(nsHTMLDocument)
   NS_DOM_INTERFACE_MAP_ENTRY_CLASSINFO(HTMLDocument)
 NS_INTERFACE_MAP_END_INHERITING(nsDocument)
 
+JSObject*
+nsHTMLDocument::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aScope)
+{
+  return HTMLDocumentBinding::Wrap(aCx, aScope, this);
+}
 
 nsresult
 nsHTMLDocument::Init()
@@ -304,14 +313,12 @@ nsHTMLDocument::ResetToURI(nsIURI *aURI, nsILoadGroup *aLoadGroup,
   SetContentTypeInternal(nsDependentCString("text/html"));
 }
 
-nsresult
+already_AddRefed<nsIPresShell>
 nsHTMLDocument::CreateShell(nsPresContext* aContext,
                             nsViewManager* aViewManager,
-                            nsStyleSet* aStyleSet,
-                            nsIPresShell** aInstancePtrResult)
+                            nsStyleSet* aStyleSet)
 {
-  return doCreateShell(aContext, aViewManager, aStyleSet, mCompatMode,
-                       aInstancePtrResult);
+  return doCreateShell(aContext, aViewManager, aStyleSet, mCompatMode);
 }
 
 void
@@ -1420,7 +1427,7 @@ nsHTMLDocument::Open(JSContext* /* unused */,
   NS_ASSERTION(nsContentUtils::CanCallerAccess(static_cast<nsIDOMHTMLDocument*>(this)),
                "XOW should have caught this!");
 
-  nsCOMPtr<nsIDOMWindow> window = GetWindowInternal();
+  nsCOMPtr<nsIDOMWindow> window = GetWindow();
   if (!window) {
     rv.Throw(NS_ERROR_DOM_INVALID_ACCESS_ERR);
     return nullptr;
@@ -1469,42 +1476,41 @@ nsHTMLDocument::Open(JSContext* cx,
     // Note that aborting a parser leaves the parser "active" with its
     // insertion point "not undefined". We track this using mParserAborted,
     // because aborting a parser nulls out mParser.
-    NS_ADDREF_THIS();
-    return this;
+    nsCOMPtr<nsIDocument> ret = this;
+    return ret.forget();
   }
 
   // No calling document.open() without a script global object
   if (!mScriptGlobalObject) {
-    NS_ADDREF_THIS();
-    return this;
+    nsCOMPtr<nsIDocument> ret = this;
+    return ret.forget();
   }
 
   nsPIDOMWindow* outer = GetWindow();
   if (!outer || (GetInnerWindow() != outer->GetCurrentInnerWindow())) {
-    NS_ADDREF_THIS();
-    return this;
+    nsCOMPtr<nsIDocument> ret = this;
+    return ret.forget();
   }
 
   // check whether we're in the middle of unload.  If so, ignore this call.
   nsCOMPtr<nsIDocShell> shell = do_QueryReferent(mDocumentContainer);
   if (!shell) {
     // We won't be able to create a parser anyway.
-    NS_ADDREF_THIS();
-    return this;
+    nsCOMPtr<nsIDocument> ret = this;
+    return ret.forget();
   }
 
   bool inUnload;
   shell->GetIsInUnload(&inUnload);
   if (inUnload) {
-    NS_ADDREF_THIS();
-    return this;
+    nsCOMPtr<nsIDocument> ret = this;
+    return ret.forget();
   }
 
   // Note: We want to use GetDocumentFromContext here because this document
   // should inherit the security information of the document that's opening us,
   // (since if it's secure, then it's presumably trusted).
-  nsCOMPtr<nsIDocument> callerDoc =
-    do_QueryInterface(nsContentUtils::GetDocumentFromContext());
+  nsCOMPtr<nsIDocument> callerDoc = nsContentUtils::GetDocumentFromContext();
   if (!callerDoc) {
     // If we're called from C++ or in some other way without an originating
     // document we can't do a document.open w/o changing the principal of the
@@ -1563,8 +1569,8 @@ nsHTMLDocument::Open(JSContext* cx,
       if (NS_SUCCEEDED(cv->PermitUnload(false, &okToUnload)) && !okToUnload) {
         // We don't want to unload, so stop here, but don't throw an
         // exception.
-        NS_ADDREF_THIS();
-        return this;
+        nsCOMPtr<nsIDocument> ret = this;
+        return ret.forget();
       }
     }
 
@@ -1663,14 +1669,13 @@ nsHTMLDocument::Open(JSContext* cx,
     SetIsInitialDocument(false);
 
     nsCOMPtr<nsIScriptGlobalObject> newScope(do_QueryReferent(mScopeObject));
-    if (oldScope && newScope != oldScope) {
-      nsIXPConnect *xpc = nsContentUtils::XPConnect();
-      rv = xpc->ReparentWrappedNativeIfFound(cx, oldScope->GetGlobalJSObject(),
-                                             newScope->GetGlobalJSObject(),
-                                             static_cast<nsINode*>(this));
+    JS::RootedObject wrapper(cx, GetWrapper());
+    if (oldScope && newScope != oldScope && wrapper) {
+      rv = mozilla::dom::ReparentWrapper(cx, wrapper);
       if (rv.Failed()) {
         return nullptr;
       }
+      nsIXPConnect *xpc = nsContentUtils::XPConnect();
       rv = xpc->RescueOrphansInScope(cx, oldScope->GetGlobalJSObject());
       if (rv.Failed()) {
         return nullptr;
@@ -2282,96 +2287,123 @@ nsHTMLDocument::Plugins()
   return Embeds();
 }
 
-nsresult
-nsHTMLDocument::ResolveName(const nsAString& aName,
-                            nsIContent *aForm,
-                            nsISupports **aResult,
-                            nsWrapperCache **aCache)
+nsISupports*
+nsHTMLDocument::ResolveName(const nsAString& aName, nsWrapperCache **aCache)
 {
-  *aResult = nullptr;
-  *aCache = nullptr;
-
   nsIdentifierMapEntry *entry = mIdentifierMap.GetEntry(aName);
   if (!entry) {
-    return NS_OK;
+    *aCache = nullptr;
+    return nullptr;
   }
 
-  uint32_t length = 0;
   nsBaseContentList *list = entry->GetNameContentList();
-  if (list) {
-    list->GetLength(&length);
-  }
+  uint32_t length = list ? list->Length() : 0;
 
   if (length > 0) {
     if (length == 1) {
-      // Only one element in the list, return the element instead of
-      // returning the list
-
+      // Only one element in the list, return the element instead of returning
+      // the list.
       nsIContent *node = list->Item(0);
-      if (!aForm || nsContentUtils::BelongsInForm(aForm, node)) {
-        NS_ADDREF(*aResult = node);
-        *aCache = node;
-      }
-
-      return NS_OK;
+      *aCache = node;
+      return node;
     }
 
-    // The list contains more than one element, return the whole
-    // list, unless...
-
-    if (aForm) {
-      // ... we're called from a form, in that case we create a
-      // nsFormContentList which will filter out the elements in the
-      // list that don't belong to aForm
-
-      nsFormContentList *fc_list = new nsFormContentList(aForm, *list);
-      NS_ENSURE_TRUE(fc_list, NS_ERROR_OUT_OF_MEMORY);
-
-      uint32_t len;
-      fc_list->GetLength(&len);
-
-      if (len < 2) {
-        // After the nsFormContentList is done filtering there's either
-        // nothing or one element in the list.  Return that element, or null
-        // if there's no element in the list.
-
-        nsIContent *node = fc_list->Item(0);
-
-        NS_IF_ADDREF(*aResult = node);
-        *aCache = node;
-
-        delete fc_list;
-
-        return NS_OK;
-      }
-
-      list = fc_list;
-    }
-
-    return CallQueryInterface(list, aResult);
+    // The list contains more than one element, return the whole list.
+    *aCache = list;
+    return list;
   }
 
-  // No named items were found, see if there's one registerd by id for
-  // aName. If we get this far, FindNamedItems() will have been called
-  // for aName, so we're guaranteed that if there is an element with
-  // the id aName, it'll be entry's IdContent.
-
+  // No named items were found, see if there's one registerd by id for aName.
   Element *e = entry->GetIdElement();
 
-  if (e && e->IsHTML()) {
-    nsIAtom *tag = e->Tag();
-
-    if ((tag == nsGkAtoms::embed  ||
-         tag == nsGkAtoms::img    ||
-         tag == nsGkAtoms::object ||
-         tag == nsGkAtoms::applet) &&
-        (!aForm || nsContentUtils::BelongsInForm(aForm, e))) {
-      NS_ADDREF(*aResult = e);
-      *aCache = e;
-    }
+  if (e && nsGenericHTMLElement::ShouldExposeIdAsHTMLDocumentProperty(e)) {
+    *aCache = e;
+    return e;
   }
 
-  return NS_OK;
+  *aCache = nullptr;
+  return nullptr;
+}
+
+already_AddRefed<nsISupports>
+nsHTMLDocument::ResolveName(const nsAString& aName,
+                            nsIContent *aForm,
+                            nsWrapperCache **aCache)
+{
+  nsISupports* result = ResolveName(aName, aCache);
+  if (!result) {
+    return nullptr;
+  }
+
+  nsCOMPtr<nsIContent> node = do_QueryInterface(result);
+  if (!node) {
+    // We create a nsFormContentList which will filter out the elements in the
+    // list that don't belong to aForm.
+    nsRefPtr<nsBaseContentList> list =
+      new nsFormContentList(aForm, *static_cast<nsBaseContentList*>(result));
+    if (list->Length() > 1) {
+      *aCache = list;
+      return list.forget();
+    }
+
+    // After the nsFormContentList is done filtering there's either nothing or
+    // one element in the list. Return that element, or null if there's no
+    // element in the list.
+    node = list->Item(0);
+  } else if (!nsContentUtils::BelongsInForm(aForm, node)) {
+    node = nullptr;
+  }
+
+  *aCache = node;
+  return node.forget();
+}
+
+JSObject*
+nsHTMLDocument::NamedGetter(JSContext* cx, const nsAString& aName, bool& aFound,
+                            ErrorResult& rv)
+{
+  nsWrapperCache* cache;
+  nsISupports* supp = ResolveName(aName, &cache);
+  if (!supp) {
+    aFound = false;
+    if (GetCompatibilityMode() == eCompatibility_NavQuirks &&
+        aName.EqualsLiteral("all")) {
+      JS::Rooted<JSObject*> obj(cx, GetWrapper());
+      rv = nsHTMLDocumentSH::TryResolveAll(cx, this, obj);
+    }
+    return nullptr;
+  }
+
+  JS::Rooted<JS::Value> val(cx);
+  { // Scope for auto-compartment
+    JS::Rooted<JSObject*> wrapper(cx, GetWrapper());
+    JSAutoCompartment ac(cx, wrapper);
+    // XXXbz Should we call the (slightly misnamed, really) WrapNativeParent
+    // here?
+    if (!dom::WrapObject(cx, wrapper, supp, cache, nullptr, val.address())) {
+      rv.Throw(NS_ERROR_OUT_OF_MEMORY);
+      return nullptr;
+    }
+  }
+  aFound = true;
+  return &val.toObject();
+}
+
+static PLDHashOperator
+IdentifierMapEntryAddNames(nsIdentifierMapEntry* aEntry, void* aArg)
+{
+  nsTArray<nsString>* aNames = static_cast<nsTArray<nsString>*>(aArg);
+  if (aEntry->HasNameElement() ||
+      aEntry->HasIdElementExposedAsHTMLDocumentProperty()) {
+    aNames->AppendElement(aEntry->GetKey());
+  }
+  return PL_DHASH_NEXT;
+}
+
+void
+nsHTMLDocument::GetSupportedNames(nsTArray<nsString>& aNames)
+{
+  mIdentifierMap.EnumerateEntries(IdentifierMapEntryAddNames, &aNames);
 }
 
 //----------------------------
@@ -2529,7 +2561,8 @@ nsHTMLDocument::GetDesignMode(nsAString & aDesignMode)
 void
 nsHTMLDocument::MaybeEditingStateChanged()
 {
-  if (mUpdateNestLevel == 0 && (mContentEditableCount > 0) != IsEditingOn()) {
+  if (!mPendingMaybeEditingStateChanged &&
+      mUpdateNestLevel == 0 && (mContentEditableCount > 0) != IsEditingOn()) {
     if (nsContentUtils::IsSafeToRunScript()) {
       EditingStateChanged();
     } else if (!mInDestructor) {
@@ -2542,8 +2575,12 @@ nsHTMLDocument::MaybeEditingStateChanged()
 void
 nsHTMLDocument::EndUpdate(nsUpdateType aUpdateType)
 {
+  const bool reset = !mPendingMaybeEditingStateChanged;
+  mPendingMaybeEditingStateChanged = true;
   nsDocument::EndUpdate(aUpdateType);
-
+  if (reset) {
+    mPendingMaybeEditingStateChanged = false;
+  }
   MaybeEditingStateChanged();
 }
 
@@ -2927,19 +2964,12 @@ nsHTMLDocument::EditingStateChanged()
       result = agentSheets.AppendObject(sheet);
       NS_ENSURE_TRUE(result, NS_ERROR_OUT_OF_MEMORY);
 
-      // Disable scripting and plugins.
-      rv = editSession->DisableJSAndPlugins(window);
-      NS_ENSURE_SUCCESS(rv, rv);
-
       updateState = true;
       spellRecheckAll = oldState == eContentEditable;
     }
     else if (oldState == eDesignMode) {
       // designMode is being turned off (contentEditable is still on).
       RemoveFromAgentSheets(agentSheets, NS_LITERAL_STRING("resource://gre/res/designmode.css"));
-
-      rv = editSession->RestoreJSAndPlugins(window);
-      NS_ENSURE_SUCCESS(rv, rv);
 
       updateState = true;
     }
@@ -3127,7 +3157,7 @@ static const struct MidasCommand gMidasCommandTable[] = {
   { "saveas",        "cmd_saveAs",          "", true,  false },
   { "print",         "cmd_print",           "", true,  false },
 #endif
-  { NULL, NULL, NULL, false, false }
+  { nullptr, nullptr, nullptr, false, false }
 };
 
 #define MidasCommandCount ((sizeof(gMidasCommandTable) / sizeof(struct MidasCommand)) - 1)
@@ -3297,39 +3327,32 @@ nsHTMLDocument::DoClipboardSecurityCheck(bool aPaste)
 {
   nsresult rv = NS_ERROR_FAILURE;
 
-  nsCOMPtr<nsIJSContextStack> stack =
-    do_GetService("@mozilla.org/js/xpc/ContextStack;1");
+  JSContext *cx = nsContentUtils::GetCurrentJSContext();
+  if (!cx) {
+    return NS_OK;
+  }
+  JSAutoRequest ar(cx);
 
-  if (stack) {
-    JSContext *cx = nullptr;
-    stack->Peek(&cx);
-    if (!cx) {
-      return NS_OK;
+  NS_NAMED_LITERAL_CSTRING(classNameStr, "Clipboard");
+
+  nsIScriptSecurityManager *secMan = nsContentUtils::GetSecurityManager();
+
+  if (aPaste) {
+    if (nsHTMLDocument::sPasteInternal_id == JSID_VOID) {
+      nsHTMLDocument::sPasteInternal_id =
+        INTERNED_STRING_TO_JSID(cx, ::JS_InternString(cx, "paste"));
     }
-
-    JSAutoRequest ar(cx);
-
-    NS_NAMED_LITERAL_CSTRING(classNameStr, "Clipboard");
-
-    nsIScriptSecurityManager *secMan = nsContentUtils::GetSecurityManager();
-
-    if (aPaste) {
-      if (nsHTMLDocument::sPasteInternal_id == JSID_VOID) {
-        nsHTMLDocument::sPasteInternal_id =
-          INTERNED_STRING_TO_JSID(cx, ::JS_InternString(cx, "paste"));
-      }
-      rv = secMan->CheckPropertyAccess(cx, nullptr, classNameStr.get(),
-                                       nsHTMLDocument::sPasteInternal_id,
-                                       nsIXPCSecurityManager::ACCESS_GET_PROPERTY);
-    } else {
-      if (nsHTMLDocument::sCutCopyInternal_id == JSID_VOID) {
-        nsHTMLDocument::sCutCopyInternal_id =
-          INTERNED_STRING_TO_JSID(cx, ::JS_InternString(cx, "cutcopy"));
-      }
-      rv = secMan->CheckPropertyAccess(cx, nullptr, classNameStr.get(),
-                                       nsHTMLDocument::sCutCopyInternal_id,
-                                       nsIXPCSecurityManager::ACCESS_GET_PROPERTY);
+    rv = secMan->CheckPropertyAccess(cx, nullptr, classNameStr.get(),
+                                     nsHTMLDocument::sPasteInternal_id,
+                                     nsIXPCSecurityManager::ACCESS_GET_PROPERTY);
+  } else {
+    if (nsHTMLDocument::sCutCopyInternal_id == JSID_VOID) {
+      nsHTMLDocument::sCutCopyInternal_id =
+        INTERNED_STRING_TO_JSID(cx, ::JS_InternString(cx, "cutcopy"));
     }
+    rv = secMan->CheckPropertyAccess(cx, nullptr, classNameStr.get(),
+                                     nsHTMLDocument::sCutCopyInternal_id,
+                                     nsIXPCSecurityManager::ACCESS_GET_PROPERTY);
   }
   return rv;
 }

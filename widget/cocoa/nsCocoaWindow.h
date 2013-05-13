@@ -95,6 +95,8 @@ typedef struct _nsCocoaWindowList {
 - (void)updateTrackingArea;
 - (NSView*)trackingAreaView;
 
+- (ChildView*)mainChildView;
+
 @end
 
 @interface NSWindow (Undocumented)
@@ -108,8 +110,10 @@ typedef struct _nsCocoaWindowList {
 
 // If we set the window's stylemask to be textured, the corners on the bottom of
 // the window are rounded by default. We use this private method to make
-// the corners square again, a la Safari.
+// the corners square again, a la Safari. Starting with 10.7, all windows have
+// rounded bottom corners, so this call doesn't have any effect there.
 - (void)setBottomCornerRounded:(BOOL)rounded;
+- (BOOL)bottomCornerRounded;
 
 @end
 
@@ -188,7 +192,6 @@ typedef struct _nsCocoaWindowList {
 - (void)setTitlebarNeedsDisplayInRect:(NSRect)aRect sync:(BOOL)aSync;
 - (void)setTitlebarNeedsDisplayInRect:(NSRect)aRect;
 - (void)setDrawsContentsIntoWindowFrame:(BOOL)aState;
-- (ChildView*)mainChildView;
 @end
 
 class nsCocoaWindow : public nsBaseWidget, public nsPIWidgetCocoa
@@ -212,6 +215,8 @@ public:
                                    nsWidgetInitData *aInitData = nullptr);
 
     NS_IMETHOD              Destroy();
+
+    virtual nsIWidget*      GetParent(void);
 
     NS_IMETHOD              Show(bool aState);
     virtual nsIWidget*      GetSheetWindowParent(void);
@@ -253,7 +258,7 @@ public:
 
     NS_IMETHOD Invalidate(const nsIntRect &aRect);
     virtual nsresult ConfigureChildren(const nsTArray<Configuration>& aConfigurations);
-    virtual LayerManager* GetLayerManager(PLayersChild* aShadowManager = nullptr,
+    virtual LayerManager* GetLayerManager(PLayerTransactionChild* aShadowManager = nullptr,
                                           LayersBackend aBackendHint = mozilla::layers::LAYERS_NONE,
                                           LayerManagerPersistence aPersistence = LAYER_MANAGER_CURRENT,
                                           bool* aAllowRetaining = nullptr);

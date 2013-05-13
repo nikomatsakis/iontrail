@@ -7,6 +7,7 @@
 #include "mozilla/dom/HTMLTextAreaElement.h"
 #include "mozilla/dom/HTMLTextAreaElementBinding.h"
 #include "mozilla/Util.h"
+#include "base/compiler_specific.h"
 
 #include "nsIControllers.h"
 #include "nsFocusManager.h"
@@ -17,7 +18,6 @@
 #include "nsIFormControl.h"
 #include "nsIForm.h"
 #include "nsFormSubmission.h"
-#include "nsIDOMEventTarget.h"
 #include "nsAttrValueInlines.h"
 #include "nsStyleConsts.h"
 #include "nsPresContext.h"
@@ -59,7 +59,7 @@ HTMLTextAreaElement::HTMLTextAreaElement(already_AddRefed<nsINodeInfo> aNodeInfo
     mDisabledChanged(false),
     mCanShowInvalidUI(true),
     mCanShowValidUI(true),
-    mState(this)
+    ALLOW_THIS_IN_INITIALIZER_LIST(mState(this))
 {
   AddMutationObserver(this);
 
@@ -147,7 +147,7 @@ HTMLTextAreaElement::Select()
 
   nsEventStatus status = nsEventStatus_eIgnore;
   nsGUIEvent event(true, NS_FORM_SELECTED, nullptr);
-  // XXXbz nsHTMLInputElement guards against this reentering; shouldn't we?
+  // XXXbz HTMLInputElement guards against this reentering; shouldn't we?
   nsEventDispatcher::Dispatch(static_cast<nsIContent*>(this), presContext,
                               &event, nullptr, &status);
 
@@ -353,6 +353,9 @@ HTMLTextAreaElement::SetValueChanged(bool aValueChanged)
   bool previousValue = mValueChanged;
 
   mValueChanged = aValueChanged;
+  if (!aValueChanged && !mState.IsEmpty()) {
+    mState.EmptyValue();
+  }
 
   if (mValueChanged != previousValue) {
     UpdateState(true);
@@ -452,7 +455,7 @@ bool
 HTMLTextAreaElement::IsDisabledForEvents(uint32_t aMessage)
 {
   nsIFormControlFrame* formControlFrame = GetFormControlFrame(false);
-  nsIFrame* formFrame = NULL;
+  nsIFrame* formFrame = nullptr;
   if (formControlFrame) {
     formFrame = do_QueryFrame(formControlFrame);
   }
@@ -1379,6 +1382,12 @@ HTMLTextAreaElement::GetRows()
   return DEFAULT_ROWS_TEXTAREA;
 }
 
+NS_IMETHODIMP_(void)
+HTMLTextAreaElement::GetDefaultValueFromContent(nsAString& aValue)
+{
+  GetDefaultValue(aValue);
+}
+
 NS_IMETHODIMP_(bool)
 HTMLTextAreaElement::ValueChanged() const
 {
@@ -1427,7 +1436,7 @@ HTMLTextAreaElement::FieldSetDisabledChanged(bool aNotify)
 }
 
 JSObject*
-HTMLTextAreaElement::WrapNode(JSContext* aCx, JSObject* aScope)
+HTMLTextAreaElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aScope)
 {
   return HTMLTextAreaElementBinding::Wrap(aCx, aScope, this);
 }

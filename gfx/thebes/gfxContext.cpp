@@ -20,7 +20,7 @@
 #include "gfxPattern.h"
 #include "gfxPlatform.h"
 #include "gfxTeeSurface.h"
-#include "sampler.h"
+#include "GeckoProfiler.h"
 #include <algorithm>
 
 #if CAIRO_HAS_DWRITE_FONT
@@ -148,9 +148,8 @@ gfxContext::CurrentSurface(gfxFloat *dx, gfxFloat *dy)
     if (s == mSurface->CairoSurface()) {
         if (dx && dy)
             cairo_surface_get_device_offset(s, dx, dy);
-        gfxASurface *ret = mSurface;
-        NS_ADDREF(ret);
-        return ret;
+        nsRefPtr<gfxASurface> ret = mSurface;
+        return ret.forget();
     }
 
     if (dx && dy)
@@ -303,7 +302,7 @@ gfxContext::Stroke()
 void
 gfxContext::Fill()
 {
-  SAMPLE_LABEL("gfxContext", "Fill");
+  PROFILER_LABEL("gfxContext", "Fill");
   if (mCairo) {
     cairo_fill_preserve(mCairo);
   } else {
@@ -1374,14 +1373,13 @@ gfxContext::GetPattern()
     cairo_pattern_t *pat = cairo_get_source(mCairo);
     NS_ASSERTION(pat, "I was told this couldn't be null");
 
-    gfxPattern *wrapper = nullptr;
+    nsRefPtr<gfxPattern> wrapper;
     if (pat)
         wrapper = new gfxPattern(pat);
     else
         wrapper = new gfxPattern(gfxRGBA(0,0,0,0));
 
-    NS_IF_ADDREF(wrapper);
-    return wrapper;
+    return wrapper.forget();
   } else {
     nsRefPtr<gfxPattern> pat;
     
@@ -1413,7 +1411,7 @@ gfxContext::Mask(gfxPattern *pattern)
 void
 gfxContext::Mask(gfxASurface *surface, const gfxPoint& offset)
 {
-  SAMPLE_LABEL("gfxContext", "Mask");
+  PROFILER_LABEL("gfxContext", "Mask");
   if (mCairo) {
     cairo_mask_surface(mCairo, surface->CairoSurface(), offset.x, offset.y);
   } else {
@@ -1432,7 +1430,7 @@ gfxContext::Mask(gfxASurface *surface, const gfxPoint& offset)
 void
 gfxContext::Paint(gfxFloat alpha)
 {
-  SAMPLE_LABEL("gfxContext", "Paint");
+  PROFILER_LABEL("gfxContext", "Paint");
   if (mCairo) {
     cairo_paint_with_alpha(mCairo, alpha);
   } else {
@@ -1557,10 +1555,9 @@ gfxContext::PopGroup()
 {
   if (mCairo) {
     cairo_pattern_t *pat = cairo_pop_group(mCairo);
-    gfxPattern *wrapper = new gfxPattern(pat);
+    nsRefPtr<gfxPattern> wrapper = new gfxPattern(pat);
     cairo_pattern_destroy(pat);
-    NS_IF_ADDREF(wrapper);
-    return wrapper;
+    return wrapper.forget();
   } else {
     RefPtr<SourceSurface> src = mDT->Snapshot();
     Point deviceOffset = CurrentState().deviceOffset;
@@ -1664,10 +1661,9 @@ already_AddRefed<gfxFlattenedPath>
 gfxContext::GetFlattenedPath()
 {
   if (mCairo) {
-    gfxFlattenedPath *path =
+    nsRefPtr<gfxFlattenedPath> path =
         new gfxFlattenedPath(cairo_copy_path_flat(mCairo));
-    NS_IF_ADDREF(path);
-    return path;
+    return path.forget();
   } else {
     // XXX - Used by SVG, needs fixing.
     return NULL;

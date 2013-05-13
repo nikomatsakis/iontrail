@@ -4,8 +4,6 @@
 
 /*
  * CMS attributes.
- *
- * $Id: cmsattr.c,v 1.10 2012/04/25 14:50:08 gerv%gerv.net Exp $
  */
 
 #include "cmslocal.h"

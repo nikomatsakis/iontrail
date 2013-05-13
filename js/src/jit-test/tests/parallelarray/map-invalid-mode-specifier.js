@@ -13,5 +13,8 @@ function testMap() {
   });
 }
 
-testMap();
+if (getBuildConfiguration().parallelJS)
+  testMap();
+else
+  throw new Error();
 

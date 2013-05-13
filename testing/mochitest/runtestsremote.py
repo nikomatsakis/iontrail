@@ -10,6 +10,7 @@ import re
 import traceback
 import shutil
 import math
+import base64
 
 sys.path.insert(0, os.path.abspath(os.path.realpath(os.path.dirname(sys.argv[0]))))
 
@@ -19,7 +20,8 @@ from runtests import Mochitest
 from runtests import MochitestOptions
 from runtests import MochitestServer
 
-import devicemanager, devicemanagerADB, devicemanagerSUT
+import devicemanager
+import droid
 import manifestparser
 
 class RemoteOptions(MochitestOptions):
@@ -311,7 +313,6 @@ class MochiRemote(Mochitest):
             shutil.rmtree(os.path.join(options.profilePath, 'extensions', 'staged', 'mochikit@mozilla.org'))
             shutil.rmtree(os.path.join(options.profilePath, 'extensions', 'staged', 'worker-test@mozilla.org'))
             shutil.rmtree(os.path.join(options.profilePath, 'extensions', 'staged', 'workerbootstrap-test@mozilla.org'))
-            shutil.rmtree(os.path.join(options.profilePath, 'extensions', 'staged', 'special-powers@mozilla.org'))
             os.remove(os.path.join(options.profilePath, 'userChrome.css'))
             if os.path.exists(os.path.join(options.profilePath, 'tests.jar')):
                 os.remove(os.path.join(options.profilePath, 'tests.jar'))
@@ -431,6 +432,16 @@ class MochiRemote(Mochitest):
             return 1
         return 0
 
+    def printScreenshot(self):
+        try:
+            image = self._dm.pullFile("/mnt/sdcard/Robotium-Screenshots/robocop-screenshot.jpg")
+            encoded = base64.b64encode(image)
+            print "SCREENSHOT: data:image/jpg;base64,%s" % encoded
+        except:
+            # If the test passes, no screenshot will be generated and
+            # pullFile will fail -- continue silently.
+            pass
+
     def printDeviceInfo(self):
         try:
             logcat = self._dm.getLogcat(filterOutRegexps=fennecLogcatFilters)
@@ -481,11 +492,11 @@ def main():
     options, args = parser.parse_args()
     if (options.dm_trans == "adb"):
         if (options.deviceIP):
-            dm = devicemanagerADB.DeviceManagerADB(options.deviceIP, options.devicePort, deviceRoot=options.remoteTestRoot)
+            dm = droid.DroidADB(options.deviceIP, options.devicePort, deviceRoot=options.remoteTestRoot)
         else:
-            dm = devicemanagerADB.DeviceManagerADB(deviceRoot=options.remoteTestRoot)
+            dm = droid.DroidADB(deviceRoot=options.remoteTestRoot)
     else:
-         dm = devicemanagerSUT.DeviceManagerSUT(options.deviceIP, options.devicePort, deviceRoot=options.remoteTestRoot)
+         dm = droid.DroidSUT(options.deviceIP, options.devicePort, deviceRoot=options.remoteTestRoot)
     auto.setDeviceManager(dm)
     options = parser.verifyRemoteOptions(options, auto)
     if (options == None):
@@ -516,6 +527,8 @@ def main():
         dm.killProcess(procName)
 
     if options.robocop != "":
+        # sut may wait up to 300 s for a robocop am process before returning
+        dm.default_timeout = 320
         mp = manifestparser.TestManifest(strict=False)
         # TODO: pull this in dynamically
         mp.read(options.robocop)
@@ -563,6 +576,7 @@ def main():
             options.browserArgs.append("org.mozilla.roboexample.test/%s.FennecInstrumentationTestRunner" % options.remoteappname)
 
             try:
+                dm.removeDir("/mnt/sdcard/Robotium-Screenshots")
                 dm.recordLogcat()
                 result = mochitest.runTests(options)
                 if result != 0:
@@ -570,6 +584,7 @@ def main():
                 log_result = mochitest.addLogData()
                 if result != 0 or log_result != 0:
                     mochitest.printDeviceInfo()
+                    mochitest.printScreenshot()
                 # Ensure earlier failures aren't overwritten by success on this run
                 if retVal is None or retVal == 0:
                     retVal = result

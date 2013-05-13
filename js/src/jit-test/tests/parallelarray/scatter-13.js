@@ -21,4 +21,4 @@ function testDivideScatterVector() {
     r => assertEqParallelArray(r, expect));
 }
 
-testDivideScatterVector();
+if (getBuildConfiguration().parallelJS) testDivideScatterVector();

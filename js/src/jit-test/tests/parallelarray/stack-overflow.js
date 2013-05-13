@@ -14,4 +14,5 @@ function testMap() {
     m => p.map(kernel, m));
 }
 
-testMap();
+if (getBuildConfiguration().parallelJS)
+  testMap();

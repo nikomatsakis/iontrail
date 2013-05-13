@@ -63,7 +63,7 @@ var SettingsListener = {
 SettingsListener.init();
 
 // =================== Audio ====================
-SettingsListener.observe('audio.volume.master', 0.5, function(value) {
+SettingsListener.observe('audio.volume.master', 1.0, function(value) {
   let audioManager = Services.audioManager;
   if (!audioManager)
     return;
@@ -163,6 +163,11 @@ SettingsListener.observe('language.current', 'en-US', function(value) {
   SettingsListener.observe('ril.sms.strict7BitEncoding.enabled', false,
     function(value) {
       Services.prefs.setBoolPref('dom.sms.strict7BitEncoding', value);
+  });
+
+  SettingsListener.observe('ril.sms.requestStatusReport.enabled', true,
+    function(value) {
+      Services.prefs.setBoolPref('dom.sms.requestStatusReport', value);
   });
 })();
 

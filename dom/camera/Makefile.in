@@ -23,6 +23,7 @@ CPPSRCS = \
   DOMCameraCapabilities.cpp \
   CameraControlImpl.cpp \
   CameraRecorderProfiles.cpp \
+  CameraPreviewMediaStream.cpp \
   $(NULL)
 
 ifeq ($(MOZ_B2G_CAMERA),1)
@@ -37,7 +38,7 @@ CPPSRCS += \
   AudioParameter.cpp \
   GonkRecorderProfiles.cpp \
   $(NULL)
-else ifeq (gonk,$(MOZ_WIDGET_TOOLKIT))
+else ifeq ($(MOZ_OMX_DECODER),1)
 CPPSRCS += \
   FallbackCameraManager.cpp \
   FallbackCameraControl.cpp \
@@ -50,13 +51,6 @@ CPPSRCS += \
   FallbackCameraControl.cpp \
   $(NULL)
 endif
-
-EXPORTS = \
-  CameraCommon.h \
-  DOMCameraManager.h \
-  GonkNativeWindow.h \
-  GonkNativeWindowClient.h \
-  $(NULL)
 
 include $(topsrcdir)/config/rules.mk
 include $(topsrcdir)/ipc/chromium/chromium-config.mk

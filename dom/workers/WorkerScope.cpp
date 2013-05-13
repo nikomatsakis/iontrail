@@ -59,8 +59,8 @@ namespace {
 class WorkerGlobalScope : public workers::EventTarget
 {
   static JSClass sClass;
-  static JSPropertySpec sProperties[];
-  static JSFunctionSpec sFunctions[];
+  static const JSPropertySpec sProperties[];
+  static const JSFunctionSpec sFunctions[];
 
   enum
   {
@@ -128,7 +128,7 @@ protected:
   _trace(JSTracer* aTrc) MOZ_OVERRIDE
   {
     for (int32_t i = 0; i < SLOT_COUNT; i++) {
-      JS_CALL_VALUE_TRACER(aTrc, mSlots[i], "WorkerGlobalScope instance slot");
+      JS_CallValueTracer(aTrc, &mSlots[i], "WorkerGlobalScope instance slot");
     }
     mWorker->TraceInternal(aTrc);
     EventTarget::_trace(aTrc);
@@ -228,8 +228,8 @@ private:
     }
 
     if (JSVAL_IS_VOID(scope->mSlots[SLOT_location])) {
-      JSString* href, *protocol, *host, *hostname;
-      JSString* port, *pathname, *search, *hash;
+      JS::Rooted<JSString*> href(aCx), protocol(aCx), host(aCx), hostname(aCx);
+      JS::Rooted<JSString*> port(aCx), pathname(aCx), search(aCx), hash(aCx);
 
       WorkerPrivate::LocationInfo& info = scope->mWorker->GetLocationInfo();
 
@@ -278,12 +278,12 @@ private:
     JSObject* wrapper = &JS_CALLEE(aCx, aVp).toObject();
     JS_ASSERT(JS_ObjectIsFunction(aCx, wrapper));
 
-    jsval scope = js::GetFunctionNativeReserved(wrapper, SLOT_wrappedScope);
-    jsval listener = js::GetFunctionNativeReserved(wrapper, SLOT_wrappedFunction);
+    JS::Rooted<JS::Value> scope(aCx, js::GetFunctionNativeReserved(wrapper, SLOT_wrappedScope));
+    JS::Rooted<JS::Value> listener(aCx, js::GetFunctionNativeReserved(wrapper, SLOT_wrappedFunction));
 
     JS_ASSERT(scope.isObject());
 
-    JSObject* event = &JS_ARGV(aCx, aVp)[0].toObject();
+    JS::Rooted<JSObject*> event(aCx, &JS_ARGV(aCx, aVp)[0].toObject());
 
     jsval argv[3] = { JSVAL_VOID, JSVAL_VOID, JSVAL_VOID };
     if (!JS_GetProperty(aCx, event, "message", &argv[0]) ||
@@ -355,7 +355,7 @@ private:
 
     JSFunction* adaptor =
       js::NewFunctionWithReserved(aCx, UnwrapErrorEvent, 1, 0,
-                                  JS_GetGlobalObject(aCx), "unwrap");
+                                  JS_GetGlobalForScopeChain(aCx), "unwrap");
     if (!adaptor) {
       return false;
     }
@@ -568,13 +568,13 @@ private:
       return false;
     }
 
-    jsval string;
-    if (!JS_ConvertArguments(aCx, aArgc, JS_ARGV(aCx, aVp), "v", &string)) {
+    JS::Rooted<JS::Value> string(aCx);
+    if (!JS_ConvertArguments(aCx, aArgc, JS_ARGV(aCx, aVp), "v", string.address())) {
       return false;
     }
 
-    jsval result;
-    if (!xpc::Base64Decode(aCx, string, &result)) {
+    JS::Rooted<JS::Value> result(aCx);
+    if (!xpc::Base64Decode(aCx, string, result.address())) {
       return false;
     }
 
@@ -594,13 +594,13 @@ private:
       return false;
     }
 
-    jsval binary;
-    if (!JS_ConvertArguments(aCx, aArgc, JS_ARGV(aCx, aVp), "v", &binary)) {
+    JS::Rooted<JS::Value> binary(aCx);
+    if (!JS_ConvertArguments(aCx, aArgc, JS_ARGV(aCx, aVp), "v", binary.address())) {
       return false;
     }
 
-    jsval result;
-    if (!xpc::Base64Encode(aCx, binary, &result)) {
+    JS::Rooted<JS::Value> result(aCx);
+    if (!xpc::Base64Encode(aCx, binary, result.address())) {
       return false;
     }
 
@@ -612,11 +612,11 @@ private:
 JSClass WorkerGlobalScope::sClass = {
   "WorkerGlobalScope",
   0,
-  JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
+  JS_PropertyStub, JS_DeletePropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
   JS_EnumerateStub, JS_ResolveStub, JS_ConvertStub
 };
 
-JSPropertySpec WorkerGlobalScope::sProperties[] = {
+const JSPropertySpec WorkerGlobalScope::sProperties[] = {
   { "location", SLOT_location, PROPERTY_FLAGS, JSOP_WRAPPER(GetLocation),
     JSOP_WRAPPER(js_GetterOnlyPropertyStub) },
   { sEventStrings[STRING_onerror], STRING_onerror, PROPERTY_FLAGS,
@@ -629,7 +629,7 @@ JSPropertySpec WorkerGlobalScope::sProperties[] = {
   { 0, 0, 0, JSOP_NULLWRAPPER, JSOP_NULLWRAPPER }
 };
 
-JSFunctionSpec WorkerGlobalScope::sFunctions[] = {
+const JSFunctionSpec WorkerGlobalScope::sFunctions[] = {
   JS_FN("close", Close, 0, FUNCTION_FLAGS),
   JS_FN("importScripts", ImportScripts, 1, FUNCTION_FLAGS),
   JS_FN("setTimeout", SetTimeout, 1, FUNCTION_FLAGS),
@@ -650,8 +650,9 @@ const char* const WorkerGlobalScope::sEventStrings[STRING_COUNT] = {
 class DedicatedWorkerGlobalScope : public WorkerGlobalScope
 {
   static DOMJSClass sClass;
-  static JSPropertySpec sProperties[];
-  static JSFunctionSpec sFunctions[];
+  static DOMIfaceAndProtoJSClass sProtoClass;
+  static const JSPropertySpec sProperties[];
+  static const JSFunctionSpec sFunctions[];
 
   enum
   {
@@ -669,11 +670,29 @@ public:
     return sClass.ToJSClass();
   }
 
+  static JSClass*
+  ProtoClass()
+  {
+    return sProtoClass.ToJSClass();
+  }
+
+  static DOMClass*
+  DOMClassStruct()
+  {
+    return &sClass.mClass;
+  }
+
   static JSObject*
   InitClass(JSContext* aCx, JSObject* aObj, JSObject* aParentProto)
   {
-    return JS_InitClass(aCx, aObj, aParentProto, Class(), Construct, 0,
-                        sProperties, sFunctions, NULL, NULL);
+    JSObject* proto =
+      JS_InitClass(aCx, aObj, aParentProto, ProtoClass(), Construct, 0,
+                   sProperties, sFunctions, NULL, NULL);
+    if (proto) {
+      js::SetReservedSlot(proto, DOM_PROTO_INSTANCE_CLASS_SLOT,
+                          JS::PrivateValue(DOMClassStruct()));
+    }
+    return proto;
   }
 
   static JSBool
@@ -792,7 +811,7 @@ private:
 
   static JSBool
   Resolve(JSContext* aCx, JSHandleObject aObj, JSHandleId aId, unsigned aFlags,
-          JSMutableHandleObject aObjp)
+          JS::MutableHandle<JSObject*> aObjp)
   {
     JSBool resolved;
     if (!JS_ResolveStandardClass(aCx, aObj, aId, &resolved)) {
@@ -835,16 +854,16 @@ private:
       return false;
     }
 
-    const char*& name = sFunctions[0].name;
+    const char* name = sFunctions[0].name;
     DedicatedWorkerGlobalScope* scope = GetInstancePrivate(aCx, obj, name);
     if (!scope) {
       return false;
     }
 
-    jsval message;
-    jsval transferable = JSVAL_VOID;
+    JS::Rooted<JS::Value> message(aCx);
+    JS::Rooted<JS::Value> transferable(aCx, JSVAL_VOID);
     if (!JS_ConvertArguments(aCx, aArgc, JS_ARGV(aCx, aVp), "v/v",
-                             &message, &transferable)) {
+                             message.address(), transferable.address())) {
       return false;
     }
 
@@ -859,7 +878,7 @@ DOMJSClass DedicatedWorkerGlobalScope::sClass = {
     "DedicatedWorkerGlobalScope",
     JSCLASS_DOM_GLOBAL | JSCLASS_IS_DOMJSCLASS | JSCLASS_IMPLEMENTS_BARRIERS |
     JSCLASS_GLOBAL_FLAGS_WITH_SLOTS(3) | JSCLASS_NEW_RESOLVE,
-    JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
+    JS_PropertyStub, JS_DeletePropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
     JS_EnumerateStub, reinterpret_cast<JSResolveOp>(Resolve), JS_ConvertStub,
     Finalize, NULL, NULL, NULL, NULL, Trace
   },
@@ -870,13 +889,43 @@ DOMJSClass DedicatedWorkerGlobalScope::sClass = {
   }
 };
 
-JSPropertySpec DedicatedWorkerGlobalScope::sProperties[] = {
+DOMIfaceAndProtoJSClass DedicatedWorkerGlobalScope::sProtoClass = {
+  {
+    // XXXbz we use "DedicatedWorkerGlobalScope" here to match sClass
+    // so that we can JS_InitClass this JSClass and then
+    // call JS_NewObject with our sClass and have it find the right
+    // prototype.
+    "DedicatedWorkerGlobalScope",
+    JSCLASS_IS_DOMIFACEANDPROTOJSCLASS | JSCLASS_HAS_RESERVED_SLOTS(2),
+    JS_PropertyStub,       /* addProperty */
+    JS_DeletePropertyStub, /* delProperty */
+    JS_PropertyStub,       /* getProperty */
+    JS_StrictPropertyStub, /* setProperty */
+    JS_EnumerateStub,
+    JS_ResolveStub,
+    JS_ConvertStub,
+    nullptr,               /* finalize */
+    nullptr,               /* checkAccess */
+    nullptr,               /* call */
+    nullptr,               /* hasInstance */
+    nullptr,               /* construct */
+    nullptr,               /* trace */
+    JSCLASS_NO_INTERNAL_MEMBERS
+  },
+  eInterfacePrototype,
+  &sWorkerNativePropertyHooks,
+  "[object DedicatedWorkerGlobalScope]",
+  prototypes::id::_ID_Count,
+  0
+};
+
+const JSPropertySpec DedicatedWorkerGlobalScope::sProperties[] = {
   { sEventStrings[STRING_onmessage], STRING_onmessage, PROPERTY_FLAGS,
     JSOP_WRAPPER(GetEventListener), JSOP_WRAPPER(SetEventListener) },
   { 0, 0, 0, JSOP_NULLWRAPPER, JSOP_NULLWRAPPER }
 };
 
-JSFunctionSpec DedicatedWorkerGlobalScope::sFunctions[] = {
+const JSFunctionSpec DedicatedWorkerGlobalScope::sFunctions[] = {
   JS_FN("postMessage", PostMessage, 1, FUNCTION_FLAGS),
   JS_FS_END
 };
@@ -916,9 +965,9 @@ CreateDedicatedWorkerGlobalScope(JSContext* aCx)
   WorkerPrivate* worker = GetWorkerPrivateFromContext(aCx);
   JS_ASSERT(worker);
 
-  JSObject* global =
+  JS::Rooted<JSObject*> global(aCx,
     JS_NewGlobalObject(aCx, DedicatedWorkerGlobalScope::Class(),
-                       GetWorkerPrincipal());
+                       GetWorkerPrincipal()));
   if (!global) {
     return NULL;
   }
@@ -936,8 +985,8 @@ CreateDedicatedWorkerGlobalScope(JSContext* aCx)
   //          -> EventTarget
   //          -> Object
 
-  JSObject* eventTargetProto =
-    EventTargetBinding_workers::GetProtoObject(aCx, global);
+  JS::Rooted<JSObject*> eventTargetProto(aCx,
+    EventTargetBinding_workers::GetProtoObject(aCx, global));
   if (!eventTargetProto) {
     return NULL;
   }

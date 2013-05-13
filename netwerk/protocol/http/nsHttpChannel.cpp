@@ -15,6 +15,7 @@
 #include "nsIStringBundle.h"
 #include "nsIStreamListenerTee.h"
 #include "nsISeekableStream.h"
+#include "nsILoadGroupChild.h"
 #include "nsMimeTypes.h"
 #include "nsNetUtil.h"
 #include "prprf.h"
@@ -29,11 +30,12 @@
 #include "mozilla/TimeStamp.h"
 #include "nsError.h"
 #include "nsAlgorithm.h"
-#include "sampler.h"
+#include "GeckoProfiler.h"
 #include "nsIConsoleService.h"
 #include "base/compiler_specific.h"
 #include "NullHttpTransaction.h"
 #include "mozilla/Attributes.h"
+#include "mozilla/VisualEventTracer.h"
 
 namespace mozilla { namespace net {
  
@@ -161,9 +163,15 @@ AutoRedirectVetoNotifier::ReportRedirectResult(bool succeeded)
     NS_QueryNotificationCallbacks(mChannel, 
                                   NS_GET_IID(nsIRedirectResultListener), 
                                   getter_AddRefs(vetoHook));
+
+#ifdef MOZ_VISUAL_EVENT_TRACER
+    nsHttpChannel* channel = mChannel;
+#endif
     mChannel = nullptr;
     if (vetoHook)
         vetoHook->OnRedirectResult(succeeded);
+
+    MOZ_EVENT_TRACER_DONE(channel, "net::http::redirect-callbacks");
 }
 
 class HttpCacheQuery : public nsRunnable, public nsICacheListener
@@ -320,6 +328,12 @@ nsHttpChannel::Init(nsIURI *uri,
                     uint32_t proxyResolveFlags,
                     nsIURI *proxyURI)
 {
+#ifdef MOZ_VISUAL_EVENT_TRACER
+    nsAutoCString url;
+    uri->GetAsciiSpec(url);
+    MOZ_EVENT_TRACER_NAME_OBJECT(this, url.get());
+#endif
+
     nsresult rv = HttpBaseChannel::Init(uri, caps, proxyInfo,
                                         proxyResolveFlags, proxyURI);
     if (NS_FAILED(rv))
@@ -357,12 +371,12 @@ nsHttpChannel::Connect()
         uint32_t flags = mPrivateBrowsing ? nsISocketProvider::NO_PERMANENT_STORAGE : 0;
         rv = stss->IsStsURI(mURI, flags, &isStsHost);
 
-        // if STS fails, there's no reason to cancel the load, but it's
-        // worrisome.
-        NS_ASSERTION(NS_SUCCEEDED(rv),
-                     "Something is wrong with STS: IsStsURI failed.");
+        // if the URI check fails, it's likely because this load is on a
+        // malformed URI or something else in the setup is wrong, so any error
+        // should be reported.
+        NS_ENSURE_SUCCESS(rv, rv);
 
-        if (NS_SUCCEEDED(rv) && isStsHost) {
+        if (isStsHost) {
             LOG(("nsHttpChannel::Connect() STS permissions found\n"));
             return AsyncCall(&nsHttpChannel::HandleAsyncRedirectChannelToHttps);
         }
@@ -671,23 +685,20 @@ nsHttpChannel::SetupTransactionLoadGroupInfo()
     // Find the loadgroup at the end of the chain in order
     // to make sure all channels derived from the load group
     // use the same connection scope.
-    nsCOMPtr<nsILoadGroup> rootLoadGroup = mLoadGroup;
-    while (rootLoadGroup) {
-        nsCOMPtr<nsILoadGroup> tmp;
-        rootLoadGroup->GetLoadGroup(getter_AddRefs(tmp));
-        if (tmp)
-            rootLoadGroup.swap(tmp);
-        else
-            break;
-    }
+    nsCOMPtr<nsILoadGroupChild> childLoadGroup = do_QueryInterface(mLoadGroup);
+    if (!childLoadGroup)
+        return;
+
+    nsCOMPtr<nsILoadGroup> rootLoadGroup;
+    childLoadGroup->GetRootLoadGroup(getter_AddRefs(rootLoadGroup));
+    if (!rootLoadGroup)
+        return;
 
     // Set the load group connection scope on the transaction
-    if (rootLoadGroup) {
-        nsCOMPtr<nsILoadGroupConnectionInfo> ci;
-        rootLoadGroup->GetConnectionInfo(getter_AddRefs(ci));
-        if (ci)
-            mTransaction->SetLoadGroupConnectionInfo(ci);
-    }
+    nsCOMPtr<nsILoadGroupConnectionInfo> ci;
+    rootLoadGroup->GetConnectionInfo(getter_AddRefs(ci));
+    if (ci)
+        mTransaction->SetLoadGroupConnectionInfo(ci);
 }
 
 nsresult
@@ -1918,7 +1929,7 @@ nsHttpChannel::EnsureAssocReq()
         return NS_OK;
     
     // check the method
-    int32_t methodlen = PL_strlen(mRequestHead.Method().get());
+    int32_t methodlen = strlen(mRequestHead.Method().get());
     if ((methodlen != (endofmethod - method)) ||
         PL_strncmp(method,
                    mRequestHead.Method().get(),
@@ -2332,6 +2343,8 @@ IsSubRangeRequest(nsHttpRequestHead &aRequestHead)
 nsresult
 nsHttpChannel::OpenCacheEntry(bool usingSSL)
 {
+    MOZ_EVENT_TRACER_EXEC(this, "net::http::OpenCacheEntry");
+
     nsresult rv;
 
     NS_ASSERTION(!mOnCacheEntryAvailableCallback, "Unexpected state");
@@ -3981,6 +3994,11 @@ nsHttpChannel::AsyncProcessRedirection(uint32_t redirectType)
     LOG(("nsHttpChannel::AsyncProcessRedirection [this=%p type=%u]\n",
         this, redirectType));
 
+    // The channel is actually starting its operation now, at least because
+    // we want it to appear like being in the waiting phase until now.
+    MOZ_EVENT_TRACER_EXEC(this, "net::http::channel");
+    MOZ_EVENT_TRACER_EXEC(this, "net::http::redirect-callbacks");
+
     const char *location = mResponseHead->PeekHeader(nsHttp::Location);
 
     // if a location header was not given, then we can't perform the redirect,
@@ -4334,6 +4352,8 @@ nsHttpChannel::GetSecurityInfo(nsISupports **securityInfo)
 NS_IMETHODIMP
 nsHttpChannel::AsyncOpen(nsIStreamListener *listener, nsISupports *context)
 {
+    MOZ_EVENT_TRACER_WAIT(this, "net::http::channel");
+
     LOG(("nsHttpChannel::AsyncOpen [this=%p]\n", this));
 
     NS_ENSURE_ARG_POINTER(listener);
@@ -4377,7 +4397,6 @@ nsHttpChannel::AsyncOpen(nsIStreamListener *listener, nsISupports *context)
     // that to complete would mean we don't include proxy resolution in the
     // timing.
     mAsyncOpenTime = TimeStamp::Now();
-    mCacheEffectExperimentAsyncOpenTime = mAsyncOpenTime;
 
     // the only time we would already know the proxy information at this
     // point would be if we were proxying a non-http protocol like ftp
@@ -4496,8 +4515,7 @@ nsHttpChannel::BeginConnect()
     if (mLoadFlags & LOAD_FRESH_CONNECTION) {
         // just the initial document resets the whole pool
         if (mLoadFlags & LOAD_INITIAL_DOCUMENT_URI) {
-            gHttpHandler->ConnMgr()->ClosePersistentConnections();
-            gHttpHandler->ConnMgr()->ResetIPFamillyPreference(mConnectionInfo);
+            gHttpHandler->ConnMgr()->DoShiftReloadConnectionCleanup(mConnectionInfo);
         }
         // each sub resource gets a fresh connection
         mCaps &= ~(NS_HTTP_ALLOW_KEEPALIVE | NS_HTTP_ALLOW_PIPELINING);
@@ -4844,7 +4862,7 @@ nsHttpChannel::GetRequestMethod(nsACString& aMethod)
 NS_IMETHODIMP
 nsHttpChannel::OnStartRequest(nsIRequest *request, nsISupports *ctxt)
 {
-    SAMPLE_LABEL("nsHttpChannel", "OnStartRequest");
+    PROFILER_LABEL("nsHttpChannel", "OnStartRequest");
     if (!(mCanceled || NS_FAILED(mStatus))) {
         // capture the request's status, so our consumers will know ASAP of any
         // connection failures, etc - bug 93581
@@ -4950,7 +4968,7 @@ nsHttpChannel::ContinueOnStartRequest3(nsresult result)
 NS_IMETHODIMP
 nsHttpChannel::OnStopRequest(nsIRequest *request, nsISupports *ctxt, nsresult status)
 {
-    SAMPLE_LABEL("network", "nsHttpChannel::OnStopRequest");
+    PROFILER_LABEL("network", "nsHttpChannel::OnStopRequest");
     LOG(("nsHttpChannel::OnStopRequest [this=%p request=%p status=%x]\n",
         this, request, status));
 
@@ -5069,6 +5087,8 @@ nsHttpChannel::OnStopRequest(nsIRequest *request, nsISupports *ctxt, nsresult st
         mListener->OnStopRequest(this, mListenerContext, status);
     }
 
+    MOZ_EVENT_TRACER_DONE(this, "net::http::channel");
+
     CloseCacheEntry(!contentComplete);
 
     if (mOfflineCacheEntry)
@@ -5081,15 +5101,7 @@ nsHttpChannel::OnStopRequest(nsIRequest *request, nsISupports *ctxt, nsresult st
     CleanRedirectCacheChainIfNecessary();
 
     ReleaseListeners();
-
-    // If enabled, record the cache effect experiment data
-    if (NS_SUCCEEDED(status) && contentComplete && !mCanceled) {
-        Telemetry::ID telemID = gHttpHandler->mCacheEffectExperimentTelemetryID;
-        if (telemID != nsHttpHandler::kNullTelemetryID) {
-            Telemetry::AccumulateTimeDelta(telemID,
-                                           mCacheEffectExperimentAsyncOpenTime);
-        }
-    }
+    
     return NS_OK;
 }
 
@@ -5102,7 +5114,7 @@ nsHttpChannel::OnDataAvailable(nsIRequest *request, nsISupports *ctxt,
                                nsIInputStream *input,
                                uint64_t offset, uint32_t count)
 {
-    SAMPLE_LABEL("network", "nsHttpChannel::OnDataAvailable");
+    PROFILER_LABEL("network", "nsHttpChannel::OnDataAvailable");
     LOG(("nsHttpChannel::OnDataAvailable [this=%p request=%p offset=%llu count=%u]\n",
         this, request, offset, count));
 
@@ -5149,6 +5161,8 @@ nsHttpChannel::OnDataAvailable(nsIRequest *request, nsISupports *ctxt,
         // already streamed some data from another source (see, for example,
         // OnDoneReadingPartialCacheEntry).
         //
+        if (!mLogicalOffset)
+            MOZ_EVENT_TRACER_EXEC(this, "net::http::channel");
 
         nsresult rv =  mListener->OnDataAvailable(this,
                                                   mListenerContext,
@@ -5445,6 +5459,10 @@ nsHttpChannel::OnCacheEntryAvailable(nsICacheEntryDescriptor *entry,
                                      nsresult status)
 {
     MOZ_ASSERT(NS_IsMainThread());
+
+    mozilla::eventtracer::AutoEventTracer profiler(this,
+             eventtracer::eNone, eventtracer::eDone,
+             "net::http::OpenCacheEntry");
 
     nsresult rv;
 
@@ -5791,6 +5809,7 @@ nsHttpChannel::OnRedirectVerifyCallback(nsresult result)
         // We are not waiting for the callback. At this moment we must release
         // reference to the redirect target channel, otherwise we may leak.
         mRedirectChannel = nullptr;
+        MOZ_EVENT_TRACER_DONE(this, "net::http::channel");
     }
 
     // We always resume the pumps here. If all functions on stack have been

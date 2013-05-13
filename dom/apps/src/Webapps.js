@@ -267,6 +267,8 @@ WebappsRegistry.prototype = {
   QueryInterface: XPCOMUtils.generateQI([Ci.mozIDOMApplicationRegistry,
 #ifdef MOZ_B2G
                                          Ci.mozIDOMApplicationRegistry2,
+#elifdef MOZ_WIDGET_ANDROID
+                                         Ci.mozIDOMApplicationRegistry2,
 #endif
                                          Ci.nsIDOMGlobalPropertyInitializer]),
 
@@ -274,6 +276,8 @@ WebappsRegistry.prototype = {
                                     contractID: "@mozilla.org/webapps;1",
                                     interfaces: [Ci.mozIDOMApplicationRegistry,
 #ifdef MOZ_B2G
+                                                 Ci.mozIDOMApplicationRegistry2,
+#elifdef MOZ_WIDGET_ANDROID
                                                  Ci.mozIDOMApplicationRegistry2,
 #endif
                                                  ],
@@ -683,6 +687,7 @@ WebappsApplicationMgmt.prototype = {
     dump("-- webapps.js uninstall " + aApp.manifestURL + "\n");
     let request = this.createRequest();
     cpmm.sendAsyncMessage("Webapps:Uninstall", { origin: aApp.origin,
+                                                 manifestURL: aApp.manifestURL,
                                                  oid: this._id,
                                                  requestID: this.getRequestId(request) });
     return request;

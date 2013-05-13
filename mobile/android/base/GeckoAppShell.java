@@ -13,6 +13,7 @@ import org.mozilla.gecko.gfx.PanZoomController;
 import org.mozilla.gecko.mozglue.GeckoLoader;
 import org.mozilla.gecko.util.EventDispatcher;
 import org.mozilla.gecko.util.GeckoEventListener;
+import org.mozilla.gecko.util.HardwareUtils;
 import org.mozilla.gecko.util.ThreadUtils;
 
 import android.app.ActivityManager;
@@ -27,7 +28,6 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.TypedArray;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ImageFormat;
@@ -54,6 +54,7 @@ import android.os.MessageQueue;
 import android.os.SystemClock;
 import android.os.Vibrator;
 import android.provider.Settings;
+import android.text.TextUtils;
 import android.util.Base64;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -64,7 +65,6 @@ import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.webkit.MimeTypeMap;
 import android.widget.Toast;
-import android.text.TextUtils;
 
 import java.io.BufferedReader;
 import java.io.Closeable;
@@ -77,6 +77,9 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.net.Proxy;
+import java.net.ProxySelector;
+import java.net.URI;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
@@ -89,9 +92,6 @@ import java.util.NoSuchElementException;
 import java.util.StringTokenizer;
 import java.util.TreeMap;
 import java.util.concurrent.SynchronousQueue;
-import java.net.ProxySelector;
-import java.net.Proxy;
-import java.net.URI;
 
 public class GeckoAppShell
 {
@@ -148,10 +148,10 @@ public class GeckoAppShell
     private static Sensor gProximitySensor = null;
     private static Sensor gLightSensor = null;
 
-    private static boolean mLocationHighAccuracy = false;
+    private static volatile boolean mLocationHighAccuracy;
 
-    static ActivityHandlerHelper sActivityHelper = new ActivityHandlerHelper();
-    static NotificationServiceClient sNotificationClient;
+    public static ActivityHandlerHelper sActivityHelper = new ActivityHandlerHelper();
+    static NotificationClient sNotificationClient;
 
     /* The Android-side API: API methods that Android calls */
 
@@ -173,9 +173,6 @@ public class GeckoAppShell
         Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
             @Override
             public void uncaughtException(Thread thread, Throwable e) {
-                Log.e(LOGTAG, ">>> REPORTING UNCAUGHT EXCEPTION FROM THREAD "
-                              + thread.getId() + " (\"" + thread.getName() + "\")", e);
-
                 // If the uncaught exception was rethrown, walk the exception `cause` chain to find
                 // the original exception so Socorro can correctly collate related crash reports.
                 Throwable cause;
@@ -183,15 +180,20 @@ public class GeckoAppShell
                     e = cause;
                 }
 
-                if (e instanceof java.lang.OutOfMemoryError) {
-                    SharedPreferences prefs =
-                        GeckoApp.mAppContext.getSharedPreferences(GeckoApp.PREFS_NAME, 0);
-                    SharedPreferences.Editor editor = prefs.edit();
-                    editor.putBoolean(GeckoApp.PREFS_OOM_EXCEPTION, true);
-                    editor.commit();
-                }
+                try {
+                    Log.e(LOGTAG, ">>> REPORTING UNCAUGHT EXCEPTION FROM THREAD "
+                                  + thread.getId() + " (\"" + thread.getName() + "\")", e);
 
-                reportJavaCrash(getStackTraceString(e));
+                    if (e instanceof OutOfMemoryError) {
+                        SharedPreferences prefs =
+                            GeckoApp.mAppContext.getSharedPreferences(GeckoApp.PREFS_NAME, 0);
+                        SharedPreferences.Editor editor = prefs.edit();
+                        editor.putBoolean(GeckoApp.PREFS_OOM_EXCEPTION, true);
+                        editor.commit();
+                    }
+                } finally {
+                    reportJavaCrash(getStackTraceString(e));
+                }
             }
         });
     }
@@ -210,7 +212,7 @@ public class GeckoAppShell
         sendEventToGecko(GeckoEvent.createVisitedEvent(uri));
     }
 
-    public static native void processNextNativeEvent();
+    public static native void processNextNativeEvent(boolean mayWait);
 
     public static native void notifyBatteryChange(double aLevel, boolean aCharging, double aRemainingTime);
 
@@ -321,21 +323,16 @@ public class GeckoAppShell
     /*
      *  The Gecko-side API: API methods that Gecko calls
      */
-    public static void notifyIME(int type, int state) {
+    public static void notifyIME(int type) {
         if (mEditableListener != null) {
-            mEditableListener.notifyIME(type, state);
+            mEditableListener.notifyIME(type);
         }
     }
 
-    public static void notifyIMEEnabled(int state, String typeHint,
-                                        String modeHint, String actionHint,
-                                        boolean landscapeFS) {
-        // notifyIMEEnabled() still needs the landscapeFS parameter
-        // because it is called from JNI code that assumes it has the
-        // same signature as XUL Fennec's (which does use landscapeFS).
-        // Bug 807124 will eliminate the need for landscapeFS
+    public static void notifyIMEContext(int state, String typeHint,
+                                        String modeHint, String actionHint) {
         if (mEditableListener != null) {
-            mEditableListener.notifyIMEEnabled(state, typeHint,
+            mEditableListener.notifyIMEContext(state, typeHint,
                                                modeHint, actionHint);
         }
     }
@@ -395,14 +392,50 @@ public class GeckoAppShell
         }
     }
 
+    private static float getLocationAccuracy(Location location) {
+        float radius = location.getAccuracy();
+        return (location.hasAccuracy() && radius > 0) ? radius : 1001;
+    }
+
+    private static Location getLastKnownLocation() {
+        Location lastKnownLocation = null;
+        LocationManager lm = getLocationManager();
+        List<String> providers = lm.getAllProviders();
+
+        for (String provider : providers) {
+            Location location = lm.getLastKnownLocation(provider);
+            if (location == null) {
+                continue;
+            }
+
+            if (lastKnownLocation == null) {
+                lastKnownLocation = location;
+                continue;
+            }
+
+            long timeDiff = location.getTime() - lastKnownLocation.getTime();
+            if (timeDiff > 0 ||
+                (timeDiff == 0 &&
+                 getLocationAccuracy(location) < getLocationAccuracy(lastKnownLocation))) {
+                lastKnownLocation = location;
+            }
+        }
+
+        return lastKnownLocation;
+    }
+
     public static void enableLocation(final boolean enable) {
         ThreadUtils.postToUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    LocationManager lm = (LocationManager)
-                        GeckoApp.mAppContext.getSystemService(Context.LOCATION_SERVICE);
+                    LocationManager lm = getLocationManager();
 
                     if (enable) {
+                        Location lastKnownLocation = getLastKnownLocation();
+                        if (lastKnownLocation != null) {
+                            GeckoApp.mAppContext.onLocationChanged(lastKnownLocation);
+                        }
+
                         Criteria criteria = new Criteria();
                         criteria.setSpeedRequired(false);
                         criteria.setBearingRequired(false);
@@ -422,16 +455,16 @@ public class GeckoAppShell
                             return;
 
                         Looper l = Looper.getMainLooper();
-                        Location loc = lm.getLastKnownLocation(provider);
-                        if (loc != null) {
-                            GeckoApp.mAppContext.onLocationChanged(loc);
-                        }
                         lm.requestLocationUpdates(provider, 100, (float).5, GeckoApp.mAppContext, l);
                     } else {
                         lm.removeUpdates(GeckoApp.mAppContext);
                     }
                 }
             });
+    }
+
+    private static LocationManager getLocationManager() {
+        return (LocationManager) GeckoApp.mAppContext.getSystemService(Context.LOCATION_SERVICE);
     }
 
     public static void enableLocationHighAccuracy(final boolean enable) {
@@ -554,16 +587,22 @@ public class GeckoAppShell
         gRestartScheduled = true;
     }
 
-    public static File installWebApp(String aTitle, String aURI, String aUniqueURI, String aIconURL) {
-        int index = WebAppAllocator.getInstance(GeckoApp.mAppContext).findAndAllocateIndex(aUniqueURI, aTitle, aIconURL);
+    public static File preInstallWebApp(String aTitle, String aURI, String aUniqueURI) {
+        int index = WebAppAllocator.getInstance(GeckoApp.mAppContext).findAndAllocateIndex(aUniqueURI, aTitle, (String) null);
         GeckoProfile profile = GeckoProfile.get(GeckoApp.mAppContext, "webapp" + index);
-        createShortcut(aTitle, aURI, aUniqueURI, aIconURL, "webapp");
         return profile.getDir();
+    }
+
+    public static void postInstallWebApp(String aTitle, String aURI, String aUniqueURI, String aIconURL) {
+    	WebAppAllocator allocator = WebAppAllocator.getInstance(GeckoApp.mAppContext);
+		int index = allocator.getIndexForApp(aUniqueURI);
+    	assert index != -1 && aIconURL != null;
+    	allocator.updateAppAllocation(aUniqueURI, index, BitmapUtils.getBitmapFromDataURI(aIconURL));
+    	createShortcut(aTitle, aURI, aUniqueURI, aIconURL, "webapp");
     }
 
     public static Intent getWebAppIntent(String aURI, String aUniqueURI, String aTitle, Bitmap aIcon) {
         int index;
-
         if (aIcon != null && !TextUtils.isEmpty(aTitle))
             index = WebAppAllocator.getInstance(GeckoApp.mAppContext).findAndAllocateIndex(aUniqueURI, aTitle, aIcon);
         else
@@ -579,7 +618,8 @@ public class GeckoAppShell
         Intent intent = new Intent();
         intent.setAction(GeckoApp.ACTION_WEBAPP_PREFIX + aIndex);
         intent.setData(Uri.parse(aURI));
-        intent.setClassName(GeckoApp.mAppContext, GeckoApp.mAppContext.getPackageName() + ".WebApps$WebApp" + aIndex);
+        intent.setClassName(AppConstants.ANDROID_PACKAGE_NAME,
+                            AppConstants.ANDROID_PACKAGE_NAME + ".WebApps$WebApp" + aIndex);
         return intent;
     }
 
@@ -617,8 +657,8 @@ public class GeckoAppShell
                     shortcutIntent = new Intent();
                     shortcutIntent.setAction(GeckoApp.ACTION_BOOKMARK);
                     shortcutIntent.setData(Uri.parse(aURI));
-                    shortcutIntent.setClassName(GeckoApp.mAppContext,
-                                                GeckoApp.mAppContext.getPackageName() + ".App");
+                    shortcutIntent.setClassName(AppConstants.ANDROID_PACKAGE_NAME,
+                                                AppConstants.BROWSER_INTENT_CLASS);
                 }
         
                 Intent intent = new Intent();
@@ -656,8 +696,8 @@ public class GeckoAppShell
                 } else {
                     shortcutIntent = new Intent();
                     shortcutIntent.setAction(GeckoApp.ACTION_BOOKMARK);
-                    shortcutIntent.setClassName(GeckoApp.mAppContext,
-                                                GeckoApp.mAppContext.getPackageName() + ".App");
+                    shortcutIntent.setClassName(AppConstants.ANDROID_PACKAGE_NAME,
+                                                AppConstants.BROWSER_INTENT_CLASS);
                     shortcutIntent.setData(Uri.parse(aURI));
                 }
         
@@ -756,12 +796,12 @@ public class GeckoAppShell
         }
 
         // draw the overlay
-        Bitmap overlay = BitmapFactory.decodeResource(GeckoApp.mAppContext.getResources(), R.drawable.home_bg);
+        Bitmap overlay = BitmapUtils.decodeResource(GeckoApp.mAppContext, R.drawable.home_bg);
         canvas.drawBitmap(overlay, null, new Rect(0, 0, size, size), null);
 
         // draw the favicon
         if (aSource == null)
-            aSource = BitmapFactory.decodeResource(GeckoApp.mAppContext.getResources(), R.drawable.home_star);
+            aSource = BitmapUtils.decodeResource(GeckoApp.mAppContext, R.drawable.home_star);
 
         // by default, we scale the icon to this size
         int sWidth = insetSize / 2;
@@ -796,9 +836,17 @@ public class GeckoAppShell
     static String[] getHandlersForURL(String aURL, String aAction) {
         // aURL may contain the whole URL or just the protocol
         Uri uri = aURL.indexOf(':') >= 0 ? Uri.parse(aURL) : new Uri.Builder().scheme(aURL).build();
-        Intent intent = getIntentForActionString(aAction);
-        intent.setData(uri);
+
+        Intent intent = getOpenURIIntent(GeckoApp.mAppContext, uri.toString(), "",
+            TextUtils.isEmpty(aAction) ? Intent.ACTION_VIEW : aAction, "");
+
         return getHandlersForIntent(intent);
+    }
+
+    static boolean hasHandlersForIntent(Intent intent) {
+        PackageManager pm = GeckoApp.mAppContext.getPackageManager();
+        List<ResolveInfo> list = pm.queryIntentActivities(intent, 0);
+        return !list.isEmpty();
     }
 
     static String[] getHandlersForIntent(Intent intent) {
@@ -821,10 +869,10 @@ public class GeckoAppShell
 
     static Intent getIntentForActionString(String aAction) {
         // Default to the view action if no other action as been specified.
-        if (aAction != null && aAction.length() > 0)
-            return new Intent(aAction);
-        else
+        if (TextUtils.isEmpty(aAction)) {
             return new Intent(Intent.ACTION_VIEW);
+        }
+        return new Intent(aAction);
     }
 
     static String getExtensionFromMimeType(String aMimeType) {
@@ -1062,20 +1110,26 @@ public class GeckoAppShell
         final String scheme = uri.getScheme();
 
         final Intent intent;
-        if ("vnd.youtube".equals(scheme) && getHandlersForURL(targetURI, action).length == 0) {
-            // Special case youtube to fallback to our own player
+
+        // Compute our most likely intent, then check to see if there are any
+        // custom handlers that would apply.
+        // Start with the original URI. If we end up modifying it, we'll
+        // overwrite it.
+        final Intent likelyIntent = getIntentForActionString(action);
+        likelyIntent.setData(uri);
+
+        if ("vnd.youtube".equals(scheme) && !hasHandlersForIntent(likelyIntent)) {
+            // Special-case YouTube to use our own player if no system handler
+            // exists.
             intent = new Intent(VideoPlayer.VIDEO_ACTION);
-            intent.setClassName(GeckoApp.mAppContext.getPackageName(),
+            intent.setClassName(AppConstants.ANDROID_PACKAGE_NAME,
                                 "org.mozilla.gecko.VideoPlayer");
+            intent.setData(uri);
         } else {
-            intent = getIntentForActionString(action);
+            intent = likelyIntent;
         }
 
-        // Start with the original URI. If we end up modifying it,
-        // we'll overwrite it.
-        intent.setData(uri);
-
-        // Have a special handling for the SMS, as the message body
+        // Have a special handling for SMS, as the message body
         // is not extracted from the URI automatically.
         if (!"sms".equals(scheme)) {
             return intent;
@@ -1115,41 +1169,51 @@ public class GeckoAppShell
         return intent;
     }
 
-    static SynchronousQueue<String> sClipboardQueue =
-        new SynchronousQueue<String>();
+    /* On some devices, access to the clipboard service needs to happen
+     * on a thread with a looper, so this function requires a looper is
+     * present on the thread. */
+    @SuppressWarnings("deprecation")
+    private static String getClipboardTextImpl() {
+        Context context = GeckoApp.mAppContext;
+        if (android.os.Build.VERSION.SDK_INT >= 11) {
+            android.content.ClipboardManager cm = (android.content.ClipboardManager)context.getSystemService(Context.CLIPBOARD_SERVICE);
+            if (cm.hasPrimaryClip()) {
+                ClipData clip = cm.getPrimaryClip();
+                if (clip != null) {
+                    ClipData.Item item = clip.getItemAt(0);
+                    return item.coerceToText(context).toString();
+                }
+            }
+        } else {
+            android.text.ClipboardManager cm = (android.text.ClipboardManager)context.getSystemService(Context.CLIPBOARD_SERVICE);
+            if (cm.hasText()) {
+                return cm.getText().toString();
+            }
+        }
+        return null;
+    }
+
+    private static SynchronousQueue<String> sClipboardQueue = new SynchronousQueue<String>();
     private static String EMPTY_STRING = new String();
 
-    // On some devices, access to the clipboard service needs to happen
-    // on a thread with a looper, so dispatch this to our looper thread
-    // Note: the main looper won't work because it may be blocked on the
-    // gecko thread, which is most likely this thread
     static String getClipboardText() {
-        ThreadUtils.postToBackgroundThread(new Runnable() {
+        // If we're on the UI thread or the background thread, we have a looper on the thread
+        // and can just call this directly. For any other threads, post the call to the
+        // background thread.
+
+        if (ThreadUtils.isOnUiThread() || ThreadUtils.isOnBackgroundThread()) {
+            return getClipboardTextImpl();
+        }
+
+        ThreadUtils.postToBackgroundThread(new Runnable() { 
             @Override
-            @SuppressWarnings("deprecation")
             public void run() {
-                Context context = GeckoApp.mAppContext;
-                String text = null;
-                if (android.os.Build.VERSION.SDK_INT >= 11) {
-                    android.content.ClipboardManager cm = (android.content.ClipboardManager)
-                        context.getSystemService(Context.CLIPBOARD_SERVICE);
-                    if (cm.hasPrimaryClip()) {
-                        ClipData clip = cm.getPrimaryClip();
-                        if (clip != null) {
-                            ClipData.Item item = clip.getItemAt(0);
-                            text = item.coerceToText(context).toString();
-                        }
-                    }
-                } else {
-                    android.text.ClipboardManager cm = (android.text.ClipboardManager)
-                        context.getSystemService(Context.CLIPBOARD_SERVICE);
-                    if (cm.hasText())
-                        text = cm.getText().toString();
-                }
+                String text = getClipboardTextImpl();
                 try {
                     sClipboardQueue.put(text != null ? text : EMPTY_STRING);
                 } catch (InterruptedException ie) {}
-            }});
+            }
+        });
         try {
             String ret = sClipboardQueue.take();
             return (EMPTY_STRING.equals(ret) ? null : ret);
@@ -1172,14 +1236,15 @@ public class GeckoAppShell
                         context.getSystemService(Context.CLIPBOARD_SERVICE);
                     cm.setText(text);
                 }
-            }});
+            }
+        });
     }
 
-    public static void setNotificationClient(NotificationServiceClient client) {
+    public static void setNotificationClient(NotificationClient client) {
         if (sNotificationClient == null) {
             sNotificationClient = client;
         } else {
-            Log.w(LOGTAG, "Notification client already set");
+            Log.d(LOGTAG, "Notification client already set");
         }
     }
 
@@ -1195,7 +1260,7 @@ public class GeckoAppShell
         // The intent to launch when the user clicks the expanded notification
         String app = GeckoApp.mAppContext.getClass().getName();
         Intent notificationIntent = new Intent(GeckoApp.ACTION_ALERT_CALLBACK);
-        notificationIntent.setClassName(GeckoApp.mAppContext, app);
+        notificationIntent.setClassName(AppConstants.ANDROID_PACKAGE_NAME, app);
         notificationIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
         int notificationID = aAlertName.hashCode();
@@ -1684,6 +1749,10 @@ public class GeckoAppShell
         }
     }
 
+    public static Context getContext() {
+        return GeckoApp.mAppContext;
+    }
+
     public static android.hardware.Camera sCamera = null;
 
     static native void cameraCallbackBridge(byte[] data);
@@ -1926,16 +1995,9 @@ public class GeckoAppShell
         SmsManager.getInstance().clearMessageList(aListId);
     }
 
+    /* Called by JNI from AndroidBridge, and by reflection from tests/BaseTest.java.in */
     public static boolean isTablet() {
-        return GeckoApp.mAppContext.isTablet();
-    }
-
-    public static boolean isLargeTablet() {
-        return GeckoApp.mAppContext.isLargeTablet();
-    }
-
-    public static boolean isSmallTablet() {
-        return GeckoApp.mAppContext.isSmallTablet();
+        return HardwareUtils.isTablet();
     }
 
     public static void viewSizeChanged() {

@@ -4,8 +4,6 @@
 
 /*
  * Base64 encoding (binary to ascii).
- *
- * $Id: nssb64e.c,v 1.4 2012/04/25 14:50:16 gerv%gerv.net Exp $
  */
 
 #include "nssb64.h"

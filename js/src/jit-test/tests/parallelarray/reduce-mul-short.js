@@ -12,4 +12,4 @@ function testReduce() {
   compareAgainstArray(array, "reduce", mul, assertAlmostEq);
 }
 
-testReduce();
+if (getBuildConfiguration().parallelJS) testReduce();

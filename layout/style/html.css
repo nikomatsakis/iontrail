@@ -509,10 +509,6 @@ s, strike, del {
   text-decoration: line-through;
 }
 
-blink {
-  text-decoration: blink;
-}
-
 big {
   font-size: larger;
 }
@@ -659,7 +655,7 @@ frameset {
 }
 
 frame {
-  border: none ! important;
+  border-radius: 0 ! important;
 }
 
 iframe {
@@ -689,7 +685,7 @@ canvas {
 
 /* hidden elements */
 base, basefont, datalist, head, meta, script, style, title,
-noembed, param {
+noembed, param, template {
    display: none;
 }
 

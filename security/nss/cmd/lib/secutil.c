@@ -504,6 +504,8 @@ SECU_ReadDERFromFile(SECItem *der, PRFileDesc *inFile, PRBool ascii)
 
 	/* Read in ascii data */
 	rv = SECU_FileToItem(&filedata, inFile);
+	if (rv != SECSuccess)
+	    return rv;
 	asc = (char *)filedata.data;
 	if (!asc) {
 	    fprintf(stderr, "unable to read data from input file\n");
@@ -519,20 +521,27 @@ SECU_ReadDERFromFile(SECItem *der, PRFileDesc *inFile, PRBool ascii)
 		body = PORT_Strchr(asc, '\r'); /* maybe this is a MAC file */
 	    if (body)
 		trailer = strstr(++body, "-----END");
-	    if (trailer != NULL) {
+	    if (trailer != NULL)
 		*trailer = '\0';
-	    } else {
+	    if (!body || !trailer) {
 		fprintf(stderr, "input has header but no trailer\n");
 		PORT_Free(filedata.data);
 		return SECFailure;
 	    }
 	} else {
-	    body = asc;
+	    /* need one additional byte for zero terminator */
+	    rv = SECITEM_ReallocItem(NULL, &filedata, filedata.len, filedata.len+1);
+	    if (rv != SECSuccess) {
+		PORT_Free(filedata.data);
+		return rv;
+	    }
+	    body = (char*)filedata.data;
+	    body[filedata.len-1] = '\0';
 	}
      
 	/* Convert to binary */
 	rv = ATOB_ConvertAsciiToItem(der, body);
-	if (rv) {
+	if (rv != SECSuccess) {
 	    fprintf(stderr, "error converting ascii to binary (%s)\n",
 		    SECU_Strerror(PORT_GetError()));
 	    PORT_Free(filedata.data);
@@ -543,7 +552,7 @@ SECU_ReadDERFromFile(SECItem *der, PRFileDesc *inFile, PRBool ascii)
     } else {
 	/* Read in binary der */
 	rv = SECU_FileToItem(der, inFile);
-	if (rv) {
+	if (rv != SECSuccess) {
 	    fprintf(stderr, "error converting der (%s)\n", 
 		    SECU_Strerror(PORT_GetError()));
 	    return SECFailure;
@@ -618,7 +627,7 @@ secu_PrintRawString(FILE *out, SECItem *si, const char *m, int level)
 }
 
 void
-SECU_PrintString(FILE *out, SECItem *si, char *m, int level)
+SECU_PrintString(FILE *out, const SECItem *si, const char *m, int level)
 {
     SECItem my = *si;
 
@@ -650,7 +659,7 @@ secu_PrintBoolean(FILE *out, SECItem *i, const char *m, int level)
  * otherwise just print the formatted time string only.
  */
 static void
-secu_PrintTime(FILE *out, int64 time, char *m, int level)
+secu_PrintTime(FILE *out, const PRTime time, const char *m, int level)
 {
     PRExplodedTime printableTime; 
     char *timeString;
@@ -683,7 +692,7 @@ secu_PrintTime(FILE *out, int64 time, char *m, int level)
  * otherwise just print the formatted time string only.
  */
 void
-SECU_PrintUTCTime(FILE *out, SECItem *t, char *m, int level)
+SECU_PrintUTCTime(FILE *out, const SECItem *t, const char *m, int level)
 {
     int64 time;
     SECStatus rv;
@@ -701,7 +710,7 @@ SECU_PrintUTCTime(FILE *out, SECItem *t, char *m, int level)
  * afterward; otherwise just print the formatted time string only.
  */
 void
-SECU_PrintGeneralizedTime(FILE *out, SECItem *t, char *m, int level)
+SECU_PrintGeneralizedTime(FILE *out, const SECItem *t, const char *m, int level)
 {
     int64 time;
     SECStatus rv;
@@ -720,7 +729,7 @@ SECU_PrintGeneralizedTime(FILE *out, SECItem *t, char *m, int level)
  * afterward; otherwise just print the formatted time string only.
  */
 void
-SECU_PrintTimeChoice(FILE *out, SECItem *t, char *m, int level)
+SECU_PrintTimeChoice(FILE *out, const SECItem *t, const char *m, int level)
 {
     switch (t->type) {
         case siUTCTime:
@@ -739,8 +748,8 @@ SECU_PrintTimeChoice(FILE *out, SECItem *t, char *m, int level)
 
 
 /* This prints a SET or SEQUENCE */
-void
-SECU_PrintSet(FILE *out, SECItem *t, char *m, int level)
+static void
+SECU_PrintSet(FILE *out, const SECItem *t, const char *m, int level)
 {
     int            type        = t->data[0] & SEC_ASN1_TAGNUM_MASK;
     int            constructed = t->data[0] & SEC_ASN1_CONSTRUCTED;
@@ -794,7 +803,7 @@ SECU_PrintSet(FILE *out, SECItem *t, char *m, int level)
 }
 
 static void
-secu_PrintContextSpecific(FILE *out, SECItem *i, char *m, int level)
+secu_PrintContextSpecific(FILE *out, const SECItem *i, const char *m, int level)
 {
     int type        = i->data[0] & SEC_ASN1_TAGNUM_MASK;
     int constructed = i->data[0] & SEC_ASN1_CONSTRUCTED;
@@ -825,7 +834,7 @@ secu_PrintContextSpecific(FILE *out, SECItem *i, char *m, int level)
 }
 
 static void
-secu_PrintOctetString(FILE *out, SECItem *i, char *m, int level)
+secu_PrintOctetString(FILE *out, const SECItem *i, const char *m, int level)
 {
     SECItem tmp = *i;
     if (SECSuccess == SECU_StripTagAndLength(&tmp))
@@ -833,7 +842,7 @@ secu_PrintOctetString(FILE *out, SECItem *i, char *m, int level)
 }
 
 static void
-secu_PrintBitString(FILE *out, SECItem *i, char *m, int level)
+secu_PrintBitString(FILE *out, const SECItem *i, const char *m, int level)
 {
     int unused_bits;
     SECItem tmp = *i;
@@ -853,7 +862,7 @@ secu_PrintBitString(FILE *out, SECItem *i, char *m, int level)
 
 /* in a decoded bit string, the len member is a bit length. */
 static void
-secu_PrintDecodedBitString(FILE *out, SECItem *i, char *m, int level)
+secu_PrintDecodedBitString(FILE *out, const SECItem *i, const char *m, int level)
 {
     int unused_bits;
     SECItem tmp = *i;
@@ -872,7 +881,7 @@ secu_PrintDecodedBitString(FILE *out, SECItem *i, char *m, int level)
 
 /* Print a DER encoded Boolean */
 void
-SECU_PrintEncodedBoolean(FILE *out, SECItem *i, char *m, int level)
+SECU_PrintEncodedBoolean(FILE *out, const SECItem *i, const char *m, int level)
 {
     SECItem my    = *i;
     if (SECSuccess == SECU_StripTagAndLength(&my))
@@ -881,7 +890,7 @@ SECU_PrintEncodedBoolean(FILE *out, SECItem *i, char *m, int level)
 
 /* Print a DER encoded integer */
 void
-SECU_PrintEncodedInteger(FILE *out, SECItem *i, char *m, int level)
+SECU_PrintEncodedInteger(FILE *out, const SECItem *i, const char *m, int level)
 {
     SECItem my    = *i;
     if (SECSuccess == SECU_StripTagAndLength(&my))
@@ -890,7 +899,7 @@ SECU_PrintEncodedInteger(FILE *out, SECItem *i, char *m, int level)
 
 /* Print a DER encoded OID */
 void
-SECU_PrintEncodedObjectID(FILE *out, SECItem *i, char *m, int level)
+SECU_PrintEncodedObjectID(FILE *out, const SECItem *i, const char *m, int level)
 {
     SECItem my    = *i;
     if (SECSuccess == SECU_StripTagAndLength(&my))
@@ -898,7 +907,7 @@ SECU_PrintEncodedObjectID(FILE *out, SECItem *i, char *m, int level)
 }
 
 static void
-secu_PrintBMPString(FILE *out, SECItem *i, char *m, int level)
+secu_PrintBMPString(FILE *out, const SECItem *i, const char *m, int level)
 {
     unsigned char * s;
     unsigned char * d;
@@ -932,7 +941,7 @@ loser:
 }
 
 static void
-secu_PrintUniversalString(FILE *out, SECItem *i, char *m, int level)
+secu_PrintUniversalString(FILE *out, const SECItem *i, const char *m, int level)
 {
     unsigned char * s;
     unsigned char * d;
@@ -967,7 +976,7 @@ loser:
 }
 
 static void
-secu_PrintUniversal(FILE *out, SECItem *i, char *m, int level)
+secu_PrintUniversal(FILE *out, const SECItem *i, const char *m, int level)
 {
 	switch (i->data[0] & SEC_ASN1_TAGNUM_MASK) {
 	  case SEC_ASN1_ENUMERATED:
@@ -1023,7 +1032,7 @@ secu_PrintUniversal(FILE *out, SECItem *i, char *m, int level)
 }
 
 void
-SECU_PrintAny(FILE *out, SECItem *i, char *m, int level)
+SECU_PrintAny(FILE *out, const SECItem *i, const char *m, int level)
 {
     if ( i && i->len && i->data ) {
 	switch (i->data[0] & SEC_ASN1_CLASS_MASK) {
@@ -1051,7 +1060,7 @@ secu_PrintValidity(FILE *out, CERTValidity *v, char *m, int level)
 
 /* This function does NOT expect a DER type and length. */
 SECOidTag
-SECU_PrintObjectID(FILE *out, SECItem *oid, char *m, int level)
+SECU_PrintObjectID(FILE *out, const SECItem *oid, const char *m, int level)
 {
     SECOidData *oiddata;
     char *      oidString = NULL;
@@ -2289,7 +2298,7 @@ loser:
 }
 
 int
-SECU_PrintCertificate(FILE *out, SECItem *der, char *m, int level)
+SECU_PrintCertificate(FILE *out, const SECItem *der, const char *m, int level)
 {
     PRArenaPool *arena = PORT_NewArena(DER_DEFAULT_CHUNKSIZE);
     CERTCertificate *c;

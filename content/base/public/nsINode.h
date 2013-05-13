@@ -6,11 +6,9 @@
 #ifndef nsINode_h___
 #define nsINode_h___
 
-#include "mozilla/ErrorResult.h"
 #include "mozilla/Likely.h"
 #include "nsCOMPtr.h"               // for member, local
 #include "nsGkAtoms.h"              // for nsGkAtoms::baseURIProperty
-#include "nsIDOMEventTarget.h"      // for base class
 #include "nsIDOMNode.h"
 #include "nsIDOMNodeSelector.h"     // base class
 #include "nsINodeInfo.h"            // member (in nsCOMPtr)
@@ -259,8 +257,8 @@ private:
 
 // IID for the nsINode interface
 #define NS_INODE_IID \
-{ 0xb3ee8053, 0x43b0, 0x44bc, \
-  { 0xa0, 0x97, 0x18, 0x24, 0xd2, 0xac, 0x65, 0xb6 } }
+{ 0x5daa9e95, 0xe49c, 0x4b41, \
+  { 0xb2, 0x02, 0xde, 0xa9, 0xd3, 0x06, 0x21, 0x17 } }
 
 /**
  * An internal interface that abstracts some DOMNode-related parts that both
@@ -276,13 +274,13 @@ public:
   // measurement of the following members may be added later if DMD finds it is
   // worthwhile:
   // - nsGenericHTMLElement:  mForm, mFieldSet
-  // - nsGenericHTMLFrameElement: mFrameLoader (bug 672539), mTitleChangedListener
+  // - nsGenericHTMLFrameElement: mFrameLoader (bug 672539)
   // - HTMLBodyElement:       mContentStyleRule
   // - HTMLDataListElement:   mOptions
   // - HTMLFieldSetElement:   mElements, mDependentElements, mFirstLegend
   // - nsHTMLFormElement:     many!
   // - HTMLFrameSetElement:   mRowSpecs, mColSpecs
-  // - nsHTMLInputElement:    mInputData, mFiles, mFileList, mStaticDocfileList
+  // - HTMLInputElement:      mInputData, mFiles, mFileList, mStaticDocfileList
   // - nsHTMLMapElement:      mAreas
   // - HTMLMediaElement:      many!
   // - nsHTMLOutputElement:   mDefaultValue, mTokenList
@@ -378,7 +376,8 @@ public:
    */
   virtual bool IsNodeOfType(uint32_t aFlags) const = 0;
 
-  virtual JSObject* WrapObject(JSContext *aCx, JSObject *aScope) MOZ_OVERRIDE;
+  virtual JSObject* WrapObject(JSContext *aCx,
+                               JS::Handle<JSObject*> aScope) MOZ_OVERRIDE;
 
 protected:
   /**
@@ -386,7 +385,7 @@ protected:
    * does some additional checks and fix-up that's common to all nodes. WrapNode
    * should just call the DOM binding's Wrap function.
    */
-  virtual JSObject* WrapNode(JSContext *aCx, JSObject *aScope)
+  virtual JSObject* WrapNode(JSContext *aCx, JS::Handle<JSObject*> aScope)
   {
     MOZ_ASSERT(!IsDOMBinding(), "Someone forgot to override WrapNode");
     return nullptr;
@@ -805,7 +804,13 @@ public:
    * See nsIDOMEventTarget
    */
   NS_DECL_NSIDOMEVENTTARGET
+  using mozilla::dom::EventTarget::RemoveEventListener;
   using nsIDOMEventTarget::AddEventListener;
+  virtual void AddEventListener(const nsAString& aType,
+                                nsIDOMEventListener* aListener,
+                                bool aUseCapture,
+                                const mozilla::dom::Nullable<bool>& aWantsUntrusted,
+                                mozilla::ErrorResult& aRv) MOZ_OVERRIDE;
   using nsIDOMEventTarget::AddSystemEventListener;
 
   /**
@@ -1138,7 +1143,7 @@ public:
    * Control if GetUserData and SetUserData methods will be exposed to
    * unprivileged content.
    */
-  static bool ShouldExposeUserData(JSContext* aCx, JSObject* /* unused */);
+  static bool IsChromeOrXBL(JSContext* aCx, JSObject* /* unused */);
 
   void LookupPrefix(const nsAString& aNamespace, nsAString& aResult);
   bool IsDefaultNamespace(const nsAString& aNamespaceURI)
@@ -1592,6 +1597,11 @@ public:
     return rv.ErrorCode();
   }
 
+  /**
+   * Remove this node from its parent, if any.
+   */
+  void Remove();
+
 protected:
 
   // Override this function to create a custom slots class.
@@ -1813,6 +1823,12 @@ extern const nsIID kThisPtrOffsetsSID;
 #define NS_NODE_OFFSET_AND_INTERFACE_TABLE_BEGIN(_class)                      \
   NS_OFFSET_AND_INTERFACE_TABLE_BEGIN_AMBIGUOUS(_class, nsINode)              \
     NS_INTERFACE_TABLE_ENTRY(_class, nsINode)                       
+
+#define NS_NODE_INTERFACE_TABLE1(_class, _i1)                                 \
+  NS_NODE_OFFSET_AND_INTERFACE_TABLE_BEGIN(_class)                            \
+    NS_INTERFACE_TABLE_ENTRY(_class, _i1)                                     \
+  NS_OFFSET_AND_INTERFACE_TABLE_END                                           \
+  NS_OFFSET_AND_INTERFACE_TABLE_TO_MAP_SEGUE
 
 #define NS_NODE_INTERFACE_TABLE2(_class, _i1, _i2)                            \
   NS_NODE_OFFSET_AND_INTERFACE_TABLE_BEGIN(_class)                            \

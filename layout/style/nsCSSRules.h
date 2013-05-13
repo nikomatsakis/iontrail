@@ -89,8 +89,8 @@ public:
   // @media rule methods
   nsresult SetMedia(nsMediaList* aMedia);
   
-  virtual NS_MUST_OVERRIDE size_t
-    SizeOfIncludingThis(nsMallocSizeOfFun aMallocSizeOf) const;
+  virtual size_t SizeOfIncludingThis(nsMallocSizeOfFun aMallocSizeOf)
+    const MOZ_MUST_OVERRIDE;
 
 protected:
   void AppendConditionText(nsAString& aOutput);
@@ -167,8 +167,8 @@ public:
 
   void SetURLs(URL *aURLs) { mURLs = aURLs; }
 
-  virtual NS_MUST_OVERRIDE size_t
-    SizeOfIncludingThis(nsMallocSizeOfFun aMallocSizeOf) const;
+  virtual size_t SizeOfIncludingThis(nsMallocSizeOfFun aMallocSizeOf)
+    const MOZ_MUST_OVERRIDE;
 
 protected:
   void AppendConditionText(nsAString& aOutput);
@@ -203,7 +203,8 @@ public:
   nsresult GetPropertyValue(nsCSSFontDesc aFontDescID,
                             nsAString & aResult) const;
 
-  virtual JSObject* WrapObject(JSContext *cx, JSObject *scope) MOZ_OVERRIDE;
+  virtual JSObject* WrapObject(JSContext *cx,
+                               JS::Handle<JSObject*> scope) MOZ_OVERRIDE;
 
 protected:
   friend class nsCSSFontFaceRule;

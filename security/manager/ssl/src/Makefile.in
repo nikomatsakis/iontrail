@@ -15,13 +15,11 @@ LIBRARY_NAME	= pipnss
 IS_COMPONENT	= 1
 MODULE_NAME	= NSS
 EXPORT_LIBRARY	= 1
-GRE_MODULE	= 1
 LIBXUL_LIBRARY	= 1
 
 CPPSRCS = 				\
 	CryptoTask.cpp \
 	JARSignatureVerification.cpp \
-	nsCERTValInParamWrapper.cpp     \
 	nsNSSCleaner.cpp                \
 	nsCertOverrideService.cpp   \
 	nsRecentBadCerts.cpp \
@@ -72,7 +70,9 @@ CPPSRCS = 				\
   nsNSSVersion.cpp \
   nsCertificatePrincipal.cpp \
   SharedSSLState.cpp \
+  CertVerifier.cpp \
   $(NULL)
+
 
 ifndef MOZ_DISABLE_CRYPTOLEGACY
 CPPSRCS += \
@@ -86,25 +86,10 @@ endif
 
 CSRCS += md4.c
 
-EXTRA_DEPS = $(NSS_DEP_LIBS)
-
 DEFINES += \
   -DNSS_ENABLE_ECC \
   -DDLL_PREFIX=\"$(DLL_PREFIX)\" \
   -DDLL_SUFFIX=\"$(DLL_SUFFIX)\" \
-  $(NULL)
-
-EXPORTS += \
-  CryptoTask.h \
-  nsNSSShutDown.h \
-  ScopedNSSTypes.h \
-  nsRandomGenerator.h \
-  $(NULL)
-
-EXPORTS_NAMESPACES = mozilla
-
-EXPORTS_mozilla += \
-  PublicSSL.h \
   $(NULL)
 
 include $(topsrcdir)/config/rules.mk

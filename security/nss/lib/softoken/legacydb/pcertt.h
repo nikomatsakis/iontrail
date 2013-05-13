@@ -3,8 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 /*
  * certt.h - public data structures for the certificate library
- *
- * $Id: pcertt.h,v 1.5 2012/04/25 14:50:11 gerv%gerv.net Exp $
  */
 #ifndef _PCERTT_H_
 #define _PCERTT_H_

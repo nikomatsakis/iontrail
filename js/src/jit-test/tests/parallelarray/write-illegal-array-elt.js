@@ -12,5 +12,5 @@ function testMap() {
   assertParallelExecWillBail(m => p.map(func, m));
 }
 
-testMap();
+if (getBuildConfiguration().parallelJS) testMap();
 

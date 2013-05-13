@@ -28,6 +28,10 @@ class TextNodeCorrespondenceRecorder;
 struct TextRenderedRun;
 class TextRenderedRunIterator;
 
+namespace dom {
+class SVGIRect;
+}
+
 /**
  * Information about the positioning for a single character in an SVG <text>
  * element.
@@ -123,6 +127,7 @@ class GlyphMetricsUpdater : public nsRunnable {
 public:
   NS_DECL_NSIRUNNABLE
   GlyphMetricsUpdater(nsSVGTextFrame2* aFrame) : mFrame(aFrame) { }
+  static void Run(nsSVGTextFrame2* aFrame);
   void Revoke() { mFrame = nullptr; }
 private:
   nsSVGTextFrame2* mFrame;
@@ -254,7 +259,9 @@ public:
   // SVG DOM text methods:
   uint32_t GetNumberOfChars(nsIContent* aContent);
   float GetComputedTextLength(nsIContent* aContent);
-  float GetSubStringLength(nsIContent* aContent, uint32_t charnum, uint32_t nchars);
+  nsresult SelectSubString(nsIContent* aContent, uint32_t charnum, uint32_t nchars);
+  nsresult GetSubStringLength(nsIContent* aContent, uint32_t charnum,
+                              uint32_t nchars, float* aResult);
   int32_t GetCharNumAtPosition(nsIContent* aContent, mozilla::nsISVGPoint* point);
 
   nsresult GetStartPositionOfChar(nsIContent* aContent, uint32_t aCharNum,
@@ -262,7 +269,7 @@ public:
   nsresult GetEndPositionOfChar(nsIContent* aContent, uint32_t aCharNum,
                                 mozilla::nsISVGPoint** aResult);
   nsresult GetExtentOfChar(nsIContent* aContent, uint32_t aCharNum,
-                           nsIDOMSVGRect** aResult);
+                           mozilla::dom::SVGIRect** aResult);
   nsresult GetRotationOfChar(nsIContent* aContent, uint32_t aCharNum,
                              float* aResult);
 
@@ -270,9 +277,16 @@ public:
 
   /**
    * Schedules mPositions to be recomputed and the covered region to be
-   * updated.
+   * updated.  The aFlags argument can take the ePositioningDirtyDueToMutation
+   * value to indicate that glyph metrics need to be recomputed due to
+   * a DOM mutation in the <text> element on one of its descendants.
    */
-  void NotifyGlyphMetricsChange();
+  void NotifyGlyphMetricsChange(uint32_t aFlags = 0);
+
+  /**
+   * Enum for NotifyGlyphMetricsChange's aFlags argument.
+   */
+  enum { ePositioningDirtyDueToMutation = 1 };
 
   /**
    * Updates the mFontSizeScaleFactor value by looking at the range of
@@ -591,7 +605,7 @@ private:
    *     <g transform="scale(2)">
    *       <text font-size="10">abc</text>
    *     </g>
-   *  </svg>
+   *   </svg>
    *
    * a font size of 20 would be used.  It's preferable to use a font size that
    * is identical or close to the size that the text will appear on the screen,
@@ -614,7 +628,14 @@ private:
   uint32_t mGetCanvasTMForFlag;
 
   /**
-   * Whether something has changed to invalidate the values in mPositions.
+   * The NS_FRAME_IS_DIRTY and NS_FRAME_HAS_DIRTY_CHILDREN bits indicate
+   * that our anonymous block child needs to be reflowed, and that mPositions
+   * will likely need to be updated as a consequence. These are set, for
+   * example, when the font-family changes. Sometimes we only need to
+   * update mPositions though. For example if the x/y attributes change.
+   * mPositioningDirty is used to indicate this latter "things are dirty" case
+   * to allow us to avoid reflowing the anonymous block when it is not
+   * necessary.
    */
   bool mPositioningDirty;
 };

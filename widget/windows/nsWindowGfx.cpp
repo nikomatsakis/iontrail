@@ -545,6 +545,10 @@ bool nsWindow::OnPaint(HDC aDC, uint32_t aNestingLevel)
         }
         break;
 #endif
+      case LAYERS_CLIENT:
+        // Do nothing, the compositor will handle drawing.
+        break;
+
       default:
         NS_ERROR("Unknown layers backend used!");
         break;
@@ -623,6 +627,8 @@ nsresult nsWindowGfx::CreateIcon(imgIContainer *aContainer,
     return NS_ERROR_FAILURE;
 
   uint8_t *data;
+  nsRefPtr<gfxImageSurface> dest;
+
   if ((aScaledSize.width == 0 && aScaledSize.height == 0) ||
       (aScaledSize.width == width && aScaledSize.height == height)) {
     // We're not scaling the image. The data is simply what's in the frame.
@@ -632,8 +638,7 @@ nsresult nsWindowGfx::CreateIcon(imgIContainer *aContainer,
     NS_ENSURE_ARG(aScaledSize.width > 0);
     NS_ENSURE_ARG(aScaledSize.height > 0);
     // Draw a scaled version of the image to a temporary surface
-    nsRefPtr<gfxImageSurface> dest = new gfxImageSurface(aScaledSize,
-                                                         gfxASurface::ImageFormatARGB32);
+    dest = new gfxImageSurface(aScaledSize, gfxASurface::ImageFormatARGB32);
     if (!dest)
       return NS_ERROR_OUT_OF_MEMORY;
 

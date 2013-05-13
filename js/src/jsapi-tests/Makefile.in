@@ -11,8 +11,6 @@ VPATH		= @srcdir@
 
 include $(DEPTH)/config/autoconf.mk
 
-PROGRAM         = jsapi-tests$(BIN_SUFFIX)
-
 CPPSRCS = \
   tests.cpp \
   selfTest.cpp \
@@ -88,6 +86,8 @@ DEFINES         += -DIMPL_MFBT
 LIBS      = $(DEPTH)/$(LIB_PREFIX)js_static.$(LIB_SUFFIX) $(NSPR_LIBS) $(MOZ_ZLIB_LIBS)
 
 LOCAL_INCLUDES += -I$(topsrcdir) -I..
+
+EXTRA_LIBS += $(MOZ_FFI_LIBS)
 
 ifdef QEMU_EXE
 MOZ_POST_PROGRAM_COMMAND = $(topsrcdir)/build/qemu-wrap --qemu $(QEMU_EXE) --libdir $(CROSS_LIB)

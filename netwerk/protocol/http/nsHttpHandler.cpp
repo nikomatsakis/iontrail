@@ -37,11 +37,13 @@
 #include "nsAlgorithm.h"
 #include "ASpdySession.h"
 #include "mozIApplicationClearPrivateDataParams.h"
-#include "nsIRandomGenerator.h"
+#include "nsICancelable.h"
+#include "EventTokenBucket.h"
 
 #include "nsIXULAppInfo.h"
 
 #include "mozilla/net/NeckoChild.h"
+#include "mozilla/Telemetry.h"
 
 #if defined(XP_UNIX)
 #include <sys/utsname.h>
@@ -187,11 +189,11 @@ nsHttpHandler::nsHttpHandler()
     , mSpdyPingTimeout(PR_SecondsToInterval(8))
     , mConnectTimeout(90000)
     , mParallelSpeculativeConnectLimit(6)
+    , mRequestTokenBucketEnabled(true)
+    , mRequestTokenBucketMinParallelism(6)
+    , mRequestTokenBucketHz(100)
+    , mRequestTokenBucketBurst(32)
     , mCritialRequestPrioritization(true)
-    , mCacheEffectExperimentTelemetryID(kNullTelemetryID)
-    , mCacheEffectExperimentOnce(false)
-    , mCacheEffectExperimentSlowConn(0)
-    , mCacheEffectExperimentFastConn(0)
 {
 #if defined(PR_LOGGING)
     gHttpLog = PR_NewLogModule("nsHttp");
@@ -220,10 +222,6 @@ nsHttpHandler::~nsHttpHandler()
     if (mPipelineTestTimer) {
         mPipelineTestTimer->Cancel();
         mPipelineTestTimer = nullptr;
-    }
-    if (mCacheEffectExperimentTimer) {
-        mCacheEffectExperimentTimer->Cancel();
-        mCacheEffectExperimentTimer = nullptr;
     }
 
     gHttpHandler = nullptr;
@@ -340,7 +338,20 @@ nsHttpHandler::Init()
         mObserverService->AddObserver(this, "webapps-clear-data", true);
     }
 
+    MakeNewRequestTokenBucket();
     return NS_OK;
+}
+
+void
+nsHttpHandler::MakeNewRequestTokenBucket()
+{
+    if (!mConnMgr)
+        return;
+
+    nsRefPtr<mozilla::net::EventTokenBucket> tokenBucket =
+        new mozilla::net::EventTokenBucket(RequestTokenBucketHz(),
+                                           RequestTokenBucketBurst());
+    mConnMgr->UpdateRequestTokenBucket(tokenBucket);
 }
 
 nsresult
@@ -1225,12 +1236,17 @@ nsHttpHandler::PrefsChanged(nsIPrefBranch *prefs, const char *pref)
         }
     }
 
+    // toggle to true anytime a token bucket related pref is changed.. that
+    // includes telemetry and allow-experiments because of the abtest profile
+    bool requestTokenBucketUpdated = false;
+
     //
     // Telemetry
     //
 
     if (PREF_CHANGED(TELEMETRY_ENABLED)) {
         cVar = false;
+        requestTokenBucketUpdated = true;
         rv = prefs->GetBoolPref(TELEMETRY_ENABLED, &cVar);
         if (NS_SUCCEEDED(rv)) {
             mTelemetryEnabled = cVar;
@@ -1240,29 +1256,12 @@ nsHttpHandler::PrefsChanged(nsIPrefBranch *prefs, const char *pref)
     //
     // network.allow-experiments
     //
-
     if (PREF_CHANGED(ALLOW_EXPERIMENTS)) {
         cVar = true;
+        requestTokenBucketUpdated = true;
         rv = prefs->GetBoolPref(ALLOW_EXPERIMENTS, &cVar);
         if (NS_SUCCEEDED(rv)) {
             mAllowExperiments = cVar;
-        }
-
-        if (!mCacheEffectExperimentOnce) {
-            mCacheEffectExperimentOnce = true;
-
-            // Start the Cache Efficacy Experiment for testing channels
-#ifdef MOZ_TELEMETRY_ON_BY_DEFAULT            
-            if (mAllowExperiments) {
-                if (mCacheEffectExperimentTimer)
-                    mCacheEffectExperimentTimer->Cancel();
-                mCacheEffectExperimentTimer = do_CreateInstance("@mozilla.org/timer;1");
-                if (mCacheEffectExperimentTimer)
-                    mCacheEffectExperimentTimer->InitWithFuncCallback(
-                        StartCacheExperiment, this, kExperimentStartupDelay,
-                        nsITimer::TYPE_ONE_SHOT);
-            }
-#endif
         }
     }
 
@@ -1296,6 +1295,43 @@ nsHttpHandler::PrefsChanged(nsIPrefBranch *prefs, const char *pref)
             }
         }
     }
+    if (requestTokenBucketUpdated) {
+        MakeNewRequestTokenBucket();
+    }
+
+    if (PREF_CHANGED(HTTP_PREF("pacing.requests.enabled"))) {
+        rv = prefs->GetBoolPref(HTTP_PREF("pacing.requests.enabled"),
+                                &cVar);
+        if (NS_SUCCEEDED(rv)){
+            requestTokenBucketUpdated = true;
+            mRequestTokenBucketEnabled = cVar;
+        }
+    }
+
+    if (PREF_CHANGED(HTTP_PREF("pacing.requests.min-parallelism"))) {
+        rv = prefs->GetIntPref(HTTP_PREF("pacing.requests.min-parallelism"), &val);
+        if (NS_SUCCEEDED(rv))
+            mRequestTokenBucketMinParallelism = static_cast<uint16_t>(clamped(val, 1, 1024));
+    }
+    if (PREF_CHANGED(HTTP_PREF("pacing.requests.hz"))) {
+        rv = prefs->GetIntPref(HTTP_PREF("pacing.requests.hz"), &val);
+        if (NS_SUCCEEDED(rv)) {
+            mRequestTokenBucketHz = static_cast<uint32_t>(clamped(val, 1, 10000));
+            requestTokenBucketUpdated = true;
+        }
+    }
+    if (PREF_CHANGED(HTTP_PREF("pacing.requests.burst"))) {
+        rv = prefs->GetIntPref(HTTP_PREF("pacing.requests.burst"), &val);
+        if (NS_SUCCEEDED(rv)) {
+            mRequestTokenBucketBurst = val ? val : 1;
+            requestTokenBucketUpdated = true;
+        }
+    }
+    if (requestTokenBucketUpdated) {
+        mRequestTokenBucket =
+            new mozilla::net::EventTokenBucket(RequestTokenBucketHz(),
+                                               RequestTokenBucketBurst());
+    }
 
 #undef PREF_CHANGED
 #undef MULTI_PREF_CHANGED
@@ -1311,82 +1347,6 @@ nsHttpHandler::TimerCallback(nsITimer * aTimer, void * aClosure)
     nsRefPtr<nsHttpHandler> thisObject = static_cast<nsHttpHandler*>(aClosure);
     if (!thisObject->mPipeliningEnabled)
         thisObject->mCapabilities &= ~NS_HTTP_ALLOW_PIPELINING;
-}
-
-void
-nsHttpHandler::FinishCacheExperiment(nsITimer * aTimer, void * aClosure)
-{
-    nsRefPtr<nsHttpHandler> self = static_cast<nsHttpHandler*>(aClosure);
-    self->mCacheEffectExperimentTimer = nullptr;
-    
-    // The experiment is over.
-    self->mCacheEffectExperimentTelemetryID = kNullTelemetryID;
-    self->mUseCache = true;
-    LOG(("Cache Effect Experiment Complete\n"));
-}
-
-// The Cache Effect Experiment selects 1 of 16 sessions and divides them
-// into equal groups of cache enabled and cache disabled for a few minutes.
-// Sessions that already have their cache disabled are not selected.
-// During the time of the experiment we measure transaction times from the time
-// of channel::AsyncOpen() to the time OnStopRequest() is called. Results are
-// recorded for the matrix of {cacheEnabled, Fast/Slow-Connection}. We
-// intentionally don't record whether the cache was hit for a particular
-// transaction - just whether or not it was enabled in order to get a
-// feel for whether or not the cache helps overall performance.
-//
-void
-nsHttpHandler::StartCacheExperiment(nsITimer * aTimer, void * aClosure)
-{
-    nsRefPtr<nsHttpHandler> self = static_cast<nsHttpHandler*>(aClosure);
-
-    if (!self->AllowExperiments())
-        return;
-    if (!self->mUseCache)
-        return;
-    if (!(self->mCacheEffectExperimentFastConn + self->mCacheEffectExperimentSlowConn))
-        return;
-
-    bool selected = false;
-    bool disableCache = false;
-    uint8_t *buffer;
-
-    nsCOMPtr<nsIRandomGenerator> randomGenerator =
-        do_GetService("@mozilla.org/security/random-generator;1");
-
-    if (randomGenerator &&
-        NS_SUCCEEDED(randomGenerator->GenerateRandomBytes(1, &buffer))) {
-        if (!((*buffer) & 0x0f))
-            selected = true;
-        if (!((*buffer) & 0x10))
-            disableCache = true;
-        NS_Free(buffer);
-    }
-    if (!selected)
-        return;
-    if (disableCache)
-        self->mUseCache = false;
-
-    // consider this a fast connection if 1/3 of the connects are fast.
-    bool isFast = (self->mCacheEffectExperimentFastConn * 2) >= self->mCacheEffectExperimentSlowConn;
-    if (self->mUseCache) {
-        if (isFast)
-            self->mCacheEffectExperimentTelemetryID = Telemetry::HTTP_TRANSACTION_TIME_CONNFAST_CACHEON;
-        else
-            self->mCacheEffectExperimentTelemetryID = Telemetry::HTTP_TRANSACTION_TIME_CONNSLOW_CACHEON;
-    }
-    else {
-        if (isFast)
-            self->mCacheEffectExperimentTelemetryID = Telemetry::HTTP_TRANSACTION_TIME_CONNFAST_CACHEOFF;
-        else
-            self->mCacheEffectExperimentTelemetryID = Telemetry::HTTP_TRANSACTION_TIME_CONNSLOW_CACHEOFF;
-    }
-    
-    LOG(("Cache Effect Experiment Started ID=%X\n", self->mCacheEffectExperimentTelemetryID));
-
-    self->mCacheEffectExperimentTimer->InitWithFuncCallback(
-        FinishCacheExperiment, self, kExperimentStartupDuration,
-        nsITimer::TYPE_ONE_SHOT);
 }
 
 /**

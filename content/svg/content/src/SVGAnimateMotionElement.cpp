@@ -12,16 +12,10 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGAnimateMotionElement::WrapNode(JSContext *aCx, JSObject *aScope)
+SVGAnimateMotionElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aScope)
 {
   return SVGAnimateMotionElementBinding::Wrap(aCx, aScope, this);
 }
-
-//----------------------------------------------------------------------
-// nsISupports methods
-NS_IMPL_ISUPPORTS_INHERITED3(SVGAnimateMotionElement, SVGAnimationElement,
-                             nsIDOMNode,
-                             nsIDOMElement, nsIDOMSVGElement)
 
 //----------------------------------------------------------------------
 // Implementation

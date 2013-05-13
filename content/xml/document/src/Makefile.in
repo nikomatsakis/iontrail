@@ -17,7 +17,7 @@ FAIL_ON_WARNINGS = 1
 CPPSRCS		= \
 		nsXMLContentSink.cpp \
 		nsXMLFragmentContentSink.cpp \
-		nsXMLDocument.cpp \
+		XMLDocument.cpp \
 		nsXMLPrettyPrinter.cpp \
 		$(NULL)
 

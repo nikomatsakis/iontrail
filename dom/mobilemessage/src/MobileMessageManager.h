@@ -25,7 +25,7 @@ public:
   NS_DECL_NSIOBSERVER
   NS_DECL_NSIDOMMOZMOBILEMESSAGEMANAGER
 
-  NS_FORWARD_NSIDOMEVENTTARGET(nsDOMEventTargetHelper::)
+  NS_REALLY_FORWARD_NSIDOMEVENTTARGET(nsDOMEventTargetHelper)
 
   void Init(nsPIDOMWindow *aWindow);
   void Shutdown();
@@ -35,18 +35,16 @@ private:
    * Internal Send() method used to send one message.
    */
   nsresult Send(JSContext* aCx, JSObject* aGlobal, JSString* aNumber,
-                const nsAString& aMessage, jsval* aRequest);
+                const nsAString& aMessage, JS::Value* aRequest);
 
   /**
    * Internal Delete() method used to delete a message.
    */
   nsresult Delete(int32_t aId, nsIDOMDOMRequest** aRequest);
 
-  nsresult DispatchTrustedSmsEventToSelf(const nsAString& aEventName,
-                                         nsIDOMMozSmsMessage* aMessage);
-
-  nsresult DispatchTrustedMmsEventToSelf(const nsAString& aEventName,
-                                         nsIDOMMozMmsMessage* aMessage);
+  nsresult DispatchTrustedSmsEventToSelf(const char* aTopic,
+                                         const nsAString& aEventName,
+                                         nsISupports* aMsg);
 };
 
 } // namespace dom

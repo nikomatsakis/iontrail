@@ -4,8 +4,6 @@
 
 /*
  * Stuff specific to S/MIME policy and interoperability.
- *
- * $Id: smimeutil.c,v 1.25 2012/05/17 17:55:52 kaie%kuix.de Exp $
  */
 
 #include "secmime.h"

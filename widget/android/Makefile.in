@@ -13,7 +13,6 @@ LIBRARY_NAME    = widget_android
 EXPORT_LIBRARY  = 1
 IS_COMPONENT    = 1
 MODULE_NAME     = nsWidgetAndroidModule
-GRE_MODULE      = 1
 LIBXUL_LIBRARY  = 1
 FAIL_ON_WARNINGS := 1
 
@@ -33,6 +32,7 @@ CPPSRCS	= \
 	AndroidDirectTexture.cpp \
 	AndroidGraphicBuffer.cpp \
 	AndroidJNI.cpp \
+	AndroidJNIWrapper.cpp \
 	nsWindow.cpp \
 	nsLookAndFeel.cpp \
 	nsScreenManagerAndroid.cpp \
@@ -54,8 +54,6 @@ NOT_THERE_YET_CPPSRCS = \
 	$(NULL)
 
 SHARED_LIBRARY_LIBS = ../xpwidgets/libxpwidgets_s.a
-
-EXPORTS = AndroidBridge.h AndroidJavaWrappers.h
 
 include $(topsrcdir)/config/rules.mk
 

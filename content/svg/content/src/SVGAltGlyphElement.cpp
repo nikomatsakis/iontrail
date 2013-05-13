@@ -13,7 +13,7 @@ namespace mozilla {
 namespace dom {
 
 JSObject*
-SVGAltGlyphElement::WrapNode(JSContext *aCx, JSObject *aScope)
+SVGAltGlyphElement::WrapNode(JSContext *aCx, JS::Handle<JSObject*> aScope)
 {
   return SVGAltGlyphElementBinding::Wrap(aCx, aScope, this);
 }
@@ -25,19 +25,11 @@ nsSVGElement::StringInfo SVGAltGlyphElement::sStringInfo[1] =
 
 
 //----------------------------------------------------------------------
-// nsISupports methods
-
-NS_IMPL_ISUPPORTS_INHERITED3(SVGAltGlyphElement, SVGAltGlyphElementBase,
-                             nsIDOMNode, nsIDOMElement,
-                             nsIDOMSVGElement)
-
-//----------------------------------------------------------------------
 // Implementation
 
 SVGAltGlyphElement::SVGAltGlyphElement(already_AddRefed<nsINodeInfo> aNodeInfo)
   : SVGAltGlyphElementBase(aNodeInfo)
 {
-  SetIsDOMBinding();
 }
 
 //----------------------------------------------------------------------
@@ -93,14 +85,14 @@ SVGAltGlyphElement::IsAttributeMapped(const nsIAtom* name) const
     SVGAltGlyphElementBase::IsAttributeMapped(name);
 }
 
-//----------------------------------------------------------------------
-// nsSVGElement overrides
-
 bool
-SVGAltGlyphElement::IsEventName(nsIAtom* aName)
+SVGAltGlyphElement::IsEventAttributeName(nsIAtom* aName)
 {
   return nsContentUtils::IsEventAttributeName(aName, EventNameType_SVGGraphic);
 }
+
+//----------------------------------------------------------------------
+// nsSVGElement overrides
 
 nsSVGElement::StringAttributesInfo
 SVGAltGlyphElement::GetStringInfo()

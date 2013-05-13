@@ -30,28 +30,7 @@ function ThreadActor(aHooks, aGlobal)
   this._frameActors = [];
   this._environmentActors = [];
   this._hooks = aHooks;
-  this._sources = {};
   this.global = aGlobal;
-
-  /**
-   * A script cache that maps script URLs to arrays of different Debugger.Script
-   * instances that have the same URL. For example, when an inline <script> tag
-   * in a web page contains a function declaration, the JS engine creates two
-   * Debugger.Script objects, one for the function and one for the script tag
-   * as a whole. The two objects will usually have different startLine and/or
-   * lineCount properties. For the edge case where two scripts are contained in
-   * the same line we need column support.
-   *
-   * The sparse array that is mapped to each URL serves as an additional mapping
-   * from startLine numbers to Debugger.Script objects, facilitating retrieval
-   * of the scripts that contain a particular line number. For example, if a
-   * cache holds two scripts with the URL http://foo.com/ starting at lines 4
-   * and 10, then the corresponding cache will be:
-   * this._scripts: {
-   *   'http://foo.com/': [,,,,[Debugger.Script],,,,,,[Debugger.Script]]
-   * }
-   */
-  this._scripts = {};
 
   // A cache of prototype chains for objects that have received a
   // prototypeAndProperties request. Due to the way the debugger frontend works,
@@ -66,6 +45,11 @@ function ThreadActor(aHooks, aGlobal)
 
   this.findGlobals = this.globalManager.findGlobals.bind(this);
   this.onNewGlobal = this.globalManager.onNewGlobal.bind(this);
+  this.onNewSource = this.onNewSource.bind(this);
+
+  this._options = {
+    useSourceMaps: false
+  };
 }
 
 /**
@@ -93,14 +77,21 @@ ThreadActor.prototype = {
     return this._threadLifetimePool;
   },
 
+  get sources() {
+    if (!this._sources) {
+      this._sources = new ThreadSources(this, this._options.useSourceMaps,
+                                        this._allowSource, this.onNewSource);
+    }
+    return this._sources;
+  },
+
   clearDebuggees: function TA_clearDebuggees() {
     if (this.dbg) {
       this.dbg.removeAllDebuggees();
     }
     this.conn.removeActorPool(this._threadLifetimePool || undefined);
     this._threadLifetimePool = null;
-    this._scripts = {};
-    this._sources = {};
+    this._sources = null;
   },
 
   /**
@@ -176,18 +167,19 @@ ThreadActor.prototype = {
           aGlobal.hostAnnotations.type == "document" &&
           aGlobal.hostAnnotations.element === this.global) {
         this.addDebuggee(aGlobal);
+        // Notify the client.
+        this.conn.send({
+          from: this.actorID,
+          type: "newGlobal",
+          // TODO: after bug 801084 lands see if we need to JSONify this.
+          hostAnnotations: aGlobal.hostAnnotations
+        });
       }
-      // Notify the client.
-      this.conn.send({
-        from: this.actorID,
-        type: "newGlobal",
-        // TODO: after bug 801084 lands see if we need to JSONify this.
-        hostAnnotations: aGlobal.hostAnnotations
-      });
     }
   },
 
   disconnect: function TA_disconnect() {
+    dumpn("in ThreadActor.prototype.disconnect");
     if (this._state == "paused") {
       this.onResume();
     }
@@ -223,6 +215,8 @@ ThreadActor.prototype = {
 
     this._state = "attached";
 
+    update(this._options, aRequest.options || {});
+
     if (!this.dbg) {
       this._initDebugger();
     }
@@ -247,15 +241,30 @@ ThreadActor.prototype = {
       // We already sent a response to this request, don't send one
       // now.
       return null;
-    } catch(e) {
-      Cu.reportError(e);
+    } catch (e) {
+      reportError(e);
       return { error: "notAttached", message: e.toString() };
     }
   },
 
   onDetach: function TA_onDetach(aRequest) {
     this.disconnect();
-    return { type: "detached" };
+    dumpn("ThreadActor.prototype.onDetach: returning 'detached' packet");
+    return {
+      type: "detached"
+    };
+  },
+
+  onReconfigure: function TA_onReconfigure(aRequest) {
+    if (this.state == "exited") {
+      return { error: "wrongState" };
+    }
+
+    update(this._options, aRequest.options || {});
+    // Clear existing sources, so they can be recreated on next access.
+    this._sources = null;
+
+    return {};
   },
 
   /**
@@ -266,15 +275,19 @@ ThreadActor.prototype = {
    *        The newest debuggee frame in the stack.
    * @param object aReason
    *        An object with a 'type' property containing the reason for the pause.
+   * @param function onPacket
+   *        Hook to modify the packet before it is sent. Feel free to return a
+   *        promise.
    */
-  _pauseAndRespond: function TA__pauseAndRespond(aFrame, aReason) {
+  _pauseAndRespond: function TA__pauseAndRespond(aFrame, aReason,
+                                                 onPacket=function (k) k) {
     try {
       let packet = this._paused(aFrame);
       if (!packet) {
         return undefined;
       }
       packet.why = aReason;
-      this.conn.send(packet);
+      resolve(onPacket(packet)).then(this.conn.send.bind(this.conn));
       return this._nest();
     } catch(e) {
       let msg = "Got an exception during TA__pauseAndRespond: " + e +
@@ -289,6 +302,26 @@ ThreadActor.prototype = {
    * Handle a protocol request to resume execution of the debuggee.
    */
   onResume: function TA_onResume(aRequest) {
+    if (this._state !== "paused") {
+      return {
+        error: "wrongState",
+        message: "Can't resume when debuggee isn't paused. Current state is '"
+          + this._state + "'"
+      };
+    }
+
+    // In case of multiple nested event loops (due to multiple debuggers open in
+    // different tabs or multiple debugger clients connected to the same tab)
+    // only allow resumption in a LIFO order.
+    if (DebuggerServer.xpcInspector.eventLoopNestLevel > 1) {
+      let lastNestRequestor = DebuggerServer.xpcInspector.lastNestRequestor;
+      if (lastNestRequestor.connection != this.conn) {
+        return { error: "wrongOrder",
+                 message: "trying to resume in the wrong order.",
+                 lastPausedUrl: lastNestRequestor.url };
+      }
+    }
+
     if (aRequest && aRequest.forceCompletion) {
       // TODO: remove this when Debugger.Frame.prototype.pop is implemented in
       // bug 736733.
@@ -448,14 +481,23 @@ ThreadActor.prototype = {
     // Return request.count frames, or all remaining
     // frames if count is not defined.
     let frames = [];
-    for (; frame && (!count || i < (start + count)); i++) {
+    let promises = [];
+    for (; frame && (!count || i < (start + count)); i++, frame=frame.older) {
       let form = this._createFrameActor(frame).form();
       form.depth = i;
       frames.push(form);
-      frame = frame.older;
+
+      let promise = this.sources.getOriginalLocation(form.where.url,
+                                                     form.where.line)
+        .then(function (aOrigLocation) {
+          form.where = aOrigLocation;
+        });
+      promises.push(promise);
     }
 
-    return { frames: frames };
+    return all(promises).then(function () {
+      return { frames: frames };
+    });
   },
 
   onReleaseMany: function TA_onReleaseMany(aRequest) {
@@ -488,25 +530,60 @@ ThreadActor.prototype = {
                message: "Breakpoints can only be set while the debuggee is paused."};
     }
 
-    let location = aRequest.location;
-    let line = location.line;
-    if (!this._scripts[location.url] || line < 0) {
-      return { error: "noScript" };
-    }
+    // XXX: `originalColumn` is never used. See bug 827639.
+    let { url: originalSource,
+          line: originalLine,
+          column: originalColumn } = aRequest.location;
 
-    // Add the breakpoint to the store for later reuse, in case it belongs to a
-    // script that hasn't appeared yet.
-    if (!this._breakpointStore[location.url]) {
-      this._breakpointStore[location.url] = [];
-    }
-    let scriptBreakpoints = this._breakpointStore[location.url];
-    scriptBreakpoints[line] = {
-      url: location.url,
-      line: line,
-      column: location.column
-    };
+    let locationPromise = this.sources.getGeneratedLocation(originalSource,
+                                                            originalLine)
+    return locationPromise.then((aLocation) => {
+      let line = aLocation.line;
+      if (this.dbg.findScripts({ url: aLocation.url }).length == 0 ||
+          line < 0 ||
+          line == null) {
+        return { error: "noScript" };
+      }
 
-    return this._setBreakpoint(location);
+      // Add the breakpoint to the store for later reuse, in case it belongs to a
+      // script that hasn't appeared yet.
+      if (!this._breakpointStore[aLocation.url]) {
+        this._breakpointStore[aLocation.url] = [];
+      }
+      let scriptBreakpoints = this._breakpointStore[aLocation.url];
+      scriptBreakpoints[line] = {
+        url: aLocation.url,
+        line: line,
+        column: aLocation.column
+      };
+
+      let response = this._setBreakpoint(aLocation);
+      // If the original location of our generated location is different from
+      // the original location we attempted to set the breakpoint on, we will
+      // need to know so that we can set actualLocation on the response.
+      let originalLocation = this.sources.getOriginalLocation(aLocation.url,
+                                                              aLocation.line);
+
+      return all([response, originalLocation])
+        .then(([aResponse, {url, line}]) => {
+          if (aResponse.actualLocation) {
+            let actualOrigLocation = this.sources.getOriginalLocation(
+              aResponse.actualLocation.url, aResponse.actualLocation.line);
+            return actualOrigLocation.then(function ({ url, line }) {
+              if (url !== originalSource || line !== originalLine) {
+                aResponse.actualLocation = { url: url, line: line };
+              }
+              return aResponse;
+            });
+          }
+
+          if (url !== originalSource || line !== originalLine) {
+            aResponse.actualLocation = { url: url, line: line };
+          }
+
+          return aResponse;
+        });
+    });
   },
 
   /**
@@ -522,6 +599,7 @@ ThreadActor.prototype = {
   _setBreakpoint: function TA__setBreakpoint(aLocation) {
     let breakpoints = this._breakpointStore[aLocation.url];
 
+    // Get or create the breakpoint actor for the given location
     let actor;
     if (breakpoints[aLocation.line].actor) {
       actor = breakpoints[aLocation.line].actor;
@@ -533,6 +611,7 @@ ThreadActor.prototype = {
       this._hooks.addToParentPool(actor);
     }
 
+    // Find all scripts matching the given location
     let scripts = this.dbg.findScripts(aLocation);
     if (scripts.length == 0) {
       return {
@@ -541,6 +620,10 @@ ThreadActor.prototype = {
       };
     }
 
+   /**
+     * For each script, if the given line has at least one entry point, set
+     * breakpoint on the bytecode offet for each of them.
+     */
     let found = false;
     for (let script of scripts) {
       let offsets = script.getLineOffsets(aLocation.line);
@@ -558,12 +641,25 @@ ThreadActor.prototype = {
       };
     }
 
+   /**
+     * If we get here, no breakpoint was set. This is because the given line
+     * has no entry points, for example because it is empty. As a fallback
+     * strategy, we try to set the breakpoint on the smallest line greater
+     * than or equal to the given line that as at least one entry point.
+     */
+
+    // Find all innermost scripts matching the given location
     let scripts = this.dbg.findScripts({
       url: aLocation.url,
       line: aLocation.line,
       innermost: true
     });
 
+    /**
+     * For each innermost script, look for the smallest line greater than or
+     * equal to the given line that has one or more entry points. If found, set
+     * a breakpoint on the bytecode offset for each of its entry points.
+     */
     let actualLocation;
     let found = false;
     for (let script of scripts) {
@@ -578,7 +674,7 @@ ThreadActor.prototype = {
             actualLocation = {
               url: aLocation.url,
               line: line,
-              column: aLocation.column
+              column: 0
             };
           }
           found = true;
@@ -589,6 +685,11 @@ ThreadActor.prototype = {
     if (found) {
       if (breakpoints[actualLocation.line] &&
           breakpoints[actualLocation.line].actor) {
+        /**
+         * We already have a breakpoint actor for the actual location, so
+         * actor we created earlier is now redundant. Delete it, update the
+         * breakpoint store, and return the actor for the actual location.
+         */
         actor.onDelete();
         delete breakpoints[aLocation.line];
         return {
@@ -596,10 +697,16 @@ ThreadActor.prototype = {
           actualLocation: actualLocation
         };
       } else {
+        /**
+         * We don't have a breakpoint actor for the actual location yet.
+         * Instead or creating a new actor, reuse the actor we created earlier,
+         * and update the breakpoint store.
+         */
         actor.location = actualLocation;
         breakpoints[actualLocation.line] = breakpoints[aLocation.line];
-        breakpoints[actualLocation.line].line = actualLocation.line;
         delete breakpoints[aLocation.line];
+        // WARNING: This overwrites aLocation.line
+        breakpoints[actualLocation.line].line = actualLocation.line;
         return {
           actor: actor.actorID,
           actualLocation: actualLocation
@@ -607,6 +714,10 @@ ThreadActor.prototype = {
       }
     }
 
+    /**
+     * If we get here, no line matching the given line was found, so just
+     * epically.
+     */
     return {
       error: "noCodeAtLineColumn",
       actor: actor.actorID
@@ -614,49 +725,35 @@ ThreadActor.prototype = {
   },
 
   /**
-   * A recursive generator function for iterating over the scripts that contain
-   * the specified line, by looking through child scripts of the supplied
-   * script. As an example, an inline <script> tag has the top-level functions
-   * declared in it as its children.
-   *
-   * @param aScript Debugger.Script
-   *        The source script.
-   * @param aLine number
-   *        The line number.
-   */
-  _getContainers: function TA__getContainers(aScript, aLine) {
-    let children = aScript.getChildScripts();
-    if (children.length > 0) {
-      for (let i = 0; i < children.length; i++) {
-        let child = children[i];
-        // Iterate over the children that contain this location.
-        if (child.startLine <= aLine &&
-            child.startLine + child.lineCount > aLine) {
-          for (let j of this._getContainers(child, aLine)) {
-            yield j;
-          }
-        }
-      }
-    }
-    // Include this script in the iteration, too.
-    yield aScript;
-  },
-
-  /**
    * Get the script and source lists from the debugger.
    */
   _discoverScriptsAndSources: function TA__discoverScriptsAndSources() {
-    for (let s of this.dbg.findScripts()) {
-      this._addScript(s);
-    }
+    return all([this._addScript(s)
+                for (s of this.dbg.findScripts())]);
   },
 
   onSources: function TA_onSources(aRequest) {
-    this._discoverScriptsAndSources();
-    let urls = Object.getOwnPropertyNames(this._sources);
-    return {
-      sources: [this._getSource(url).form() for (url of urls)]
-    };
+    return this._discoverScriptsAndSources().then(() => {
+      return {
+        sources: [s.form() for (s of this.sources.iter())]
+      };
+    });
+  },
+
+  /**
+   * Disassociate all breakpoint actors from their scripts and clear the
+   * breakpoint handlers. This method can be used when the thread actor intends
+   * to keep the breakpoint store, but needs to clear any actual breakpoints,
+   * e.g. due to a page navigation. This way the breakpoint actors' script
+   * caches won't hold on to the Debugger.Script objects leaking memory.
+   */
+  disableAllBreakpoints: function () {
+    for (let url in this._breakpointStore) {
+      for (let line in this._breakpointStore[url]) {
+        let bp = this._breakpointStore[url][line];
+        bp.actor.removeScripts();
+      }
+    }
   },
 
   /**
@@ -693,8 +790,8 @@ ThreadActor.prototype = {
       // We already sent a response to this request, don't send one
       // now.
       return null;
-    } catch(e) {
-      Cu.reportError(e);
+    } catch (e) {
+      reportError(e);
       return { error: "notInterrupted", message: e.toString() };
     }
   },
@@ -778,7 +875,10 @@ ThreadActor.prototype = {
       var nestData = this._hooks.preNest();
     }
 
-    DebuggerServer.xpcInspector.enterNestedEventLoop();
+    let requestor = Object.create(null);
+    requestor.url = this._hooks.url;
+    requestor.connection = this.conn;
+    DebuggerServer.xpcInspector.enterNestedEventLoop(requestor);
 
     dbg_assert(this.state === "running");
 
@@ -950,7 +1050,7 @@ ThreadActor.prototype = {
       return this.threadLifetimePool.objectActors.get(aValue).grip();
     }
 
-    let actor = new ObjectActor(aValue, this);
+    let actor = new PauseScopedObjectActor(aValue, this);
     aPool.addActor(actor);
     aPool.objectActors.set(aValue, actor);
     return actor.grip();
@@ -1064,26 +1164,6 @@ ThreadActor.prototype = {
     return aString.length >= DebuggerServer.LONG_STRING_LENGTH;
   },
 
-  /**
-   * Create a source grip for the given script.
-   */
-  sourceGrip: function TA_sourceGrip(aScript) {
-    // TODO: Once we have Debugger.Source, this should be replaced with a
-    // weakmap mapping Debugger.Source instances to SourceActor instances.
-    if (!this.threadLifetimePool.sourceActors) {
-      this.threadLifetimePool.sourceActors = {};
-    }
-
-    if (this.threadLifetimePool.sourceActors[aScript.url]) {
-      return this.threadLifetimePool.sourceActors[aScript.url].grip();
-    }
-
-    let actor = new SourceActor(aScript.url, this);
-    this.threadLifetimePool.addActor(actor);
-    this.threadLifetimePool.sourceActors[aScript.url] = actor;
-    return actor.form();
-  },
-
   // JS Debugger API hooks.
 
   /**
@@ -1149,6 +1229,14 @@ ThreadActor.prototype = {
     this._addScript(aScript);
   },
 
+  onNewSource: function TA_onNewSource(aSource) {
+    this.conn.send({
+      from: this.actorID,
+      type: "newSource",
+      source: aSource.form()
+    });
+  },
+
   /**
    * Check if scripts from the provided source URL are allowed to be stored in
    * the cache.
@@ -1157,7 +1245,7 @@ ThreadActor.prototype = {
    *        The url of the script's source that will be stored.
    * @returns true, if the script can be added, false otherwise.
    */
-  _allowSource: function TA__allowScript(aSourceUrl) {
+  _allowSource: function TA__allowSource(aSourceUrl) {
     // Ignore anything we don't have a URL for (eval scripts, for example).
     if (!aSourceUrl)
       return false;
@@ -1181,35 +1269,33 @@ ThreadActor.prototype = {
    */
   _addScript: function TA__addScript(aScript) {
     if (!this._allowSource(aScript.url)) {
-      return false;
+      return resolve(false);
     }
 
     // TODO bug 637572: we should be dealing with sources directly, not
     // inferring them through scripts.
-    this._addSource(aScript.url);
+    return this.sources.sourcesForScript(aScript).then(() => {
 
-    // Use a sparse array for storing the scripts for each URL in order to
-    // optimize retrieval.
-    if (!this._scripts[aScript.url]) {
-      this._scripts[aScript.url] = [];
-    }
-    this._scripts[aScript.url][aScript.startLine] = aScript;
-
-    // Set any stored breakpoints.
-    let existing = this._breakpointStore[aScript.url];
-    if (existing) {
-      let endLine = aScript.startLine + aScript.lineCount - 1;
-      // Iterate over the lines backwards, so that sliding breakpoints don't
-      // affect the loop.
-      for (let line = existing.length - 1; line >= 0; line--) {
-        let bp = existing[line];
-        // Limit search to the line numbers contained in the new script.
-        if (bp && line >= aScript.startLine && line <= endLine) {
-          this._setBreakpoint(bp);
+      // Set any stored breakpoints.
+      let existing = this._breakpointStore[aScript.url];
+      if (existing) {
+        let endLine = aScript.startLine + aScript.lineCount - 1;
+        // Iterate over the lines backwards, so that sliding breakpoints don't
+        // affect the loop.
+        for (let line = existing.length - 1; line >= 0; line--) {
+          let bp = existing[line];
+          // Only consider breakpoints that are not already associated with
+          // scripts, and limit search to the line numbers contained in the new
+          // script.
+          if (bp && !bp.actor.scripts.length &&
+              line >= aScript.startLine && line <= endLine) {
+            this._setBreakpoint(bp);
+          }
         }
       }
-    }
-    return true;
+
+      return true;
+    });
   },
 
   /**
@@ -1257,53 +1343,12 @@ ThreadActor.prototype = {
     return retval;
   },
 
-  /**
-   * Add a source to the current set of sources.
-   *
-   * Right now this takes an url, but in the future it should
-   * take a Debugger.Source.
-   *
-   * @param string the source URL.
-   * @returns a SourceActor representing the source.
-   */
-  _addSource: function TA__addSource(aURL) {
-    if (!this._allowSource(aURL)) {
-      return false;
-    }
-
-    if (aURL in this._sources) {
-      return true;
-    }
-
-    let actor = new SourceActor(aURL, this);
-    this.threadLifetimePool.addActor(actor);
-    this._sources[aURL] = actor;
-
-    this.conn.send({
-      from: this.actorID,
-      type: "newSource",
-      source: actor.form()
-    });
-
-    return true;
-  },
-
-  /**
-   * Get the source actor for the given URL.
-   */
-  _getSource: function TA__getSource(aUrl) {
-    let source = this._sources[aUrl];
-    if (!source) {
-      throw new Error("No source for '" + aUrl + "'");
-    }
-    return source;
-  },
-
 };
 
 ThreadActor.prototype.requestTypes = {
   "attach": ThreadActor.prototype.onAttach,
   "detach": ThreadActor.prototype.onDetach,
+  "reconfigure": ThreadActor.prototype.onReconfigure,
   "resume": ThreadActor.prototype.onResume,
   "clientEvaluate": ThreadActor.prototype.onClientEvaluate,
   "frames": ThreadActor.prototype.onFrames,
@@ -1382,7 +1427,7 @@ PauseScopedActor.prototype = {
       error: "wrongState",
       message: this.constructor.name +
         " actors can only be accessed while the thread is paused."
-    }
+    };
   }
 };
 
@@ -1404,7 +1449,8 @@ SourceActor.prototype = {
   constructor: SourceActor,
   actorPrefix: "source",
 
-  get threadActor() { return this._threadActor; },
+  get threadActor() this._threadActor,
+  get url() this._url,
 
   form: function SA_form() {
     return {
@@ -1424,10 +1470,9 @@ SourceActor.prototype = {
    * Handler for the "source" packet.
    */
   onSource: function SA_onSource(aRequest) {
-    return this
-      ._loadSource()
+    return fetch(this._url)
       .then(function(aSource) {
-        return this._threadActor.createValueGrip(
+        return this.threadActor.createValueGrip(
           aSource, this.threadActor.threadLifetimePool);
       }.bind(this))
       .then(function (aSourceGrip) {
@@ -1436,121 +1481,17 @@ SourceActor.prototype = {
           source: aSourceGrip
         };
       }.bind(this), function (aError) {
+        let msg = "Got an exception during SA_onSource: " + aError +
+          "\n" + aError.stack;
+        Cu.reportError(msg);
+        dumpn(msg);
         return {
           "from": this.actorID,
           "error": "loadSourceError",
           "message": "Could not load the source for " + this._url + "."
         };
       }.bind(this));
-  },
-
-  /**
-   * Convert a given string, encoded in a given character set, to unicode.
-   * @param string aString
-   *        A string.
-   * @param string aCharset
-   *        A character set.
-   * @return string
-   *         A unicode string.
-   */
-  _convertToUnicode: function SS__convertToUnicode(aString, aCharset) {
-    // Decoding primitives.
-    let converter = Cc["@mozilla.org/intl/scriptableunicodeconverter"]
-        .createInstance(Ci.nsIScriptableUnicodeConverter);
-
-    try {
-      converter.charset = aCharset || "UTF-8";
-      return converter.ConvertToUnicode(aString);
-    } catch(e) {
-      return aString;
-    }
-  },
-
-  /**
-   * Performs a request to load the desired URL and returns a promise.
-   *
-   * @param aURL String
-   *        The URL we will request.
-   * @returns Promise
-   *
-   * XXX: It may be better to use nsITraceableChannel to get to the sources
-   * without relying on caching when we can (not for eval, etc.):
-   * http://www.softwareishard.com/blog/firebug/nsitraceablechannel-intercept-http-traffic/
-   */
-  _loadSource: function SA__loadSource() {
-    let deferred = defer();
-    let scheme;
-    let url = this._url.split(" -> ").pop();
-
-    try {
-      scheme = Services.io.extractScheme(url);
-    } catch (e) {
-      // In the xpcshell tests, the script url is the absolute path of the test
-      // file, which will make a malformed URI error be thrown. Add the file
-      // scheme prefix ourselves.
-      url = "file://" + url;
-      scheme = Services.io.extractScheme(url);
-    }
-
-    switch (scheme) {
-      case "file":
-      case "chrome":
-      case "resource":
-        try {
-          NetUtil.asyncFetch(url, function onFetch(aStream, aStatus) {
-            if (!Components.isSuccessCode(aStatus)) {
-              deferred.reject(new Error("Request failed"));
-              return;
-            }
-
-            let source = NetUtil.readInputStreamToString(aStream, aStream.available());
-            deferred.resolve(this._convertToUnicode(source));
-            aStream.close();
-          }.bind(this));
-        } catch (ex) {
-          deferred.reject(new Error("Request failed"));
-        }
-        break;
-
-      default:
-        let channel;
-        try {
-          channel = Services.io.newChannel(url, null, null);
-        } catch (e if e.name == "NS_ERROR_UNKNOWN_PROTOCOL") {
-          // On Windows xpcshell tests, c:/foo/bar can pass as a valid URL, but
-          // newChannel won't be able to handle it.
-          url = "file:///" + url;
-          channel = Services.io.newChannel(url, null, null);
-        }
-        let chunks = [];
-        let streamListener = {
-          onStartRequest: function(aRequest, aContext, aStatusCode) {
-            if (!Components.isSuccessCode(aStatusCode)) {
-              deferred.reject("Request failed");
-            }
-          },
-          onDataAvailable: function(aRequest, aContext, aStream, aOffset, aCount) {
-            chunks.push(NetUtil.readInputStreamToString(aStream, aCount));
-          },
-          onStopRequest: function(aRequest, aContext, aStatusCode) {
-            if (!Components.isSuccessCode(aStatusCode)) {
-              deferred.reject("Request failed");
-              return;
-            }
-
-            deferred.resolve(this._convertToUnicode(chunks.join(""),
-                                                    channel.contentCharset));
-          }.bind(this)
-        };
-
-        channel.loadFlags = channel.LOAD_FROM_CACHE;
-        channel.asyncOpen(streamListener, null);
-        break;
-    }
-
-    return deferred.promise;
   }
-
 };
 
 SourceActor.prototype.requestTypes = {
@@ -1572,10 +1513,7 @@ function ObjectActor(aObj, aThreadActor)
   this.threadActor = aThreadActor;
 }
 
-ObjectActor.prototype = Object.create(PauseScopedActor.prototype);
-
-update(ObjectActor.prototype, {
-  constructor: ObjectActor,
+ObjectActor.prototype = {
   actorPrefix: "obj",
 
   /**
@@ -1609,7 +1547,9 @@ update(ObjectActor.prototype, {
    * Releases this actor from the pool.
    */
   release: function OA_release() {
-    this.registeredPool.objectActors.delete(this.obj);
+    if (this.registeredPool.objectActors) {
+      this.registeredPool.objectActors.delete(this.obj);
+    }
     this.registeredPool.removeActor(this);
     this.disconnect();
   },
@@ -1625,11 +1565,10 @@ update(ObjectActor.prototype, {
    * @param aRequest object
    *        The protocol request object.
    */
-  onOwnPropertyNames:
-  PauseScopedActor.withPaused(function OA_onOwnPropertyNames(aRequest) {
+  onOwnPropertyNames: function OA_onOwnPropertyNames(aRequest) {
     return { from: this.actorID,
              ownPropertyNames: this.obj.getOwnPropertyNames() };
-  }),
+  },
 
   /**
    * Handle a protocol request to provide the prototype and own properties of
@@ -1638,8 +1577,7 @@ update(ObjectActor.prototype, {
    * @param aRequest object
    *        The protocol request object.
    */
-  onPrototypeAndProperties:
-  PauseScopedActor.withPaused(function OA_onPrototypeAndProperties(aRequest) {
+  onPrototypeAndProperties: function OA_onPrototypeAndProperties(aRequest) {
     if (this.obj.proto) {
       // Store the object and its prototype to the prototype chain cache, so that
       // we can evaluate native getter methods for WebIDL attributes that are
@@ -1665,7 +1603,7 @@ update(ObjectActor.prototype, {
     return { from: this.actorID,
              prototype: this.threadActor.createValueGrip(this.obj.proto),
              ownProperties: ownProperties };
-  }),
+  },
 
   /**
    * Handle a protocol request to provide the prototype of the object.
@@ -1673,10 +1611,10 @@ update(ObjectActor.prototype, {
    * @param aRequest object
    *        The protocol request object.
    */
-  onPrototype: PauseScopedActor.withPaused(function OA_onPrototype(aRequest) {
+  onPrototype: function OA_onPrototype(aRequest) {
     return { from: this.actorID,
              prototype: this.threadActor.createValueGrip(this.obj.proto) };
-  }),
+  },
 
   /**
    * Handle a protocol request to provide the property descriptor of the
@@ -1685,7 +1623,7 @@ update(ObjectActor.prototype, {
    * @param aRequest object
    *        The protocol request object.
    */
-  onProperty: PauseScopedActor.withPaused(function OA_onProperty(aRequest) {
+  onProperty: function OA_onProperty(aRequest) {
     if (!aRequest.name) {
       return { error: "missingParameter",
                message: "no property name was specified" };
@@ -1693,7 +1631,7 @@ update(ObjectActor.prototype, {
 
     return { from: this.actorID,
              descriptor: this._propertyDescriptor(aRequest.name) };
-  }),
+  },
 
   /**
    * A helper method that creates a property descriptor for the provided object,
@@ -1781,7 +1719,7 @@ update(ObjectActor.prototype, {
    * @param aRequest object
    *        The protocol request object.
    */
-  onDecompile: PauseScopedActor.withPaused(function OA_onDecompile(aRequest) {
+  onDecompile: function OA_onDecompile(aRequest) {
     if (this.obj.class !== "Function") {
       return { error: "objectNotFunction",
                message: "decompile request is only valid for object grips " +
@@ -1790,7 +1728,75 @@ update(ObjectActor.prototype, {
 
     return { from: this.actorID,
              decompiledCode: this.obj.decompile(!!aRequest.pretty) };
-  }),
+  },
+
+  /**
+   * Handle a protocol request to provide the parameters of a function.
+   *
+   * @param aRequest object
+   *        The protocol request object.
+   */
+  onParameterNames: function OA_onParameterNames(aRequest) {
+    if (this.obj.class !== "Function") {
+      return { error: "objectNotFunction",
+               message: "'parameterNames' request is only valid for object " +
+                        "grips with a 'Function' class." };
+    }
+
+    return { parameterNames: this.obj.parameterNames };
+  },
+
+  /**
+   * Handle a protocol request to release a thread-lifetime grip.
+   *
+   * @param aRequest object
+   *        The protocol request object.
+   */
+  onRelease: function OA_onRelease(aRequest) {
+    this.release();
+    return {};
+  },
+};
+
+ObjectActor.prototype.requestTypes = {
+  "parameterNames": ObjectActor.prototype.onParameterNames,
+  "prototypeAndProperties": ObjectActor.prototype.onPrototypeAndProperties,
+  "prototype": ObjectActor.prototype.onPrototype,
+  "property": ObjectActor.prototype.onProperty,
+  "ownPropertyNames": ObjectActor.prototype.onOwnPropertyNames,
+  "decompile": ObjectActor.prototype.onDecompile,
+  "release": ObjectActor.prototype.onRelease,
+};
+
+
+/**
+ * Creates a pause-scoped  actor for the specified object.
+ * @see ObjectActor
+ */
+function PauseScopedObjectActor()
+{
+  ObjectActor.apply(this, arguments);
+}
+
+PauseScopedObjectActor.prototype = Object.create(PauseScopedActor.prototype);
+
+update(PauseScopedObjectActor.prototype, ObjectActor.prototype);
+
+update(PauseScopedObjectActor.prototype, {
+  constructor: PauseScopedObjectActor,
+
+  onOwnPropertyNames:
+    PauseScopedActor.withPaused(ObjectActor.prototype.onOwnPropertyNames),
+
+  onPrototypeAndProperties:
+    PauseScopedActor.withPaused(ObjectActor.prototype.onPrototypeAndProperties),
+
+  onPrototype: PauseScopedActor.withPaused(ObjectActor.prototype.onPrototype),
+  onProperty: PauseScopedActor.withPaused(ObjectActor.prototype.onProperty),
+  onDecompile: PauseScopedActor.withPaused(ObjectActor.prototype.onDecompile),
+
+  onParameterNames:
+    PauseScopedActor.withPaused(ObjectActor.prototype.onParameterNames),
 
   /**
    * Handle a protocol request to provide the lexical scope of a function.
@@ -1813,22 +1819,6 @@ update(ObjectActor.prototype, {
     }
 
     return { from: this.actorID, scope: envActor.form() };
-  }),
-
-  /**
-   * Handle a protocol request to provide the parameters of a function.
-   *
-   * @param aRequest object
-   *        The protocol request object.
-   */
-  onParameterNames: PauseScopedActor.withPaused(function OA_onParameterNames(aRequest) {
-    if (this.obj.class !== "Function") {
-      return { error: "objectNotFunction",
-               message: "'parameterNames' request is only valid for object " +
-                        "grips with a 'Function' class." };
-    }
-
-    return { parameterNames: this.obj.parameterNames };
   }),
 
   /**
@@ -1860,17 +1850,10 @@ update(ObjectActor.prototype, {
   }),
 });
 
-ObjectActor.prototype.requestTypes = {
-  "parameterNames": ObjectActor.prototype.onParameterNames,
-  "prototypeAndProperties": ObjectActor.prototype.onPrototypeAndProperties,
-  "prototype": ObjectActor.prototype.onPrototype,
-  "property": ObjectActor.prototype.onProperty,
-  "ownPropertyNames": ObjectActor.prototype.onOwnPropertyNames,
-  "scope": ObjectActor.prototype.onScope,
-  "decompile": ObjectActor.prototype.onDecompile,
-  "threadGrip": ObjectActor.prototype.onThreadGrip,
-  "release": ObjectActor.prototype.onRelease,
-};
+update(PauseScopedObjectActor.prototype.requestTypes, {
+  "scope": PauseScopedObjectActor.prototype.onScope,
+  "threadGrip": PauseScopedObjectActor.prototype.onThreadGrip,
+});
 
 
 /**
@@ -2087,6 +2070,16 @@ BreakpointActor.prototype = {
   },
 
   /**
+   * Remove the breakpoints from associated scripts and clear the script cache.
+   */
+  removeScripts: function () {
+    for (let script of this.scripts) {
+      script.clearBreakpoint(this);
+    }
+    this.scripts = [];
+  },
+
+  /**
    * A function that the engine calls when a breakpoint has been hit.
    *
    * @param aFrame Debugger.Frame
@@ -2095,7 +2088,14 @@ BreakpointActor.prototype = {
   hit: function BA_hit(aFrame) {
     // TODO: add the rest of the breakpoints on that line (bug 676602).
     let reason = { type: "breakpoint", actors: [ this.actorID ] };
-    return this.threadActor._pauseAndRespond(aFrame, reason);
+    return this.threadActor._pauseAndRespond(aFrame, reason, (aPacket) => {
+      let { url, line } = aPacket.frame.where;
+      return this.threadActor.sources.getOriginalLocation(url, line)
+        .then(function (aOrigPosition) {
+          aPacket.frame.where = aOrigPosition;
+          return aPacket;
+        });
+    });
   },
 
   /**
@@ -2108,12 +2108,9 @@ BreakpointActor.prototype = {
     // Remove from the breakpoint store.
     let scriptBreakpoints = this.threadActor._breakpointStore[this.location.url];
     delete scriptBreakpoints[this.location.line];
-    // Remove the actual breakpoint.
     this.threadActor._hooks.removeFromParentPool(this);
-    for (let script of this.scripts) {
-      script.clearBreakpoint(this);
-    }
-    this.scripts = null;
+    // Remove the actual breakpoint from the associated scripts.
+    this.removeScripts();
 
     return { from: this.actorID };
   }
@@ -2417,6 +2414,205 @@ update(ChromeDebuggerActor.prototype, {
 });
 
 
+/**
+ * Manages the sources for a thread. Handles source maps, locations in the
+ * sources, etc for ThreadActors.
+ */
+function ThreadSources(aThreadActor, aUseSourceMaps,
+                       aAllowPredicate, aOnNewSource) {
+  this._thread = aThreadActor;
+  this._useSourceMaps = aUseSourceMaps;
+  this._allow = aAllowPredicate;
+  this._onNewSource = aOnNewSource;
+
+  // source map URL --> promise of SourceMapConsumer
+  this._sourceMaps = Object.create(null);
+  // generated source url --> promise of SourceMapConsumer
+  this._sourceMapsByGeneratedSource = Object.create(null);
+  // original source url --> promise of SourceMapConsumer
+  this._sourceMapsByOriginalSource = Object.create(null);
+  // source url --> SourceActor
+  this._sourceActors = Object.create(null);
+  // original url --> generated url
+  this._generatedUrlsByOriginalUrl = Object.create(null);
+}
+
+ThreadSources.prototype = {
+  /**
+   * Add a source to the current set of sources.
+   *
+   * Right now this takes a URL, but in the future it should
+   * take a Debugger.Source. See bug 637572.
+   *
+   * @param string the source URL.
+   * @returns a SourceActor representing the source or null.
+   */
+  source: function TS_source(aURL) {
+    if (!this._allow(aURL)) {
+      return null;
+    }
+
+    if (aURL in this._sourceActors) {
+      return this._sourceActors[aURL];
+    }
+
+    let actor = new SourceActor(aURL, this._thread);
+    this._thread.threadLifetimePool.addActor(actor);
+    this._sourceActors[aURL] = actor;
+    try {
+      this._onNewSource(actor);
+    } catch (e) {
+      reportError(e);
+    }
+    return actor;
+  },
+
+  /**
+   * Add all of the sources associated with the given script.
+   */
+  sourcesForScript: function TS_sourcesForScript(aScript) {
+    if (!this._useSourceMaps || !aScript.sourceMapURL) {
+      return resolve([this.source(aScript.url)].filter(isNotNull));
+    }
+
+    return this.sourceMap(aScript)
+      .then((aSourceMap) => {
+        return [
+          this.source(s) for (s of aSourceMap.sources)
+        ];
+      }, (e) => {
+        reportError(e);
+        delete this._sourceMaps[this._normalize(aScript.sourceMapURL, aScript.url)];
+        delete this._sourceMapsByGeneratedSource[aScript.url];
+        return [this.source(aScript.url)];
+      })
+      .then(function (aSources) {
+        return aSources.filter(isNotNull);
+      });
+  },
+
+  /**
+   * Add the source map for the given script.
+   */
+  sourceMap: function TS_sourceMap(aScript) {
+    if (aScript.url in this._sourceMapsByGeneratedSource) {
+      return this._sourceMapsByGeneratedSource[aScript.url];
+    }
+    dbg_assert(aScript.sourceMapURL);
+    let sourceMapURL = this._normalize(aScript.sourceMapURL,
+                                       aScript.url);
+    let map = this._fetchSourceMap(sourceMapURL)
+      .then((aSourceMap) => {
+        for (let s of aSourceMap.sources) {
+          this._generatedUrlsByOriginalUrl[s] = aScript.url;
+          this._sourceMapsByOriginalSource[s] = resolve(aSourceMap);
+        }
+        return aSourceMap;
+      });
+    this._sourceMapsByGeneratedSource[aScript.url] = map;
+    return map;
+  },
+
+  /**
+   * Fetch the source map located at the given url.
+   */
+  _fetchSourceMap: function TS__fetchSourceMap(aAbsSourceMapURL) {
+    if (aAbsSourceMapURL in this._sourceMaps) {
+      return this._sourceMaps[aAbsSourceMapURL];
+    } else {
+      let promise = fetch(aAbsSourceMapURL).then((rawSourceMap) => {
+        let map =  new SourceMapConsumer(rawSourceMap);
+        let base = aAbsSourceMapURL.replace(/\/[^\/]+$/, '/');
+        if (base.indexOf("data:") !== 0) {
+          map.sourceRoot = map.sourceRoot
+            ? this._normalize(map.sourceRoot, base)
+            : base;
+        }
+        return map;
+      });
+      this._sourceMaps[aAbsSourceMapURL] = promise;
+      return promise;
+    }
+  },
+
+  /**
+   * Returns a promise for the location in the original source if the source is
+   * source mapped, otherwise a promise of the same location.
+   *
+   * TODO bug 637572: take/return a column
+   */
+  getOriginalLocation: function TS_getOriginalLocation(aSourceUrl, aLine) {
+    if (aSourceUrl in this._sourceMapsByGeneratedSource) {
+      return this._sourceMapsByGeneratedSource[aSourceUrl]
+        .then(function (aSourceMap) {
+          let { source, line } = aSourceMap.originalPositionFor({
+            source: aSourceUrl,
+            line: aLine,
+            column: Infinity
+          });
+          return {
+            url: source,
+            line: line
+          };
+        });
+    }
+
+    // No source map
+    return resolve({
+      url: aSourceUrl,
+      line: aLine
+    });
+  },
+
+  /**
+   * Returns a promise of the location in the generated source corresponding to
+   * the original source and line given.
+   *
+   * TODO bug 637572: take/return a column
+   */
+  getGeneratedLocation: function TS_getGeneratedLocation(aSourceUrl, aLine) {
+    if (aSourceUrl in this._sourceMapsByOriginalSource) {
+      return this._sourceMapsByOriginalSource[aSourceUrl]
+        .then((aSourceMap) => {
+          let { line } = aSourceMap.generatedPositionFor({
+            source: aSourceUrl,
+            line: aLine,
+            column: Infinity
+          });
+          return {
+            url: this._generatedUrlsByOriginalUrl[aSourceUrl],
+            line: line
+          };
+        });
+    }
+
+    // No source map
+    return resolve({
+      url: aSourceUrl,
+      line: aLine
+    });
+  },
+
+  /**
+   * Normalize multiple relative paths towards the base paths on the right.
+   */
+  _normalize: function TS__normalize(...aURLs) {
+    dbg_assert(aURLs.length > 1);
+    let base = Services.io.newURI(aURLs.pop(), null, null);
+    let url;
+    while ((url = aURLs.pop())) {
+      base = Services.io.newURI(url, null, base);
+    }
+    return base.spec;
+  },
+
+  iter: function TS_iter() {
+    for (let url in this._sourceActors) {
+      yield this._sourceActors[url];
+    }
+  }
+};
+
 // Utility functions.
 
 /**
@@ -2436,4 +2632,127 @@ function update(aTarget, aNewAttrs) {
       Object.defineProperty(aTarget, key, desc);
     }
   }
+}
+
+/**
+ * Returns true if its argument is not null.
+ */
+function isNotNull(aThing) {
+  return aThing !== null;
+}
+
+/**
+ * Performs a request to load the desired URL and returns a promise.
+ *
+ * @param aURL String
+ *        The URL we will request.
+ * @returns Promise
+ *
+ * XXX: It may be better to use nsITraceableChannel to get to the sources
+ * without relying on caching when we can (not for eval, etc.):
+ * http://www.softwareishard.com/blog/firebug/nsitraceablechannel-intercept-http-traffic/
+ */
+function fetch(aURL) {
+  let deferred = defer();
+  let scheme;
+  let url = aURL.split(" -> ").pop();
+  let charset;
+
+  try {
+    scheme = Services.io.extractScheme(url);
+  } catch (e) {
+    // In the xpcshell tests, the script url is the absolute path of the test
+    // file, which will make a malformed URI error be thrown. Add the file
+    // scheme prefix ourselves.
+    url = "file://" + url;
+    scheme = Services.io.extractScheme(url);
+  }
+
+  switch (scheme) {
+    case "file":
+    case "chrome":
+    case "resource":
+      try {
+        NetUtil.asyncFetch(url, function onFetch(aStream, aStatus) {
+          if (!Components.isSuccessCode(aStatus)) {
+            deferred.reject("Request failed: " + url);
+            return;
+          }
+
+          let source = NetUtil.readInputStreamToString(aStream, aStream.available());
+          deferred.resolve(source);
+          aStream.close();
+        });
+      } catch (ex) {
+        deferred.reject("Request failed: " + url);
+      }
+      break;
+
+    default:
+      let channel;
+      try {
+        channel = Services.io.newChannel(url, null, null);
+      } catch (e if e.name == "NS_ERROR_UNKNOWN_PROTOCOL") {
+        // On Windows xpcshell tests, c:/foo/bar can pass as a valid URL, but
+        // newChannel won't be able to handle it.
+        url = "file:///" + url;
+        channel = Services.io.newChannel(url, null, null);
+      }
+      let chunks = [];
+      let streamListener = {
+        onStartRequest: function(aRequest, aContext, aStatusCode) {
+          if (!Components.isSuccessCode(aStatusCode)) {
+            deferred.reject("Request failed: " + url);
+          }
+        },
+        onDataAvailable: function(aRequest, aContext, aStream, aOffset, aCount) {
+          chunks.push(NetUtil.readInputStreamToString(aStream, aCount));
+        },
+        onStopRequest: function(aRequest, aContext, aStatusCode) {
+          if (!Components.isSuccessCode(aStatusCode)) {
+            deferred.reject("Request failed: " + url);
+            return;
+          }
+
+          charset = channel.contentCharset;
+          deferred.resolve(chunks.join(""));
+        }
+      };
+
+      channel.loadFlags = channel.LOAD_FROM_CACHE;
+      channel.asyncOpen(streamListener, null);
+      break;
+  }
+
+  return deferred.promise.then(function (source) {
+    return convertToUnicode(source, charset);
+  });
+}
+
+/**
+ * Convert a given string, encoded in a given character set, to unicode.
+ *
+ * @param string aString
+ *        A string.
+ * @param string aCharset
+ *        A character set.
+ */
+function convertToUnicode(aString, aCharset=null) {
+  // Decoding primitives.
+  let converter = Cc["@mozilla.org/intl/scriptableunicodeconverter"]
+    .createInstance(Ci.nsIScriptableUnicodeConverter);
+  try {
+    converter.charset = aCharset || "UTF-8";
+    return converter.ConvertToUnicode(aString);
+  } catch(e) {
+    return aString;
+  }
+}
+
+/**
+ * Report the given error in the error console and to stdout.
+ */
+function reportError(aError) {
+  Cu.reportError(aError);
+  dumpn(aError.message + ":\n" + aError.stack);
 }

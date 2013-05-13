@@ -4,8 +4,6 @@
 
 /*
  * CMS User Define Types
- *
- * $Id: cmsudf.c,v 1.4 2012/04/25 14:50:09 gerv%gerv.net Exp $
  */
 
 #include "cmslocal.h"

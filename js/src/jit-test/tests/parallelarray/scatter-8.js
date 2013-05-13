@@ -11,5 +11,6 @@ function testScatter8() {
   }
 }
 
-testScatter8();
+if (getBuildConfiguration().parallelJS)
+  testScatter8();
 

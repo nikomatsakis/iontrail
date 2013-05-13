@@ -9,7 +9,6 @@
 #include "nsCharSeparatedTokenizer.h"
 #include "nsMathUtils.h"
 #include "nsSMILValue.h"
-#include "nsSVGAttrTearoffTable.h"
 #include "SVGContentUtils.h"
 #include "SVGViewBoxSMILType.h"
 #include "nsAttrValueInlines.h"
@@ -37,7 +36,6 @@ nsSVGViewBoxRect::operator==(const nsSVGViewBoxRect& aOther) const
 
 NS_SVG_VAL_IMPL_CYCLE_COLLECTION(nsSVGViewBox::DOMBaseVal, mSVGElement)
 NS_SVG_VAL_IMPL_CYCLE_COLLECTION(nsSVGViewBox::DOMAnimVal, mSVGElement)
-NS_SVG_VAL_IMPL_CYCLE_COLLECTION(nsSVGViewBox::DOMAnimatedRect, mSVGElement)
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(nsSVGViewBox::DOMBaseVal)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(nsSVGViewBox::DOMBaseVal)
@@ -45,35 +43,20 @@ NS_IMPL_CYCLE_COLLECTING_RELEASE(nsSVGViewBox::DOMBaseVal)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(nsSVGViewBox::DOMAnimVal)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(nsSVGViewBox::DOMAnimVal)
 
-NS_IMPL_CYCLE_COLLECTING_ADDREF(nsSVGViewBox::DOMAnimatedRect)
-NS_IMPL_CYCLE_COLLECTING_RELEASE(nsSVGViewBox::DOMAnimatedRect)
-
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsSVGViewBox::DOMBaseVal)
-  NS_INTERFACE_MAP_ENTRY(nsIDOMSVGRect)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
-  NS_DOM_INTERFACE_MAP_ENTRY_CLASSINFO(SVGRect)
 NS_INTERFACE_MAP_END
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsSVGViewBox::DOMAnimVal)
-  NS_INTERFACE_MAP_ENTRY(nsIDOMSVGRect)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
-  NS_DOM_INTERFACE_MAP_ENTRY_CLASSINFO(SVGRect)
 NS_INTERFACE_MAP_END
 
-DOMCI_DATA(SVGAnimatedRect, nsSVGViewBox::DOMAnimatedRect)
-
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsSVGViewBox::DOMAnimatedRect)
-  NS_INTERFACE_MAP_ENTRY(nsIDOMSVGAnimatedRect)
-  NS_INTERFACE_MAP_ENTRY(nsISupports)
-  NS_DOM_INTERFACE_MAP_ENTRY_CLASSINFO(SVGAnimatedRect)
-NS_INTERFACE_MAP_END
-
-static nsSVGAttrTearoffTable<nsSVGViewBox, nsSVGViewBox::DOMAnimatedRect>
-  sSVGAnimatedRectTearoffTable;
 static nsSVGAttrTearoffTable<nsSVGViewBox, nsSVGViewBox::DOMBaseVal>
   sBaseSVGViewBoxTearoffTable;
 static nsSVGAttrTearoffTable<nsSVGViewBox, nsSVGViewBox::DOMAnimVal>
   sAnimSVGViewBoxTearoffTable;
+nsSVGAttrTearoffTable<nsSVGViewBox, mozilla::dom::SVGAnimatedRect>
+  nsSVGViewBox::sSVGAnimatedRectTearoffTable;
 
 
 /* Implementation of nsSVGViewBox methods */
@@ -214,13 +197,13 @@ nsSVGViewBox::GetBaseValueString(nsAString& aValue) const
 }
 
 nsresult
-nsSVGViewBox::ToDOMAnimatedRect(nsIDOMSVGAnimatedRect **aResult,
+nsSVGViewBox::ToDOMAnimatedRect(dom::SVGAnimatedRect **aResult,
                                 nsSVGElement* aSVGElement)
 {
-  nsRefPtr<DOMAnimatedRect> domAnimatedRect =
+  nsRefPtr<dom::SVGAnimatedRect> domAnimatedRect =
     sSVGAnimatedRectTearoffTable.GetTearoff(this);
   if (!domAnimatedRect) {
-    domAnimatedRect = new DOMAnimatedRect(this, aSVGElement);
+    domAnimatedRect = new dom::SVGAnimatedRect(this, aSVGElement);
     sSVGAnimatedRectTearoffTable.AddTearoff(this, domAnimatedRect);
   }
 
@@ -228,13 +211,9 @@ nsSVGViewBox::ToDOMAnimatedRect(nsIDOMSVGAnimatedRect **aResult,
   return NS_OK;
 }
 
-nsSVGViewBox::DOMAnimatedRect::~DOMAnimatedRect()
-{
-  sSVGAnimatedRectTearoffTable.RemoveTearoff(mVal);
-}
-
 nsresult
-nsSVGViewBox::ToDOMBaseVal(nsIDOMSVGRect **aResult, nsSVGElement *aSVGElement)
+nsSVGViewBox::ToDOMBaseVal(dom::SVGIRect **aResult,
+                           nsSVGElement *aSVGElement)
 {
   if (!mHasBaseVal || mBaseVal.none) {
     *aResult = nullptr;
@@ -257,7 +236,8 @@ nsSVGViewBox::DOMBaseVal::~DOMBaseVal()
 }
 
 nsresult
-nsSVGViewBox::ToDOMAnimVal(nsIDOMSVGRect **aResult, nsSVGElement *aSVGElement)
+nsSVGViewBox::ToDOMAnimVal(dom::SVGIRect **aResult,
+                           nsSVGElement *aSVGElement)
 {
   if ((mAnimVal && mAnimVal->none) ||
       (!mAnimVal && (!mHasBaseVal || mBaseVal.none))) {
@@ -280,40 +260,36 @@ nsSVGViewBox::DOMAnimVal::~DOMAnimVal()
   sAnimSVGViewBoxTearoffTable.RemoveTearoff(mVal);
 }
 
-NS_IMETHODIMP
-nsSVGViewBox::DOMBaseVal::SetX(float aX)
+void
+nsSVGViewBox::DOMBaseVal::SetX(float aX, ErrorResult& aRv)
 {
   nsSVGViewBoxRect rect = mVal->GetBaseValue();
   rect.x = aX;
   mVal->SetBaseValue(rect, mSVGElement);
-  return NS_OK;
 }
 
-NS_IMETHODIMP
-nsSVGViewBox::DOMBaseVal::SetY(float aY)
+void
+nsSVGViewBox::DOMBaseVal::SetY(float aY, ErrorResult& aRv)
 {
   nsSVGViewBoxRect rect = mVal->GetBaseValue();
   rect.y = aY;
   mVal->SetBaseValue(rect, mSVGElement);
-  return NS_OK;
 }
 
-NS_IMETHODIMP
-nsSVGViewBox::DOMBaseVal::SetWidth(float aWidth)
+void
+nsSVGViewBox::DOMBaseVal::SetWidth(float aWidth, ErrorResult& aRv)
 {
   nsSVGViewBoxRect rect = mVal->GetBaseValue();
   rect.width = aWidth;
   mVal->SetBaseValue(rect, mSVGElement);
-  return NS_OK;
 }
 
-NS_IMETHODIMP
-nsSVGViewBox::DOMBaseVal::SetHeight(float aHeight)
+void
+nsSVGViewBox::DOMBaseVal::SetHeight(float aHeight, ErrorResult& aRv)
 {
   nsSVGViewBoxRect rect = mVal->GetBaseValue();
   rect.height = aHeight;
   mVal->SetBaseValue(rect, mSVGElement);
-  return NS_OK;
 }
 
 nsISMILAttr*

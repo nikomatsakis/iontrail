@@ -33,9 +33,9 @@ nsSVGGFrame::Init(nsIContent* aContent,
                   nsIFrame* aParent,
                   nsIFrame* aPrevInFlow)
 {
-  nsCOMPtr<SVGTransformableElement> transformable = do_QueryInterface(aContent);
-  NS_ASSERTION(transformable,
-               "The element doesn't support nsIDOMSVGTransformable\n");
+  NS_ASSERTION(aContent->IsSVG() &&
+               static_cast<nsSVGElement*>(aContent)->IsTransformable(),
+               "The element doesn't support nsIDOMSVGTransformable");
 
   nsSVGGFrameBase::Init(aContent, aParent, aPrevInFlow);
 }
@@ -93,9 +93,9 @@ nsSVGGFrame::AttributeChanged(int32_t         aNameSpaceID,
 {
   if (aNameSpaceID == kNameSpaceID_None &&
       aAttribute == nsGkAtoms::transform) {
-    nsSVGUtils::InvalidateBounds(this, false);
-    nsSVGUtils::ScheduleReflowSVG(this);
+    // Don't invalidate (the layers code does that).
     NotifySVGChanged(TRANSFORM_CHANGED);
+    SchedulePaint();
   }
   
   return NS_OK;

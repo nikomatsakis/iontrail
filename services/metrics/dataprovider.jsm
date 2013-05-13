@@ -18,9 +18,9 @@ const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 #endif
 
 Cu.import("resource://gre/modules/commonjs/sdk/core/promise.js");
+Cu.import("resource://gre/modules/Preferences.jsm");
 Cu.import("resource://gre/modules/Task.jsm");
 Cu.import("resource://services-common/log4moz.js");
-Cu.import("resource://services-common/preferences.js");
 Cu.import("resource://services-common/utils.js");
 
 
@@ -182,12 +182,28 @@ Measurement.prototype = Object.freeze({
   },
 
   _configureStorage: function () {
-    return Task.spawn(function configureFields() {
-      for (let [name, info] in Iterator(this.fields)) {
-        this._log.debug("Registering field: " + name + " " + info.type);
+    let missing = [];
+    for (let [name, info] in Iterator(this.fields)) {
+      if (this.storage.hasFieldFromMeasurement(this.id, name)) {
+        this._fields[name] =
+          [this.storage.fieldIDFromMeasurement(this.id, name), info.type];
+        continue;
+      }
 
-        let id = yield this.storage.registerField(this.id, name, info.type);
-        this._fields[name] = [id, info.type];
+      missing.push([name, info.type]);
+    }
+
+    if (!missing.length) {
+      return CommonUtils.laterTickResolvingPromise();
+    }
+
+    // We only perform a transaction if we have work to do (to avoid
+    // extra SQLite overhead).
+    return this.storage.enqueueTransaction(function registerFields() {
+      for (let [name, type] of missing) {
+        this._log.debug("Registering field: " + name + " " + type);
+        let id = yield this.storage.registerField(this.id, name, type);
+        this._fields[name] = [id, type];
       }
     }.bind(this));
   },
@@ -217,11 +233,13 @@ Measurement.prototype = Object.freeze({
    *        (string) The name of the field whose value to increment.
    * @param date
    *        (Date) Day on which to increment the counter.
+   * @param by
+   *        (integer) How much to increment by.
    * @return Promise<>
    */
-  incrementDailyCounter: function (field, date=new Date()) {
+  incrementDailyCounter: function (field, date=new Date(), by=1) {
     return this.storage.incrementDailyCounterFromFieldID(this.fieldID(field),
-                                                         date);
+                                                         date, by);
   },
 
   /**
@@ -331,12 +349,30 @@ Measurement.prototype = Object.freeze({
     return this.storage.deleteLastTextFromFieldID(this.fieldID(field));
   },
 
+  /**
+   * This method is used by the default serializers to control whether a field
+   * is included in the output.
+   *
+   * There could be legacy fields in storage we no longer care about.
+   *
+   * This method is a hook to allow measurements to change this behavior, e.g.,
+   * to implement a dynamic fieldset.
+   *
+   * You will also need to override `fieldType`.
+   *
+   * @return (boolean) true if the specified field should be included in
+   *                   payload output.
+   */
+  shouldIncludeField: function (field) {
+    return field in this._fields;
+  },
+
   _serializeJSONSingular: function (data) {
     let result = {"_v": this.version};
 
     for (let [field, data] of data) {
       // There could be legacy fields in storage we no longer care about.
-      if (!(field in this._fields)) {
+      if (!this.shouldIncludeField(field)) {
         continue;
       }
 
@@ -367,7 +403,7 @@ Measurement.prototype = Object.freeze({
     let result = {"_v": this.version};
 
     for (let [field, data] of data) {
-      if (!(field in this._fields)) {
+      if (!this.shouldIncludeField(field)) {
         continue;
       }
 
@@ -522,6 +558,12 @@ Provider.prototype = Object.freeze({
 
     let self = this;
     return Task.spawn(function init() {
+      let pre = self.preInit();
+      if (!pre || typeof(pre.then) != "function") {
+        throw new Error("preInit() does not return a promise.");
+      }
+      yield pre;
+
       for (let measurementType of self.measurementTypes) {
         let measurement = new measurementType();
 
@@ -539,13 +581,11 @@ Provider.prototype = Object.freeze({
                               measurement);
       }
 
-      let promise = self.onInit();
-
-      if (!promise || typeof(promise.then) != "function") {
-        throw new Error("onInit() does not return a promise.");
+      let post = self.postInit();
+      if (!post || typeof(post.then) != "function") {
+        throw new Error("postInit() does not return a promise.");
       }
-
-      yield promise;
+      yield post;
     });
   },
 
@@ -560,7 +600,22 @@ Provider.prototype = Object.freeze({
   },
 
   /**
-   * Hook point for implementations to perform initialization activity.
+   * Hook point for implementations to perform pre-initialization activity.
+   *
+   * This method will be called before measurement registration.
+   *
+   * Implementations should return a promise which is resolved when
+   * initialization activities have completed.
+   */
+  preInit: function () {
+    return CommonUtils.laterTickResolvingPromise();
+  },
+
+  /**
+   * Hook point for implementations to perform post-initialization activity.
+   *
+   * This method will be called after `preInit` and measurement registration,
+   * but before initialization is finished.
    *
    * If a `Provider` instance needs to register observers, etc, it should
    * implement this function.
@@ -568,7 +623,7 @@ Provider.prototype = Object.freeze({
    * Implementations should return a promise which is resolved when
    * initialization activities have completed.
    */
-  onInit: function () {
+  postInit: function () {
     return CommonUtils.laterTickResolvingPromise();
   },
 

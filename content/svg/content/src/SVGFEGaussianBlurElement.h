@@ -18,8 +18,7 @@ namespace dom {
 
 typedef nsSVGFE SVGFEGaussianBlurElementBase;
 
-class SVGFEGaussianBlurElement : public SVGFEGaussianBlurElementBase,
-                                 public nsIDOMSVGElement
+class SVGFEGaussianBlurElement : public SVGFEGaussianBlurElementBase
 {
   friend nsresult (::NS_NewSVGFEGaussianBlurElement(nsIContent **aResult,
                                                     already_AddRefed<nsINodeInfo> aNodeInfo));
@@ -27,37 +26,28 @@ protected:
   SVGFEGaussianBlurElement(already_AddRefed<nsINodeInfo> aNodeInfo)
     : SVGFEGaussianBlurElementBase(aNodeInfo)
   {
-    SetIsDOMBinding();
   }
-  virtual JSObject* WrapNode(JSContext* aCx, JSObject* aScope) MOZ_OVERRIDE;
+  virtual JSObject* WrapNode(JSContext* aCx,
+                             JS::Handle<JSObject*> aScope) MOZ_OVERRIDE;
 
 public:
-  // interfaces:
-  NS_DECL_ISUPPORTS_INHERITED
-
   virtual nsresult Filter(nsSVGFilterInstance* aInstance,
                           const nsTArray<const Image*>& aSources,
                           const Image* aTarget,
-                          const nsIntRect& aDataRect);
+                          const nsIntRect& aDataRect) MOZ_OVERRIDE;
   virtual bool AttributeAffectsRendering(
-          int32_t aNameSpaceID, nsIAtom* aAttribute) const;
-  virtual nsSVGString& GetResultImageName() { return mStringAttributes[RESULT]; }
-  virtual void GetSourceImageNames(nsTArray<nsSVGStringInfo >& aSources);
+          int32_t aNameSpaceID, nsIAtom* aAttribute) const MOZ_OVERRIDE;
+  virtual nsSVGString& GetResultImageName() MOZ_OVERRIDE { return mStringAttributes[RESULT]; }
+  virtual void GetSourceImageNames(nsTArray<nsSVGStringInfo >& aSources) MOZ_OVERRIDE;
   virtual nsIntRect ComputeTargetBBox(const nsTArray<nsIntRect>& aSourceBBoxes,
-          const nsSVGFilterInstance& aInstance);
+          const nsSVGFilterInstance& aInstance) MOZ_OVERRIDE;
   virtual void ComputeNeededSourceBBoxes(const nsIntRect& aTargetBBox,
-          nsTArray<nsIntRect>& aSourceBBoxes, const nsSVGFilterInstance& aInstance);
+          nsTArray<nsIntRect>& aSourceBBoxes, const nsSVGFilterInstance& aInstance) MOZ_OVERRIDE;
   virtual nsIntRect ComputeChangeBBox(const nsTArray<nsIntRect>& aSourceChangeBoxes,
-          const nsSVGFilterInstance& aInstance);
+          const nsSVGFilterInstance& aInstance) MOZ_OVERRIDE;
 
-  NS_FORWARD_NSIDOMSVGELEMENT(SVGFEGaussianBlurElementBase::)
 
-  NS_FORWARD_NSIDOMNODE_TO_NSINODE
-  NS_FORWARD_NSIDOMELEMENT_TO_GENERIC
-
-  virtual nsresult Clone(nsINodeInfo *aNodeInfo, nsINode **aResult) const;
-
-  virtual nsIDOMNode* AsDOMNode() { return this; }
+  virtual nsresult Clone(nsINodeInfo *aNodeInfo, nsINode **aResult) const MOZ_OVERRIDE;
 
   // WebIDL
   already_AddRefed<nsIDOMSVGAnimatedString> In1();
@@ -66,8 +56,8 @@ public:
   void SetStdDeviation(float stdDeviationX, float stdDeviationY);
 
 protected:
-  virtual NumberPairAttributesInfo GetNumberPairInfo();
-  virtual StringAttributesInfo GetStringInfo();
+  virtual NumberPairAttributesInfo GetNumberPairInfo() MOZ_OVERRIDE;
+  virtual StringAttributesInfo GetStringInfo() MOZ_OVERRIDE;
 
   enum { STD_DEV };
   nsSVGNumberPair mNumberPairAttributes[1];

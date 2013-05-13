@@ -177,7 +177,8 @@ public:
    */
   bool SampleContentTransformForFrame(const TimeStamp& aSampleTime,
                                       ContainerLayer* aLayer,
-                                      ViewTransform* aTransform);
+                                      ViewTransform* aNewTransform,
+                                      gfx::Point& aScrollOffset);
 
   /**
    * A shadow layer update has arrived. |aViewportFrame| is the new FrameMetrics
@@ -543,7 +544,7 @@ private:
   // frame.
   TimeStamp mLastSampleTime;
   // The last time a touch event came through on the UI thread.
-  int32_t mLastEventTime;
+  uint32_t mLastEventTime;
 
   // Start time of an animation. This is used for a zoom to animation to mark
   // the beginning.

@@ -10,7 +10,7 @@
 #include "nsThreadManager.h"
 #include "nsThreadUtils.h"
 #include "plarena.h"
-#include "sampler.h"
+#include "GeckoProfiler.h"
 
 using mozilla::TimeDuration;
 using mozilla::TimeStamp;
@@ -319,6 +319,10 @@ nsresult nsTimerImpl::InitCommon(uint32_t aType, uint32_t aDelay)
   nsresult rv;
 
   NS_ENSURE_TRUE(gThread, NS_ERROR_NOT_INITIALIZED);
+  if (!mEventTarget) {
+    NS_ERROR("mEventTarget is NULL");
+    return NS_ERROR_NOT_INITIALIZED;
+  }
 
   rv = gThread->Init();
   NS_ENSURE_SUCCESS(rv, rv);
@@ -494,7 +498,7 @@ void nsTimerImpl::Fire()
   if (mCanceled)
     return;
 
-  SAMPLE_LABEL("Timer", "Fire");
+  PROFILER_LABEL("Timer", "Fire");
 
   TimeStamp now = TimeStamp::Now();
 #ifdef DEBUG_TIMERS
@@ -634,6 +638,11 @@ NS_IMETHODIMP nsTimerEvent::Run()
 
 nsresult nsTimerImpl::PostTimerEvent()
 {
+  if (!mEventTarget) {
+    NS_ERROR("Attempt to post timer event to NULL event target");
+    return NS_ERROR_NOT_INITIALIZED;
+  }
+
   // XXX we may want to reuse this nsTimerEvent in the case of repeating timers.
 
   // Since TimerThread addref'd 'this' for us, we don't need to addref here.

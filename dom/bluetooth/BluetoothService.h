@@ -131,7 +131,17 @@ public:
   GetPairedDevicePropertiesInternal(const nsTArray<nsString>& aDeviceAddresses,
                                     BluetoothReplyRunnable* aRunnable) = 0;
 
-  /** 
+  /**
+   * Returns the properties of connected devices regarding to specific profile,
+   * implemented via a platform specific methood.
+   *
+   * @return NS_OK on success, NS_ERROR_FAILURE otherwise
+   */
+  virtual nsresult
+  GetConnectedDevicePropertiesInternal(uint16_t aProfileId,
+                                       BluetoothReplyRunnable* aRunnable) = 0;
+
+  /**
    * Stop device discovery (platform specific implementation)
    *
    * @return NS_OK if discovery stopped correctly, false otherwise
@@ -249,13 +259,6 @@ public:
   StopSendingFile(const nsAString& aDeviceAddress,
                   BluetoothReplyRunnable* aRunnable) = 0;
 
-  virtual nsresult
-  ListenSocketViaService(int aChannel,
-                         BluetoothSocketType aType,
-                         bool aAuth,
-                         bool aEncrypt,
-                         mozilla::ipc::UnixSocketConsumer* aConsumer) = 0;
-
   virtual void
   ConfirmReceivingFile(const nsAString& aDeviceAddress, bool aConfirm,
                        BluetoothReplyRunnable* aRunnable) = 0;
@@ -299,7 +302,7 @@ protected:
   virtual nsresult
   StartInternal() = 0;
 
-  /** 
+  /**
    * Platform specific startup functions go here. Usually deals with member
    * variables, so not static. Guaranteed to be called outside of main thread.
    *
@@ -307,6 +310,15 @@ protected:
    */
   virtual nsresult
   StopInternal() = 0;
+
+  /**
+   * Platform specific startup functions go here. Usually deals with member
+   * variables, so not static. Guaranteed to be called outside of main thread.
+   *
+   * @return true if Bluetooth is enabled, false otherwise
+   */
+  virtual bool
+  IsEnabledInternal() = 0;
 
   /**
    * Called when XPCOM first creates this service.

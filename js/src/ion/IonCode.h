@@ -1,12 +1,13 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=4 sw=4 et tw=99:
- *
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #ifndef jsion_coderef_h__
 #define jsion_coderef_h__
+
+#include "mozilla/PodOperations.h"
 
 #include "IonTypes.h"
 #include "gc/Heap.h"
@@ -28,9 +29,8 @@ namespace ion {
 // bit on offsets.
 static const uint32_t MAX_BUFFER_SIZE = (1 << 30) - 1;
 
-// Maximum number of scripted arg and stack slots.
+// Maximum number of scripted arg slots.
 static const uint32_t SNAPSHOT_MAX_NARGS = 127;
-static const uint32_t SNAPSHOT_MAX_STACK = 127;
 
 class MacroAssembler;
 class CodeOffsetLabel;
@@ -46,8 +46,8 @@ class IonCode : public gc::Cell
     uint32_t jumpRelocTableBytes_;    // Size of the jump relocation table.
     uint32_t dataRelocTableBytes_;    // Size of the data relocation table.
     uint32_t preBarrierTableBytes_;   // Size of the prebarrier table.
-    JSBool invalidated_;            // Whether the code object has been invalidated.
-                                    // This is necessary to prevent GC tracing.
+    JSBool invalidated_;              // Whether the code object has been invalidated.
+                                      // This is necessary to prevent GC tracing.
 
 #if JS_BITS_PER_WORD == 32
     // Ensure IonCode is gc::Cell aligned.
@@ -131,6 +131,7 @@ class IonCode : public gc::Cell
     static IonCode *New(JSContext *cx, uint8_t *code, uint32_t bufferSize, JSC::ExecutablePool *pool);
 
   public:
+    JS::Zone *zone() const { return tenuredZone(); }
     static void readBarrier(IonCode *code);
     static void writeBarrierPre(IonCode *code);
     static void writeBarrierPost(IonCode *code, void *addr);
@@ -148,16 +149,19 @@ struct IonScript
 {
   private:
     // Code pointer containing the actual method.
-    HeapPtr<IonCode> method_;
+    EncapsulatedPtr<IonCode> method_;
 
     // Deoptimization table used by this method.
-    HeapPtr<IonCode> deoptTable_;
+    EncapsulatedPtr<IonCode> deoptTable_;
 
     // Entrypoint for OSR, or NULL.
     jsbytecode *osrPc_;
 
     // Offset to OSR entrypoint from method_->raw(), or 0.
     uint32_t osrEntryOffset_;
+
+    // Offset to entrypoint skipping type arg check from method_->raw().
+    uint32_t skipArgCheckEntryOffset_;
 
     // Offset of the invalidation epilogue (which pushes this IonScript
     // and calls the invalidation thunk).
@@ -169,8 +173,8 @@ struct IonScript
     // per-platform if we want.
     uint32_t invalidateEpilogueDataOffset_;
 
-    // Flag set when we bailout, to avoid frequent bailouts.
-    bool bailoutExpected_;
+    // Number of times this script bailed out without invalidation.
+    uint32_t numBailouts_;
 
     // Flag set when it is likely that one of our (transitive) call
     // targets is not compiled.  Used in ForkJoin.cpp to decide when
@@ -230,17 +234,15 @@ struct IonScript
     uint32_t callTargetList_;
     uint32_t callTargetEntries_;
 
-    // Dispatch table for ICs, if caches for this IonScript are dispatch
-    // instead of repatch. If dispatch is on, there are as many entries as
-    // there are caches, else there are 0.
-    uint32_t cacheDispatchTable_;
-    uint32_t cacheDispatchEntries_;
-
     // Number of references from invalidation records.
     size_t refcount_;
 
     // Identifier of the compilation which produced this code.
     types::RecompileInfo recompileInfo_;
+
+    // Number of times we tried to enter this script via OSR but failed due to
+    // a LOOPENTRY pc other than osrPc_.
+    uint32_t osrPcMismatchCounter_;
 
   private:
     inline uint8_t *bottomBuffer() {
@@ -251,14 +253,11 @@ struct IonScript
     }
 
   public:
-    // Number of times this function has tried to call a non-IM compileable function
-    uint32_t slowCallCount;
-
     SnapshotOffset *bailoutTable() {
         return (SnapshotOffset *) &bottomBuffer()[bailoutTable_];
     }
-    HeapValue *constants() {
-        return (HeapValue *) &bottomBuffer()[constantTable_];
+    EncapsulatedValue *constants() {
+        return (EncapsulatedValue *) &bottomBuffer()[constantTable_];
     }
     const SafepointIndex *safepointIndices() const {
         return const_cast<IonScript *>(this)->safepointIndices();
@@ -284,9 +283,6 @@ struct IonScript
     JSScript **callTargetList() {
         return (JSScript **) &bottomBuffer()[callTargetList_];
     }
-    uint8_t **cacheDispatchTable() {
-        return (uint8_t **) &bottomBuffer()[cacheDispatchTable_];
-    }
 
   private:
     void trace(JSTracer *trc);
@@ -298,8 +294,9 @@ struct IonScript
     static IonScript *New(JSContext *cx, uint32_t frameLocals, uint32_t frameSize,
                           size_t snapshotsSize, size_t snapshotEntries,
                           size_t constants, size_t safepointIndexEntries, size_t osiIndexEntries,
-                          size_t cacheEntries, size_t safepointsSize, size_t runtimeSize,
-                          size_t scriptEntries, size_t callTargetEntries, bool cachesUseDispatch);
+                          size_t cacheEntries, size_t runtimeSize,
+                          size_t safepointsSize, size_t scriptEntries,
+                          size_t callTargetEntries);
     static void Trace(JSTracer *trc, IonScript *script);
     static void Destroy(FreeOp *fop, IonScript *script);
 
@@ -308,6 +305,9 @@ struct IonScript
     }
     static inline size_t offsetOfOsrEntryOffset() {
         return offsetof(IonScript, osrEntryOffset_);
+    }
+    static inline size_t offsetOfSkipArgCheckEntryOffset() {
+        return offsetof(IonScript, skipArgCheckEntryOffset_);
     }
 
   public:
@@ -334,6 +334,13 @@ struct IonScript
     uint32_t osrEntryOffset() const {
         return osrEntryOffset_;
     }
+    void setSkipArgCheckEntryOffset(uint32_t offset) {
+        JS_ASSERT(!skipArgCheckEntryOffset_);
+        skipArgCheckEntryOffset_ = offset;
+    }
+    uint32_t getSkipArgCheckEntryOffset() const {
+        return skipArgCheckEntryOffset_;
+    }
     bool containsCodeAddress(uint8_t *addr) const {
         return method()->raw() <= addr && addr <= method()->raw() + method()->instructionsSize();
     }
@@ -358,11 +365,14 @@ struct IonScript
         JS_ASSERT(invalidateEpilogueDataOffset_);
         return invalidateEpilogueDataOffset_;
     }
-    void setBailoutExpected() {
-        bailoutExpected_ = true;
+    void incNumBailouts() {
+        numBailouts_++;
+    }
+    uint32_t numBailouts() const {
+        return numBailouts_;
     }
     bool bailoutExpected() const {
-        return bailoutExpected_;
+        return numBailouts_ > 0;
     }
     void setHasUncompiledCallTarget() {
         hasUncompiledCallTarget_ = true;
@@ -385,7 +395,7 @@ struct IonScript
     size_t safepointsSize() const {
         return safepointsSize_;
     }
-    RawScript getScript(size_t i) const {
+    JSScript *getScript(size_t i) const {
         JS_ASSERT(i < scriptEntries_);
         return scriptList()[i];
     }
@@ -398,7 +408,7 @@ struct IonScript
     size_t sizeOfIncludingThis(JSMallocSizeOfFun mallocSizeOf) const {
         return mallocSizeOf(this);
     }
-    HeapValue &getConstant(size_t index) {
+    EncapsulatedValue &getConstant(size_t index) {
         JS_ASSERT(index < numConstants());
         return constants()[index];
     }
@@ -431,17 +441,6 @@ struct IonScript
     size_t numCaches() const {
         return cacheEntries_;
     }
-    uint8_t **getCacheDispatchEntry(uint32_t index) {
-        JS_ASSERT(index < cacheDispatchEntries_);
-        return &cacheDispatchTable()[index];
-    }
-    uint8_t **maybeGetCacheDispatchEntry(uint32_t index) {
-        // If caches are not dispatch style, there are 0 entries in the
-        // dispatch table.
-        if (cacheDispatchEntries_ > 0)
-            return getCacheDispatchEntry(index);
-        return NULL;
-    }
     size_t runtimeSize() const {
         return runtimeSize_;
     }
@@ -450,12 +449,11 @@ struct IonScript
     void destroyCaches();
     void copySnapshots(const SnapshotWriter *writer);
     void copyBailoutTable(const SnapshotOffset *table);
-    void copyConstants(const HeapValue *vp);
+    void copyConstants(const Value *vp);
     void copySafepointIndices(const SafepointIndex *firstSafepointIndex, MacroAssembler &masm);
     void copyOsiIndices(const OsiIndex *firstOsiIndex, MacroAssembler &masm);
     void copyRuntimeData(const uint8_t *data);
-    void copyCacheEntries(const uint32_t *caches, CodeOffsetLabel *dispatchLabels,
-                          MacroAssembler &masm);
+    void copyCacheEntries(const uint32_t *caches, MacroAssembler &masm);
     void copySafepoints(const SafepointWriter *writer);
     void copyScriptEntries(JSScript **scripts);
     void copyCallTargetEntries(JSScript **callTargets);
@@ -477,6 +475,12 @@ struct IonScript
     }
     const types::RecompileInfo& recompileInfo() const {
         return recompileInfo_;
+    }
+    uint32_t incrOsrPcMismatchCounter() {
+        return ++osrPcMismatchCounter_;
+    }
+    void resetOsrPcMismatchCounter() {
+        osrPcMismatchCounter_ = 0;
     }
 };
 
@@ -601,7 +605,7 @@ struct IonScriptCounts
   public:
 
     IonScriptCounts() {
-        PodZero(this);
+        mozilla::PodZero(this);
     }
 
     ~IonScriptCounts() {
@@ -691,3 +695,4 @@ IsMarked(const ion::VMFunction *)
 } // namespace js
 
 #endif // jsion_coderef_h__
+

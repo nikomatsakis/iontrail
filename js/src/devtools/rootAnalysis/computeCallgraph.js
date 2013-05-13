@@ -7,7 +7,23 @@ load('annotations.js');
 load('suppressedPoints.js');
 
 var subclasses = {};
+var superclasses = {};
 var classFunctions = {};
+
+function addClassEntry(index, name, other)
+{
+    if (!(name in index)) {
+        index[name] = [other];
+        return;
+    }
+
+    for (var entry of index[name]) {
+        if (entry == other)
+            return;
+    }
+
+    index[name].push(other);
+}
 
 function processCSU(csuName, csu)
 {
@@ -18,15 +34,8 @@ function processCSU(csuName, csu)
             var superclass = field.Field[1].Type.Name;
             var subclass = field.Field[1].FieldCSU.Type.Name;
             assert(subclass == csuName);
-            if (!(superclass in subclasses))
-                subclasses[superclass] = [];
-            var found = false;
-            for (var sub of subclasses[superclass]) {
-                if (sub == subclass)
-                    found = true;
-            }
-            if (!found)
-                subclasses[superclass].push(subclass);
+            addClassEntry(subclasses, superclass, subclass);
+            addClassEntry(superclasses, subclass, superclass);
         }
         if ("Variable" in field) {
             // Note: not dealing with overloading correctly.
@@ -41,6 +50,25 @@ function processCSU(csuName, csu)
 
 function findVirtualFunctions(csu, field)
 {
+    var worklist = [csu];
+
+    // Virtual call targets on subclasses of nsISupports may be incomplete,
+    // if the interface is scriptable. Just treat all indirect calls on
+    // nsISupports objects as potentially GC'ing, except AddRef/Release
+    // which should never enter the JS engine (even when calling dtors).
+    while (worklist.length) {
+        var csu = worklist.pop();
+        if (csu == "nsISupports") {
+            if (field == "AddRef" || field == "Release")
+                return [];
+            return null;
+        }
+        if (csu in superclasses) {
+            for (var superclass of superclasses[csu])
+                worklist.push(superclass);
+        }
+    }
+
     var functions = [];
     var worklist = [csu];
 
@@ -75,6 +103,9 @@ function memo(name)
     return memoized[name];
 }
 
+var seenCallees = null;
+var seenSuppressedCallees = null;
+
 function processBody(caller, body)
 {
     if (!('PEdge' in body))
@@ -83,29 +114,46 @@ function processBody(caller, body)
         if (edge.Kind != "Call")
             continue;
         var callee = edge.Exp[0];
-        var suppressText = (edge.Index[0] in body.suppressed) ? "SUPPRESS_GC " : "";
+        var suppressText = "";
+        var seen = seenCallees;
+        if (edge.Index[0] in body.suppressed) {
+            suppressText = "SUPPRESS_GC ";
+            seen = seenSuppressedCallees;
+        }
         var prologue = suppressText + memo(caller) + " ";
         if (callee.Kind == "Var") {
             assert(callee.Variable.Kind == "Func");
             var name = callee.Variable.Name[0];
-            print("D " + prologue + memo(name));
+            if (!(name in seen)) {
+                print("D " + prologue + memo(name));
+                seen[name] = true;
+            }
             var otherName = otherDestructorName(name);
-            if (otherName)
+            if (otherName && !(otherName in seen)) {
                 print("D " + prologue + memo(otherName));
+                seen[otherName] = true;
+            }
         } else {
             assert(callee.Kind == "Drf");
             if (callee.Exp[0].Kind == "Fld") {
                 var field = callee.Exp[0].Field;
-                if ("FieldInstanceFunction" in field) {
-                    // virtual function call.
-                    var functions = findVirtualFunctions(field.FieldCSU.Type.Name, field.Name[0]);
-                    for (var name of functions)
-                        print("D " + prologue + memo(name));
+                var fieldName = field.Name[0];
+                var csuName = field.FieldCSU.Type.Name;
+                var functions = null;
+                if ("FieldInstanceFunction" in field)
+                    functions = findVirtualFunctions(csuName, fieldName);
+                if (functions) {
+                    // Known set of virtual call targets.
+                    for (var name of functions) {
+                        if (!(name in seen)) {
+                            print("D " + prologue + memo(name));
+                            seen[name] = true;
+                        }
+                    }
                 } else {
-                    // indirect call through a field.
-                    print("F " + prologue +
-                          "CLASS " + field.FieldCSU.Type.Name +
-                          " FIELD " + field.Name[0]);
+                    // Unknown set of call targets. Non-virtual field call,
+                    // or virtual call on an nsISupports object.
+                    print("F " + prologue + "CLASS " + csuName + " FIELD " + fieldName);
                 }
             } else if (callee.Exp[0].Kind == "Var") {
                 // indirect call through a variable.
@@ -150,6 +198,10 @@ for (var nameIndex = minStream; nameIndex <= maxStream; nameIndex++) {
         body.suppressed = [];
     for (var body of functionBodies)
         computeSuppressedPoints(body);
+
+    seenCallees = {};
+    seenSuppressedCallees = {};
+
     for (var body of functionBodies)
         processBody(name.readString(), body);
 

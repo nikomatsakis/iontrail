@@ -28,6 +28,7 @@ pref("browser.cache.memory.capacity", 1024); // kilobytes
 /* image cache prefs */
 pref("image.cache.size", 1048576); // bytes
 pref("image.high_quality_downscaling.enabled", false);
+pref("canvas.image.cache.limit", 10485760); // 10 MB
 
 /* offline cache prefs */
 pref("browser.offline-apps.notify", false);
@@ -102,7 +103,6 @@ pref("dom.disable_open_during_load", true);
 pref("privacy.popups.showBrowserMessage", true);
 
 pref("keyword.enabled", true);
-pref("keyword.URL", "https://www.google.com/m?ie=UTF-8&oe=UTF-8&sourceid=navclient&gfns=1&q=");
 
 pref("accessibility.typeaheadfind", false);
 pref("accessibility.typeaheadfind.timeout", 5000);
@@ -184,7 +184,6 @@ pref("dom.ipc.plugins.enabled", true);
 pref("breakpad.reportURL", "https://crash-stats.mozilla.com/report/index/");
 pref("app.releaseNotesURL", "http://www.mozilla.com/%LOCALE%/b2g/%VERSION%/releasenotes/");
 pref("app.support.baseURL", "http://support.mozilla.com/b2g");
-pref("app.feedbackURL", "http://input.mozilla.com/feedback/");
 pref("app.privacyURL", "http://www.mozilla.com/%LOCALE%/m/privacy.html");
 pref("app.creditsURL", "http://www.mozilla.org/credits/");
 pref("app.featuresURL", "http://www.mozilla.com/%LOCALE%/b2g/features/");
@@ -270,17 +269,12 @@ pref("media.cache_size", 4096);    // 4MB media cache
 // MediaDecoderReader's mVideoQueue.
 pref("media.video-queue.default-size", 3);
 
-//  0: don't show fullscreen keyboard
-//  1: always show fullscreen keyboard
-// -1: show fullscreen keyboard based on threshold pref
-pref("widget.ime.android.landscape_fullscreen", -1);
-pref("widget.ime.android.fullscreen_threshold", 250); // in hundreths of inches
-
 // optimize images' memory usage
 pref("image.mem.decodeondraw", true);
-pref("content.image.allow_locking", true);
-pref("image.mem.min_discard_timeout_ms", 10000);
-pref("image.mem.max_decoded_image_kb", 5120); /* 5MB */
+pref("content.image.allow_locking", false); /* don't allow image locking */
+pref("image.mem.min_discard_timeout_ms", 86400000); /* 24h, we rely on the out of memory hook */
+pref("image.mem.max_decoded_image_kb", 30000); /* 30MB seems reasonable */
+pref("image.onload.decode.limit", 24); /* don't decode more than 24 images eagerly */
 
 // XXX this isn't a good check for "are touch events supported", but
 // we don't really have a better one at the moment.
@@ -387,12 +381,31 @@ pref("dom.ipc.browser_frames.oop_by_default", false);
 // Temporary permission hack for WebSMS
 pref("dom.sms.enabled", true);
 pref("dom.sms.strict7BitEncoding", false); // Disabled by default.
+pref("dom.sms.requestStatusReport", true); // Enabled by default.
 
 // Temporary permission hack for WebContacts
 pref("dom.mozContacts.enabled", true);
 
 // WebAlarms
 pref("dom.mozAlarms.enabled", true);
+
+// SimplePush
+pref("services.push.enabled", true);
+// serverURL to be assigned by services team
+pref("services.push.serverURL", "");
+pref("services.push.userAgentID", "");
+// exponential back-off start is 5 seconds like in HTTP/1.1
+pref("services.push.retryBaseInterval", 5000);
+// WebSocket level ping transmit interval in seconds.
+pref("services.push.websocketPingInterval", 55);
+// exponential back-off end is 20 minutes
+pref("services.push.maxRetryInterval", 1200000);
+// How long before a DOMRequest errors as timeout
+pref("services.push.requestTimeout", 10000);
+// enable udp wakeup support
+pref("services.push.udp.wakeupEnabled", true);
+// port on which UDP server socket is bound
+pref("services.push.udp.port", 2442);
 
 // NetworkStats
 #ifdef MOZ_B2G_RIL
@@ -507,6 +520,8 @@ pref("ui.click_hold_context_menus.delay", 750);
 // Enable device storage
 pref("device.storage.enabled", true);
 
+// Enable system message
+pref("dom.sysmsg.enabled", true);
 pref("media.plugins.enabled", false);
 pref("media.omx.enabled", true);
 
@@ -566,12 +581,20 @@ pref("hal.processPriorityManager.gonk.backgroundKillUnderMB", 20);
 pref("hal.processPriorityManager.gonk.notifyLowMemUnderMB", 10);
 
 // Niceness values (i.e., CPU priorities) for B2G processes.
+//
+// Note: The maximum nice value on Linux is 19, but the max value you should
+// use here is 18.  NSPR adds 1 to some threads' nice values, to mark
+// low-priority threads.  If the process priority manager were to renice a
+// process (and all its threads) to 19, all threads would have the same
+// niceness.  Then when we reniced the process to (say) 10, all threads would
+// /still/ have the same niceness; we'd effectively have erased NSPR's thread
+// priorities.
 pref("hal.processPriorityManager.gonk.masterNice", 0);
 pref("hal.processPriorityManager.gonk.foregroundHighNice", 0);
 pref("hal.processPriorityManager.gonk.foregroundNice", 1);
 pref("hal.processPriorityManager.gonk.backgroundPerceivableNice", 10);
-pref("hal.processPriorityManager.gonk.backgroundHomescreenNice", 20);
-pref("hal.processPriorityManager.gonk.backgroundNice", 20);
+pref("hal.processPriorityManager.gonk.backgroundHomescreenNice", 18);
+pref("hal.processPriorityManager.gonk.backgroundNice", 18);
 
 #ifndef DEBUG
 // Enable pre-launching content processes for improved startup time
@@ -655,7 +678,22 @@ pref("memory_info_dumper.watch_fifo.directory", "/data/local");
 
 pref("general.useragent.enable_overrides", true);
 
+// Make <audio> and <video> talk to the AudioChannelService.
+pref("media.useAudioChannelService", true);
+
 pref("b2g.version", @MOZ_B2G_VERSION@);
 
 // Disable console buffering to save memory.
 pref("consoleservice.buffered", false);
+
+#ifdef MOZ_WIDGET_GONK
+// Performance testing suggests 2k is a better page size for SQLite.
+pref("toolkit.storage.pageSize", 2048);
+#endif
+
+// Enable captive portal detection.
+pref("captivedetect.canonicalURL", "http://detectportal.firefox.com/success.txt");
+pref("captivedetect.canonicalContent", "success\n");
+
+// The url of the manifest we use for ADU pings.
+pref("ping.manifestURL", "https://marketplace.firefox.com/packaged.webapp");

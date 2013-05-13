@@ -1,6 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=8 sw=4 et tw=78:
- *
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -36,10 +35,10 @@
 // ThreadPool.h---by default, N is the number of cores on the
 // computer).
 //
-// Typically there will be one call to |parallel()| from each worker thread,
-// but that is not something you should rely upon---if we implement
-// work-stealing, for example, then it could be that a single worker thread
-// winds up handling multiple slices.
+// Typically, each of the N slices will execute from a different
+// worker thread, but that is not something you should rely upon---if
+// we implement work-stealing, for example, then it could be that a
+// single worker thread winds up handling multiple slices.
 //
 // The second argument, |feedback|, is an optional callback that will
 // receiver information about how execution proceeded.  This is
@@ -113,20 +112,20 @@
 //   parallelization and just invoke |func()| N times in a row (once
 //   for each worker) but with |warmup| set to false.
 //
-// Operation callback
-// ------------------
+// Operation callback:
 //
-// During parallel execution, you should periodically invoke |slice.check()|,
-// which will handle the operation callback.  If the operation callback is
-// necessary, |slice.check()| will arrange a rendezvous---that is, as each
-// active worker invokes |check()|, it will come to a halt until everyone is
-// blocked (Stop The World).  At this point, we perform the callback on the
-// main thread, and then resume execution.  If a worker thread terminates
-// before calling |check()|, that's fine too.  We assume that you do not do
-// unbounded work without invoking |check()|.
+// During parallel execution, |slice.check()| must be periodically
+// invoked to check for the operation callback. This is automatically
+// done by the ion-generated code. If the operation callback is
+// necessary, |slice.check()| will arrange a rendezvous---that is, as
+// each active worker invokes |check()|, it will come to a halt until
+// everyone is blocked (Stop The World).  At this point, we perform
+// the callback on the main thread, and then resume execution.  If a
+// worker thread terminates before calling |check()|, that's fine too.
+// We assume that you do not do unbounded work without invoking
+// |check()|.
 //
-// Transitive compilation
-// ----------------------
+// Transitive compilation:
 //
 // One of the challenges for parallel compilation is that we
 // (currently) have to abort when we encounter an uncompiled script.
@@ -146,16 +145,17 @@
 // 4. If compilations fail, we fallback to sequential.
 // 5. Otherwise, we will try running in parallel once we're all done.
 //
-// Sequential Fallback:
-// --------------------
+// Bailout tracing and recording:
 //
-// It is assumed that anyone using this API must be prepared for a sequential
-// fallback.  Therefore, the |ExecuteForkJoinOp()| returns a status code
-// indicating whether a fatal error occurred (in which case you should just
-// stop) or whether you should retry the operation, but executing
-// sequentially.  An example of where the fallback would be useful is if the
-// parallel code encountered an unexpected path that cannot safely be executed
-// in parallel (writes to shared state, say).
+// When a bailout occurs, we record a bit of state so that we can
+// recover with grace. Each |ForkJoinSlice| has a pointer to a
+// |ParallelBailoutRecord| pre-allocated for this purpose. This
+// structure is used to record the cause of the bailout, the JSScript
+// which was executing, as well as the location in the source where
+// the bailout occurred (in principle, we can record a full stack
+// trace, but right now we only record the top-most frame). Note that
+// the error location might not be in the same JSScript as the one
+// which was executing due to inlining.
 //
 // Bailout tracing and recording:
 //
@@ -214,12 +214,14 @@
 // Current Limitations:
 //
 // - The API does not support recursive or nested use.  That is, the
-//   |parallel()| callback of a |ForkJoinOp| may not itself invoke
-//   |ExecuteForkJoinOp()|.  We may lift this limitation in the future.
+//   JavaScript function given to |ForkJoin| should not itself invoke
+//   |ForkJoin()|. Instead, use the intrinsic |InParallelSection()| to
+//   check for recursive use and execute a sequential fallback.
 //
 // - No load balancing is performed between worker threads.  That means that
 //   the fork-join system is best suited for problems that can be slice into
 //   uniform bits.
+//
 ///////////////////////////////////////////////////////////////////////////
 
 namespace js {
@@ -285,20 +287,20 @@ enum ParallelBailoutCause {
 };
 
 struct ParallelBailoutTrace {
-    JSScript* script;
+    JSScript *script;
     jsbytecode *bytecode;
 };
 
 // See "Bailouts" section in comment above.
 struct ParallelBailoutRecord {
-    JSScript* topScript;
+    JSScript *topScript;
     ParallelBailoutCause cause;
 
     // Eventually we will support deeper traces,
     // but for now we gather at most a single frame.
-    static const uint32_t maxDepth = 1;
+    static const uint32_t MaxDepth = 1;
     uint32_t depth;
-    ParallelBailoutTrace trace[maxDepth];
+    ParallelBailoutTrace trace[MaxDepth];
 
     void init(JSContext *cx);
     void reset(JSContext *cx);
@@ -329,6 +331,7 @@ struct ForkJoinSlice
     // |perThreadData|.
     Allocator *const allocator;
 
+    // Bailout record used to record the reason this thread stopped executing
     ParallelBailoutRecord *const bailoutRecord;
 
 #ifdef DEBUG
@@ -410,27 +413,42 @@ public:
     void recordStackBase(uintptr_t *baseAddr);
 };
 
-// Locks a JSContext for its scope.
+// Locks a JSContext for its scope. Be very careful, because locking a
+// JSContext does *not* allow you to safely mutate the data in the
+// JSContext unless you can guarantee that any of the other threads
+// that want to access that data will also acquire the lock, which is
+// generally not the case. For example, the lock is used in the IC
+// code to allow us to atomically patch up the dispatch table, but we
+// must be aware that other threads may be reading from the table even
+// as we write to it (though they cannot be writing, since they must
+// hold the lock to write).
 class LockedJSContext
 {
+#if defined(JS_THREADSAFE) && defined(JS_ION)
     ForkJoinSlice *slice_;
+#endif
     JSContext *cx_;
 
   public:
     LockedJSContext(ForkJoinSlice *slice)
+#if defined(JS_THREADSAFE) && defined(JS_ION)
       : slice_(slice),
         cx_(slice->acquireContext())
+#else
+      : cx_(NULL)
+#endif
     { }
 
     ~LockedJSContext() {
+#if defined(JS_THREADSAFE) && defined(JS_ION)
         slice_->releaseContext();
+#endif
     }
 
     operator JSContext *() { return cx_; }
     JSContext *operator->() { return cx_; }
 };
 
-// True if parallel threads are currently active.
 static inline bool
 ParallelJSActive()
 {
@@ -487,8 +505,8 @@ void SpewBailoutIR(uint32_t bblockId, uint32_t lirId,
 static inline bool SpewEnabled(SpewChannel channel) { return false; }
 static inline void Spew(SpewChannel channel, const char *fmt, ...) { }
 static inline void SpewBeginOp(JSContext *cx, const char *name) { }
-static inline void SpewBailout(uint32_t count, HandleScript script, jsbytecode *pc,
-                               ParallelBailoutCause cause) {}
+static inline void SpewBailout(uint32_t count, HandleScript script,
+                               jsbytecode *pc, ParallelBailoutCause cause) {}
 static inline ExecutionStatus SpewEndOp(ExecutionStatus status) { return status; }
 static inline void SpewBeginCompile(HandleScript script) { }
 #ifdef JS_ION

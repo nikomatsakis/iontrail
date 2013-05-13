@@ -4,8 +4,6 @@
 
 /*
  * Code for dealing with X509.V3 extensions.
- *
- * $Id: certv3.c,v 1.13 2012/04/25 14:49:26 gerv%gerv.net Exp $
  */
 
 #include "cert.h"
@@ -25,7 +23,7 @@ CERT_FindCertExtensionByOID(CERTCertificate *cert, SECItem *oid,
     
 
 SECStatus
-CERT_FindCertExtension(CERTCertificate *cert, int tag, SECItem *value)
+CERT_FindCertExtension(const CERTCertificate *cert, int tag, SECItem *value)
 {
     return (cert_FindExtension (cert->extensions, tag, value));
 }

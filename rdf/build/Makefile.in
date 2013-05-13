@@ -14,7 +14,6 @@ LIBRARY_NAME	= rdf
 EXPORT_LIBRARY  = 1
 IS_COMPONENT	= 1
 MODULE_NAME	= nsRDFModule
-GRE_MODULE	= 1
 LIBXUL_LIBRARY = 1
 
 CPPSRCS		= \
@@ -27,8 +26,6 @@ SHARED_LIBRARY_LIBS = \
 		../base/src/$(LIB_PREFIX)rdfbase_s.$(LIB_SUFFIX) \
 		../datasource/src/$(LIB_PREFIX)rdfdatasource_s.$(LIB_SUFFIX) \
 		$(NULL)
-
-EXPORTS		= nsRDFCID.h
 
 include $(topsrcdir)/config/rules.mk
 

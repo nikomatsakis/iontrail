@@ -1306,8 +1306,6 @@ moz_gtk_scale_paint(cairo_t *cr, GdkRectangle* rect,
     y = border.top;
   }
 
-  gtk_render_background(style, cr, rect->x + x, rect->y + y,
-                        rect->width - 2*x, rect->height - 2*y);
   gtk_render_frame(style, cr, rect->x + x, rect->y + y,
                    rect->width - 2*x, rect->height - 2*y);
 
@@ -1409,23 +1407,6 @@ moz_gtk_vpaned_paint(cairo_t *cr, GdkRectangle* rect,
                       rect->x, rect->y, rect->width, rect->height);                     
     gtk_style_context_restore(style);
 
-    return MOZ_GTK_SUCCESS;
-}
-
-static gint
-moz_gtk_caret_paint(cairo_t *cr, GdkRectangle* rect,
-                    GtkTextDirection direction)
-{
-    GdkRectangle location = *rect;
-
-    if (direction == GTK_TEXT_DIR_RTL) {
-        /* gtk_draw_insertion_cursor ignores location.width */
-        location.x = rect->x + rect->width;
-    }
-
-    ensure_entry_widget();
-    gtk_draw_insertion_cursor(gEntryWidget, cr,
-                              &location, TRUE, direction, FALSE);
     return MOZ_GTK_SUCCESS;
 }
 
@@ -2821,7 +2802,6 @@ moz_gtk_get_widget_border(GtkThemeWidgetType widget, gint* left, gint* top,
     case MOZ_GTK_TOOLBAR:
     case MOZ_GTK_MENUBAR:
     case MOZ_GTK_TAB_SCROLLARROW:
-    case MOZ_GTK_ENTRY_CARET:
         *left = *top = *right = *bottom = 0;
         return MOZ_GTK_SUCCESS;
     default:
@@ -3116,9 +3096,6 @@ moz_gtk_widget_paint(GtkThemeWidgetType widget, cairo_t *cr,
         ensure_entry_widget();
         return moz_gtk_entry_paint(cr, rect, state,
                                    gEntryWidget, direction);
-        break;
-    case MOZ_GTK_ENTRY_CARET:
-        return moz_gtk_caret_paint(cr, rect, direction);
         break;
     case MOZ_GTK_DROPDOWN:
         return moz_gtk_combo_box_paint(cr, rect, state,

@@ -169,7 +169,7 @@ public:
   virtual void InvalidateFrameWithRect(const nsRect& aRect, uint32_t aDisplayItemKey = 0);
 
 #ifdef DEBUG
-  NS_IMETHOD List(FILE* out, int32_t aIndent, uint32_t aFlags = 0) const;
+  void List(FILE* out, int32_t aIndent, uint32_t aFlags = 0) const;
   NS_IMETHOD_(nsFrameState) GetDebugStateBits() const;
   NS_IMETHOD GetFrameName(nsAString& aResult) const;
 #endif
@@ -384,6 +384,11 @@ protected:
     }
     aLine->Destroy(PresContext()->PresShell());
   }
+  /**
+   * Helper method for StealFrame.
+   */
+  void RemoveFrameFromLine(nsIFrame* aChild, nsLineList::iterator aLine,
+                           nsFrameList& aFrameList, nsLineList& aLineList);
 
   void TryAllLines(nsLineList::iterator* aIterator,
                    nsLineList::iterator* aStartIterator,
@@ -404,24 +409,25 @@ protected:
 
   virtual int GetSkipSides() const MOZ_OVERRIDE;
 
-  virtual void ComputeFinalSize(const nsHTMLReflowState& aReflowState,
-                                nsBlockReflowState&      aState,
-                                nsHTMLReflowMetrics&     aMetrics,
-                                nscoord*                 aBottomEdgeOfChildren);
+  void ComputeFinalSize(const nsHTMLReflowState& aReflowState,
+                        nsBlockReflowState&      aState,
+                        nsHTMLReflowMetrics&     aMetrics,
+                        nscoord*                 aBottomEdgeOfChildren);
 
   void ComputeOverflowAreas(const nsRect&         aBounds,
                             const nsStyleDisplay* aDisplay,
                             nscoord               aBottomEdgeOfChildren,
                             nsOverflowAreas&      aOverflowAreas);
 
-  /** add the frames in aFrameList to this block after aPrevSibling
-    * this block thinks in terms of lines, but the frame construction code
-    * knows nothing about lines at all. So we need to find the line that
-    * contains aPrevSibling and add aFrameList after aPrevSibling on that line.
-    * new lines are created as necessary to handle block data in aFrameList.
-    * This function will clear aFrameList.
-    */
-  virtual nsresult AddFrames(nsFrameList& aFrameList, nsIFrame* aPrevSibling);
+  /**
+   * Add the frames in aFrameList to this block after aPrevSibling.
+   * This block thinks in terms of lines, but the frame construction code
+   * knows nothing about lines at all so we need to find the line that
+   * contains aPrevSibling and add aFrameList after aPrevSibling on that line.
+   * New lines are created as necessary to handle block data in aFrameList.
+   * This function will clear aFrameList.
+   */
+  void AddFrames(nsFrameList& aFrameList, nsIFrame* aPrevSibling);
 
 #ifdef IBMBIDI
   /**

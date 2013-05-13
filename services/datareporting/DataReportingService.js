@@ -6,8 +6,8 @@
 
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
+Cu.import("resource://gre/modules/Preferences.jsm");
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://services-common/preferences.js");
 Cu.import("resource://services-common/utils.js");
 
 
@@ -240,6 +240,17 @@ DataReportingService.prototype = Object.freeze({
       let level = loggingPrefs.get("consoleLevel", "Warn");
       let appender = new ns.Log4Moz.ConsoleAppender();
       appender.level = ns.Log4Moz.Level[level] || ns.Log4Moz.Level.Warn;
+
+      for (let name of LOGGERS) {
+        let logger = ns.Log4Moz.repository.getLogger(name);
+        logger.addAppender(appender);
+      }
+    }
+
+    if (loggingPrefs.get("dumpEnabled", false)) {
+      let level = loggingPrefs.get("dumpLevel", "Debug");
+      let appender = new ns.Log4Moz.DumpAppender();
+      appender.level = ns.Log4Moz.Level[level] || ns.Log4Moz.Level.Debug;
 
       for (let name of LOGGERS) {
         let logger = ns.Log4Moz.repository.getLogger(name);

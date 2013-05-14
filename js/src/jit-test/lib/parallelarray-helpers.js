@@ -284,6 +284,14 @@ function testScatter(opFunction, cmpFunction) {
 // Checks that `opFunction`, when run with each of the modes
 // in `modes`, returns the same value each time.
 function assertParallelArrayModesCommute(modes, opFunction) {
-    var acc = opFunction(modes[0]);
-    assertParallelArrayModesEq(modes.slice(1), acc, opFunction);
+  var expected = undefined;
+  var acc = opFunction(modes[0]);
+  assertParallelExecSucceeds(
+    opFunction,
+    function(r) {
+      if (expected === undefined)
+        expected = r;
+      else
+        assertStructuralEq(expected, r);
+    });
 }

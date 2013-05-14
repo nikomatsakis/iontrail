@@ -325,11 +325,13 @@ IonCompartment::ensureIonStubsExist(JSContext *cx)
 void
 ion::FinishOffThreadBuilder(IonBuilder *builder)
 {
+    ExecutionMode executionMode = builder->info().executionMode();
+
     // Clean up if compilation did not succeed.
-    if (builder->script()->isIonCompilingOffThread()) {
+    if (CompilingOffThread(builder->script(), executionMode)) {
         types::TypeCompartment &types = builder->script()->compartment()->types;
         builder->recompileInfo.compilerOutput(types)->invalidate();
-        builder->script()->setIonScript(NULL);
+        SetIonScript(builder->script(), executionMode, NULL);
     }
 
     // The builder is allocated into its LifoAlloc, so destroying that will

@@ -2369,7 +2369,9 @@ JITCodeHasCheck(JSScript *script, jsbytecode *pc, RecompileKind kind)
     }
 #endif
 
-    if (script->hasAnyIonScript() || script->isIonCompilingOffThread())
+    if (script->hasAnyIonScript() ||
+        script->isIonCompilingOffThread() ||
+        script->isParallelIonCompilingOffThread())
         return false;
 
     return true;

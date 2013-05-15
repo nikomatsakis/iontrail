@@ -293,55 +293,7 @@ class ParallelArrayVisitor : public MInstructionVisitor
 };
 
 bool
-ParallelCompileContext::appendToWorklist(HandleScript script)
-{
-    JS_ASSERT(script);
-
-    // Skip if we're disabled.
-    if (!script->canParallelIonCompile()) {
-        Spew(SpewCompile, "Skipping %p:%s:%u, canParallelIonCompile() is false",
-             script.get(), script->filename(), script->lineno);
-        return true;
-    }
-
-    // Skip if we're compiling off thread.
-    if (script->isParallelIonCompilingOffThread()) {
-        Spew(SpewCompile, "Skipping %p:%s:%u, off-main-thread compilation in progress",
-             script.get(), script->filename(), script->lineno);
-        return true;
-    }
-
-    // Skip if the code is expected to result in a bailout.
-    if (script->hasParallelIonScript() && script->parallelIonScript()->bailoutExpected()) {
-        Spew(SpewCompile, "Skipping %p:%s:%u, bailout expected",
-             script.get(), script->filename(), script->lineno);
-        return true;
-    }
-
-    // Skip if we haven't warmed up to get some type info. We're betting
-    // that the parallel kernel will be non-branchy for the most part, so
-    // this threshold is usually very low (1).
-    if (script->getUseCount() < js_IonOptions.usesBeforeCompileParallel) {
-        Spew(SpewCompile, "Skipping %p:%s:%u, use count %u < %u",
-             script.get(), script->filename(), script->lineno,
-             script->getUseCount(), js_IonOptions.usesBeforeCompileParallel);
-        return true;
-    }
-
-    for (uint32_t i = 0; i < worklist_.length(); i++) {
-        if (worklist_[i] == script)
-            return true;
-    }
-
-    // Note that we add all possibly compilable functions to the worklist,
-    // even if they're already compiled. This is so that we can return
-    // Method_Compiled and not Method_Skipped if we have a worklist full of
-    // already-compiled functions.
-    return worklist_.append(script);
-}
-
-bool
-ParallelCompileContext::analyzeAndGrowWorklist(MIRGenerator *mir, MIRGraph &graph)
+ParallelArrayAnalysis::analyze()
 {
     // Walk the basic blocks in a DFS.  When we encounter a block with an
     // unsafe instruction, then we know that this block will bailout when
@@ -350,11 +302,12 @@ ParallelCompileContext::analyzeAndGrowWorklist(MIRGenerator *mir, MIRGraph &grap
     // We don't need a worklist, though, because the graph is sorted
     // in RPO.  Therefore, we just use the marked flags to tell us
     // when we visited some predecessor of the current block.
-    ParallelArrayVisitor visitor(cx_, graph);
-    graph.entryBlock()->mark();  // Note: in par. exec., we never enter from OSR.
+    JSContext *cx = GetIonContext()->cx;
+    ParallelArrayVisitor visitor(cx, graph_);
+    graph_.entryBlock()->mark();  // Note: in par. exec., we never enter from OSR.
     uint32_t marked = 0;
-    for (ReversePostorderIterator block(graph.rpoBegin()); block != graph.rpoEnd(); block++) {
-        if (mir->shouldCancel("ParallelArrayAnalysis"))
+    for (ReversePostorderIterator block(graph_.rpoBegin()); block != graph_.rpoEnd(); block++) {
+        if (mir_->shouldCancel("ParallelArrayAnalysis"))
             return false;
 
         if (block->isMarked()) {
@@ -366,7 +319,7 @@ ParallelCompileContext::analyzeAndGrowWorklist(MIRGenerator *mir, MIRGraph &grap
             for (MInstructionIterator ins(block->begin());
                  ins != block->end() && !visitor.unsafe();)
             {
-                if (mir->shouldCancel("ParallelArrayAnalysis"))
+                if (mir_->shouldCancel("ParallelArrayAnalysis"))
                     return false;
 
                 // We may be removing or replacing the current
@@ -395,7 +348,7 @@ ParallelCompileContext::analyzeAndGrowWorklist(MIRGenerator *mir, MIRGraph &grap
                 // If this is the entry block, then there is no point
                 // in even trying to execute this function as it will
                 // always bailout.
-                if (*block == graph.entryBlock()) {
+                if (*block == graph_.entryBlock()) {
                     Spew(SpewCompile, "Entry block contains unsafe MIR");
                     return false;
                 }
@@ -409,37 +362,30 @@ ParallelCompileContext::analyzeAndGrowWorklist(MIRGenerator *mir, MIRGraph &grap
         }
     }
 
-    // Append newly discovered outgoing callgraph edges to the worklist.
-    RootedScript scriptRoot(cx_);
-    for (uint32_t i = 0; i < graph.numCallTargets(); i++) {
-        scriptRoot = graph.callTargets()[i];
-        appendToWorklist(scriptRoot);
-    }
-
     Spew(SpewCompile, "Safe");
     IonSpewPass("ParallelArrayAnalysis");
 
-    UnreachableCodeElimination uce(mir, graph);
+    UnreachableCodeElimination uce(mir_, graph_);
     if (!uce.removeUnmarkedBlocks(marked))
         return false;
     IonSpewPass("UCEAfterParallelArrayAnalysis");
-    AssertExtendedGraphCoherency(graph);
+    AssertExtendedGraphCoherency(graph_);
 
-    if (!removeResumePointOperands(mir, graph))
+    if (!removeResumePointOperands())
         return false;
     IonSpewPass("RemoveResumePointOperands");
-    AssertExtendedGraphCoherency(graph);
+    AssertExtendedGraphCoherency(graph_);
 
-    if (!EliminateDeadCode(mir, graph))
+    if (!EliminateDeadCode(mir_, graph_))
         return false;
     IonSpewPass("DCEAfterParallelArrayAnalysis");
-    AssertExtendedGraphCoherency(graph);
+    AssertExtendedGraphCoherency(graph_);
 
     return true;
 }
 
 bool
-ParallelCompileContext::removeResumePointOperands(MIRGenerator *mir, MIRGraph &graph)
+ParallelArrayAnalysis::removeResumePointOperands()
 {
     // In parallel exec mode, nothing is effectful, therefore we do
     // not need to reconstruct interpreter state and can simply
@@ -460,7 +406,7 @@ ParallelCompileContext::removeResumePointOperands(MIRGenerator *mir, MIRGraph &g
     // an inconsistent IR and assertions at codegen time.
 
     MConstant *udef = NULL;
-    for (ReversePostorderIterator block(graph.rpoBegin()); block != graph.rpoEnd(); block++) {
+    for (ReversePostorderIterator block(graph_.rpoBegin()); block != graph_.rpoEnd(); block++) {
         if (udef)
             replaceOperandsOnResumePoint(block->entryResumePoint(), udef);
 
@@ -479,8 +425,8 @@ ParallelCompileContext::removeResumePointOperands(MIRGenerator *mir, MIRGraph &g
 }
 
 void
-ParallelCompileContext::replaceOperandsOnResumePoint(MResumePoint *resumePoint,
-                                                     MDefinition *withDef)
+ParallelArrayAnalysis::replaceOperandsOnResumePoint(MResumePoint *resumePoint,
+                                                    MDefinition *withDef)
 {
     for (size_t i = 0; i < resumePoint->numOperands(); i++)
         resumePoint->replaceOperand(i, withDef);

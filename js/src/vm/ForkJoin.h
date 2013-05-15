@@ -125,6 +125,26 @@
 // We assume that you do not do unbounded work without invoking
 // |check()|.
 //
+// Transitive compilation:
+//
+// One of the challenges for parallel compilation is that we
+// (currently) have to abort when we encounter an uncompiled script.
+// Therefore, we try to compile everything that might be needed
+// beforehand. The exact strategy is described in `ParallelDo::apply()`
+// in ForkJoin.cpp, but at the highest level the idea is:
+//
+// 1. We maintain a flag on every script telling us if that script and
+//    its transitive callees are believed to be compiled. If that flag
+//    is set, we can skip the initial compilation.
+// 2. Otherwise, we maintain a worklist that begins with the main
+//    script. We compile it and then examine the generated parallel IonScript,
+//    which will have a list of callees. We enqueue those. Some of these
+//    compilations may take place off the main thread, in which case
+//    we will run warmup iterations while we wait for them to complete.
+// 3. If the warmup iterations finish all the work, we're done.
+// 4. If compilations fail, we fallback to sequential.
+// 5. Otherwise, we will try running in parallel once we're all done.
+//
 // Bailout tracing and recording:
 //
 // When a bailout occurs, we record a bit of state so that we can
@@ -136,6 +156,30 @@
 // trace, but right now we only record the top-most frame). Note that
 // the error location might not be in the same JSScript as the one
 // which was executing due to inlining.
+//
+// Bailout tracing and recording:
+//
+// When a bailout occurs, we have to record a bit of state so that we
+// can recover with grace.  The caller of ForkJoin is responsible for
+// passing in a.  This state falls into two categories: one is
+// mandatory state that we track unconditionally, the other is
+// optional state that we track only when we plan to inform the user
+// about why a bailout occurred.
+//
+// The mandatory state consists of two things.
+//
+// - First, we track the top-most script on the stack.  This script
+//   will be invalidated.  As part of ParallelDo, the top-most script
+//   from each stack frame will be invalidated.
+//
+// - Second, for each script on the stack, we will set the flag
+//   HasInvalidatedCallTarget, indicating that some callee of this
+//   script was invalidated.  This flag is set as the stack is unwound
+//   during the bailout.
+//
+// The optional state consists of a backtrace of (script, bytecode)
+// pairs.  The rooting on these is currently screwed up and needs to
+// be fixed.
 //
 // Garbage collection and allocation:
 //
@@ -410,6 +454,9 @@ enum ExecutionStatus {
 
     // Parallel exec failed and so we fell back to sequential
     ExecutionSequential,
+
+    // We completed the work in seq mode before parallel compilation completed
+    ExecutionWarmup,
 
     // Parallel exec was successful after some number of bailouts
     ExecutionParallel

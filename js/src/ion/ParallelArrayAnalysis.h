@@ -40,6 +40,16 @@ class ParallelArrayAnalysis
     bool analyze();
 };
 
+// Code to collect list of possible call targets by scraping through
+// TI and baseline data. Used to permit speculative transitive
+// compilation in vm/ForkJoin.
+//
+// WARNING: This code may clone scripts and thus may invoke the GC.
+// Hence only run from the link phase, which executes on the main
+// thread.
+typedef Vector<JSScript *, 4, IonAllocPolicy> CallTargetVector;
+bool AddPossibleCallees(MIRGraph &graph, CallTargetVector &targets);
+
 } // namespace ion
 } // namespace js
 

@@ -663,50 +663,7 @@ ParallelArrayVisitor::insertWriteGuard(MInstruction *writeInstruction,
 // Calls
 //
 // We only support calls to interpreted functions that that have already been
-// Ion compiled. If a function has no IonScript, we bail out. The transitive
-// compilation is done by asking TI for all possible callees at callsites.
-
-static bool
-GetPossibleCallees(JSContext *cx, HandleScript script, jsbytecode *pc,
-                   types::StackTypeSet *calleeTypes, MIRGraph &graph)
-{
-    if (!calleeTypes || calleeTypes->baseFlags() != 0)
-        return true;
-
-    unsigned objCount = calleeTypes->getObjectCount();
-
-    if (objCount == 0)
-        return true;
-
-    RootedFunction fun(cx);
-    for (unsigned i = 0; i < objCount; i++) {
-        JSObject *obj = calleeTypes->getSingleObject(i);
-        if (obj && obj->isFunction()) {
-            fun = obj->toFunction();
-        } else {
-            types::TypeObject *typeObj = calleeTypes->getTypeObject(i);
-            if (!typeObj)
-                continue;
-            fun = typeObj->interpretedFunction;
-            if (!fun)
-                continue;
-        }
-
-        if (!fun->isInterpreted())
-            continue;
-
-        if (fun->nonLazyScript()->shouldCloneAtCallsite) {
-            fun = CloneFunctionAtCallsite(cx, fun, script, pc);
-            if (!fun)
-                return false;
-        }
-
-        if (!graph.addCallTarget(fun->nonLazyScript()))
-            return false;
-    }
-
-    return true;
-}
+// Ion compiled. If a function has no IonScript, we bail out.
 
 bool
 ParallelArrayVisitor::visitCall(MCall *ins)
@@ -724,7 +681,7 @@ ParallelArrayVisitor::visitCall(MCall *ins)
             SpewMIR(ins, "call to native function");
             return markUnsafe();
         }
-        return graph_.addCallTarget(target->nonLazyScript());
+        return true;
     }
 
     if (ins->isConstructing()) {
@@ -732,11 +689,7 @@ ParallelArrayVisitor::visitCall(MCall *ins)
         return markUnsafe();
     }
 
-    types::StackTypeSet *calleeTypes = ins->getFunction()->resultTypeSet();
-
-    RootedScript script(cx_, ins->block()->info().script());
-    return GetPossibleCallees(cx_, script, ins->resumePoint()->pc(),
-                              calleeTypes, graph_);
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -795,6 +748,118 @@ ParallelArrayVisitor::visitThrow(MThrow *thr)
     if (!bailout)
         return false;
     block->end(bailout);
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////
+// Callee extraction
+//
+// See comments in header file.
+
+static bool
+GetPossibleCallees(JSContext *cx,
+                   HandleScript script,
+                   jsbytecode *pc,
+                   types::StackTypeSet *calleeTypes,
+                   CallTargetVector &targets);
+
+static bool
+AddCallTarget(HandleScript script, CallTargetVector &targets);
+
+bool
+AddPossibleCallees(MIRGraph &graph, CallTargetVector &targets)
+{
+    JSContext *cx = GetIonContext()->cx;
+
+    for (ReversePostorderIterator block(graph.rpoBegin()); block != graph.rpoEnd(); block++) {
+        for (MInstructionIterator ins(block->begin()); ins != block->end(); ins++)
+        {
+            if (!ins->isCall())
+                continue;
+
+            MCall *callIns = ins->toCall();
+
+            RootedFunction target(cx, callIns->getSingleTarget());
+            if (target) {
+                RootedScript script(cx, target->nonLazyScript());
+                if (!AddCallTarget(script, targets))
+                    return false;
+                continue;
+            }
+
+            types::StackTypeSet *calleeTypes = callIns->getFunction()->resultTypeSet();
+            RootedScript script(cx, callIns->block()->info().script());
+            if (!GetPossibleCallees(cx,
+                                    script,
+                                    callIns->resumePoint()->pc(),
+                                    calleeTypes,
+                                    targets))
+                return false;
+        }
+    }
+
+    return true;
+}
+
+static bool
+GetPossibleCallees(JSContext *cx,
+                   HandleScript script,
+                   jsbytecode *pc,
+                   types::StackTypeSet *calleeTypes,
+                   CallTargetVector &targets)
+{
+    if (!calleeTypes || calleeTypes->baseFlags() != 0)
+        return true;
+
+    unsigned objCount = calleeTypes->getObjectCount();
+
+    if (objCount == 0)
+        return true;
+
+    RootedFunction rootedFun(cx);
+    RootedScript rootedScript(cx);
+    for (unsigned i = 0; i < objCount; i++) {
+        JSObject *obj = calleeTypes->getSingleObject(i);
+        if (obj && obj->isFunction()) {
+            rootedFun = obj->toFunction();
+        } else {
+            types::TypeObject *typeObj = calleeTypes->getTypeObject(i);
+            if (!typeObj)
+                continue;
+            rootedFun = typeObj->interpretedFunction;
+            if (!rootedFun)
+                continue;
+        }
+
+        if (!rootedFun->isInterpreted())
+            continue;
+
+        if (rootedFun->nonLazyScript()->shouldCloneAtCallsite) {
+            rootedFun = CloneFunctionAtCallsite(cx, rootedFun, script, pc);
+            if (!rootedFun)
+                return false;
+        }
+
+        // check if this call target is already known
+        rootedScript = rootedFun->nonLazyScript();
+        if (!AddCallTarget(rootedScript, targets))
+            return false;
+    }
+
+    return true;
+}
+
+static bool
+AddCallTarget(HandleScript script, CallTargetVector &targets)
+{
+    for (size_t i = 0; i < targets.length(); i++) {
+        if (targets[i] == script)
+            return true;
+    }
+
+    if (!targets.append(script))
+        return false;
+
     return true;
 }
 

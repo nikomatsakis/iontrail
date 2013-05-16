@@ -1067,12 +1067,6 @@ function ParallelArrayFilter(func, mode) {
     // user code. Therefore, we don't expect bailouts and make an
     // effort to proceed chunk by chunk or avoid duplicating work.
 
-    // During warmup, we only execute with sliceId 0. This would fail to
-    // execute the loop below. Therefore, during warmup, we
-    // substitute 1 for the sliceId.
-    if (warmup && sliceId == 0 && numSlices != 1)
-      sliceId = 1;
-
     // Total up the items preserved by previous slices.
     var count = 0;
     if (sliceId > 0) { // FIXME(#819219)---work around a bug in Ion's range checks
@@ -1107,8 +1101,7 @@ function ParallelArrayFilter(func, mode) {
       }
     }
 
-    // FIXME
-    return !warmup;
+    return true;
   }
 }
 

@@ -81,20 +81,20 @@ PerfSpewer::writeRecordedBasicBlocks(JSScript *script,
     if (IonSpewEnabled(IonSpew_PerfFunc)) {
         fprintf(fp_,
                 "%lx %lx %s:%d\n",
-                (size_t) code->raw(),
+                (unsigned long) code->raw(),
                 code->instructionsSize(),
                 script->filename(),
                 script->lineno);
     } else if (IonSpewEnabled(IonSpew_PerfBlock)) {
-        size_t funcStart = (size_t) code->raw();
-        size_t funcEnd = funcStart + code->instructionsSize();
+        unsigned long funcStart = (unsigned long) code->raw();
+        unsigned long funcEnd = funcStart + code->instructionsSize();
 
-        size_t cur = funcStart;
+        unsigned long cur = funcStart;
         for (uint32_t i = 0; i < basicBlocks_.length(); i++) {
             Record &r = basicBlocks_[i];
 
-            size_t blockStart = funcStart + masm.actualOffset(r.start.offset());
-            size_t blockEnd = funcStart + masm.actualOffset(r.end.offset());
+            unsigned long blockStart = funcStart + masm.actualOffset(r.start.offset());
+            unsigned long blockEnd = funcStart + masm.actualOffset(r.end.offset());
 
             JS_ASSERT(cur <= blockStart);
             if (cur < blockStart) {

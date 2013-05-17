@@ -246,6 +246,7 @@ ion::CheckLogging()
             "  cacheflush Instruction Cache flushes (ARM only for now)\n"
             "  logs       C1 and JSON visualization logging\n"
             "  trace      Generate calls to js::ion::Trace() for effectful instructions\n"
+            "  perf       Generate perf maps (*also leaks all generated code*)\n"
             "  all        Everything\n"
             "\n"
             "  bl-aborts  Baseline compiler abort messages\n"
@@ -301,6 +302,11 @@ ion::CheckLogging()
         EnableChannel(IonSpew_Trace);
     if (ContainsFlag(env, "all"))
         LoggingBits = uint32_t(-1);
+
+    if (ContainsFlag(env, "perf-func"))
+        EnableChannel(IonSpew_PerfFunc);
+    if (ContainsFlag(env, "perf-block"))
+        EnableChannel(IonSpew_PerfBlock);
 
     if (ContainsFlag(env, "bl-aborts"))
         EnableChannel(IonSpew_BaselineAbort);

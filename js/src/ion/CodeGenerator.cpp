@@ -9,6 +9,7 @@
 #include "mozilla/DebugOnly.h"
 #include "mozilla/Util.h"
 
+#include "PerfSpewer.h"
 #include "CodeGenerator.h"
 #include "IonLinker.h"
 #include "IonSpewer.h"
@@ -2366,6 +2367,9 @@ CodeGenerator::generateBody()
                 return false;
         }
 
+        if (IonSpewEnabled(IonSpew_PerfBlock))
+            perfSpewer_.startBasicBlock(current->mir(), masm);
+
         for (; iter != current->end(); iter++) {
             IonSpew(IonSpew_Codegen, "instruction %s", iter->opName());
 
@@ -2385,6 +2389,9 @@ CodeGenerator::generateBody()
         }
         if (masm.oom())
             return false;
+
+        if (IonSpewEnabled(IonSpew_PerfBlock))
+            perfSpewer_.endBasicBlock(masm);
     }
 
     JS_ASSERT(pushedArgumentSlots_.empty());
@@ -4961,6 +4968,7 @@ CodeGenerator::link()
     if (!code)
         return false;
 
+
     // We encode safepoints after the OSI-point offsets have been determined.
     encodeSafepoints();
 
@@ -5007,6 +5015,8 @@ CodeGenerator::link()
     ionScript->setInvalidationEpilogueOffset(real_invalidate);
 
     ionScript->setDeoptTable(deoptTable_);
+
+    perfSpewer_.writeRecordedBasicBlocks(script, code, masm);
 
     // for generating inline caches during the execution.
     if (runtimeData_.length())

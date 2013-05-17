@@ -82,7 +82,7 @@ PerfSpewer::writeRecordedBasicBlocks(JSScript *script,
         fprintf(fp_,
                 "%lx %lx %s:%d\n",
                 (unsigned long) code->raw(),
-                code->instructionsSize(),
+                (unsigned long) code->instructionsSize(),
                 script->filename(),
                 script->lineno);
     } else if (IonSpewEnabled(IonSpew_PerfBlock)) {

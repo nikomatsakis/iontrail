@@ -24,6 +24,8 @@ class MacroAssembler;
 class PerfSpewer
 {
   private:
+    static uint32_t functionIndex;
+
     struct Record {
         const char *filename;
         unsigned lineNumber;
@@ -51,9 +53,9 @@ class PerfSpewer
 
     bool startBasicBlock(MBasicBlock *blk, MacroAssembler &masm);
     bool endBasicBlock(MacroAssembler &masm);
-    void writeRecordedBasicBlocks(JSScript *script,
-                                  IonCode *code,
-                                  MacroAssembler &masm);
+    void writeProfile(JSScript *script,
+                      IonCode *code,
+                      MacroAssembler &masm);
 };
 
 } // namespace ion

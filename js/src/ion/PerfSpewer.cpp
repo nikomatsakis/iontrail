@@ -16,6 +16,8 @@
 using namespace js;
 using namespace js::ion;
 
+uint32_t PerfSpewer::functionIndex = 0;
+
 PerfSpewer::PerfSpewer()
   : fp_(NULL)
 {
@@ -71,18 +73,21 @@ PerfSpewer::endBasicBlock(MacroAssembler &masm)
 }
 
 void
-PerfSpewer::writeRecordedBasicBlocks(JSScript *script,
-                                     IonCode *code,
-                                     MacroAssembler &masm)
+PerfSpewer::writeProfile(JSScript *script,
+                         IonCode *code,
+                         MacroAssembler &masm)
 {
     if (!fp_)
         return;
 
+    uint32_t index = functionIndex++;
+
     if (IonSpewEnabled(IonSpew_PerfFunc)) {
         fprintf(fp_,
-                "%lx %lx %s:%d\n",
+                "%lx %lx Func%02d-%s:%d\n",
                 (unsigned long) code->raw(),
                 (unsigned long) code->instructionsSize(),
+                index,
                 script->filename(),
                 script->lineno);
     } else if (IonSpewEnabled(IonSpew_PerfBlock)) {
@@ -99,23 +104,27 @@ PerfSpewer::writeRecordedBasicBlocks(JSScript *script,
             JS_ASSERT(cur <= blockStart);
             if (cur < blockStart) {
                 fprintf(fp_,
-                        "%lx %lx %s:%d-Mid\n",
+                        "%lx %lx Func%2d-Block?(%s:%d)\n",
                         cur, blockStart - cur,
+                        functionIndex,
                         script->filename(),
                         script->lineno);
             }
             cur = blockEnd;
 
             fprintf(fp_,
-                    "%lx %lx Block-%d(%s:%d:%d)\n",
+                    "%lx %lx Func%2d-Block%d(%s:%d:%d)\n",
                     blockStart, blockEnd - blockStart,
+                    functionIndex,
                     r.id, r.filename, r.lineNumber, r.columnNumber);
         }
 
+        // Any stuff after the basic blocks is presumably OOL code,
+        // which I do not currently categorize.
         JS_ASSERT(cur <= funcEnd);
         if (cur < funcEnd) {
             fprintf(fp_,
-                    "%lx %lx %s:%d-Tail\n",
+                    "%lx %lx Func%2d-OOL(%s:%d)\n",
                     cur, funcEnd - cur,
                     script->filename(),
                     script->lineno);

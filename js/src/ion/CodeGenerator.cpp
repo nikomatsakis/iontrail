@@ -5016,7 +5016,8 @@ CodeGenerator::link()
 
     ionScript->setDeoptTable(deoptTable_);
 
-    perfSpewer_.writeRecordedBasicBlocks(script, code, masm);
+    if (IonPerfEnabled())
+        perfSpewer_.writeProfile(script, code, masm);
 
     // for generating inline caches during the execution.
     if (runtimeData_.length())

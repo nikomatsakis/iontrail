@@ -33,8 +33,6 @@ PerfSpewer::PerfSpewer()
     fp_ = fopen(filenameBuffer, "a");
     if (!fp_)
         return;
-
-    fprintf(fp_, "Startaddr Size Name\n");
 }
 
 PerfSpewer::~PerfSpewer()
@@ -82,42 +80,42 @@ PerfSpewer::writeRecordedBasicBlocks(JSScript *script,
 
     if (IonSpewEnabled(IonSpew_PerfFunc)) {
         fprintf(fp_,
-                "%x %x %s:%d\n",
+                "%lx %lx %s:%d\n",
                 (size_t) code->raw(),
                 code->instructionsSize(),
                 script->filename(),
                 script->lineno);
     } else if (IonSpewEnabled(IonSpew_PerfBlock)) {
-        size_t cur = (size_t) code->raw();
-        size_t funcEnd = cur + code->instructionsSize();
+        size_t funcStart = (size_t) code->raw();
+        size_t funcEnd = funcStart + code->instructionsSize();
 
+        size_t cur = funcStart;
         for (uint32_t i = 0; i < basicBlocks_.length(); i++) {
             Record &r = basicBlocks_[i];
 
-            size_t start = masm.actualOffset(r.start.offset());
-            size_t end = masm.actualOffset(r.end.offset());
-            size_t size = end - start;
+            size_t blockStart = funcStart + masm.actualOffset(r.start.offset());
+            size_t blockEnd = funcStart + masm.actualOffset(r.end.offset());
 
-            start += (size_t) code->raw();
-
-            if (cur < start) {
+            JS_ASSERT(cur <= blockStart);
+            if (cur < blockStart) {
                 fprintf(fp_,
-                        "%x %x %s:%d\n",
-                        cur, start - cur,
+                        "%lx %lx %s:%d-Mid\n",
+                        cur, blockStart - cur,
                         script->filename(),
                         script->lineno);
             }
-            cur = end;
+            cur = blockEnd;
 
             fprintf(fp_,
-                    "%x %x Block-%d(%s:%d:%d)\n",
-                    start, size,
+                    "%lx %lx Block-%d(%s:%d:%d)\n",
+                    blockStart, blockEnd - blockStart,
                     r.id, r.filename, r.lineNumber, r.columnNumber);
         }
 
+        JS_ASSERT(cur <= funcEnd);
         if (cur < funcEnd) {
             fprintf(fp_,
-                    "%x %x %s:%d\n",
+                    "%lx %lx %s:%d-Tail\n",
                     cur, funcEnd - cur,
                     script->filename(),
                     script->lineno);

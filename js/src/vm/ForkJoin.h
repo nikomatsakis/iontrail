@@ -157,30 +157,6 @@
 // the error location might not be in the same JSScript as the one
 // which was executing due to inlining.
 //
-// Bailout tracing and recording:
-//
-// When a bailout occurs, we have to record a bit of state so that we
-// can recover with grace.  The caller of ForkJoin is responsible for
-// passing in a.  This state falls into two categories: one is
-// mandatory state that we track unconditionally, the other is
-// optional state that we track only when we plan to inform the user
-// about why a bailout occurred.
-//
-// The mandatory state consists of two things.
-//
-// - First, we track the top-most script on the stack.  This script
-//   will be invalidated.  As part of ParallelDo, the top-most script
-//   from each stack frame will be invalidated.
-//
-// - Second, for each script on the stack, we will set the flag
-//   HasInvalidatedCallTarget, indicating that some callee of this
-//   script was invalidated.  This flag is set as the stack is unwound
-//   during the bailout.
-//
-// The optional state consists of a backtrace of (script, bytecode)
-// pairs.  The rooting on these is currently screwed up and needs to
-// be fixed.
-//
 // Garbage collection and allocation:
 //
 // Code which executes on these parallel threads must be very careful

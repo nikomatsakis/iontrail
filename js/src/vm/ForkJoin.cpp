@@ -178,27 +178,27 @@ enum ForkJoinMode {
     // sequential.  If compilation is ongoing in a helper thread, then
     // run sequential warmup iterations in the meantime. If those
     // iterations wind up completing all the work, just abort.
-    ModeNormal,
+    ForkJoinModeNormal,
 
     // Like normal, except that we will keep running warmup iterations
     // until compilations are complete, even if there is no more work
     // to do. This is useful in tests as a "setup" run.
-    ModeCompile,
+    ForkJoinModeCompile,
 
     // Requires that compilation has already completed. Expects parallel
     // execution to proceed without a hitch. (Reports an error otherwise)
-    ModeParallel,
+    ForkJoinModeParallel,
 
     // Requires that compilation has already completed. Expects
     // parallel execution to bailout once but continue after that without
     // further bailouts. (Reports an error otherwise)
-    ModeRecover,
+    ForkJoinModeRecover,
 
     // Expects all parallel executions to yield a bailout.  If this is not
     // the case, reports an error.
-    ModeBailout,
+    ForkJoinModeBailout,
 
-    ModeMax
+    NumForkJoinModes
 };
 
 unsigned ForkJoinSlice::ThreadPrivateIndex;
@@ -225,7 +225,7 @@ class ParallelDo
     // if they have either encountered a fatal error or completed the
     // execution, such that no further work is needed. In that event,
     // they take an `ExecutionStatus*` which they use to report
-    // whether execution was successful or what. If the function
+    // whether execution was successful or not. If the function
     // returns `GreenLight`, then the parallel operation is not yet
     // fully completed, so the state machine should carry on.
     enum TrafficLight {
@@ -425,10 +425,10 @@ js::ForkJoin(JSContext *cx, CallArgs &args)
     JS_ASSERT(args[0].isObject()); // else the self-hosted code is wrong
     JS_ASSERT(args[0].toObject().isFunction());
 
-    ForkJoinMode mode = ModeNormal;
+    ForkJoinMode mode = ForkJoinModeNormal;
     if (args.length() > 1) {
         JS_ASSERT(args[1].isInt32()); // else the self-hosted code is wrong
-        JS_ASSERT(args[1].toInt32() < ModeMax);
+        JS_ASSERT(args[1].toInt32() < NumForkJoinModes);
         mode = (ForkJoinMode) args[1].toInt32();
     }
 
@@ -439,26 +439,26 @@ js::ForkJoin(JSContext *cx, CallArgs &args)
         return false;
 
     switch (mode) {
-      case ModeNormal:
-      case ModeCompile:
+      case ForkJoinModeNormal:
+      case ForkJoinModeCompile:
         return true;
 
-      case ModeParallel:
+      case ForkJoinModeParallel:
         if (status == ExecutionParallel && op.bailouts == 0)
             return true;
         break;
 
-      case ModeRecover:
+      case ForkJoinModeRecover:
         if (status != ExecutionSequential && op.bailouts > 0)
             return true;
         break;
 
-      case ModeBailout:
+      case ForkJoinModeBailout:
         if (status != ExecutionParallel)
             return true;
         break;
 
-      case ModeMax:
+      case NumForkJoinModes:
         break;
     }
 
@@ -478,12 +478,12 @@ js::ForkJoin(JSContext *cx, CallArgs &args)
 static const char *
 ForkJoinModeString(ForkJoinMode mode) {
     switch (mode) {
-      case ModeNormal: return "normal";
-      case ModeCompile: return "compile";
-      case ModeParallel: return "parallel";
-      case ModeRecover: return "recover";
-      case ModeBailout: return "bailout";
-      case ModeMax: return "max";
+      case ForkJoinModeNormal: return "normal";
+      case ForkJoinModeCompile: return "compile";
+      case ForkJoinModeParallel: return "parallel";
+      case ForkJoinModeRecover: return "recover";
+      case ForkJoinModeBailout: return "bailout";
+      case NumForkJoinModes: return "max";
     }
     return "???";
 }
@@ -548,20 +548,20 @@ js::ParallelDo::apply()
 
     Spew(SpewOps, "Execution mode: %s", ForkJoinModeString(mode_));
     switch (mode_) {
-      case ModeNormal:
-      case ModeCompile:
-      case ModeBailout:
+      case ForkJoinModeNormal:
+      case ForkJoinModeCompile:
+      case ForkJoinModeBailout:
         break;
 
-      case ModeParallel:
-      case ModeRecover:
+      case ForkJoinModeParallel:
+      case ForkJoinModeRecover:
         if (worklist_.length() != 0) {
             JS_ReportError(cx_, "ForkJoin: compilation required in par or bailout mode");
             return ExecutionFatal;
         }
         break;
 
-      case ModeMax:
+      case NumForkJoinModes:
         JS_NOT_REACHED("Invalid mode");
     }
 
@@ -652,7 +652,7 @@ js::ParallelDo::compileForParallelExecution(ExecutionStatus *status)
     // helper threads. While we wait for the compilations to complete,
     // we execute warmup iterations.
     while (true) {
-        bool pending = false;
+        bool offMainThreadCompilationsInProgress = false;
 
         // Walk over the worklist to check on the status of each entry.
         for (uint32_t i = 0; i < worklist_.length(); i++) {
@@ -683,7 +683,7 @@ js::ParallelDo::compileForParallelExecution(ExecutionStatus *status)
                         Spew(SpewCompile,
                              "Script %p:%s:%d compiling off-thread",
                              script.get(), script->filename(), script->lineno);
-                        pending = true;
+                        offMainThreadCompilationsInProgress = true;
                         continue;
                     }
                     return sequentialExecution(false, status);
@@ -707,11 +707,30 @@ js::ParallelDo::compileForParallelExecution(ExecutionStatus *status)
                 return RedLight;
         }
 
-        if (!pending)
-            break;
+        // If there is compilation occurring in a helper thread, then
+        // run a warmup iterations in the main thread while we wait.
+        // There is a chance that this warmup will finish all the work
+        // we have to do.
+        if (offMainThreadCompilationsInProgress) {
+            if (warmupExecution(status) == RedLight)
+                return RedLight;
+            continue;
+        }
 
-        if (warmupExecution(status) == RedLight)
-            return RedLight;
+        // All compilations are complete. However, be careful: it is
+        // possible that a garbage collection occurred while we were
+        // iterating and caused some of the scripts we thought we had
+        // compiled to be collected. In that case, we will just have
+        // to begin again.
+        bool allScriptsPresent = true;
+        for (uint32_t i = 0; i < worklist_.length(); i++) {
+            if (!worklist_[i]->hasParallelIonScript()) {
+                calleesEnqueued_[i] = false;
+                allScriptsPresent = false;
+            }
+        }
+        if (allScriptsPresent)
+            break;
     }
 
     Spew(SpewCompile, "Compilation complete (final worklist length %d)",
@@ -983,11 +1002,6 @@ js::ParallelDo::invalidateBailedOutScripts()
 
         types::RecompileInfo co = script->parallelIonScript()->recompileInfo();
 
-        const types::CompilerOutput &cout = *co.compilerOutput(
-            cx_->compartment->types); // XXX
-        Spew(SpewBailouts, "co.script=%p, co.kind=%d, isValid=%d", // XXX
-             cout.script, cout.kind(), cout.isValid()); // XXX
-
         if (!invalid.append(co))
             return false;
 
@@ -1020,7 +1034,7 @@ js::ParallelDo::warmupExecution(ExecutionStatus *status)
 
     if (complete) {
         Spew(SpewOps, "Warmup execution finished all the work.");
-        if (mode_ != ModeCompile) {
+        if (mode_ != ForkJoinModeCompile) {
             *status = ExecutionWarmup;
             return RedLight;
         } else {
@@ -1112,13 +1126,13 @@ js::ParallelDo::recoverFromBailout(ExecutionStatus *status)
 
     SpewBailout(bailouts, bailoutScript, bailoutBytecode, bailoutCause);
 
-    // after any bailout, we always scan over callee list of main
+    // After any bailout, we always scan over callee list of main
     // function, if nothing else
     RootedScript mainScript(cx_, fun_->toFunction()->nonLazyScript());
     if (!addToWorklist(mainScript))
         return fatalError(status);
 
-    // also invalidate and recompile any callees that were implicated
+    // Also invalidate and recompile any callees that were implicated
     // by the bailout
     if (!invalidateBailedOutScripts())
         return fatalError(status);

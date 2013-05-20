@@ -379,7 +379,6 @@ function ParallelArrayMap(func, mode) {
   var self = this;
   var length = self.shape[0];
   var buffer = NewDenseArray(length);
-  var blockForCompilation = mode && mode.blockForCompilation;
 
   parallel: for (;;) { // see ParallelArrayBuild() to explain why for(;;) etc
     if (ShouldForceSequential())

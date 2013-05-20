@@ -555,7 +555,11 @@ js::ParallelDo::apply()
 
       case ForkJoinModeParallel:
       case ForkJoinModeRecover:
-        if (worklist_.length() != 0) {
+        // These two modes are used to check that every iteration can
+        // be executed in parallel. They expect compilation to have
+        // been done. But, when using gc zeal, it's possible that
+        // compiled scripts were collected.
+        if (cx_->runtime->gcZeal() == 0 && worklist_.length() != 0) {
             JS_ReportError(cx_, "ForkJoin: compilation required in par or bailout mode");
             return ExecutionFatal;
         }

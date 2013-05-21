@@ -148,19 +148,18 @@ PerfSpewer::writeProfile(JSScript *script,
             JS_ASSERT(cur <= blockStart);
             if (cur < blockStart) {
                 fprintf(fp_,
-                        "%lx %lx Func%2d-Block?(%s:%d)\n",
+                        "%lx %lx %s:%d: Func%02d-Block?\n",
                         cur, blockStart - cur,
-                        functionIndex,
-                        script->filename(),
-                        script->lineno);
+                        script->filename(), script->lineno,
+                        functionIndex);
             }
             cur = blockEnd;
 
             fprintf(fp_,
-                    "%lx %lx Func%2d-Block%d(%s:%d:%d)\n",
+                    "%lx %lx %s:%d:%d: Func%02d-Block%d\n",
                     blockStart, blockEnd - blockStart,
-                    functionIndex,
-                    r.id, r.filename, r.lineNumber, r.columnNumber);
+                    r.filename, r.lineNumber, r.columnNumber,
+                    functionIndex, r.id);
         }
 
         // Any stuff after the basic blocks is presumably OOL code,
@@ -168,11 +167,10 @@ PerfSpewer::writeProfile(JSScript *script,
         JS_ASSERT(cur <= funcEnd);
         if (cur < funcEnd) {
             fprintf(fp_,
-                    "%lx %lx Func%2d-OOL(%s:%d)\n",
+                    "%lx %lx %s:%d: Func%02d-OOL\n",
                     cur, funcEnd - cur,
-                    functionIndex,
-                    script->filename(),
-                    script->lineno);
+                    script->filename(), script->lineno,
+                    functionIndex);
         }
     }
 }

@@ -127,7 +127,7 @@ function edges2dParallelArrayInParallel(pa) {
         for (var offX = -1; offX <= 1; offX++) {
           var newX = x + offX;
           if ((newX >= 0) && (newX < width) && (newY >= 0) && (newY < height)) {
-            var pointIndex = (x + offX) * height + (y + offY);
+            // var pointIndex = (x + offX) * height + (y + offY);
             // var e = pa.buffer[pointIndex];
             var e = pa.get(x + offX, y + offY);
             totalX += e * sobelX[offY + 1][offX + 1];

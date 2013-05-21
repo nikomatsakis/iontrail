@@ -2368,7 +2368,7 @@ CodeGenerator::generateBody()
                 return false;
         }
 
-        if (IonSpewEnabled(IonSpew_PerfBlock))
+        if (PerfBlockEnabled())
             perfSpewer_.startBasicBlock(current->mir(), masm);
 
         for (; iter != current->end(); iter++) {
@@ -2391,7 +2391,7 @@ CodeGenerator::generateBody()
         if (masm.oom())
             return false;
 
-        if (IonSpewEnabled(IonSpew_PerfBlock))
+        if (PerfBlockEnabled())
             perfSpewer_.endBasicBlock(masm);
     }
 
@@ -5029,7 +5029,7 @@ CodeGenerator::link()
 
     ionScript->setDeoptTable(deoptTable_);
 
-    if (IonPerfEnabled())
+    if (PerfEnabled())
         perfSpewer_.writeProfile(script, code, masm);
 
     // for generating inline caches during the execution.

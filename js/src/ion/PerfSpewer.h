@@ -21,6 +21,20 @@ namespace ion {
 class MBasicBlock;
 class MacroAssembler;
 
+#ifdef JS_ION_PERF
+void CheckPerf();
+bool PerfBlockEnabled();
+bool PerfFuncEnabled();
+static inline bool PerfEnabled() {
+    return PerfBlockEnabled() || PerfFuncEnabled();
+}
+#else
+static inline void CheckPerf() {}
+static inline bool PerfBlockEnabled() { return false; }
+static inline bool PerfFuncEnabled() { return false; }
+static inline bool PerfEnabled() { return false; }
+#endif
+
 class PerfSpewer
 {
   private:

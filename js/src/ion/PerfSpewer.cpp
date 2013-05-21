@@ -16,12 +16,56 @@
 using namespace js;
 using namespace js::ion;
 
+#define PERF_MODE_NONE  1
+#define PERF_MODE_FUNC  2
+#define PERF_MODE_BLOCK 3
+
+static bool PerfChecked = false;
+static uint32_t PerfMode = 0;
+
+#ifdef JS_ION_PERF
+
+void
+js::ion::CheckPerf() {
+    const char *env = getenv("IONPERF");
+    if (env == NULL) {
+        PerfMode = PERF_MODE_NONE;
+    } else if (!strcmp(env, "none")) {
+        PerfMode = PERF_MODE_NONE;
+    } else if (!strcmp(env, "block")) {
+        PerfMode = PERF_MODE_BLOCK;
+    } else if (!strcmp(env, "func")) {
+        PerfMode = PERF_MODE_FUNC;
+    } else {
+        fprintf(stderr, "Use IONPERF=func to record at basic block granularity\n");
+        fprintf(stderr, "Use IONPERF=block to record at basic block granularity\n");
+        fprintf(stderr, "\n");
+        fprintf(stderr, "Be advised that using IONPERF will cause all scripts\n");
+        fprintf(stderr, "to be leaked.\n");
+        exit(0);
+    }
+}
+
+bool
+js::ion::PerfBlockEnabled() {
+    JS_ASSERT(PerfMode);
+    return PerfMode == PERF_MODE_BLOCK;
+}
+
+bool
+js::ion::PerfFuncEnabled() {
+    JS_ASSERT(PerfMode);
+    return PerfMode == PERF_MODE_FUNC;
+}
+
+#endif
+
 uint32_t PerfSpewer::functionIndex = 0;
 
 PerfSpewer::PerfSpewer()
   : fp_(NULL)
 {
-    if (!IonPerfEnabled())
+    if (!PerfEnabled())
         return;
 
     // perf expects its data to be in a file /tmp/perf-PID.map
@@ -47,7 +91,7 @@ bool
 PerfSpewer::startBasicBlock(MBasicBlock *blk,
                             MacroAssembler &masm)
 {
-    if (!IonSpewEnabled(IonSpew_PerfBlock) || !fp_)
+    if (!PerfBlockEnabled() || !fp_)
         return true;
 
     const char *filename = blk->info().script()->filename();
@@ -82,7 +126,7 @@ PerfSpewer::writeProfile(JSScript *script,
 
     uint32_t index = functionIndex++;
 
-    if (IonSpewEnabled(IonSpew_PerfFunc)) {
+    if (PerfFuncEnabled()) {
         fprintf(fp_,
                 "%lx %lx Func%02d-%s:%d\n",
                 (unsigned long) code->raw(),
@@ -90,7 +134,7 @@ PerfSpewer::writeProfile(JSScript *script,
                 index,
                 script->filename(),
                 script->lineno);
-    } else if (IonSpewEnabled(IonSpew_PerfBlock)) {
+    } else if (PerfBlockEnabled()) {
         unsigned long funcStart = (unsigned long) code->raw();
         unsigned long funcEnd = funcStart + code->instructionsSize();
 
@@ -126,6 +170,7 @@ PerfSpewer::writeProfile(JSScript *script,
             fprintf(fp_,
                     "%lx %lx Func%2d-OOL(%s:%d)\n",
                     cur, funcEnd - cur,
+                    functionIndex,
                     script->filename(),
                     script->lineno);
         }

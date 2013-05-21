@@ -159,6 +159,7 @@ ion::InitializeIon()
     }
 #endif
     CheckLogging();
+    CheckPerf();
     return true;
 }
 
@@ -494,10 +495,13 @@ IonCode::finalize(FreeOp *fop)
     // Buffer can be freed at any time hereafter. Catch use-after-free bugs.
     JS_POISON(code_, JS_FREE_PATTERN, bufferSize_);
 
+    // Horrible hack: if we are using perf integration, we don't
+    // want to reuse code addresses, so we just leak the memory instead.
+    if (PerfEnabled())
+        return;
+
     // Code buffers are stored inside JSC pools.
     // Pools are refcounted. Releasing the pool may free it.
-    if (IonPerfEnabled())
-        return; // horrible hack: don't want to reuse code addresses
     if (pool_)
         pool_->release();
 }

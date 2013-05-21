@@ -24,6 +24,7 @@
 #include "vm/ThreadPool.h"
 #include "vm/ForkJoin.h"
 #include "IonCompartment.h"
+#include "PerfSpewer.h"
 #include "CodeGenerator.h"
 #include "jsworkers.h"
 #include "BacktrackingAllocator.h"
@@ -495,6 +496,8 @@ IonCode::finalize(FreeOp *fop)
 
     // Code buffers are stored inside JSC pools.
     // Pools are refcounted. Releasing the pool may free it.
+    if (IonPerfEnabled())
+        return; // horrible hack: don't want to reuse code addresses
     if (pool_)
         pool_->release();
 }

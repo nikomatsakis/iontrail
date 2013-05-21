@@ -55,6 +55,10 @@ namespace ion {
     _(Trace)                                \
     /* Debug info about the I$ */           \
     _(CacheFlush)                           \
+    /* Output maps for linux `perf` */      \
+    _(PerfFunc)                             \
+    /* Output maps for linux `perf` */      \
+    _(PerfBlock)                            \
                                             \
     /* BASELINE COMPILER SPEW */            \
                                             \
@@ -134,6 +138,10 @@ void EnableChannel(IonSpewChannel channel);
 void DisableChannel(IonSpewChannel channel);
 void EnableIonDebugLogging();
 
+static inline bool IonPerfEnabled() {
+    return IonSpewEnabled(IonSpew_PerfFunc) || IonSpewEnabled(IonSpew_PerfBlock);
+}
+
 #else
 
 static inline void IonSpewNewFunction(MIRGraph *graph, HandleScript function)
@@ -170,6 +178,11 @@ static inline void DisableChannel(IonSpewChannel)
 { }
 static inline void EnableIonDebugLogging()
 { }
+
+static inline bool IonPerfEnabled() {
+    return false;
+}
+
 
 #endif /* DEBUG */
 

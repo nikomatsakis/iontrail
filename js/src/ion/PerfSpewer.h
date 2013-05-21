@@ -38,7 +38,7 @@ static inline bool PerfEnabled() { return false; }
 class PerfSpewer
 {
   private:
-    static uint32_t functionIndex;
+    static uint32_t nextFunctionIndex;
 
     struct Record {
         const char *filename;

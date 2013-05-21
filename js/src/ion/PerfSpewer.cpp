@@ -60,7 +60,7 @@ js::ion::PerfFuncEnabled() {
 
 #endif
 
-uint32_t PerfSpewer::functionIndex = 0;
+uint32_t PerfSpewer::nextFunctionIndex = 0;
 
 PerfSpewer::PerfSpewer()
   : fp_(NULL)
@@ -124,14 +124,14 @@ PerfSpewer::writeProfile(JSScript *script,
     if (!fp_)
         return;
 
-    uint32_t index = functionIndex++;
+    uint32_t thisFunctionIndex = nextFunctionIndex++;
 
     if (PerfFuncEnabled()) {
         fprintf(fp_,
                 "%lx %lx Func%02d-%s:%d\n",
                 (unsigned long) code->raw(),
                 (unsigned long) code->instructionsSize(),
-                index,
+                thisFunctionIndex,
                 script->filename(),
                 script->lineno);
     } else if (PerfBlockEnabled()) {
@@ -151,7 +151,7 @@ PerfSpewer::writeProfile(JSScript *script,
                         "%lx %lx %s:%d: Func%02d-Block?\n",
                         cur, blockStart - cur,
                         script->filename(), script->lineno,
-                        functionIndex);
+                        thisFunctionIndex);
             }
             cur = blockEnd;
 
@@ -159,7 +159,7 @@ PerfSpewer::writeProfile(JSScript *script,
                     "%lx %lx %s:%d:%d: Func%02d-Block%d\n",
                     blockStart, blockEnd - blockStart,
                     r.filename, r.lineNumber, r.columnNumber,
-                    functionIndex, r.id);
+                    thisFunctionIndex, r.id);
         }
 
         // Any stuff after the basic blocks is presumably OOL code,
@@ -170,7 +170,7 @@ PerfSpewer::writeProfile(JSScript *script,
                     "%lx %lx %s:%d: Func%02d-OOL\n",
                     cur, funcEnd - cur,
                     script->filename(), script->lineno,
-                    functionIndex);
+                    thisFunctionIndex);
         }
     }
 }

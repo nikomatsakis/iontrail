@@ -1225,7 +1225,10 @@ class MParBailout : public MAryControlInstruction<0, 0>
       : MAryControlInstruction<0, 0>()
     {
         setResultType(MIRType_Undefined);
-        setGuard();
+    }
+
+    AliasSet getAliasSet() const {
+        return AliasSet::None();
     }
 };
 

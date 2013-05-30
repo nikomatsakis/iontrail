@@ -52,7 +52,8 @@ bool
 js::ForkJoin(JSContext *cx, CallArgs &args)
 {
     RootedValue argZero(cx, args[0]);
-    return ExecuteSequentially(cx, argZero);
+    bool complete = false; // since warmup is false, should always complete
+    return ExecuteSequentially(cx, argZero, &complete);
 }
 
 uint32_t

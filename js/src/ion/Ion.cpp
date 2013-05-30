@@ -1108,6 +1108,15 @@ OptimizeMIR(MIRGenerator *mir)
     if (mir->shouldCancel("DCE"))
         return false;
 
+    if (graph.entryBlock()->info().executionMode() == ParallelExecution) {
+        ParallelArrayAnalysis analysis(mir, graph);
+        if (!analysis.analyze())
+            return false;
+    }
+
+    if (mir->shouldCancel("PAA"))
+        return false;
+
     // Passes after this point must not move instructions; these analyses
     // depend on knowing the final order in which instructions will execute.
 
@@ -1130,12 +1139,6 @@ OptimizeMIR(MIRGenerator *mir)
         return false;
     IonSpewPass("Bounds Check Elimination");
     AssertGraphCoherency(graph);
-
-    if (graph.entryBlock()->info().executionMode() == ParallelExecution) {
-        ParallelArrayAnalysis analysis(mir, graph);
-        if (!analysis.analyze())
-            return false;
-    }
 
     return true;
 }

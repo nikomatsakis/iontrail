@@ -1169,7 +1169,7 @@ function ParallelArrayGet2(x, y) {
   if (y >= yDimension)
     return undefined;
   var offset = y + x * yDimension;
-  return this.buffer[this.offset + offset];
+  return UnsafeGetImmutableElement(this.buffer, this.offset + offset);
 }
 
 /**
@@ -1194,7 +1194,7 @@ function ParallelArrayGet3(x, y, z) {
   if (z >= zDimension)
     return undefined;
   var offset = z + y*zDimension + x * yDimension * zDimension;
-  return this.buffer[this.offset + offset];
+  return UnsafeGetImmutableElement(this.buffer, this.offset + offset);
 }
 
 /**

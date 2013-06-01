@@ -45,6 +45,10 @@ class IonBuilder : public MIRGenerator
         // Normal read like a[b]
         GetElem_Normal,
 
+        // Read due to UnsafeGetElement:
+        // - assumed to be in bounds,
+        GetElem_Unsafe,
+
         // Read due to UnsafeGetImmutableElement:
         // - assumed to be in bounds,
         // - assumed not to alias any stores
@@ -493,7 +497,8 @@ class IonBuilder : public MIRGenerator
     InliningStatus inlineUnsafeSetElement(CallInfo &callInfo);
     bool inlineUnsafeSetDenseArrayElement(CallInfo &callInfo, uint32_t base);
     bool inlineUnsafeSetTypedArrayElement(CallInfo &callInfo, uint32_t base, int arrayType);
-    InliningStatus inlineUnsafeGetImmutableElement(CallInfo &callInfo);
+    InliningStatus inlineUnsafeGetElement(CallInfo &callInfo,
+                                          GetElemSafety safety);
     InliningStatus inlineForceSequentialOrInParallelSection(CallInfo &callInfo);
     InliningStatus inlineNewDenseArray(CallInfo &callInfo);
     InliningStatus inlineNewDenseArrayForSequentialExecution(CallInfo &callInfo);

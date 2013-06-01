@@ -401,13 +401,14 @@ js::intrinsic_UnsafeSetElement(JSContext *cx, unsigned argc, Value *vp)
 }
 
 /*
- * UnsafeGetImmutableElement(arr, idx)=elem:
+ * UnsafeGetElement(arr, idx)=elem:
  *
- * Loads an element from an array known to be immutable.
- * Requires that `arr` be a dense array and `idx` be in bounds.
+ * Loads an element from an array.  Requires that `arr` be a dense
+ * array and `idx` be in bounds.  In ion compiled code, no bounds
+ * check will be emitted.
  */
 JSBool
-js::intrinsic_UnsafeGetImmutableElement(JSContext *cx, unsigned argc, Value *vp)
+js::intrinsic_UnsafeGetElement(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
 
@@ -424,6 +425,19 @@ js::intrinsic_UnsafeGetImmutableElement(JSContext *cx, unsigned argc, Value *vp)
     JS_ASSERT(idx < arrobj->getDenseInitializedLength());
     args.rval().set(arrobj->getDenseElement(idx));
     return true;
+}
+
+/*
+ * UnsafeGetImmutableElement(arr, idx)=elem:
+ *
+ * Same as `UnsafeGetElement(arr, idx)`, except that the array is
+ * known by the self-hosting code to be immutable. Therefore, ion
+ * compilation can reorder this load freely with respect to stores.
+ */
+JSBool
+js::intrinsic_UnsafeGetImmutableElement(JSContext *cx, unsigned argc, Value *vp)
+{
+    return intrinsic_UnsafeGetElement(cx, argc, vp);
 }
 
 /*
@@ -504,6 +518,7 @@ const JSFunctionSpec intrinsic_functions[] = {
     JS_FN("NewParallelArray",     intrinsic_NewParallelArray,     3,0),
     JS_FN("NewDenseArray",        intrinsic_NewDenseArray,        1,0),
     JS_FN("UnsafeSetElement",     intrinsic_UnsafeSetElement,     3,0),
+    JS_FN("UnsafeGetElement",     intrinsic_UnsafeGetElement, 2,0),
     JS_FN("UnsafeGetImmutableElement", intrinsic_UnsafeGetImmutableElement, 2,0),
     JS_FN("ShouldForceSequential", intrinsic_ShouldForceSequential, 0,0),
     JS_FN("ParallelTestsShouldPass", intrinsic_ParallelTestsShouldPass, 0,0),

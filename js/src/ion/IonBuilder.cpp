@@ -6338,6 +6338,7 @@ IonBuilder::jsop_getelem_dense(GetElemSafety safety, MDefinition *obj, MDefiniti
               break;
           }
 
+          case GetElem_Unsafe: break;
           case GetElem_UnsafeImmutable: break;
         }
 

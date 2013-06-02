@@ -92,6 +92,8 @@ IonBuilder::inlineNativeCall(CallInfo &callInfo, JSNative native)
         return inlineUnsafeGetElement(callInfo, GetElem_Unsafe);
     if (native == intrinsic_UnsafeGetImmutableElement)
         return inlineUnsafeGetElement(callInfo, GetElem_UnsafeImmutable);
+    if (native == intrinsic_BoundsCheck)
+        return inlineBoundsCheck(callInfo);
     if (native == intrinsic_NewDenseArray)
         return inlineNewDenseArray(callInfo);
 
@@ -1049,6 +1051,29 @@ IonBuilder::inlineUnsafeGetElement(CallInfo &callInfo,
                             callInfo.getArg(obj),
                             callInfo.getArg(index)))
         return InliningStatus_Error;
+    return InliningStatus_Inlined;
+}
+
+IonBuilder::InliningStatus
+IonBuilder::inlineBoundsCheck(CallInfo &callInfo)
+{
+    uint32_t argc = callInfo.argc();
+    if (argc < 2 || callInfo.constructing())
+        return InliningStatus_NotInlined;
+
+    const uint32_t index = 0;
+    const uint32_t limit = 1;
+    if (callInfo.getArg(index)->type() != MIRType_Int32)
+        return InliningStatus_NotInlined;
+
+    if (callInfo.getArg(limit)->type() != MIRType_Int32)
+        return InliningStatus_NotInlined;
+
+    // See js::intrinsic_BoundsCheck for extensive comments.
+    callInfo.unwrapArgs();
+    MInstruction *bc = addBoundsCheck(callInfo.getArg(index),
+                                      callInfo.getArg(limit));
+    current->push(bc);
     return InliningStatus_Inlined;
 }
 

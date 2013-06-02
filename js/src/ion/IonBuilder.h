@@ -499,6 +499,7 @@ class IonBuilder : public MIRGenerator
     bool inlineUnsafeSetTypedArrayElement(CallInfo &callInfo, uint32_t base, int arrayType);
     InliningStatus inlineUnsafeGetElement(CallInfo &callInfo,
                                           GetElemSafety safety);
+    InliningStatus inlineBoundsCheck(CallInfo &callInfo);
     InliningStatus inlineForceSequentialOrInParallelSection(CallInfo &callInfo);
     InliningStatus inlineNewDenseArray(CallInfo &callInfo);
     InliningStatus inlineNewDenseArrayForSequentialExecution(CallInfo &callInfo);

@@ -441,6 +441,56 @@ js::intrinsic_UnsafeGetImmutableElement(JSContext *cx, unsigned argc, Value *vp)
 }
 
 /*
+ * BoundsCheck(index, limit) = index | -1
+ *
+ * Returns `index` if (index >= 0 && index < limit), otherwise -1.
+ * This is used in self-hosting code to enable bounds check hoisting
+ * on multi-dimensional arrays. It is intended to be used in the
+ * following pattern:
+ *
+ *   index = BoundsCheck(index, limit);
+ *   if (index < 0) {
+ *     return unknown;
+ *   }
+ *   return data[index];
+ *
+ * This more-or-less mimics the code that ion generates. During ion
+ * compilation, the call to `BoundsCheck` will be replaced by an
+ * `MBoundsCheck` instruction, which will cause a bailout should
+ * the bounds check fail.
+ *
+ * Some subtleties:
+ * 1. In the future, `BoundsCheck` should be changed in ion to only
+ *    be inlined as a comparison in the event that the function has
+ *    been known encounter bounds check violations in the past
+ *    (which ion already tracks).
+ * 2. Ion *should* be able to optimize away the `index < 0`, because
+ *    it (could) know that the value yielded by an MBoundsCheck
+ *    instruction is always position. But at the moment it fails to
+ *    do this, leading to some nasty hacks in ParallelArray.js that
+ *    should be reverted if we fix point #1.
+ *
+ * Requires that:
+ * 1. index be an int32
+ * 2. limit be an int32 and >= 0
+ */
+JSBool
+js::intrinsic_BoundsCheck(JSContext *cx, unsigned argc, Value *vp)
+{
+    CallArgs args = CallArgsFromVp(argc, vp);
+    JS_ASSERT(args[0].isInt32());
+    JS_ASSERT(args[1].isInt32());
+    int32_t idx = args[0].toInt32();
+    int32_t limit = args[1].toInt32();
+    JS_ASSERT(limit >= 0);
+    if (idx >= 0 && idx < limit)
+        args.rval().setInt32(idx);
+    else
+        args.rval().setInt32(-1);
+    return true;
+}
+
+/*
  * ParallelTestsShouldPass(): Returns false if we are running in a
  * mode (such as --ion-eager) that is known to cause additional
  * bailouts or disqualifications for parallel array tests.
@@ -520,6 +570,7 @@ const JSFunctionSpec intrinsic_functions[] = {
     JS_FN("UnsafeSetElement",     intrinsic_UnsafeSetElement,     3,0),
     JS_FN("UnsafeGetElement",     intrinsic_UnsafeGetElement, 2,0),
     JS_FN("UnsafeGetImmutableElement", intrinsic_UnsafeGetImmutableElement, 2,0),
+    JS_FN("BoundsCheck",           intrinsic_BoundsCheck, 2,0),
     JS_FN("ShouldForceSequential", intrinsic_ShouldForceSequential, 0,0),
     JS_FN("ParallelTestsShouldPass", intrinsic_ParallelTestsShouldPass, 0,0),
 

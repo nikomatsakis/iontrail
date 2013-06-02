@@ -1160,15 +1160,19 @@ function ParallelArrayGet1(i) {
 function ParallelArrayGet2(x, y) {
   var xDimension = UnsafeGetImmutableElement(this.shape, 0);
   var yDimension = UnsafeGetImmutableElement(this.shape, 1);
-  if (x === undefined)
+  if (x === undefined || TO_INT32(x) !== x)
     return undefined;
-  if (x >= xDimension)
+  var xChecked = BoundsCheck(x, xDimension);
+  if (xChecked < 0)
     return undefined;
   if (y === undefined)
     return NewParallelArray(ParallelArrayView, [yDimension], this.buffer, this.offset + x * yDimension);
-  if (y >= yDimension)
+  if (TO_INT32(y) !== y)
     return undefined;
-  var offset = y + x * yDimension;
+  var yChecked = BoundsCheck(y, yDimension);
+  if (yChecked < 0)
+    return undefined;
+  var offset = yChecked + xChecked * yDimension;
   return UnsafeGetImmutableElement(this.buffer, this.offset + offset);
 }
 

@@ -224,10 +224,12 @@ RangeAnalysis::addBetaNobes()
                    // [-\inf, bound-1] U [bound+1, \inf] but we only use contiguous ranges.
         }
 
-        IonSpew(IonSpew_Range, "Adding beta node for %d", val->id());
         MBeta *beta = MBeta::New(val, new Range(comp));
         block->insertBefore(*block->begin(), beta);
         replaceDominatedUsesWith(val, beta, block);
+        IonSpew(IonSpew_Range, "Adding beta node %d for %d (range=%p)",
+                beta->id(), val->id(), beta->range());
+        SpewRange(beta);
     }
 
     return true;
@@ -854,6 +856,8 @@ RangeAnalysis::analyzeLoop(MBasicBlock *header)
 
         for (MDefinitionIterator iter(block); iter; iter++) {
             MDefinition *def = *iter;
+            IonSpew(IonSpew_Range, "Block %d Def %d Is bounds check %d Is movable %d", block->id(), def->id(),
+                    def->isBoundsCheck(), def->isMovable());
             if (def->isBoundsCheck() && def->isMovable()) {
                 if (tryHoistBoundsCheck(header, def->toBoundsCheck()))
                     hoistedChecks.append(def->toBoundsCheck());
@@ -1130,27 +1134,39 @@ ConvertLinearSum(MBasicBlock *block, const LinearSum &sum)
 bool
 RangeAnalysis::tryHoistBoundsCheck(MBasicBlock *header, MBoundsCheck *ins)
 {
+    IonSpew(IonSpew_Range, "tryHoistBoundsCheck(header=%d, ins=%d)", header->id(), ins->id());
+
     // The bounds check's length must be loop invariant.
-    if (ins->length()->block()->isMarked())
+    if (ins->length()->block()->isMarked()) {
+        IonSpew(IonSpew_Range, "Length is not loop invariant");
         return false;
+    }
 
     // The bounds check's index should not be loop invariant (else we would
     // already have hoisted it during LICM).
     SimpleLinearSum index = ExtractLinearSum(ins->index());
-    if (!index.term || !index.term->block()->isMarked())
+    if (!index.term || !index.term->block()->isMarked()) {
+        IonSpew(IonSpew_Range, "Loop invariant index");
         return false;
+    }
+
+    IonSpew(IonSpew_Range, "Index = %d + %d", index.term->id(), index.constant);
 
     // Check for a symbolic lower and upper bound on the index. If either
     // condition depends on an iteration bound for the loop, only hoist if
     // the bounds check is dominated by the iteration bound's test.
     if (!index.term->range())
         return false;
+    IonSpew(IonSpew_Range, "Range on term");
+    SpewRange(index.term);
     const SymbolicBound *lower = index.term->range()->symbolicLower();
     if (!lower || !SymbolicBoundIsValid(header, ins, lower))
         return false;
+    IonSpew(IonSpew_Range, "Passed lower");
     const SymbolicBound *upper = index.term->range()->symbolicUpper();
     if (!upper || !SymbolicBoundIsValid(header, ins, upper))
         return false;
+    IonSpew(IonSpew_Range, "Passed upper");
 
     MBasicBlock *preLoop = header->loopPredecessor();
     JS_ASSERT(!preLoop->isMarked());
@@ -1208,9 +1224,14 @@ RangeAnalysis::analyze()
             MDefinition *def = *iter;
 
             def->computeRange();
-            IonSpew(IonSpew_Range, "computing range on %d", def->id());
+            IonSpew(IonSpew_Range, "computing range on %d in block %d",
+                    def->id(), block->id());
             SpewRange(def);
         }
+    }
+
+    for (ReversePostorderIterator iter(graph_.rpoBegin()); iter != graph_.rpoEnd(); iter++) {
+        MBasicBlock *block = *iter;
 
         if (block->isLoopHeader())
             analyzeLoop(block);

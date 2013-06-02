@@ -8,6 +8,7 @@
 #include "MIRGraph.h"
 #include "Ion.h"
 #include "IonAnalysis.h"
+#include "RangeAnalysis.h"
 
 using namespace js;
 using namespace js::ion;
@@ -1056,33 +1057,76 @@ FindDominatingBoundsCheck(BoundsCheckMap &checks, MBoundsCheck *check, size_t in
 SimpleLinearSum
 ion::ExtractLinearSum(MDefinition *ins)
 {
-    if (ins->isBeta())
+    IonSpew(IonSpew_Range, "ExtractLinearSum(ins=%d)", ins->id());
+
+    if (ins->isBeta()) {
         ins = ins->getOperand(0);
+        IonSpew(IonSpew_Range, "  is beta: ins=%d", ins->id());
+    }
 
     if (ins->type() != MIRType_Int32)
         return SimpleLinearSum(ins, 0);
 
+    IonSpew(IonSpew_Range, "  is int");
+
     if (ins->isConstant()) {
+        IonSpew(IonSpew_Range, "  is constant");
         const Value &v = ins->toConstant()->value();
         JS_ASSERT(v.isInt32());
         return SimpleLinearSum(NULL, v.toInt32());
-    } else if (ins->isAdd() || ins->isSub()) {
+    } else if (ins->isAdd()) {
+        IonSpew(IonSpew_Range, "  is add");
+        MDefinition *lhs = ins->getOperand(0);
+        MDefinition *rhs = ins->getOperand(1);
+        if (lhs->type() == MIRType_Int32 && rhs->type() == MIRType_Int32) {
+            IonSpew(IonSpew_Range, "  is add of 2 ints");
+            SimpleLinearSum lsum = ExtractLinearSum(lhs);
+            SimpleLinearSum rsum = ExtractLinearSum(rhs);
+
+            IonSpew(IonSpew_Range, "  lsum=(%d,%d) rsum=(%d,%d)",
+                    lsum.term ? lsum.term->id() : 0, lsum.constant,
+                    rsum.term ? rsum.term->id() : 0, rsum.constant);
+
+            // We can't handle the addition of two arbitary terms.
+            // But in some cases we can establish an upper bound.
+            if (lsum.term && rsum.term) {
+                IonSpew(IonSpew_Range, "  lhs=%d lhs->range()=%p,%d",
+                        lhs->id(),
+                        lhs->range(),
+                        lhs->range() && lhs->range()->isUpperInfinite());
+
+                IonSpew(IonSpew_Range, "  rhs=%d rhs->range()=%p,%d",
+                        rhs->id(),
+                        rhs->range(),
+                        rhs->range() && rhs->range()->isUpperInfinite());
+
+//                if (lhs->range() && !lhs->range()->isUpperInfinite())
+//                    lsum = SimpleLinearSum(NULL, lhs->range()->upper());
+//                else if (rhs->range() && !rhs->range()->isUpperInfinite())
+//                    rsum = SimpleLinearSum(NULL, rhs->range()->upper());
+//                else // not able to bound lhs or rhs, give up
+                    return SimpleLinearSum(ins, 0);
+            }
+
+            IonSpew(IonSpew_Range, "  lsum=(%d,%d) rsum=(%d,%d)",
+                    lsum.term ? lsum.term->id() : 0, lsum.constant,
+                    rsum.term ? rsum.term->id() : 0, rsum.constant);
+
+            int32_t constant;
+            if (!SafeAdd(lsum.constant, rsum.constant, &constant))
+                return SimpleLinearSum(ins, 0);
+            return SimpleLinearSum(lsum.term ? lsum.term : rsum.term, constant);
+        }
+    } else if (ins->isSub()) {
+        IonSpew(IonSpew_Range, "  is sub");
         MDefinition *lhs = ins->getOperand(0);
         MDefinition *rhs = ins->getOperand(1);
         if (lhs->type() == MIRType_Int32 && rhs->type() == MIRType_Int32) {
             SimpleLinearSum lsum = ExtractLinearSum(lhs);
             SimpleLinearSum rsum = ExtractLinearSum(rhs);
 
-            if (lsum.term && rsum.term)
-                return SimpleLinearSum(ins, 0);
-
             // Check if this is of the form <SUM> + n, n + <SUM> or <SUM> - n.
-            if (ins->isAdd()) {
-                int32_t constant;
-                if (!SafeAdd(lsum.constant, rsum.constant, &constant))
-                    return SimpleLinearSum(ins, 0);
-                return SimpleLinearSum(lsum.term ? lsum.term : rsum.term, constant);
-            } else if (lsum.term) {
+            if (lsum.term) {
                 int32_t constant;
                 if (!SafeSub(lsum.constant, rsum.constant, &constant))
                     return SimpleLinearSum(ins, 0);

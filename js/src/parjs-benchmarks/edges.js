@@ -120,23 +120,23 @@ function edges2dParallelArrayInParallel(pa) {
   var height = pa.shape[1];
 
   function computePixel(x, y) {
-      var totalX = 0;
-      var totalY = 0;
-      for (var offY = -1; offY <= 1; offY++) {
-        var newY = y + offY;
+    var totalX = 0;
+    var totalY = 0;
+    for (var offY = -1; offY <= 1; offY++) {
+      var newY = y + offY;
+      if (newY >= 0 && newY < height) {
         for (var offX = -1; offX <= 1; offX++) {
           var newX = x + offX;
-          if ((newX >= 0) && (newX < width) && (newY >= 0) && (newY < height)) {
-            var pointIndex = (x + offX) * height + (y + offY);
-            // var e = pa.buffer[pointIndex];
+          if (newX >= 0 && newX < width) {
             var e = pa.get(x + offX, y + offY);
             totalX += e * sobelX[offY + 1][offX + 1];
             totalY += e * sobelY[offY + 1][offX + 1];
           }
         }
       }
-      var total = (Math.abs(totalX) + Math.abs(totalY))/8.0 | 0;
-      return total;
+    }
+    var total = (Math.abs(totalX) + Math.abs(totalY))/8.0 | 0;
+    return total;
   }
 
   return new ParallelArray([width, height], computePixel);

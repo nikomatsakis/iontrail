@@ -2137,20 +2137,6 @@ MBeta::printOpcode(FILE *fp)
     fprintf(fp, "%s", sp.string());
 }
 
-void
-MBeta::computeRange()
-{
-    bool emptyRange = false;
-
-    Range *range = Range::intersect(val_->range(), comparison_, &emptyRange);
-    if (emptyRange) {
-        IonSpew(IonSpew_Range, "Marking block for inst %d unexitable", id());
-        block()->setEarlyAbort();
-    } else {
-        setRange(range);
-    }
-}
-
 bool
 MNewObject::shouldUseVM() const
 {

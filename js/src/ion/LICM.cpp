@@ -203,7 +203,11 @@ Loop::hoistInstructions(InstructionQueue &toHoist)
             continue;
 
         if (checkHotness(ins->block())) {
+            MBasicBlock *preBlock = ins->block();
             ins->block()->moveBefore(preLoop_->lastIns(), ins);
+            IonSpew(IonSpew_LICM, "Moved %s %d from block %d to block %d",
+                    ins->opName(), ins->id(), preBlock->id(),
+                    ins->block()->id());
             ins->setNotLoopInvariant();
         }
     }

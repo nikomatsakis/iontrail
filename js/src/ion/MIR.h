@@ -354,6 +354,13 @@ class MDefinition : public MNode
     virtual void computeRange() {
     }
 
+    // Attempts to compute a symbolic range for this term. Invoked
+    // when this term is the index on a bounds check that we are
+    // attempting to hoist.
+    //
+    // Precondition: range() != NULL
+    virtual void computeSymbolicRange();
+
     MNode::Kind kind() const {
         return MNode::Definition;
     }
@@ -3246,6 +3253,7 @@ class MAdd : public MBinaryArithInstruction
 
     bool fallible();
     void computeRange();
+    void computeSymbolicRange();
     bool truncate();
     bool isOperandTruncated(size_t index) const;
 };
@@ -3676,6 +3684,7 @@ class MBeta : public MUnaryInstruction
     }
 
     void computeRange();
+    void computeSymbolicRange();
 };
 
 // MIR representation of a Value on the OSR StackFrame.

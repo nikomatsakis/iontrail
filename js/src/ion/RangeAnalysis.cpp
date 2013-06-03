@@ -110,7 +110,8 @@ SpewRange(MDefinition *def)
         Sprinter sp(GetIonContext()->cx);
         sp.init();
         def->range()->print(sp);
-        IonSpew(IonSpew_Range, "%d has range %s", def->id(), sp.string());
+        IonSpew(IonSpew_Range, "%s %d has range %s",
+                def->opName(), def->id(), sp.string());
     }
 #endif
 }
@@ -535,6 +536,34 @@ Range::update(const Range *other)
 ///////////////////////////////////////////////////////////////////////////////
 
 void
+MDefinition::computeSymbolicRange()
+{
+    // By default, the symbolic range for a def'n X is just X.
+    IonSpew(IonSpew_Range, "MDefinition::computeSymbolicRange(%d)", id());
+    SpewRange(this);
+
+    // We need a range to hang the symbolic bounds off of, even if
+    // it's pretty useless. Sometimes, if the def'n that appears in an
+    // index is derived from something loop invariant, no range will
+    // have been computed yet.
+    if (!range())
+        setRange(new Range());
+
+    if (range()->hasSymbolicBounds())
+        return;
+
+    LinearSum defn;
+    if (!defn.add(this, 1))
+        return;
+    SymbolicBound *bound = new SymbolicBound(NULL, defn);
+    if (range()->symbolicLower() == NULL)
+        range()->setSymbolicLower(bound);
+    if (range()->symbolicUpper() == NULL)
+        range()->setSymbolicUpper(bound);
+    SpewRange(this);
+}
+
+void
 MPhi::computeRange()
 {
     if (type() != MIRType_Int32 && type() != MIRType_Double)
@@ -568,6 +597,36 @@ MPhi::computeRange()
 
     if (block()->isLoopHeader()) {
     }
+}
+
+void
+MBeta::computeRange()
+{
+    bool emptyRange = false;
+
+    Range *range = Range::intersect(val_->range(), comparison_, &emptyRange);
+    if (emptyRange) {
+        IonSpew(IonSpew_Range, "Marking block for inst %d unexitable", id());
+        block()->setEarlyAbort();
+    } else {
+        setRange(range);
+    }
+}
+
+void
+MBeta::computeSymbolicRange()
+{
+    JS_ASSERT(range());
+    IonSpew(IonSpew_Range, "MBeta::computeSymbolicRange(%d)", id());
+    SpewRange(this);
+    MDefinition *operand = getOperand(0);
+
+    operand->computeSymbolicRange();
+    if (!operand->range())
+        return;
+    range()->setSymbolicUpper(operand->range()->symbolicUpper());
+    range()->setSymbolicLower(operand->range()->symbolicLower());
+    SpewRange(this);
 }
 
 void
@@ -696,6 +755,77 @@ MAdd::computeRange()
     Range right(getOperand(1));
     Range *next = Range::add(&left, &right);
     setRange(next);
+}
+
+static SymbolicBound *
+CombineBounds(const SymbolicBound *a,
+              const SymbolicBound *b)
+{
+    if (!a || !b)
+        return NULL;
+
+    // Try to pick a loop iteration bound `loop` that ensures that
+    // both the test from `a` and the test from `b` have occurred.
+    LoopIterationBound *aLoop = a->loop;
+    LoopIterationBound *bLoop = b->loop;
+    LoopIterationBound *loop;
+    if (!aLoop) {
+        loop = bLoop; // No test for A
+    } else if (!bLoop) {
+        loop = aLoop; // No test for B
+    } else if (aLoop->test->block()->dominates(bLoop->test->block())) {
+        loop = bLoop; // A dominates B, so it B has occurred, A has too
+    } else if (bLoop->test->block()->dominates(aLoop->test->block())) {
+        loop = aLoop; // B dominates A, so it A has occurred, B has too
+    } else {
+        return NULL;
+    }
+
+    LinearSum result;
+    if (!result.add(a->sum))
+        return NULL;
+
+    if (!result.add(b->sum))
+        return NULL;
+
+    return new SymbolicBound(loop, result);
+}
+
+void
+MAdd::computeSymbolicRange()
+{
+    IonSpew(IonSpew_Range, "MAdd::computeSymbolicRange(%d)", id());
+    SpewRange(this);
+
+    if (!range())
+        return;
+
+    MDefinition *left = getOperand(0);
+    MDefinition *right = getOperand(1);
+
+    IonSpew(IonSpew_Range, "left = %s %d, right = %s %d",
+            left->opName(), left->id(),
+            right->opName(), right->id());
+
+    left->computeSymbolicRange();
+    SpewRange(left);
+    if (!left->range())
+        return;
+
+    right->computeSymbolicRange();
+    SpewRange(right);
+    if (!right->range())
+        return;
+
+    range()->setSymbolicLower(
+        CombineBounds(left->range()->symbolicLower(),
+                      right->range()->symbolicLower()));
+
+    range()->setSymbolicUpper(
+        CombineBounds(left->range()->symbolicUpper(),
+                      right->range()->symbolicUpper()));
+
+    SpewRange(this);
 }
 
 void
@@ -1039,7 +1169,7 @@ RangeAnalysis::analyzeLoopPhi(MBasicBlock *header, LoopIterationBound *loopBound
     // check. These points will execute only if the backedge executes at least
     // one more time (as the test passed and the test dominates the backedge),
     // so we know both that loopBound >= 1 and that the phi's value has changed
-    // at most loopBound - 1 times. Thus, another upper or lower bound for the
+    // at most loopBound - 1 times. Thusb, another upper or lower bound for the
     // phi is initial(phi) + (loopBound - 1) * N, without requiring us to
     // ensure that loopBound >= 0.
 
@@ -1081,6 +1211,25 @@ SymbolicBoundIsValid(MBasicBlock *header, MBoundsCheck *ins, const SymbolicBound
     while (bb != header && bb != bound->loop->test->block())
         bb = bb->immediateDominator();
     return bb == bound->loop->test->block();
+}
+
+// True if all the elements of the symbolic bound are
+// from outside the loop, as determined by the marks.
+static inline bool
+SymbolicBoundIsLoopInvariant(const SymbolicBound *bound)
+{
+    for (size_t i = 0; i < bound->sum.numTerms(); i++) {
+        MDefinition *defn = bound->sum.term(i).term;
+        if (defn && defn->block()->isMarked()) {
+            IonSpew(IonSpew_Range,
+                    "Symbolic bound is not loop invariant, "
+                    "touches %s %d in block %d",
+                    defn->opName(), defn->id(), defn->block()->id());
+
+            return false;
+        }
+    }
+    return true;
 }
 
 // Convert all components of a linear sum *except* its constant to a definition,
@@ -1157,7 +1306,10 @@ RangeAnalysis::tryHoistBoundsCheck(MBasicBlock *header, MBoundsCheck *ins)
     // the bounds check is dominated by the iteration bound's test.
     if (!index.term->range())
         return false;
-    IonSpew(IonSpew_Range, "Range on term");
+    IonSpew(IonSpew_Range, "Range on term (before)");
+    SpewRange(index.term);
+    index.term->computeSymbolicRange();
+    IonSpew(IonSpew_Range, "Range on term (after)");
     SpewRange(index.term);
     const SymbolicBound *lower = index.term->range()->symbolicLower();
     if (!lower || !SymbolicBoundIsValid(header, ins, lower))
@@ -1168,6 +1320,12 @@ RangeAnalysis::tryHoistBoundsCheck(MBasicBlock *header, MBoundsCheck *ins)
         return false;
     IonSpew(IonSpew_Range, "Passed upper");
 
+    // Check that the symbolic bound is in fact loop variant
+    if (!SymbolicBoundIsLoopInvariant(lower))
+        return false;
+    if (!SymbolicBoundIsLoopInvariant(upper))
+        return false;
+
     MBasicBlock *preLoop = header->loopPredecessor();
     JS_ASSERT(!preLoop->isMarked());
 
@@ -1175,9 +1333,17 @@ RangeAnalysis::tryHoistBoundsCheck(MBasicBlock *header, MBoundsCheck *ins)
     if (!lowerTerm)
         return false;
 
+    IonSpew(IonSpew_Range, "lowerTerm = %s %d",
+            lowerTerm->opName(),
+            lowerTerm->id());
+
     MDefinition *upperTerm = ConvertLinearSum(preLoop, upper->sum);
     if (!upperTerm)
         return false;
+
+    IonSpew(IonSpew_Range, "upperTerm = %s %d",
+            upperTerm->opName(),
+            upperTerm->id());
 
     // We are checking that index + indexConstant >= 0, and know that
     // index >= lowerTerm + lowerConstant. Thus, check that:
@@ -1208,6 +1374,8 @@ RangeAnalysis::tryHoistBoundsCheck(MBasicBlock *header, MBoundsCheck *ins)
     // Hoist the loop invariant upper and lower bounds checks.
     preLoop->insertBefore(preLoop->lastIns(), lowerCheck);
     preLoop->insertBefore(preLoop->lastIns(), upperCheck);
+
+    IonSpew(IonSpew_Range, "Hoisted!");
 
     return true;
 }

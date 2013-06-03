@@ -122,17 +122,21 @@ function edges2dParallelArrayInParallel(pa) {
   function computePixel(x, y) {
     var totalX = 0;
     var totalY = 0;
-    for (var offY = -1; offY <= 1; offY++) {
-      var newY = y + offY;
-      if (newY >= 0 && newY < height) {
-        for (var offX = -1; offX <= 1; offX++) {
-          var newX = x + offX;
-          if (newX >= 0 && newX < width) {
-            var e = pa.get(x + offX, y + offY);
-            totalX += e * sobelX[offY + 1][offX + 1];
-            totalY += e * sobelY[offY + 1][offX + 1];
-          }
-        }
+
+    var offY = (y == 0 ? 0 : -1);
+    var offYMax = (y == height - 1 ? 0 : 1);
+    var offX = (x == 0 ? 0 : -1);
+    var offXMax = (x == width - 1 ? 0 : 1);
+
+    for (; offY <= offYMax; offY++) {
+      // LICM bug --- if I don't do this manually, I get
+      // frequent bailouts for some reason
+      var tmpX = sobelX[offY + 1];
+      var tmpY = sobelY[offY + 1];
+      for (; offX <= offXMax; offX++) {
+        var e = pa.get(x + offX, y + offY);
+        totalX += e * tmpX[offX + 1];
+        totalY += e * tmpY[offX + 1];
       }
     }
     var total = (Math.abs(totalX) + Math.abs(totalY))/8.0 | 0;

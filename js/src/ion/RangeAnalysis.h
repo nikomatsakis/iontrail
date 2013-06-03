@@ -350,6 +350,10 @@ class Range : public TempObject {
         max_exponent_ = max ? js_FloorLog2wImpl(max) : max;
     }
 
+    bool hasSymbolicBounds() const {
+        return symbolicUpper() && symbolicLower();
+    }
+
     const SymbolicBound *symbolicLower() const {
         return symbolicLower_;
     }
@@ -357,10 +361,10 @@ class Range : public TempObject {
         return symbolicUpper_;
     }
 
-    inline void setSymbolicLower(SymbolicBound *bound) {
+    inline void setSymbolicLower(const SymbolicBound *bound) {
         symbolicLower_ = bound;
     }
-    inline void setSymbolicUpper(SymbolicBound *bound) {
+    inline void setSymbolicUpper(const SymbolicBound *bound) {
         symbolicUpper_ = bound;
     }
 };

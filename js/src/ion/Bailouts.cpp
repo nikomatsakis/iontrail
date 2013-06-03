@@ -62,6 +62,8 @@ IonBailoutIterator::dump() const
     }
 }
 
+extern void printSeqTrace();
+
 uint32_t
 ion::Bailout(BailoutStack *sp, BaselineBailoutInfo **bailoutInfo)
 {
@@ -74,6 +76,8 @@ ion::Bailout(BailoutStack *sp, BaselineBailoutInfo **bailoutInfo)
     IonActivation *activation = ionActivations.activation();
 
     IonSpew(IonSpew_Bailouts, "Took bailout! Snapshot offset: %d", iter.snapshotOffset());
+
+    printSeqTrace();
 
     JS_ASSERT(IsBaselineEnabled(cx));
 

@@ -60,6 +60,12 @@ printTrace(const char *prefix, struct IonLIRTraceData *cached)
 }
 
 struct IonLIRTraceData seqTraceData;
+
+void
+printSeqTrace() // intended to be called in gdb
+{
+    printTrace("seq", &seqTraceData);
+}
 #endif
 
 void

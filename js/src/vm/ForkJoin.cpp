@@ -188,7 +188,7 @@ struct TimeStamp {
 
 class Stamper {
   private:
-    TimeStamp &stamp_;
+    TimeStamp *stamp_;
 
     inline void rdtsc(uint64_t *out) {
 #ifdef JS_PROFILE_FORK_JOIN
@@ -197,27 +197,33 @@ class Stamper {
             "rdtsc \n"
             : "=a"(lo), "=d"(hi) /* outputs  */);
         *out = ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
+#else
+        *out = 0;
 #endif
     }
 
   public:
 
     Stamper(TimeStamp &stamp)
-      : stamp_(stamp)
+      : stamp_(&stamp)
     {
-#ifdef JS_PROFILE_FORK_JOIN
-        rdtsc(&stamp_.start);
-#endif
+        rdtsc(&stamp_->start);
     }
 
-    ~Stamper() {
-#ifdef JS_PROFILE_FORK_JOIN
+    void stampEarly() {
         uint64_t stop;
         rdtsc(&stop);
-        stamp_.stop = stop;
-        stamp_.diff = stop - stamp_.start;
-#endif
+        stamp_->stop = stop;
+        stamp_->diff = stop - stamp_->start;
+        stamp_ = NULL;
     }
+
+#ifdef JS_PROFILE_FORK_JOIN
+    ~Stamper() {
+        if (stamp_)
+            stampEarly();
+    }
+#endif
 };
 
 // When writing tests, it is often useful to specify different modes
@@ -1502,6 +1508,14 @@ ForkJoinShared::executeFromWorker(uint32_t workerId, uintptr_t stackLimit)
         // complete.
         lock.notify();
     }
+
+    // Subtle: once we release the lock, the main thread can begin
+    // executing, and may even go ahead and pop the stack frame
+    // containing the `ForkJoinShared` object, invalidating the
+    // `timeStamps_` field, causing the `stamp` destructor to go wild
+    // and spew data all over the place. At minimum, this can throw
+    // off the measurements, at maximum it can cause crashes.
+    stamp.stampEarly();
 }
 
 void

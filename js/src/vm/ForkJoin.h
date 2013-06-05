@@ -480,6 +480,8 @@ static inline void SpewBailoutIR(uint32_t bblockId, uint32_t lirId,
 
 #endif // DEBUG && JS_THREADSAFE && JS_ION
 
+void PrintPerformanceProfiles();
+
 } // namespace parallel
 } // namespace js
 

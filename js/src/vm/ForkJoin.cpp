@@ -35,6 +35,8 @@
 
 #include "vm/Interpreter-inl.h"
 
+#define JS_PROFILE_FORK_JOIN
+
 using namespace js;
 using namespace js::parallel;
 using namespace js::ion;
@@ -177,6 +179,47 @@ ExecuteSequentially(JSContext *cx, HandleValue funVal, bool *complete)
 
 namespace js {
 
+struct TimeStamp {
+    uint64_t start;
+    uint64_t stop;
+    uint64_t diff;
+    uint64_t pad[5]; // ensure that entire structure is 64 bytes == 1 cache line
+};
+
+class Stamper {
+  private:
+    TimeStamp &stamp_;
+
+    inline void rdtsc(uint64_t *out) {
+#ifdef JS_PROFILE_FORK_JOIN
+        unsigned int lo, hi;
+        asm volatile (
+            "rdtsc \n"
+            : "=a"(lo), "=d"(hi) /* outputs  */);
+        *out = ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
+#endif
+    }
+
+  public:
+
+    Stamper(TimeStamp &stamp)
+      : stamp_(stamp)
+    {
+#ifdef JS_PROFILE_FORK_JOIN
+        rdtsc(&stamp_.start);
+#endif
+    }
+
+    ~Stamper() {
+#ifdef JS_PROFILE_FORK_JOIN
+        uint64_t stop;
+        rdtsc(&stop);
+        stamp_.stop = stop;
+        stamp_.diff = stop - stamp_.start;
+#endif
+    }
+};
+
 // When writing tests, it is often useful to specify different modes
 // of operation.
 enum ForkJoinMode {
@@ -280,6 +323,10 @@ class ForkJoinShared : public TaskExecutor, public Monitor
     PRCondVar *rendezvousEnd_;     // Cond. var used to signal end of rendezvous.
     PRLock *cxLock_;               // Locks cx_ for parallel VM calls.
     ParallelBailoutRecord *const records_; // Bailout records for each slice
+
+#ifdef JS_PROFILE_FORK_JOIN
+    Vector<TimeStamp, 16> timeStamps_;
+#endif
 
     /////////////////////////////////////////////////////////////////////////
     // Per-thread arenas
@@ -420,6 +467,45 @@ class AutoSetForkJoinSlice
 } // namespace js
 
 ///////////////////////////////////////////////////////////////////////////
+// Performance profiling
+
+#ifdef JS_PROFILE_FORK_JOIN
+static uint64_t TotalDiff, ForkJoinDiff, ExecMinDiff, ExecMaxDiff, ExecAvgDiff;
+#endif
+
+void
+js::parallel::PrintPerformanceProfiles() {
+#ifdef JS_PROFILE_FORK_JOIN
+    double forkJoinPercentTotal = ForkJoinDiff * 100.0 / TotalDiff;
+
+    double execMinPercentTotal = ExecMinDiff * 100.0 / TotalDiff;
+    double execMinPercentForkJoin = ExecMinDiff * 100.0 / ForkJoinDiff;
+
+    double execAvgPercentTotal = ExecAvgDiff * 100.0 / TotalDiff;
+    double execAvgPercentForkJoin = ExecAvgDiff * 100.0 / ForkJoinDiff;
+
+    double execMaxPercentTotal = ExecMaxDiff * 100.0 / TotalDiff;
+    double execMaxPercentForkJoin = ExecMaxDiff * 100.0 / ForkJoinDiff;
+
+    fprintf(stderr, "Time spent forking and joining  : "
+        "(%3.0f%% total)\n",
+        forkJoinPercentTotal);
+    fprintf(stderr, "Time spent executing (min)      : "
+        "(%3.0f%% total) "
+        "(%3.0f%% fork-join)\n",
+        execMinPercentTotal, execMinPercentForkJoin);
+    fprintf(stderr, "Time spent executing (avg)      : "
+        "(%3.0f%% total) "
+        "(%3.0f%% fork-join)\n",
+        execAvgPercentTotal, execAvgPercentForkJoin);
+    fprintf(stderr, "Time spent executing (max)      : "
+        "(%3.0f%% total) "
+        "(%3.0f%% fork-join)\n",
+        execMaxPercentTotal, execMaxPercentForkJoin);
+#endif
+}
+
+///////////////////////////////////////////////////////////////////////////
 // js::ForkJoin() and ParallelDo class
 //
 // These are the top-level objects that manage the parallel execution.
@@ -427,9 +513,28 @@ class AutoSetForkJoinSlice
 // parallel execution, and recovering from bailouts.
 
 static const char *ForkJoinModeString(ForkJoinMode mode);
+static bool ForkJoin1(JSContext *cx, CallArgs &args);
 
 bool
 js::ForkJoin(JSContext *cx, CallArgs &args)
+{
+    TimeStamp totalStamp;
+    {
+        Stamper stamper(totalStamp);
+        if (!ForkJoin1(cx, args)) {
+            return false;
+        }
+    }
+
+#ifdef JS_PROFILE_FORK_JOIN
+    TotalDiff += totalStamp.diff;
+#endif
+
+    return true;
+}
+
+static bool
+ForkJoin1(JSContext *cx, CallArgs &args)
 {
     JS_ASSERT(args[0].isObject()); // else the self-hosted code is wrong
     JS_ASSERT(args[0].toObject().isFunction());
@@ -1230,6 +1335,9 @@ ForkJoinShared::ForkJoinShared(JSContext *cx,
     rendezvousEnd_(NULL),
     cxLock_(NULL),
     records_(records),
+#ifdef JS_PROFILE_FORK_JOIN
+    timeStamps_(cx),
+#endif
     allocators_(cx),
     uncompleted_(uncompleted),
     blocked_(0),
@@ -1276,6 +1384,13 @@ ForkJoinShared::init()
             js_delete(allocator);
             return false;
         }
+
+#ifdef JS_PROFILE_FORK_JOIN
+        TimeStamp stamp;
+        if (!timeStamps_.append(stamp)) {
+            return false;
+        }
+#endif
     }
 
     return true;
@@ -1301,19 +1416,35 @@ ForkJoinShared::execute()
     if (cx_->runtime->interrupt)
         return TP_RETRY_SEQUENTIALLY;
 
-    AutoLockMonitor lock(*this);
-
-    // Notify workers to start and execute one portion on this thread.
+    TimeStamp forkJoinStamp;
     {
-        AutoUnlockMonitor unlock(*this);
+        Stamper stamper(forkJoinStamp);
+
+        // Notify workers to start and execute one portion on this thread.
         if (!threadPool_->submitAll(cx_, this))
             return TP_FATAL;
         executeFromMainThread();
+
+        // Wait for workers to complete.
+        AutoLockMonitor lock(*this);
+        while (uncompleted_ > 0)
+            lock.wait();
     }
 
-    // Wait for workers to complete.
-    while (uncompleted_ > 0)
-        lock.wait();
+#ifdef JS_PROFILE_FORK_JOIN
+    uint64_t minDiff = 0xFFFFffffFFFFffff;
+    uint64_t sumDiff = 0;
+    uint64_t maxDiff = 0;
+    for (uint32_t i = 0; i < numSlices_ - 1; i++) {
+        minDiff = js::Min(timeStamps_[i].diff, minDiff);
+        sumDiff += timeStamps_[i].diff;
+        maxDiff = js::Max(timeStamps_[i].diff, maxDiff);
+    }
+    ForkJoinDiff += forkJoinStamp.diff;
+    ExecMinDiff += minDiff;
+    ExecAvgDiff += sumDiff / (numSlices_ - 1);
+    ExecMaxDiff += maxDiff;
+#endif
 
     transferArenasToCompartmentAndProcessGCRequests();
 
@@ -1351,6 +1482,10 @@ ForkJoinShared::executeFromWorker(uint32_t workerId, uintptr_t stackLimit)
 {
     JS_ASSERT(workerId < numSlices_ - 1);
 
+#ifdef JS_PROFILE_FORK_JOIN
+    Stamper stamp(timeStamps_[workerId]);
+#endif
+
     PerThreadData thisThread(cx_->runtime);
     TlsPerThreadData.set(&thisThread);
     // Don't use setIonStackLimit() because that acquires the ionStackLimitLock, and the
@@ -1372,6 +1507,9 @@ ForkJoinShared::executeFromWorker(uint32_t workerId, uintptr_t stackLimit)
 void
 ForkJoinShared::executeFromMainThread()
 {
+#ifdef JS_PROFILE_FORK_JOIN
+    Stamper stamp(timeStamps_[numSlices_ - 1]);
+#endif
     executePortion(&cx_->mainThread(), numSlices_ - 1);
 }
 

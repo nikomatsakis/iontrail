@@ -990,6 +990,8 @@ JSRuntime::init(uint32_t maxbytes)
 
 JSRuntime::~JSRuntime()
 {
+    js::parallel::PrintPerformanceProfiles();
+
 #ifdef JS_THREADSAFE
     clearOwnerThread();
 

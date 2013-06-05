@@ -1089,6 +1089,28 @@ OptimizeMIR(MIRGenerator *mir)
             return false;
     }
 
+    if (js_IonOptions.gvn) {
+        ValueNumberer gvn(mir, graph, js_IonOptions.gvnIsOptimistic);
+        if (!gvn.clear() || !gvn.analyze())
+            return false;
+        IonSpewPass("GVN2");
+        AssertExtendedGraphCoherency(graph);
+
+        if (mir->shouldCancel("GVN2"))
+            return false;
+    }
+
+    if (js_IonOptions.uce) {
+        UnreachableCodeElimination uce(mir, graph);
+        if (!uce.analyze())
+            return false;
+        IonSpewPass("UCE2");
+        AssertExtendedGraphCoherency(graph);
+    }
+
+    if (mir->shouldCancel("UCE2"))
+        return false;
+
     if (js_IonOptions.eaa) {
         EffectiveAddressAnalysis eaa(graph);
         if (!eaa.analyze())

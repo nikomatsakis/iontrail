@@ -1951,6 +1951,43 @@ MCompare::tryFold(bool *result)
         }
     }
 
+    // Check for `x` compared to `x`. If `x` is a scalar,
+    // though not a double, we can be a bit clever in this
+    // case. This arises in patricular with code like
+    //
+    //     if ((x | 0) == x) { ... }
+    //
+    // when `x` is known to be int32.
+    if (lhs() == rhs()) {
+        switch (compareType_) {
+          case Compare_Boolean:
+          case Compare_UInt32:
+          case Compare_Int32:
+            switch (op) {
+              case JSOP_STRICTEQ:
+              case JSOP_EQ:
+              case JSOP_GE:
+              case JSOP_LE:
+                *result = true;
+                return true;
+
+              case JSOP_STRICTNE:
+              case JSOP_NE:
+              case JSOP_GT:
+              case JSOP_LT:
+                *result = false;
+                return true;
+
+              default:
+                break;
+            }
+            break;
+
+          default:
+            break;
+        }
+    }
+
     return false;
 }
 

@@ -1492,16 +1492,17 @@ ForkJoinShared::executeFromWorker(uint32_t workerId, uintptr_t stackLimit)
 {
     JS_ASSERT(workerId < numSlices_ - 1);
 
-#ifdef JS_PROFILE_FORK_JOIN
-    Stamper stamp(timeStamps_[workerId]);
-#endif
-
     PerThreadData thisThread(cx_->runtime);
     TlsPerThreadData.set(&thisThread);
     // Don't use setIonStackLimit() because that acquires the ionStackLimitLock, and the
     // lock has not been initialized in these cases.
     thisThread.ionStackLimit = stackLimit;
-    executePortion(&thisThread, workerId);
+    {
+#ifdef JS_PROFILE_FORK_JOIN
+        Stamper stamp(timeStamps_[workerId]);
+#endif
+        executePortion(&thisThread, workerId);
+    }
     TlsPerThreadData.set(NULL);
 
     AutoLockMonitor lock(*this);
@@ -1512,14 +1513,6 @@ ForkJoinShared::executeFromWorker(uint32_t workerId, uintptr_t stackLimit)
         // complete.
         lock.notify();
     }
-
-    // Subtle: once we release the lock, the main thread can begin
-    // executing, and may even go ahead and pop the stack frame
-    // containing the `ForkJoinShared` object, invalidating the
-    // `timeStamps_` field, causing the `stamp` destructor to go wild
-    // and spew data all over the place. At minimum, this can throw
-    // off the measurements, at maximum it can cause crashes.
-    stamp.stampEarly();
 }
 
 void

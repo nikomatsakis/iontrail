@@ -91,6 +91,7 @@ CPP_SOURCES += [
     'ExecutableAllocator.cpp',
     'FoldConstants.cpp',
     'ForkJoin.cpp',
+    'ForkJoinPool.cpp',
     'GlobalObject.cpp',
     'Interpreter.cpp',
     'Intl.cpp',

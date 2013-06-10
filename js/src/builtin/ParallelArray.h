@@ -13,7 +13,6 @@
 
 #include "ion/Ion.h"
 #include "vm/ForkJoin.h"
-#include "vm/ThreadPool.h"
 
 namespace js {
 

@@ -68,6 +68,7 @@
 #include "ion/AsmJS.h"
 #include "js/CharacterEncoding.h"
 #include "vm/Debugger.h"
+#include "vm/ForkJoinPool.h"
 #include "vm/Interpreter.h"
 #include "vm/NumericConversions.h"
 #include "vm/Shape.h"
@@ -891,7 +892,7 @@ JSRuntime::JSRuntime(JSUseHelperThreads useHelperThreads)
     jitHardening(false),
     jitSupportsFloatingPoint(false),
     ionPcScriptCache(NULL),
-    threadPool(this),
+    forkJoinPool(NULL), // initialized in init(), as it is fallible
     ctypesActivityCallback(NULL),
     parallelWarmup(0),
     ionReturnOverride_(MagicValue(JS_ARG_POISON)),
@@ -929,6 +930,10 @@ JSRuntime::init(uint32_t maxbytes)
         return false;
 
     if (!gcMarker.init())
+        return false;
+
+    forkJoinPool = CreateForkJoinPool(0);
+    if (!forkJoinPool)
         return false;
 
     const char *size = getenv("JSGC_MARK_STACK_LIMIT");
@@ -969,9 +974,6 @@ JSRuntime::init(uint32_t maxbytes)
         return false;
 
     if (!scriptDataTable.init())
-        return false;
-
-    if (!threadPool.init())
         return false;
 
 #ifdef JS_THREADSAFE
@@ -1053,6 +1055,9 @@ JSRuntime::~JSRuntime()
 
     if (ionPcScriptCache)
         js_delete(ionPcScriptCache);
+
+    if (forkJoinPool)
+        DropForkJoinPool(forkJoinPool);
 
 #ifdef JSGC_GENERATIONAL
     gcStoreBuffer.disable();

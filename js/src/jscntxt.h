@@ -39,7 +39,6 @@
 #include "vm/DateTime.h"
 #include "vm/SPSProfiler.h"
 #include "vm/Stack.h"
-#include "vm/ThreadPool.h"
 
 #include "ion/PcScriptCache.h"
 
@@ -59,6 +58,8 @@ extern void
 js_ReportAllocationOverflow(JSContext *cx);
 
 namespace js {
+
+class ForkJoinPool;
 
 typedef Rooted<JSLinearString*> RootedLinearString;
 
@@ -1315,7 +1316,7 @@ struct JSRuntime : public JS::shadow::Runtime,
     // Cache for ion::GetPcScript().
     js::ion::PcScriptCache *ionPcScriptCache;
 
-    js::ThreadPool threadPool;
+    js::ForkJoinPool *forkJoinPool;
 
     js::CTypesActivityCallback  ctypesActivityCallback;
 

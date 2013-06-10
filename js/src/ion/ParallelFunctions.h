@@ -7,7 +7,6 @@
 #ifndef jsion_parallel_functions_h__
 #define jsion_parallel_functions_h__
 
-#include "vm/ThreadPool.h"
 #include "vm/ForkJoin.h"
 #include "gc/Heap.h"
 

@@ -27,9 +27,7 @@ namespace js {
 
 class ThreadPoolWorker;
 
-typedef void (*TaskFun)(void *userdata, uint32_t workerId, uintptr_t stackLimit);
-
-class TaskExecutor
+class TaskExecutor : public PRStackElemStr
 {
   public:
     virtual void executeFromWorker(uint32_t workerId, uintptr_t stackLimit) = 0;

@@ -21,7 +21,6 @@
 #include "LinearScan.h"
 #include "ParallelArrayAnalysis.h"
 #include "jscompartment.h"
-#include "vm/ThreadPool.h"
 #include "vm/ForkJoin.h"
 #include "IonCompartment.h"
 #include "PerfSpewer.h"

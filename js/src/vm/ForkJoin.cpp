@@ -8,6 +8,7 @@
 #include "jscompartment.h"
 
 #include "vm/ForkJoin.h"
+#include "vm/ForkJoinPool.h"
 #include "vm/Monitor.h"
 #include "gc/Marking.h"
 #include "ion/BaselineJIT.h"
@@ -323,7 +324,7 @@ class ForkJoinShared : public TaskExecutor, public Monitor
     // Constant fields
 
     JSContext *const cx_;          // Current context
-    ThreadPool *const threadPool_; // The thread pool.
+    AutoForkJoinPool &pool_;       // The current thread pool
     HandleObject fun_;             // The JavaScript function to execute.
     const uint32_t numSlices_;     // Total number of threads.
     PRCondVar *rendezvousEnd_;     // Cond. var used to signal end of rendezvous.
@@ -396,7 +397,7 @@ class ForkJoinShared : public TaskExecutor, public Monitor
 
   public:
     ForkJoinShared(JSContext *cx,
-                   ThreadPool *threadPool,
+                   AutoForkJoinPool &pool,
                    HandleObject fun,
                    uint32_t numSlices,
                    uint32_t uncompleted,
@@ -1217,12 +1218,16 @@ js::ParallelDo::parallelExecution(ExecutionStatus *status)
     JS_ASSERT(ForkJoinSlice::Current() == NULL);
 
     AutoEnterParallelSection enter(cx_);
+    AutoForkJoinPool pool(*cx_->runtime->forkJoinPool);
+    if (!pool.init(cx_)) {
+        *status = ExecutionFatal;
+        return RedLight;
+    }
 
-    ThreadPool *threadPool = &cx_->runtime->threadPool;
     uint32_t numSlices = ForkJoinSlices(cx_);
 
     RootedObject rootedFun(cx_, fun_);
-    ForkJoinShared shared(cx_, threadPool, rootedFun, numSlices, numSlices - 1,
+    ForkJoinShared shared(cx_, pool, rootedFun, numSlices, numSlices - 1,
                           &bailoutRecords_[0]);
     if (!shared.init()) {
         *status = ExecutionFatal;
@@ -1329,13 +1334,13 @@ class ParallelIonInvoke
 //
 
 ForkJoinShared::ForkJoinShared(JSContext *cx,
-                               ThreadPool *threadPool,
+                               AutoForkJoinPool &pool,
                                HandleObject fun,
                                uint32_t numSlices,
                                uint32_t uncompleted,
                                ParallelBailoutRecord *records)
   : cx_(cx),
-    threadPool_(threadPool),
+    pool_(pool),
     fun_(fun),
     numSlices_(numSlices),
     rendezvousEnd_(NULL),
@@ -1427,8 +1432,7 @@ ForkJoinShared::execute()
         Stamper stamper(forkJoinStamp);
 
         // Notify workers to start and execute one portion on this thread.
-        if (!threadPool_->submitAll(cx_, this))
-            return TP_FATAL;
+        pool_.submit(this);
         executeFromMainThread();
 
         // Wait for workers to complete.
@@ -1809,7 +1813,8 @@ uint32_t
 js::ForkJoinSlices(JSContext *cx)
 {
     // Parallel workers plus this main thread.
-    return cx->runtime->threadPool.numWorkers() + 1;
+    uint32_t workers = ForkJoinPoolWorkers(cx->runtime->forkJoinPool);
+    return workers + 1;
 }
 
 //////////////////////////////////////////////////////////////////////////////

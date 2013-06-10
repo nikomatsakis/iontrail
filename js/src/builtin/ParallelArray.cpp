@@ -13,7 +13,6 @@
 #include "vm/ForkJoin.h"
 #include "vm/GlobalObject.h"
 #include "vm/String.h"
-#include "vm/ThreadPool.h"
 
 #include "jsobjinlines.h"
 

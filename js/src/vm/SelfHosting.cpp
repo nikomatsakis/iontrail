@@ -15,7 +15,7 @@
 
 #include "vm/ForkJoin.h"
 #include "vm/Interpreter.h"
-#include "vm/ThreadPool.h"
+#include "vm/ForkJoinPool.h"
 
 #include "jsfuninlines.h"
 #include "jstypedarrayinlines.h"

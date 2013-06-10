@@ -207,7 +207,9 @@ js::ForkJoinPool::submit(TaskExecutor *executor)
     JS_ASSERT(startedWorkers_ == desiredWorkers_);
 
     executor_ = executor;
+#ifdef DEBUG
     activeWorkers_ = startedWorkers_;
+#endif
 
     PRINTF("Submit(): producing work item %d with %d workers\n",
         workCounter_ + 1,
@@ -306,7 +308,16 @@ js::ForkJoinPoolWorker::run()
         // Spin until `threshold` has elapsed with no work,
         // or we see that pool is terminating.
         const PRTime threshold = PR_USEC_PER_SEC; // 1 second
-        while (!pool_.isTerminating() && (PR_Now() - then) < threshold) {
+        const uint32_t checkTimeEvery = 10000;
+        uint32_t checkTime = checkTimeEvery;
+        while (true) {
+            if (--checkTime == 0) {
+                checkTime = checkTimeEvery;
+                PRTime elapsed = PR_Now() - then;
+                if (elapsed > threshold)
+                    break;
+            }
+
             // Check whether new work is available. Note the memory
             // before, which guarantees that we wait until observing
             // new value of `workCounter_` before reading `executor_`
@@ -317,6 +328,7 @@ js::ForkJoinPoolWorker::run()
                 TaskExecutor *executor = pool_.executor_;
                 JS_ASSERT(executor);
 
+#ifdef DEBUG
                 // We decrement activeWorkers_ at the point where we
                 // have observed and read in all the details about the
                 // current work item, but before it has necessarily
@@ -325,9 +337,7 @@ js::ForkJoinPoolWorker::run()
                 // invariant that there is at most one outstanding
                 // work item at a time, see detailed discussion above.
                 uint32_t aw = JS_ATOMIC_DECREMENT(&pool_.activeWorkers_);
-
-                PRINTF("run(%d): executing work item %d with %d workers left\n",
-                       id_, workCounter, aw);
+#endif
 
                 executor->executeFromWorker(id_, stackLimit);
 
@@ -358,8 +368,6 @@ bool
 js::ForkJoinPoolWorker::blockUntilPoolIsActiveOrTerminating()
 {
     AutoLockMonitor lock(pool_);
-    fprintf(stderr, "blockUntilPoolIsActiveOrTerminating(%d) state=%d\n",
-            id_, pool_.state_);
     while (true) {
         switch (pool_.state_) {
           case js::ForkJoinPool::PoolActive:

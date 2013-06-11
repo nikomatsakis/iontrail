@@ -343,13 +343,20 @@ class ForkJoinShared : public TaskExecutor, public Monitor
     Vector<Allocator *, 16> allocators_;
 
     /////////////////////////////////////////////////////////////////////////
+    // Atomic counters
+    //
+    // Only modified with JS_ATOMIC macros, unless the access occurs in a
+    // period of code when other threads are guaranteed to be inactive.
+
+    uint32_t active_;               // Number of uncompleted worker threads
+    uint32_t blocked_;              // Number of threads that have joined rendezvous
+    uint32_t masterRendezvous_;     // Rendezvous counter
+
+    /////////////////////////////////////////////////////////////////////////
     // Locked Fields
     //
     // Only to be accessed while holding the lock.
 
-    uint32_t uncompleted_;          // Number of uncompleted worker threads
-    uint32_t blocked_;              // Number of threads that have joined rendezvous
-    uint32_t rendezvousIndex_;      // Number of rendezvous attempts
     bool gcRequested_;              // True if a worker requested a GC
     JS::gcreason::Reason gcReason_; // Reason given to request GC
     Zone *gcZone_;                  // Zone for GC, or NULL for full
@@ -365,9 +372,6 @@ class ForkJoinShared : public TaskExecutor, public Monitor
 
     // Set to true when a worker bails for a fatal reason.
     volatile bool fatal_;
-
-    // The main thread has requested a rendezvous.
-    volatile bool rendezvous_;
 
     // Invoked only from the main thread:
     void executeFromMainThread();
@@ -388,7 +392,7 @@ class ForkJoinShared : public TaskExecutor, public Monitor
     void initiateRendezvous(ForkJoinSlice &threadCx);
 
     // If a rendezvous has been requested, blocks until the main thread says
-    // we may continue.
+    // we may continue. Otherwise returns immediately.
     void joinRendezvous(ForkJoinSlice &threadCx);
 
     // Permits other threads to resume execution.  Must be invoked from the
@@ -400,7 +404,6 @@ class ForkJoinShared : public TaskExecutor, public Monitor
                    AutoForkJoinPool &pool,
                    HandleObject fun,
                    uint32_t numSlices,
-                   uint32_t uncompleted,
                    ParallelBailoutRecord *records);
     ~ForkJoinShared();
 
@@ -408,8 +411,13 @@ class ForkJoinShared : public TaskExecutor, public Monitor
 
     ParallelResult execute();
 
-    // Invoked from parallel worker threads:
+    void blockMainThreadUntilWorkersAreDeactivated();
+
+    // Invoked from parallel worker threads.
     virtual void executeFromWorker(uint32_t threadId, uintptr_t stackLimit);
+
+    // Called when worker terminates or blocks for rendezvous.
+    void deactivateWorker();
 
     // Moves all the per-thread arenas into the main compartment and
     // processes any pending requests for a GC.  This can only safely
@@ -1266,8 +1274,7 @@ js::ParallelDo::parallelExecution(ExecutionStatus *status)
     uint32_t numSlices = ForkJoinSlices(cx_);
 
     RootedObject rootedFun(cx_, fun_);
-    ForkJoinShared shared(cx_, pool, rootedFun, numSlices, numSlices - 1,
-                          &bailoutRecords_[0]);
+    ForkJoinShared shared(cx_, pool, rootedFun, numSlices, &bailoutRecords_[0]);
     if (!shared.init()) {
         *status = ExecutionFatal;
         return RedLight;
@@ -1376,7 +1383,6 @@ ForkJoinShared::ForkJoinShared(JSContext *cx,
                                AutoForkJoinPool &pool,
                                HandleObject fun,
                                uint32_t numSlices,
-                               uint32_t uncompleted,
                                ParallelBailoutRecord *records)
   : cx_(cx),
     pool_(pool),
@@ -1389,15 +1395,14 @@ ForkJoinShared::ForkJoinShared(JSContext *cx,
     timeStamps_(cx),
 #endif
     allocators_(cx),
-    uncompleted_(uncompleted),
+    active_(0),
     blocked_(0),
-    rendezvousIndex_(0),
+    masterRendezvous_(0),
     gcRequested_(false),
     gcReason_(JS::gcreason::NUM_REASONS),
     gcZone_(NULL),
     abort_(false),
-    fatal_(false),
-    rendezvous_(false)
+    fatal_(false)
 {
 }
 
@@ -1470,14 +1475,13 @@ ForkJoinShared::execute()
     {
         Stamper stamper(forkJoinStamp);
 
-        // Notify workers to start and execute one portion on this thread.
+        // Begin worker execution for slices 0...(numSlices_-1).
+        active_ = numSlices_ - 1; // safe to write, workers not started yet.
         pool_.submit(this);
-        executeFromMainThread();
 
-        // Wait for workers to complete.
-        AutoLockMonitor lock(*this);
-        while (uncompleted_ > 0)
-            lock.wait();
+        // Execute final slice ourselves and then wait till workers complete.
+        executeFromMainThread();
+        blockMainThreadUntilWorkersAreDeactivated();
     }
 
 #ifdef JS_PROFILE_FORK_JOIN
@@ -1536,20 +1540,14 @@ ForkJoinShared::executeFromWorker(uint32_t workerId, uintptr_t stackLimit)
 
     PerThreadData thisThread(cx_->runtime);
     TlsPerThreadData.set(&thisThread);
-    // Don't use setIonStackLimit() because that acquires the ionStackLimitLock, and the
-    // lock has not been initialized in these cases.
+    // Don't use setIonStackLimit() because that acquires the
+    // ionStackLimitLock, and the lock has not been initialized in
+    // these cases.
     thisThread.ionStackLimit = stackLimit;
     executePortion(&thisThread, workerId);
     TlsPerThreadData.set(NULL);
 
-    AutoLockMonitor lock(*this);
-    uncompleted_ -= 1;
-    if (blocked_ == uncompleted_) {
-        // Signal the main thread that we have terminated.  It will be either
-        // working, arranging a rendezvous, or waiting for workers to
-        // complete.
-        lock.notify();
-    }
+    deactivateWorker();
 }
 
 void
@@ -1634,10 +1632,11 @@ ForkJoinShared::check(ForkJoinSlice &slice)
             setAbortFlag(false);
             return false;
         }
-    } else if (rendezvous_) {
-        joinRendezvous(slice);
+
+        return true;
     }
 
+    joinRendezvous(slice);
     return true;
 }
 
@@ -1676,15 +1675,13 @@ ForkJoinShared::initiateRendezvous(ForkJoinSlice &slice)
     JS_ASSERT(slice.isMainThread());
     JS_ASSERT(!rendezvous_ && blocked_ == 0);
     JS_ASSERT(cx_->runtime->interrupt);
+    JS_ASSERT(!(masterRendezvous_ & 1)); // Last rendezvous completed.
 
-    AutoLockMonitor lock(*this);
+    // Signal to others that we wish to begin a rendezvous:
+    JS_ATOMIC_INCREMENT(&masterRendezvous_);
 
-    // Signal other threads we want to start a rendezvous.
-    rendezvous_ = true;
-
-    // Wait until all the other threads blocked themselves.
-    while (blocked_ != uncompleted_)
-        lock.wait();
+    // Wait until other threads have all deactivated themselves.
+    blockMainThreadUntilWorkersAreDeactivated();
 }
 
 void
@@ -1693,34 +1690,77 @@ ForkJoinShared::joinRendezvous(ForkJoinSlice &slice)
     JS_ASSERT(!slice.isMainThread());
     JS_ASSERT(rendezvous_);
 
-    AutoLockMonitor lock(*this);
-    const uint32_t index = rendezvousIndex_;
-    blocked_ += 1;
+    uint32_t masterRendezvous = JS_ATOMIC_LOAD_ACQUIRE(&masterRendezvous_);
+    if (slice.localRendezvous == masterRendezvous)
+        return; // No new rendezvous in progress.
 
-    // If we're the last to arrive, let the main thread know about it.
-    if (blocked_ == uncompleted_)
-        lock.notify();
+    JS_ASSERT(masterRendezvous & 1); // Rendezvous not yet complete.
 
-    // Wait until the main thread terminates the rendezvous.  We use a
-    // separate condition variable here to distinguish between workers
-    // notifying the main thread that they have completed and the main
-    // thread notifying the workers to resume.
-    while (rendezvousIndex_ == index)
-        PR_WaitCondVar(rendezvousEnd_, PR_INTERVAL_NO_TIMEOUT);
+    // Increment blocked counter and then deactivate. Once we have
+    // deactivated, the main thread may immediately begin execution.
+    JS_ATOMIC_INCREMENT(&blocked_); // Atomic as others may be incrementing too.
+    deactivateWorker();
+
+    // Block on the rendezvousEnd_ cvar until masterRendezvous has
+    // been incremented.
+    {
+        AutoLockMonitor lock(*this);
+        while (JS_ATOMIC_LOAD_ACQUIRE(&masterRendezvous_) == masterRendezvous)
+            PR_WaitCondVar(rendezvousEnd_, PR_INTERVAL_NO_TIMEOUT);
+    }
+
+    // Once master thread has moved on, update our localRendezvous
+    // counter to reflect the rendezvous index we just processed.
+    slice.localRendezvous = masterRendezvous + 1;
 }
 
 void
 ForkJoinShared::endRendezvous(ForkJoinSlice &slice)
 {
     JS_ASSERT(slice.isMainThread());
+    JS_ASSERT(masterRendezvous_ & 1); // Rendezvous not yet complete.
+    JS_ASSERT(active_ == 0);
+
+    // Once we end the rendezvous, all blocked workers will again
+    // become active.
+    active_ = blocked_; // Safe to write, all workers blocked...
+    blocked_ = 0;       // ...until signaled by atomic increment below.
+
+    // Signal rendezvous is complete. Once this increment completes,
+    // othreads may immediately begin executing.
+    JS_ATOMIC_INCREMENT(&masterRendezvous_);
+
+    // Some threads may yet be blocked on the cond variable. Wake them up.
+    AutoLockMonitor lock(*this);
+    PR_NotifyAllCondVar(rendezvousEnd_);
+}
+
+void
+ForkJoinShared::deactivateWorker()
+{
+    // Invoked when a worker completes or when a worker deactivates as
+    // part of a rendezvous. When the final worker deactivates, the
+    // lock is acquired and notified so as to possibly awaken the main
+    // thread. The main thread mat be blocked in
+    // `blockMainThreadUntilWorkersAreDeactivated()`.
+
+    uint32_t a = JS_ATOMIC_DECREMENT(&active_);
+    if (a == 0) {
+        AutoLockMonitor lock(*this);
+        lock.notify(); // Only master thread every blocks on this cvar.
+    }
+}
+
+void
+ForkJoinShared::blockMainThreadUntilWorkersAreDeactivated()
+{
+    // Invoked from the main thread either during a rendezvous or once
+    // main portion is done. Returns once all threads have deactivated
+    // themselves.
 
     AutoLockMonitor lock(*this);
-    rendezvous_ = false;
-    blocked_ = 0;
-    rendezvousIndex_++;
-
-    // Signal other threads that rendezvous is over.
-    PR_NotifyAllCondVar(rendezvousEnd_);
+    while (JS_ATOMIC_LOAD_ACQUIRE(&active_) != 0)
+        lock.wait();
 }
 
 void
@@ -1776,7 +1816,8 @@ ForkJoinSlice::ForkJoinSlice(PerThreadData *perThreadData,
       numSlices(numSlices),
       allocator(allocator),
       bailoutRecord(bailoutRecord),
-      shared(shared)
+      shared(shared),
+      localRendezvous(0) // have not observed any rendezvous yet
 { }
 
 bool

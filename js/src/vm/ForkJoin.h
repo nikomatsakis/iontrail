@@ -363,6 +363,7 @@ struct ForkJoinSlice
   private:
     friend class AutoRendezvous;
     friend class AutoSetForkJoinSlice;
+    friend class ForkJoinShared;
 
 #if defined(JS_THREADSAFE) && defined(JS_ION)
     // Initialized by InitializeTLS()
@@ -370,6 +371,7 @@ struct ForkJoinSlice
     static bool TLSInitialized;
 #endif
 
+    uint32_t localRendezvous;
     ForkJoinShared *const shared;
 };
 

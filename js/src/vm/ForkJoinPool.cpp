@@ -215,11 +215,11 @@ js::ForkJoinPool::submit(TaskExecutor *executor)
         workCounter_ + 1,
         startedWorkers_);
 
-    // Signal to threads that new work is available. Note the memory
+    // Signal to threads that new work is available. Note the release
     // barrier, which guarantees that all writes which have occurred
     // until this point will be visible to worker threads once they
     // observe the new value of `counter_`:
-    __atomic_store_n(&workCounter_, workCounter_ + 1, __ATOMIC_RELEASE);
+    JS_ATOMIC_STORE_RELEASE(&workCounter_, workCounter_ + 1);
 }
 
 bool
@@ -312,12 +312,11 @@ js::ForkJoinPoolWorker::run()
                     break;
             spinCount++;
 
-            // Check whether new work is available. Note the memory
-            // before, which guarantees that we wait until observing
+            // Check whether new work is available. Note the acquire
+            // barrier, which guarantees that we wait until observing
             // new value of `workCounter_` before reading `executor_`
             // field etc:
-            uint32_t workCounter =
-                __atomic_load_n(&pool_.workCounter_, __ATOMIC_ACQUIRE);
+            uint32_t workCounter = JS_ATOMIC_LOAD_ACQUIRE(&pool_.workCounter_);
             if (workCounter != mark) {
                 TaskExecutor *executor = pool_.executor_;
                 JS_ASSERT(executor);

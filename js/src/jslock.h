@@ -17,10 +17,38 @@
 # include "prthread.h"
 # include "prinit.h"
 
+// Equivalent to ++*p. Yields result of increment. Full barrier
+// semantics guarantee that memory accesses cannot move across this
+// increment.
 # define JS_ATOMIC_INCREMENT(p)      PR_ATOMIC_INCREMENT((int32_t *)(p))
+
+// Equivalent to --*p. Yields result of decrement. Full barrier
+// semantics guarantee that memory accesses cannot move across this
+// decrement.
 # define JS_ATOMIC_DECREMENT(p)      PR_ATOMIC_DECREMENT((int32_t *)(p))
+
+// Equivalent to *p = *p + v. Yields result of addition. Full barrier
+// semantics guarantee that memory accesses cannot move across this
+// increment.
 # define JS_ATOMIC_ADD(p,v)          PR_ATOMIC_ADD((int32_t *)(p), (int32_t)(v))
+
+// Assigns v to *p and yields old value of *p. Full barrier semantics
+// guarantee that memory accesses cannot move across this assignment.
 # define JS_ATOMIC_SET(p,v)          PR_ATOMIC_SET((int32_t *)(p), (int32_t)(v))
+
+// Equivalent to *p = v. Release semantics guarantee that memory
+// accesses cannot move from before the store to afterwards.  Used to
+// write a flag that indicates when a condition has occurred (e.g., a
+// signal is sent).
+# define JS_ATOMIC_STORE_RELEASE(p,v) \
+    __atomic_store_n((p), (v), __ATOMIC_RELEASE)
+
+// Equivalent to *p. Acquire semantics guarantee that memory accesses
+// cannot be hoisted from after the store to before.  Used to read a
+// flag that will indicate when some condition has occurred (e.g., a
+// signal was sent).
+# define JS_ATOMIC_LOAD_ACQUIRE(p) \
+    __atomic_load_n((p), __ATOMIC_ACQUIRE)
 
 namespace js {
     // Defined in jsgc.cpp.
@@ -33,10 +61,18 @@ typedef struct PRThread PRThread;
 typedef struct PRCondVar PRCondVar;
 typedef struct PRLock PRLock;
 
-# define JS_ATOMIC_INCREMENT(p)      (++*(p))
-# define JS_ATOMIC_DECREMENT(p)      (--*(p))
-# define JS_ATOMIC_ADD(p,v)          (*(p) += (v))
-# define JS_ATOMIC_SET(p,v)          (*(p) = (v))
+# define JS_ATOMIC_INCREMENT(p)       (++*(p))
+# define JS_ATOMIC_DECREMENT(p)       (--*(p))
+# define JS_ATOMIC_ADD(p,v)           (*(p) += (v))
+# define JS_ATOMIC_STORE_RELEASE(p,v) (*(p) = (v))
+# define JS_ATOMIC_LOAD_ACQUIRE(p)    (*(p))
+
+static inline int32_t
+JS_ATOMIC_SET(int32_t *val, int32_t newval) {
+    int32_t r = *val;
+    *val = newval;
+    return r;
+}
 
 #endif /* JS_THREADSAFE */
 

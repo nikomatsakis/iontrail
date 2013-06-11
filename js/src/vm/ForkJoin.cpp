@@ -484,6 +484,21 @@ static uint64_t WorkerMinDiff, WorkerMaxDiff, WorkerAvgDiff;
 static uint64_t AllMaxDiff;
 #endif
 
+JSBool
+js::ResetForkJoinCounters(JSContext *cx, unsigned argc, Value *vp)
+{
+    CallArgs args = CallArgsFromVp(argc, vp);
+#ifdef JS_PROFILE_FORK_JOIN
+    TotalDiff = 0;
+    CompileDiff = 0;
+    ForkJoinDiff = 0;
+    WorkerMinDiff = WorkerMaxDiff = WorkerAvgDiff = 0;
+    AllMaxDiff = 0;
+#endif
+    args.rval().setUndefined();
+    return true;
+}
+
 void
 js::parallel::PrintPerformanceProfiles() {
 #ifdef JS_PROFILE_FORK_JOIN
@@ -717,8 +732,10 @@ js::ParallelDo::apply()
         TimeStamp compileStamp;
         {
             Stamper stamper(compileStamp);
-            if (compileForParallelExecution(&status) == RedLight)
-                return SpewEndOp(status);
+            if (worklist_.length() > 0) {
+                if (compileForParallelExecution(&status) == RedLight)
+                    return SpewEndOp(status);
+            }
         }
         CompileDiff += compileStamp.diff;
 
@@ -895,6 +912,7 @@ js::ParallelDo::compileForParallelExecution(ExecutionStatus *status)
     }
     worklist_.clear();
     calleesEnqueued_.clear();
+
     return GreenLight;
 }
 

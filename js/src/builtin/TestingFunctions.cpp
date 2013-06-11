@@ -1147,6 +1147,10 @@ static JSFunctionSpecWithHelp TestingFunctions[] = {
 "inParallelSection()",
 "  True if this code is executing within a parallel section."),
 
+    JS_FN_HELP("resetForkJoinCounters", ResetForkJoinCounters, 0, 0,
+"resetForkJoinCounters()",
+"  Resets internal fork-join profiling counters"),
+
     JS_FN_HELP("setObjectMetadataCallback", SetObjectMetadataCallback, 1, 0,
 "setObjectMetadataCallback(fn)",
 "  Specify function to supply metadata for all newly created objects."),

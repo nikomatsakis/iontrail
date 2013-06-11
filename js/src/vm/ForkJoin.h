@@ -203,6 +203,7 @@ namespace js {
 struct ForkJoinSlice;
 
 bool ForkJoin(JSContext *cx, CallArgs &args);
+JSBool ResetForkJoinCounters(JSContext *cx, unsigned argc, Value *vp);
 
 // Returns the number of slices that a fork-join op will have when
 // executed.

@@ -34,6 +34,8 @@ function benchmark(label, w, m, seq, par) {
     print("Warming up parallel runs");
     warmup(w, par);
 
+    resetForkJoinCounters();
+
     print("Measuring parallel runs");
     var [parTimes, parResult] = measureN(m, par);
   }

@@ -477,7 +477,10 @@ class AutoSetForkJoinSlice
 // Performance profiling
 
 #ifdef JS_PROFILE_FORK_JOIN
-static uint64_t TotalDiff, ForkJoinDiff, ExecMinDiff, ExecMaxDiff, ExecAvgDiff;
+static uint64_t TotalDiff;
+static uint64_t ForkJoinDiff;
+static uint64_t WorkerMinDiff, WorkerMaxDiff, WorkerAvgDiff;
+static uint64_t AllMaxDiff;
 #endif
 
 void
@@ -485,30 +488,37 @@ js::parallel::PrintPerformanceProfiles() {
 #ifdef JS_PROFILE_FORK_JOIN
     double forkJoinPercentTotal = ForkJoinDiff * 100.0 / TotalDiff;
 
-    double execMinPercentTotal = ExecMinDiff * 100.0 / TotalDiff;
-    double execMinPercentForkJoin = ExecMinDiff * 100.0 / ForkJoinDiff;
+    double workerMinPercentTotal = WorkerMinDiff * 100.0 / TotalDiff;
+    double workerMinPercentForkJoin = WorkerMinDiff * 100.0 / ForkJoinDiff;
 
-    double execAvgPercentTotal = ExecAvgDiff * 100.0 / TotalDiff;
-    double execAvgPercentForkJoin = ExecAvgDiff * 100.0 / ForkJoinDiff;
+    double workerAvgPercentTotal = WorkerAvgDiff * 100.0 / TotalDiff;
+    double workerAvgPercentForkJoin = WorkerAvgDiff * 100.0 / ForkJoinDiff;
 
-    double execMaxPercentTotal = ExecMaxDiff * 100.0 / TotalDiff;
-    double execMaxPercentForkJoin = ExecMaxDiff * 100.0 / ForkJoinDiff;
+    double workerMaxPercentTotal = WorkerMaxDiff * 100.0 / TotalDiff;
+    double workerMaxPercentForkJoin = WorkerMaxDiff * 100.0 / ForkJoinDiff;
+
+    double allMaxPercentTotal = AllMaxDiff * 100.0 / TotalDiff;
+    double allMaxPercentForkJoin = AllMaxDiff * 100.0 / ForkJoinDiff;
 
     fprintf(stderr, "Time spent forking and joining  : "
-        "(%3.0f%% total)\n",
-        forkJoinPercentTotal);
-    fprintf(stderr, "Time spent executing (min)      : "
-        "(%3.0f%% total) "
-        "(%3.0f%% fork-join)\n",
-        execMinPercentTotal, execMinPercentForkJoin);
-    fprintf(stderr, "Time spent executing (avg)      : "
-        "(%3.0f%% total) "
-        "(%3.0f%% fork-join)\n",
-        execAvgPercentTotal, execAvgPercentForkJoin);
-    fprintf(stderr, "Time spent executing (max)      : "
-        "(%3.0f%% total) "
-        "(%3.0f%% fork-join)\n",
-        execMaxPercentTotal, execMaxPercentForkJoin);
+            "(%3.0f%% total)\n",
+            forkJoinPercentTotal);
+    fprintf(stderr, "Time spent in JS (workers, min) : "
+            "(%3.0f%% total) "
+            "(%3.0f%% fork-join)\n",
+            workerMinPercentTotal, workerMinPercentForkJoin);
+    fprintf(stderr, "Time spent in JS (workers, avg) : "
+            "(%3.0f%% total) "
+            "(%3.0f%% fork-join)\n",
+            workerAvgPercentTotal, workerAvgPercentForkJoin);
+    fprintf(stderr, "Time spent in JS (workers, max) : "
+            "(%3.0f%% total) "
+            "(%3.0f%% fork-join)\n",
+            workerMaxPercentTotal, workerMaxPercentForkJoin);
+    fprintf(stderr, "Time spent in JS (all, max) : "
+            "(%3.0f%% total) "
+            "(%3.0f%% fork-join)\n",
+            allMaxPercentTotal, allMaxPercentForkJoin);
 #endif
 }
 
@@ -1451,9 +1461,10 @@ ForkJoinShared::execute()
         maxDiff = js::Max(timeStamps_[i].diff, maxDiff);
     }
     ForkJoinDiff += forkJoinStamp.diff;
-    ExecMinDiff += minDiff;
-    ExecAvgDiff += sumDiff / (numSlices_ - 1);
-    ExecMaxDiff += maxDiff;
+    WorkerMinDiff += minDiff;
+    WorkerAvgDiff += sumDiff / (numSlices_ - 1);
+    WorkerMaxDiff += maxDiff;
+    AllMaxDiff += js::Max(timeStamps_[numSlices_ - 1].diff, maxDiff);
 #endif
 
     transferArenasToCompartmentAndProcessGCRequests();

@@ -478,6 +478,7 @@ class AutoSetForkJoinSlice
 
 #ifdef JS_PROFILE_FORK_JOIN
 static uint64_t TotalDiff;
+static uint64_t CompileDiff;
 static uint64_t ForkJoinDiff;
 static uint64_t WorkerMinDiff, WorkerMaxDiff, WorkerAvgDiff;
 static uint64_t AllMaxDiff;
@@ -486,6 +487,8 @@ static uint64_t AllMaxDiff;
 void
 js::parallel::PrintPerformanceProfiles() {
 #ifdef JS_PROFILE_FORK_JOIN
+    double compilePercentTotal = CompileDiff * 100.0 / TotalDiff;
+
     double forkJoinPercentTotal = ForkJoinDiff * 100.0 / TotalDiff;
 
     double workerMinPercentTotal = WorkerMinDiff * 100.0 / TotalDiff;
@@ -503,6 +506,9 @@ js::parallel::PrintPerformanceProfiles() {
     fprintf(stderr, "Time spent forking and joining  : "
             "(%3.0f%% total)\n",
             forkJoinPercentTotal);
+    fprintf(stderr, "Time spent compiling            : "
+            "(%3.0f%% total)\n",
+            compilePercentTotal);
     fprintf(stderr, "Time spent in JS (workers, min) : "
             "(%3.0f%% total) "
             "(%3.0f%% fork-join)\n",
@@ -515,7 +521,7 @@ js::parallel::PrintPerformanceProfiles() {
             "(%3.0f%% total) "
             "(%3.0f%% fork-join)\n",
             workerMaxPercentTotal, workerMaxPercentForkJoin);
-    fprintf(stderr, "Time spent in JS (all, max) : "
+    fprintf(stderr, "Time spent in JS (all, max)     : "
             "(%3.0f%% total) "
             "(%3.0f%% fork-join)\n",
             allMaxPercentTotal, allMaxPercentForkJoin);
@@ -708,8 +714,13 @@ js::ParallelDo::apply()
         for (uint32_t i = 0; i < slices; i++)
             bailoutRecords_[i].reset(cx_);
 
-        if (compileForParallelExecution(&status) == RedLight)
-            return SpewEndOp(status);
+        TimeStamp compileStamp;
+        {
+            Stamper stamper(compileStamp);
+            if (compileForParallelExecution(&status) == RedLight)
+                return SpewEndOp(status);
+        }
+        CompileDiff += compileStamp.diff;
 
         JS_ASSERT(worklist_.length() == 0);
         if (parallelExecution(&status) == RedLight)
@@ -1461,9 +1472,11 @@ ForkJoinShared::execute()
         maxDiff = js::Max(timeStamps_[i].diff, maxDiff);
     }
     ForkJoinDiff += forkJoinStamp.diff;
-    WorkerMinDiff += minDiff;
-    WorkerAvgDiff += sumDiff / (numSlices_ - 1);
-    WorkerMaxDiff += maxDiff;
+    if (numSlices_ > 1) {
+        WorkerMinDiff += minDiff;
+        WorkerAvgDiff += sumDiff / (numSlices_ - 1);
+        WorkerMaxDiff += maxDiff;
+    }
     AllMaxDiff += js::Max(timeStamps_[numSlices_ - 1].diff, maxDiff);
 #endif
 

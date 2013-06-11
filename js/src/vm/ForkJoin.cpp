@@ -1497,12 +1497,7 @@ ForkJoinShared::executeFromWorker(uint32_t workerId, uintptr_t stackLimit)
     // Don't use setIonStackLimit() because that acquires the ionStackLimitLock, and the
     // lock has not been initialized in these cases.
     thisThread.ionStackLimit = stackLimit;
-    {
-#ifdef JS_PROFILE_FORK_JOIN
-        Stamper stamp(timeStamps_[workerId]);
-#endif
-        executePortion(&thisThread, workerId);
-    }
+    executePortion(&thisThread, workerId);
     TlsPerThreadData.set(NULL);
 
     AutoLockMonitor lock(*this);
@@ -1518,9 +1513,6 @@ ForkJoinShared::executeFromWorker(uint32_t workerId, uintptr_t stackLimit)
 void
 ForkJoinShared::executeFromMainThread()
 {
-#ifdef JS_PROFILE_FORK_JOIN
-    Stamper stamp(timeStamps_[numSlices_ - 1]);
-#endif
     executePortion(&cx_->mainThread(), numSlices_ - 1);
 }
 
@@ -1557,6 +1549,9 @@ ForkJoinShared::executePortion(PerThreadData *perThread,
                                       NULL, NULL, NULL);
         setAbortFlag(false);
     } else {
+#ifdef JS_PROFILE_FORK_JOIN
+        Stamper stamp(timeStamps_[threadId]);
+#endif
         ParallelIonInvoke<3> fii(cx_->compartment, callee, 3);
 
         fii.args[0] = Int32Value(slice.sliceId);

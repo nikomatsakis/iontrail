@@ -301,22 +301,16 @@ js::ForkJoinPoolWorker::run()
     uintptr_t stackLimit = (((uintptr_t)&stackLimitOffset) +
                              stackLimitOffset * JS_STACK_GROWTH_DIRECTION);
 
+    const uint32_t spins[] = {1<<9, 1<<10, 1<<11, 1<<12, 1<<13, 1<<14, 1<<15, 1<<16, 0};
+
     uint32_t mark = 0;
     while (blockUntilPoolIsActiveOrTerminating()) {
-        PRTime then = PR_Now();
-
-        // Spin until `threshold` has elapsed with no work,
-        // or we see that pool is terminating.
-        const PRTime threshold = PR_USEC_PER_SEC; // 1 second
-        const uint32_t checkTimeEvery = 10000;
-        uint32_t checkTime = checkTimeEvery;
-        while (true) {
-            if (--checkTime == 0) {
-                checkTime = checkTimeEvery;
-                PRTime elapsed = PR_Now() - then;
-                if (elapsed > threshold)
+        uint32_t spinCount = 0;
+        while (spins[spinCount]) {
+            for (uint32_t i = 0; i < spins[spinCount]; i++)
+                if (pool_.workCounter_ != mark)
                     break;
-            }
+            spinCount++;
 
             // Check whether new work is available. Note the memory
             // before, which guarantees that we wait until observing
@@ -344,7 +338,7 @@ js::ForkJoinPoolWorker::run()
                 PRINTF("run(%d): executed work item %d\n",
                        id_, workCounter);
 
-                then = PR_Now();
+                spinCount = 0;
                 mark = workCounter;
             }
         }

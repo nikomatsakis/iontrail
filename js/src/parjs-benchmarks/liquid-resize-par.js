@@ -384,6 +384,7 @@ function reduceImageBWPar(image,
   var height = image.shape[0];
   var width = image.shape[1];
   while (width > newWidth || height > newHeight) {
+    print("width", width, "height", height); // NDM
     intermediateFunc(image.buffer, width, height);
 
     if (width > newWidth) {

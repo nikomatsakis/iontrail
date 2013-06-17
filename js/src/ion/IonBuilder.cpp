@@ -3591,6 +3591,10 @@ IonBuilder::makeInliningDecision(JSFunction *target, CallInfo &callInfo)
     // Heuristics!
     JSScript *targetScript = target->nonLazyScript();
 
+    // Skip heuristics if we have an explicit hint to inline.
+    if (targetScript->shouldInline)
+        return true;
+
     // Cap the inlining depth.
     if (IsSmallFunction(targetScript)) {
         if (inliningDepth_ >= js_IonOptions.smallFunctionMaxInlineDepth) {

@@ -1377,7 +1377,7 @@ IonBuilder::inlineThrowError(CallInfo &callInfo)
 
     callInfo.unwrapArgs();
 
-    MParBailout *bailout = new MParBailout();
+    MParBailout *bailout = new MParBailout(ParallelBailoutException);
     if (!bailout)
         return InliningStatus_Error;
     current->end(bailout);

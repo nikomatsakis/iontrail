@@ -3042,7 +3042,8 @@ CodeGenerator::visitOutOfLineParNewGCThing(OutOfLineParNewGCThing *ool)
 bool
 CodeGenerator::visitParBailout(LParBailout *lir)
 {
-    OutOfLineParallelAbort *bail = oolParallelAbort(ParallelBailoutUnsupported, lir);
+    ParallelBailoutCause cause = lir->mir()->cause();
+    OutOfLineParallelAbort *bail = oolParallelAbort(cause, lir);
     if (!bail)
         return false;
     masm.jump(bail->entry());
@@ -4548,7 +4549,7 @@ CodeGenerator::visitOutOfLineStoreElementHole(OutOfLineStoreElementHole *ool)
         // case right now, we just bail out.
         masm.bind(&indexNotInitLen);
         OutOfLineParallelAbort *bail1 =
-            oolParallelAbort(ParallelBailoutUnsupportedSparseArray, ins);
+            oolParallelAbort(ParallelBailoutSparseArray, ins);
         if (!bail1)
             return false;
         masm.jump(bail1->entry());

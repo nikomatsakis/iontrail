@@ -45,10 +45,16 @@ using parallel::SpewCompile;
         return visitSpecializedInstruction(ins, ins->specialization(), flags);  \
     }
 
-#define UNSAFE_OP(op)                                               \
+#define UNSAFE_OP(op, cause)                                        \
     virtual bool visit##op(M##op *ins) {                            \
         SpewMIR(ins, "Unsafe");                                     \
-        return markUnsafe();                                        \
+        return markUnsafe(cause);                                   \
+    }
+
+#define UNEXPECTED_OP(op)                                                     \
+    virtual bool visit##op(M##op *ins) {                                      \
+        JS_NOT_REACHED("Unexpected opcode in par exec mode: " #op);           \
+        return false;                                                         \
     }
 
 #define WRITE_GUARDED_OP(op, obj)                   \
@@ -67,7 +73,7 @@ class ParallelArrayVisitor : public MInstructionVisitor
 {
     JSContext *cx_;
     MIRGraph &graph_;
-    bool unsafe_;
+    ParallelBailoutCause unsafeCause_;
     MDefinition *parSlice_;
 
     bool insertWriteGuard(MInstruction *writeInstruction,
@@ -84,9 +90,9 @@ class ParallelArrayVisitor : public MInstructionVisitor
     // Intended for use in a visitXyz() instruction like "return
     // markUnsafe()".  Sets the unsafe flag and returns true (since
     // this does not indicate an unrecoverable compilation failure).
-    bool markUnsafe() {
-        JS_ASSERT(!unsafe_);
-        unsafe_ = true;
+    bool markUnsafe(ParallelBailoutCause cause) {
+        JS_ASSERT(!isUnsafe());
+        unsafeCause_ = cause;
         return true;
     }
 
@@ -94,12 +100,13 @@ class ParallelArrayVisitor : public MInstructionVisitor
     ParallelArrayVisitor(JSContext *cx, MIRGraph &graph)
       : cx_(cx),
         graph_(graph),
-        unsafe_(false),
+        unsafeCause_(ParallelBailoutNone),
         parSlice_(NULL)
     { }
 
-    void clearUnsafe() { unsafe_ = false; }
-    bool unsafe() { return unsafe_; }
+    void clearUnsafe() { unsafeCause_ = ParallelBailoutNone; }
+    bool isUnsafe() { return unsafeCause_ != ParallelBailoutNone; }
+    ParallelBailoutCause unsafeCause() { return unsafeCause_; }
     MDefinition *parSlice() {
         if (!parSlice_)
             parSlice_ = graph_.parSlice();
@@ -120,27 +127,27 @@ class ParallelArrayVisitor : public MInstructionVisitor
     SAFE_OP(Compare)
     SAFE_OP(Phi)
     SAFE_OP(Beta)
-    UNSAFE_OP(OsrValue)
-    UNSAFE_OP(OsrScopeChain)
-    UNSAFE_OP(ReturnFromCtor)
+    UNSAFE_OP(OsrValue, ParallelBailoutUnsupported)
+    UNSAFE_OP(OsrScopeChain, ParallelBailoutUnsupported)
+    UNSAFE_OP(ReturnFromCtor, ParallelBailoutUnsupported)
     CUSTOM_OP(CheckOverRecursed)
-    UNSAFE_OP(DefVar)
-    UNSAFE_OP(DefFun)
-    UNSAFE_OP(CreateThis)
-    UNSAFE_OP(CreateThisWithTemplate)
-    UNSAFE_OP(CreateThisWithProto)
-    UNSAFE_OP(CreateArgumentsObject)
-    UNSAFE_OP(GetArgumentsObjectArg)
-    UNSAFE_OP(SetArgumentsObjectArg)
+    UNSAFE_OP(DefVar, ParallelBailoutUnsupported)
+    UNSAFE_OP(DefFun, ParallelBailoutUnsupported)
+    UNSAFE_OP(CreateThis, ParallelBailoutConstructor)
+    UNSAFE_OP(CreateThisWithTemplate, ParallelBailoutConstructor)
+    UNSAFE_OP(CreateThisWithProto, ParallelBailoutConstructor)
+    UNSAFE_OP(CreateArgumentsObject, ParallelBailoutArgumentsObject)
+    UNSAFE_OP(GetArgumentsObjectArg, ParallelBailoutArgumentsObject)
+    UNSAFE_OP(SetArgumentsObjectArg, ParallelBailoutArgumentsObject)
     SAFE_OP(PrepareCall)
     SAFE_OP(PassArg)
     CUSTOM_OP(Call)
-    UNSAFE_OP(ApplyArgs)
-    UNSAFE_OP(GetDynamicName)
-    UNSAFE_OP(FilterArguments)
-    UNSAFE_OP(CallDirectEval)
+    UNSAFE_OP(ApplyArgs, ParallelBailoutApply)
+    UNSAFE_OP(GetDynamicName, ParallelBailoutUnsupported)
+    UNSAFE_OP(FilterArguments, ParallelBailoutUnsupported)
+    UNSAFE_OP(CallDirectEval, ParallelBailoutEval)
     SAFE_OP(BitNot)
-    UNSAFE_OP(TypeOf)
+    UNSAFE_OP(TypeOf, ParallelBailoutTypeOf)
     SAFE_OP(ToId)
     SAFE_OP(BitAnd)
     SAFE_OP(BitOr)
@@ -151,16 +158,16 @@ class ParallelArrayVisitor : public MInstructionVisitor
     SPECIALIZED_OP(MinMax, PERMIT_NUMERIC)
     SAFE_OP(Abs)
     SAFE_OP(Sqrt)
-    UNSAFE_OP(Atan2)
+    SAFE_OP(Atan2)
     SAFE_OP(MathFunction)
     SPECIALIZED_OP(Add, PERMIT_NUMERIC)
     SPECIALIZED_OP(Sub, PERMIT_NUMERIC)
     SPECIALIZED_OP(Mul, PERMIT_NUMERIC)
     SPECIALIZED_OP(Div, PERMIT_NUMERIC)
     SPECIALIZED_OP(Mod, PERMIT_NUMERIC)
-    UNSAFE_OP(Concat)
-    UNSAFE_OP(CharCodeAt)
-    UNSAFE_OP(FromCharCode)
+    UNSAFE_OP(Concat, ParallelBailoutStringOp)
+    UNSAFE_OP(CharCodeAt, ParallelBailoutStringOp)
+    UNSAFE_OP(FromCharCode, ParallelBailoutStringOp)
     SAFE_OP(Return)
     CUSTOM_OP(Throw)
     SAFE_OP(Box)     // Boxing just creates a JSVal, doesn't alloc.
@@ -169,20 +176,20 @@ class ParallelArrayVisitor : public MInstructionVisitor
     SAFE_OP(ToDouble)
     SAFE_OP(ToInt32)
     SAFE_OP(TruncateToInt32)
-    UNSAFE_OP(ToString)
+    UNSAFE_OP(ToString, ParallelBailoutStringOp)
     SAFE_OP(NewSlots)
     CUSTOM_OP(NewArray)
     CUSTOM_OP(NewObject)
     CUSTOM_OP(NewCallObject)
     CUSTOM_OP(NewParallelArray)
-    UNSAFE_OP(InitElem)
-    UNSAFE_OP(InitProp)
+    UNSAFE_OP(InitElem, ParallelBailoutUnsupported)
+    UNSAFE_OP(InitProp, ParallelBailoutUnsupported)
     SAFE_OP(Start)
-    UNSAFE_OP(OsrEntry)
+    UNSAFE_OP(OsrEntry, ParallelBailoutUnsupported)
     SAFE_OP(Nop)
-    UNSAFE_OP(RegExp)
+    UNSAFE_OP(RegExp, ParallelBailoutRegexOp)
     CUSTOM_OP(Lambda)
-    UNSAFE_OP(ImplicitThis)
+    UNSAFE_OP(ImplicitThis, ParallelBailoutUnsupported)
     SAFE_OP(Slots)
     SAFE_OP(Elements)
     SAFE_OP(ConstantElements)
@@ -191,13 +198,13 @@ class ParallelArrayVisitor : public MInstructionVisitor
     SAFE_OP(FunctionEnvironment) // just a load of func env ptr
     SAFE_OP(TypeBarrier) // causes a bailout if the type is not found: a-ok with us
     SAFE_OP(MonitorTypes) // causes a bailout if the type is not found: a-ok with us
-    UNSAFE_OP(PostWriteBarrier)
+    UNSAFE_OP(PostWriteBarrier, ParallelBailoutUnsupported)
     SAFE_OP(GetPropertyCache)
     SAFE_OP(GetPropertyPolymorphic)
-    UNSAFE_OP(SetPropertyPolymorphic)
-    UNSAFE_OP(GetElementCache)
-    UNSAFE_OP(SetElementCache)
-    UNSAFE_OP(BindNameCache)
+    UNSAFE_OP(SetPropertyPolymorphic, ParallelBailoutUnsupported)
+    UNSAFE_OP(GetElementCache, ParallelBailoutElement)
+    UNSAFE_OP(SetElementCache, ParallelBailoutElement)
+    UNSAFE_OP(BindNameCache, ParallelBailoutUnsupported)
     SAFE_OP(GuardShape)
     SAFE_OP(GuardObjectType)
     SAFE_OP(GuardClass)
@@ -213,40 +220,40 @@ class ParallelArrayVisitor : public MInstructionVisitor
     SAFE_OP(LoadElementHole)
     MAYBE_WRITE_GUARDED_OP(StoreElement, elements)
     WRITE_GUARDED_OP(StoreElementHole, elements)
-    UNSAFE_OP(ArrayPopShift)
-    UNSAFE_OP(ArrayPush)
+    UNSAFE_OP(ArrayPopShift, ParallelBailoutArrayMutation)
+    UNSAFE_OP(ArrayPush, ParallelBailoutArrayMutation)
     SAFE_OP(LoadTypedArrayElement)
     SAFE_OP(LoadTypedArrayElementHole)
     SAFE_OP(LoadTypedArrayElementStatic)
     MAYBE_WRITE_GUARDED_OP(StoreTypedArrayElement, elements)
     WRITE_GUARDED_OP(StoreTypedArrayElementHole, elements)
-    UNSAFE_OP(StoreTypedArrayElementStatic)
-    UNSAFE_OP(ClampToUint8)
+    UNSAFE_OP(StoreTypedArrayElementStatic, ParallelBailoutUnsupported)
+    UNSAFE_OP(ClampToUint8, ParallelBailoutClampToUInt8)
     SAFE_OP(LoadFixedSlot)
     WRITE_GUARDED_OP(StoreFixedSlot, object)
-    UNSAFE_OP(CallGetProperty)
-    UNSAFE_OP(GetNameCache)
-    UNSAFE_OP(CallGetIntrinsicValue)
-    UNSAFE_OP(CallsiteCloneCache)
-    UNSAFE_OP(CallGetElement)
-    UNSAFE_OP(CallSetElement)
-    UNSAFE_OP(CallInitElementArray)
-    UNSAFE_OP(CallSetProperty)
-    UNSAFE_OP(DeleteProperty)
-    UNSAFE_OP(SetPropertyCache)
-    UNSAFE_OP(IteratorStart)
-    UNSAFE_OP(IteratorNext)
-    UNSAFE_OP(IteratorMore)
-    UNSAFE_OP(IteratorEnd)
+    UNSAFE_OP(CallGetProperty, ParallelBailoutPropertyIC)
+    UNSAFE_OP(GetNameCache, ParallelBailoutPropertyIC)
+    UNSAFE_OP(CallGetIntrinsicValue, ParallelBailoutPropertyIC)
+    UNSAFE_OP(CallsiteCloneCache, ParallelBailoutPropertyIC)
+    UNSAFE_OP(CallGetElement, ParallelBailoutPropertyIC)
+    UNSAFE_OP(CallSetElement, ParallelBailoutPropertyIC)
+    UNSAFE_OP(CallInitElementArray, ParallelBailoutPropertyIC)
+    UNSAFE_OP(CallSetProperty, ParallelBailoutPropertyIC)
+    UNSAFE_OP(DeleteProperty, ParallelBailoutPropertyIC)
+    UNSAFE_OP(SetPropertyCache, ParallelBailoutPropertyIC)
+    UNSAFE_OP(IteratorStart, ParallelBailoutIterator)
+    UNSAFE_OP(IteratorNext, ParallelBailoutIterator)
+    UNSAFE_OP(IteratorMore, ParallelBailoutIterator)
+    UNSAFE_OP(IteratorEnd, ParallelBailoutIterator)
     SAFE_OP(StringLength)
-    UNSAFE_OP(ArgumentsLength)
-    UNSAFE_OP(GetArgument)
-    UNSAFE_OP(RunOncePrologue)
+    UNSAFE_OP(ArgumentsLength, ParallelBailoutArgumentsObject)
+    UNSAFE_OP(GetArgument, ParallelBailoutArgumentsObject)
+    UNSAFE_OP(RunOncePrologue, ParallelBailoutUnsupported)
     CUSTOM_OP(Rest)
     SAFE_OP(ParRest)
     SAFE_OP(Floor)
     SAFE_OP(Round)
-    UNSAFE_OP(InstanceOf)
+    UNSAFE_OP(InstanceOf, ParallelBailoutInstanceOf)
     CUSTOM_OP(InterruptCheck)
     SAFE_OP(ParSlice)
     SAFE_OP(ParNew)
@@ -255,20 +262,20 @@ class ParallelArrayVisitor : public MInstructionVisitor
     SAFE_OP(ParLambda)
     SAFE_OP(ParDump)
     SAFE_OP(ParBailout)
-    UNSAFE_OP(ArrayConcat)
-    UNSAFE_OP(GetDOMProperty)
-    UNSAFE_OP(SetDOMProperty)
-    UNSAFE_OP(NewStringObject)
-    UNSAFE_OP(Random)
-    UNSAFE_OP(Pow)
-    UNSAFE_OP(PowHalf)
-    UNSAFE_OP(RegExpTest)
-    UNSAFE_OP(CallInstanceOf)
-    UNSAFE_OP(FunctionBoundary)
-    UNSAFE_OP(GuardString)
-    UNSAFE_OP(NewDeclEnvObject)
-    UNSAFE_OP(In)
-    UNSAFE_OP(InArray)
+    UNSAFE_OP(ArrayConcat, ParallelBailoutArrayMutation)
+    UNSAFE_OP(GetDOMProperty, ParallelBailoutDOM)
+    UNSAFE_OP(SetDOMProperty, ParallelBailoutDOM)
+    UNSAFE_OP(NewStringObject, ParallelBailoutStringOp)
+    UNSAFE_OP(Random, ParallelBailoutRandom)
+    SAFE_OP(Pow)
+    SAFE_OP(PowHalf)
+    UNSAFE_OP(RegExpTest, ParallelBailoutRegexOp)
+    UNSAFE_OP(CallInstanceOf, ParallelBailoutInstanceOf)
+    UNSAFE_OP(FunctionBoundary, ParallelBailoutUnsupported)
+    UNSAFE_OP(GuardString, ParallelBailoutUnsupported)
+    UNSAFE_OP(NewDeclEnvObject, ParallelBailoutUnsupported)
+    UNSAFE_OP(In, ParallelBailoutIn)
+    UNSAFE_OP(InArray, ParallelBailoutIn)
     SAFE_OP(ParWriteGuard)
     SAFE_OP(ParCheckInterrupt)
     SAFE_OP(ParCheckOverRecursed)
@@ -276,26 +283,27 @@ class ParallelArrayVisitor : public MInstructionVisitor
     SAFE_OP(FunctionDispatch)
     SAFE_OP(TypeObjectDispatch)
     SAFE_OP(IsCallable)
-    UNSAFE_OP(EffectiveAddress)
-    UNSAFE_OP(AsmJSUnsignedToDouble)
-    UNSAFE_OP(AsmJSNeg)
-    UNSAFE_OP(AsmJSUDiv)
-    UNSAFE_OP(AsmJSUMod)
-    UNSAFE_OP(AsmJSLoadHeap)
-    UNSAFE_OP(AsmJSStoreHeap)
-    UNSAFE_OP(AsmJSLoadGlobalVar)
-    UNSAFE_OP(AsmJSStoreGlobalVar)
-    UNSAFE_OP(AsmJSLoadFuncPtr)
-    UNSAFE_OP(AsmJSLoadFFIFunc)
-    UNSAFE_OP(AsmJSReturn)
-    UNSAFE_OP(AsmJSVoidReturn)
-    UNSAFE_OP(AsmJSPassStackArg)
-    UNSAFE_OP(AsmJSParameter)
-    UNSAFE_OP(AsmJSCall)
-    UNSAFE_OP(AsmJSCheckOverRecursed)
+    SAFE_OP(EffectiveAddress)
+    SAFE_OP(AsmJSUnsignedToDouble)
+    SAFE_OP(AsmJSNeg)
+    SAFE_OP(AsmJSUDiv)
+    SAFE_OP(AsmJSUMod)
+    SAFE_OP(AsmJSLoadHeap)
+    SAFE_OP(AsmJSStoreHeap)
+    SAFE_OP(AsmJSLoadGlobalVar)
+    SAFE_OP(AsmJSStoreGlobalVar)
+    SAFE_OP(AsmJSLoadFuncPtr)
+    SAFE_OP(AsmJSLoadFFIFunc)
+    SAFE_OP(AsmJSReturn)
+    SAFE_OP(AsmJSVoidReturn)
+    SAFE_OP(AsmJSPassStackArg)
+    SAFE_OP(AsmJSParameter)
+    UNSAFE_OP(AsmJSCall, ParallelBailoutUnsupported)
+    SAFE_OP(AsmJSCheckOverRecursed)
 
-    // It looks like this could easily be made safe:
-    UNSAFE_OP(ConvertElementsToDoubles)
+    // ConvertElementsToDoubles optimization is disabled in par exec
+    // mode, so we don't expect to encounter this op.
+    UNEXPECTED_OP(ConvertElementsToDoubles)
 };
 
 bool
@@ -323,7 +331,7 @@ ParallelArrayAnalysis::analyze()
             // block.
             MInstruction *instr = NULL;
             for (MInstructionIterator ins(block->begin());
-                 ins != block->end() && !visitor.unsafe();)
+                 ins != block->end() && !visitor.isUnsafe();)
             {
                 if (mir_->shouldCancel("ParallelArrayAnalysis"))
                     return false;
@@ -340,7 +348,7 @@ ParallelArrayAnalysis::analyze()
                 }
             }
 
-            if (!visitor.unsafe()) {
+            if (!visitor.isUnsafe()) {
                 // Count the number of reachable blocks.
                 marked++;
 
@@ -447,7 +455,7 @@ ParallelArrayVisitor::visitTest(MTest *)
 bool
 ParallelArrayVisitor::convertToBailout(MBasicBlock *block, MInstruction *ins)
 {
-    JS_ASSERT(unsafe()); // `block` must have contained unsafe items
+    JS_ASSERT(isUnsafe()); // `block` must have contained unsafe items
     JS_ASSERT(block->isMarked()); // `block` must have been reachable to get here
 
     // Clear the unsafe flag for subsequent blocks.
@@ -472,7 +480,8 @@ ParallelArrayVisitor::convertToBailout(MBasicBlock *block, MInstruction *ins)
 
         // create bailout block to insert on this edge
         MBasicBlock *bailBlock = MBasicBlock::NewParBailout(graph_, block->info(), pred,
-                                                            block->pc(), block->entryResumePoint());
+                                                            block->pc(), block->entryResumePoint(),
+                                                            unsafeCause());
         if (!bailBlock)
             return false;
 
@@ -529,7 +538,7 @@ ParallelArrayVisitor::visitLambda(MLambda *ins)
         types::UseNewTypeForClone(ins->fun()))
     {
         // slow path: bail on parallel execution.
-        return markUnsafe();
+        return markUnsafe(ParallelBailoutAllocation);
     }
 
     // fast path: replace with ParLambda op
@@ -543,7 +552,7 @@ ParallelArrayVisitor::visitNewObject(MNewObject *newInstruction)
 {
     if (newInstruction->shouldUseVM()) {
         SpewMIR(newInstruction, "should use VM");
-        return markUnsafe();
+        return markUnsafe(ParallelBailoutAllocation);
     }
 
     return replaceWithParNew(newInstruction,
@@ -555,7 +564,7 @@ ParallelArrayVisitor::visitNewArray(MNewArray *newInstruction)
 {
     if (newInstruction->shouldUseVM()) {
         SpewMIR(newInstruction, "should use VM");
-        return markUnsafe();
+        return markUnsafe(ParallelBailoutAllocation);
     }
 
     return replaceWithParNew(newInstruction,
@@ -635,7 +644,7 @@ ParallelArrayVisitor::insertWriteGuard(MInstruction *writeInstruction,
           default:
             SpewMIR(writeInstruction, "cannot insert write guard for %s",
                     valueBeingWritten->opName());
-            return markUnsafe();
+            return markUnsafe(ParallelBailoutWriteGuard);
         }
         break;
 
@@ -652,14 +661,14 @@ ParallelArrayVisitor::insertWriteGuard(MInstruction *writeInstruction,
           default:
             SpewMIR(writeInstruction, "cannot insert write guard for %s",
                     valueBeingWritten->opName());
-            return markUnsafe();
+            return markUnsafe(ParallelBailoutWriteGuard);
         }
         break;
 
       default:
         SpewMIR(writeInstruction, "cannot insert write guard for MIR Type %d",
                 valueBeingWritten->type());
-        return markUnsafe();
+        return markUnsafe(ParallelBailoutWriteGuard);
     }
 
     if (object->isUnbox())
@@ -693,7 +702,7 @@ ParallelArrayVisitor::visitCall(MCall *ins)
     // DOM? Scary.
     if (ins->isDOMFunction()) {
         SpewMIR(ins, "call to dom function");
-        return markUnsafe();
+        return markUnsafe(ParallelBailoutDOM);
     }
 
     RootedFunction target(cx_, ins->getSingleTarget());
@@ -701,14 +710,14 @@ ParallelArrayVisitor::visitCall(MCall *ins)
         // Native? Scary.
         if (target->isNative()) {
             SpewMIR(ins, "call to native function");
-            return markUnsafe();
+            return markUnsafe(ParallelBailoutNative);
         }
         return true;
     }
 
     if (ins->isConstructing()) {
         SpewMIR(ins, "call to unknown constructor");
-        return markUnsafe();
+        return markUnsafe(ParallelBailoutConstructor);
     }
 
     return true;
@@ -754,7 +763,7 @@ ParallelArrayVisitor::visitSpecializedInstruction(MInstruction *ins, MIRType spe
         return true;
 
     SpewMIR(ins, "specialized to unacceptable type %d", spec);
-    return markUnsafe();
+    return markUnsafe(ParallelBailoutUnspecialized);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -766,7 +775,7 @@ ParallelArrayVisitor::visitThrow(MThrow *thr)
     MBasicBlock *block = thr->block();
     JS_ASSERT(block->lastIns() == thr);
     block->discardLastIns();
-    MParBailout *bailout = new MParBailout();
+    MParBailout *bailout = new MParBailout(ParallelBailoutException);
     if (!bailout)
         return false;
     block->end(bailout);

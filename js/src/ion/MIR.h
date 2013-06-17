@@ -1223,14 +1223,21 @@ class MParNew : public MUnaryInstruction
 // Could be allocating either a new array or a new object.
 class MParBailout : public MAryControlInstruction<0, 0>
 {
+    const ParallelBailoutCause cause_;
+
   public:
     INSTRUCTION_HEADER(ParBailout);
 
-    MParBailout()
-      : MAryControlInstruction<0, 0>()
+    MParBailout(ParallelBailoutCause cause)
+      : MAryControlInstruction<0, 0>(),
+        cause_(cause)
     {
         setResultType(MIRType_Undefined);
         setGuard();
+    }
+
+    ParallelBailoutCause cause() {
+        return cause_;
     }
 };
 

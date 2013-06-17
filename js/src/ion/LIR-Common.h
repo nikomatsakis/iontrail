@@ -498,6 +498,10 @@ class LParBailout : public LInstructionHelper<0, 0, 0>
 {
   public:
     LIR_HEADER(ParBailout);
+
+    MParBailout *mir() const {
+        return mir_->toParBailout();
+    }
 };
 
 class LInitElem : public LCallInstructionHelper<0, 1 + 2*BOX_PIECES, 0>

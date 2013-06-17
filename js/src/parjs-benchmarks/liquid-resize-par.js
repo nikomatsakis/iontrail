@@ -324,8 +324,8 @@ function detectEdgesPar(image) {
       }
     }
 
-    var result = (Math.abs(totalX) + Math.abs(totalY))/8.0 | 0;
-    return result;
+    var result = (Math.abs(totalX) + Math.abs(totalY))/8.0;
+    return result | 0;
   });
 }
 
@@ -336,7 +336,7 @@ function cutPathHorizontallyBWPar(image, path) {
     if (x < path[y]-1)
       return image.get(y, x);
     if (x == path[y]-1)
-      return (image.get(y, x) + image.get(y, x+1)) / 2 | 0;
+      return ((image.get(y, x) + image.get(y, x+1)) / 2) | 0;
     else
       return image.get(y, x+1);
   });

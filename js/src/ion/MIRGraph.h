@@ -78,7 +78,8 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
     static MBasicBlock *NewSplitEdge(MIRGraph &graph, CompileInfo &info, MBasicBlock *pred);
     static MBasicBlock *NewParBailout(MIRGraph &graph, CompileInfo &info,
                                       MBasicBlock *pred, jsbytecode *entryPc,
-                                      MResumePoint *resumePoint);
+                                      MResumePoint *resumePoint,
+                                      ParallelBailoutCause cause);
 
     bool dominates(MBasicBlock *other);
 

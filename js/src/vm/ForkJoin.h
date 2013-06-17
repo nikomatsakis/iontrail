@@ -233,6 +233,9 @@ enum ParallelResult { TP_SUCCESS, TP_RETRY_SEQUENTIALLY, TP_RETRY_AFTER_GC, TP_F
 enum ParallelBailoutCause {
     ParallelBailoutNone,
 
+    ///////////////////////////////////////////////////////////////////////////
+    // Meta errors
+
     // compiler returned Method_Skipped
     ParallelBailoutCompilationSkipped,
 
@@ -255,11 +258,39 @@ enum ParallelBailoutCause {
     ParallelBailoutAccessToIntrinsic,
     ParallelBailoutOverRecursed,
     ParallelBailoutOutOfMemory,
-    ParallelBailoutUnsupported,
-    ParallelBailoutUnsupportedStringComparison,
-    ParallelBailoutUnsupportedSparseArray,
     ParallelBailoutRequestedGC,
     ParallelBailoutRequestedZoneGC,
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Features that we don't support in parallel mode and may never support:
+
+    ParallelBailoutUnsupported,     // Not well categorized
+    ParallelBailoutException,       // Exception was thrown
+    ParallelBailoutArgumentsObject, // Access to F.arguments
+    ParallelBailoutApply,           // Access to F.apply
+    ParallelBailoutEval,            // Access to eval
+    ParallelBailoutTypeOf,          // Access to typeof
+    ParallelBailoutRegexOp,         // Access to string ops
+    ParallelBailoutDOM,             // Access to DOM function
+    ParallelBailoutNative,          // Access to native function
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Features that we don't support in parallel mode but we really ought to:
+
+    ParallelBailoutAllocation,      // Allocations often fail in the hard cases
+    ParallelBailoutConstructor,     // Some elements of constructors
+    ParallelBailoutUnspecialized,   // Unspecialized math operation
+    ParallelBailoutSparseArray,     // Assignment that would create sparse array
+    ParallelBailoutStringOp,        // Access to string ops
+    ParallelBailoutWriteGuard,      // Unable to insert write guard
+    ParallelBailoutElement,         // Insufficient TI to use `[]` syntax
+    ParallelBailoutArrayMutation,   //
+    ParallelBailoutClampToUInt8,    //
+    ParallelBailoutIterator,
+    ParallelBailoutPropertyIC,      //
+    ParallelBailoutInstanceOf,      //
+    ParallelBailoutRandom,          //
+    ParallelBailoutIn,              //
 };
 
 struct ParallelBailoutTrace {

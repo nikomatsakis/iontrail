@@ -995,19 +995,61 @@ BailoutExplanation(ParallelBailoutCause cause)
         return "over recursed";
       case ParallelBailoutOutOfMemory:
         return "out of memory";
-      case ParallelBailoutUnsupported:
-        return "unsupported";
-      case ParallelBailoutUnsupportedStringComparison:
-        return "unsupported string comparison";
-      case ParallelBailoutUnsupportedSparseArray:
-        return "unsupported sparse array";
       case ParallelBailoutRequestedGC:
         return "requested GC";
       case ParallelBailoutRequestedZoneGC:
         return "requested zone GC";
-      default:
-        return "no known reason";
+      case ParallelBailoutUnsupported:
+        return "unsupported operation";
+      case ParallelBailoutException:
+        return "exception thrown";
+      case ParallelBailoutArgumentsObject:
+        return "access to arguments object";
+      case ParallelBailoutApply:
+        return "use of Function.apply";
+      case ParallelBailoutEval:
+        return "use of eval";
+      case ParallelBailoutTypeOf:
+        return "typeof operation";
+      case ParallelBailoutRegexOp:
+        return "regular-expression operation";
+      case ParallelBailoutDOM:
+        return "access to DOM object";
+      case ParallelBailoutNative:
+        return "access to unsupported non-JavaScript object";
+      case ParallelBailoutAllocation:
+        return "unsupported allocation";
+      case ParallelBailoutConstructor:
+        return "use of constructor";
+      case ParallelBailoutUnspecialized:
+        return "unspecialized math operation ";
+      case ParallelBailoutSparseArray:
+        return "create sparse array";
+      case ParallelBailoutStringOp:
+        return "string operation";
+      case ParallelBailoutWriteGuard:
+        return "unable to insert write guard";
+      case ParallelBailoutElement:
+        return "use of [] operator on something not known to be an array ";
+      case ParallelBailoutArrayMutation:
+        return "unsupported array mutation operation";
+      case ParallelBailoutClampToUInt8:
+        return "clamp to uint8";
+      case ParallelBailoutIterator:
+        return "iterator operations";
+      case ParallelBailoutPropertyIC:
+        return "property access requires IC";
+      case ParallelBailoutInstanceOf:
+        return "instanceof operation";
+      case ParallelBailoutRandom:
+        return "cannot call random in parallel mode";
+      case ParallelBailoutIn:
+        return "in operator";
+
+        // do not use a default, so that we get warnings from GCC
+        // for missing cases
     }
+    return "no known reason";
 }
 
 void
@@ -1081,9 +1123,10 @@ js::ParallelDo::invalidateBailedOutScripts()
         if (hasScript(invalid, script))
             continue;
 
-        Spew(SpewBailouts, "Invalidating script %p:%s:%d due to cause %d",
+        Spew(SpewBailouts, "Invalidating script %p:%s:%d due to cause %d (%s)",
              script.get(), script->filename(), script->lineno,
-             bailoutRecords_[i].cause);
+             bailoutRecords_[i].cause,
+             BailoutExplanation(bailoutRecords_[i].cause));
 
         types::RecompileInfo co = script->parallelIonScript()->recompileInfo();
 

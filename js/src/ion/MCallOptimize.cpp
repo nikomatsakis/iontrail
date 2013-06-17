@@ -485,28 +485,68 @@ IonBuilder::inlineMathAbs(CallInfo &callInfo)
     if (callInfo.argc() != 1)
         return InliningStatus_NotInlined;
 
-    MIRType returnType = getInlineReturnType();
     MIRType argType = callInfo.getArg(0)->type();
-    if (argType != MIRType_Int32 && argType != MIRType_Double)
-        return InliningStatus_NotInlined;
 
-    if (argType != returnType && returnType != MIRType_Int32)
-        return InliningStatus_NotInlined;
+    MIRType specializationType;
+    if (argType == MIRType_Int32) {
+        specializationType = MIRType_Int32;
+    } else if (argType == MIRType_Double) {
+        JS_ASSERT(getInlineReturnType() == MIRType_Int32);
+        specializationType = MIRType_Double;
+    } else {
+        types::StackTypeSet *inputTypeSet = callInfo.getArg(0)->resultTypeSet();
+        switch (inputTypeSet->getKnownTypeTag()) {
+          case JSVAL_TYPE_INT32:
+            specializationType = MIRType_Int32;
+            break;
+
+          case JSVAL_TYPE_DOUBLE:
+            specializationType = MIRType_Double;
+            break;
+
+          default:
+            return InliningStatus_NotInlined;
+        }
+    }
+
+    MIRType outputType = getInlineReturnType();
+    JS_ASSERT(outputType == MIRType_Double || outputType == MIRType_Int32);
 
     callInfo.unwrapArgs();
 
-    MInstruction *ins = MAbs::New(callInfo.getArg(0), argType);
+    MDefinition *arg = callInfo.getArg(0);
+    arg = convertBetweenDoubleOrInt(arg, specializationType);
+
+    MInstruction *ins = MAbs::New(callInfo.getArg(0), specializationType);
     current->add(ins);
 
-    if (argType != returnType) {
-        MToInt32 *toInt = MToInt32::New(ins);
+    MDefinition *result = convertBetweenDoubleOrInt(ins, outputType);
+    current->push(result);
+    return InliningStatus_Inlined;
+}
+
+MDefinition *
+IonBuilder::convertBetweenDoubleOrInt(MDefinition *ins, MIRType type) {
+    if (ins->type() == type)
+        return ins;
+
+    MToInt32 *toInt;
+    MToDouble *toDouble;
+    switch (type) {
+      case MIRType_Int32:
+        toInt = MToInt32::New(ins);
         toInt->setCanBeNegativeZero(false);
         current->add(toInt);
-        ins = toInt;
-    }
+        return toInt;
 
-    current->push(ins);
-    return InliningStatus_Inlined;
+      case MIRType_Double:
+        toDouble = MToDouble::New(ins);
+        current->add(toDouble);
+        return toDouble;
+
+      default:
+        JS_NOT_REACHED("JSOP_LOOPHEAD outside loop");
+    }
 }
 
 IonBuilder::InliningStatus

@@ -477,6 +477,7 @@ class IonBuilder : public MIRGenerator
 
     // Math natives.
     InliningStatus inlineMathAbs(CallInfo &callInfo);
+    MDefinition *convertBetweenDoubleOrInt(MDefinition *ins, MIRType type);
     InliningStatus inlineMathFloor(CallInfo &callInfo);
     InliningStatus inlineMathRound(CallInfo &callInfo);
     InliningStatus inlineMathSqrt(CallInfo &callInfo);

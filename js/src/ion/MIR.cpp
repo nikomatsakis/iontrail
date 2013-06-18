@@ -1066,6 +1066,15 @@ NeedNegativeZeroCheck(MDefinition *def)
     return false;
 }
 
+void
+MBinaryArithInstruction::printOpcode(FILE *fp)
+{
+    MBinaryInstruction::printOpcode(fp);
+
+    if (isTruncated())
+        fprintf(fp, " [trunc]");
+}
+
 MDefinition *
 MBinaryArithInstruction::foldsTo(bool useValueNumbers)
 {
@@ -1098,6 +1107,21 @@ bool
 MAbs::fallible() const
 {
     return !implicitTruncate_ && (!range() || !range()->isInt32());
+}
+
+void
+MDiv::printOpcode(FILE *fp)
+{
+    MBinaryArithInstruction::printOpcode(fp);
+
+    if (canBeNegativeZero())
+        fprintf(fp, " [-0]");
+
+    if (canBeNegativeOverflow())
+        fprintf(fp, " [-o]");
+
+    if (canBeDivideByZero())
+        fprintf(fp, " [/0]");
 }
 
 MDefinition *

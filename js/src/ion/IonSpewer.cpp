@@ -138,6 +138,8 @@ IonSpewer::isSpewingFunction() const
 void
 IonSpewer::beginFunction(MIRGraph *graph, HandleScript function)
 {
+    static uint32_t counter = 0;
+
     if (!inited_)
         return;
 
@@ -150,6 +152,15 @@ IonSpewer::beginFunction(MIRGraph *graph, HandleScript function)
 
     this->graph = graph;
     this->function = function;
+
+    if (function) {
+        IonSpew(IonSpew_Scripts, "Spew #%d: %s:%d, %p",
+                counter,
+                function->filename(),
+                function->lineno,
+                function.get());
+    }
+    counter++;
 
     c1Spewer.beginFunction(graph, function);
     jsonSpewer.beginFunction(function);

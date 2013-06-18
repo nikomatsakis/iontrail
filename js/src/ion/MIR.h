@@ -2955,6 +2955,8 @@ class MBinaryArithInstruction
     void setTruncated(bool truncate) {
         implicitTruncate_ = truncate;
     }
+
+    virtual void printOpcode(FILE *fp);
 };
 
 class MMinMax
@@ -3463,6 +3465,7 @@ class MDiv : public MBinaryArithInstruction
 
     bool fallible();
     bool truncate();
+    void printOpcode(FILE *fp);
 };
 
 class MMod : public MBinaryArithInstruction

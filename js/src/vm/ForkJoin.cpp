@@ -912,8 +912,9 @@ js::ParallelDo::addToWorklist(HandleScript script)
         }
     }
 
-    Spew(SpewCompile, "Enqueued %p:%s:%u",
-         script.get(), script->filename(), script->lineno);
+    Spew(SpewCompile, "Enqueued %p:%s:%u (baseline=%d, useCount=%d)",
+         script.get(), script->filename(), script->lineno,
+         script->hasBaselineScript(), script->getUseCount());
 
     // Note that we add all possibly compilable functions to the worklist,
     // even if they're already compiled. This is so that we can return

@@ -185,7 +185,8 @@ CodeGenerator::visitValueToInt32(LValueToInt32 *lir)
         masm.branchTestString(Assembler::Equal, tag, &fails);
     }
 
-    if (fails.used() && !bailoutFrom(&fails, lir->snapshot()))
+    if (fails.used() && !bailoutFrom(&fails, lir->snapshot(),
+                                     ParallelBailoutObjectToInt))
         return false;
 
     // The value is null - just emit 0.
@@ -234,7 +235,7 @@ CodeGenerator::visitValueToDouble(LValueToDouble *lir)
         }
     }
 
-    if (!bailout(lir->snapshot()))
+    if (!bailout(lir->snapshot(), ParallelBailoutObjectToDouble))
         return false;
 
     if (hasNull) {
@@ -280,7 +281,7 @@ CodeGenerator::visitDoubleToInt32(LDoubleToInt32 *lir)
     FloatRegister input = ToFloatRegister(lir->input());
     Register output = ToRegister(lir->output());
     masm.convertDoubleToInt32(input, output, &fail, lir->mir()->canBeNegativeZero());
-    if (!bailoutFrom(&fail, lir->snapshot()))
+    if (!bailoutFrom(&fail, lir->snapshot(), ParallelBailoutNegativeZero))
         return false;
     return true;
 }
@@ -961,7 +962,7 @@ CodeGenerator::emitGetPropertyPolymorphic(LInstruction *ins, Register obj, Regis
     }
 
     // Bailout if no shape matches.
-    if (!bailout(ins->snapshot()))
+    if (!bailout(ins->snapshot(), ParallelBailoutUnexpectedShape))
         return false;
 
     masm.bind(&done);
@@ -1022,7 +1023,7 @@ CodeGenerator::emitSetPropertyPolymorphic(LInstruction *ins, Register obj, Regis
     }
 
     // Bailout if no shape matches.
-    if (!bailout(ins->snapshot()))
+    if (!bailout(ins->snapshot(), ParallelBailoutUnexpectedShape))
         return false;
 
     masm.bind(&done);
@@ -1144,7 +1145,7 @@ CodeGenerator::visitTypeBarrier(LTypeBarrier *lir)
     Label matched, miss;
     masm.guardTypeSet(operand, lir->mir()->resultTypeSet(), scratch, &matched, &miss);
     masm.jump(&miss);
-    if (!bailoutFrom(&miss, lir->snapshot()))
+    if (!bailoutFrom(&miss, lir->snapshot(), ParallelBailoutTypeGuard))
         return false;
     masm.bind(&matched);
     return true;
@@ -1159,7 +1160,7 @@ CodeGenerator::visitMonitorTypes(LMonitorTypes *lir)
     Label matched, miss;
     masm.guardTypeSet(operand, lir->mir()->typeSet(), scratch, &matched, &miss);
     masm.jump(&miss);
-    if (!bailoutFrom(&miss, lir->snapshot()))
+    if (!bailoutFrom(&miss, lir->snapshot(), ParallelBailoutMonitorTypes))
         return false;
     masm.bind(&matched);
     return true;
@@ -1553,7 +1554,8 @@ CodeGenerator::visitCallGeneric(LCallGeneric *call)
     // Guard that calleereg is actually a function object.
     masm.loadObjClass(calleereg, nargsreg);
     masm.cmpPtr(nargsreg, ImmWord(&js::FunctionClass));
-    if (!bailoutIf(Assembler::NotEqual, call->snapshot()))
+    if (!bailoutIf(Assembler::NotEqual, call->snapshot(),
+                   ParallelBailoutCallNonFunc))
         return false;
 
     // Guard that calleereg is an interpreted function with a JSScript:
@@ -1876,7 +1878,8 @@ CodeGenerator::visitApplyArgsGeneric(LApplyArgsGeneric *apply)
     if (!apply->hasSingleTarget()) {
         masm.loadObjClass(calleereg, objreg);
         masm.cmpPtr(objreg, ImmWord(&js::FunctionClass));
-        if (!bailoutIf(Assembler::NotEqual, apply->snapshot()))
+        if (!bailoutIf(Assembler::NotEqual, apply->snapshot(),
+                       ParallelBailoutApplyToNonFunc))
             return false;
     }
 
@@ -2015,7 +2018,7 @@ CodeGenerator::visitGetDynamicName(LGetDynamicName *lir)
     masm.adjustStack(sizeof(Value));
 
     Assembler::Condition cond = masm.testUndefined(Assembler::Equal, out);
-    return bailoutIf(cond, lir->snapshot());
+    return bailoutIf(cond, lir->snapshot(), ParallelBailoutUndefinedName);
 }
 
 bool
@@ -2034,7 +2037,7 @@ CodeGenerator::visitFilterArguments(LFilterArguments *lir)
 
     Label bail;
     masm.branch32(Assembler::Equal, ReturnReg, Imm32(0), &bail);
-    return bailoutFrom(&bail, lir->snapshot());
+    return bailoutFrom(&bail, lir->snapshot(), ParallelBailoutFilterArguments);
 }
 
 typedef bool (*DirectEvalFn)(JSContext *, HandleObject, HandleScript, HandleValue, HandleString,
@@ -2094,7 +2097,8 @@ CodeGenerator::generateArgumentsChecks()
         masm.bind(&matched);
     }
 
-    if (miss.used() && !bailoutFrom(&miss, graph.entrySnapshot()))
+    if (miss.used() && !bailoutFrom(&miss, graph.entrySnapshot(),
+                                    ParallelBailoutArgTypeGuard))
         return false;
 
     masm.freeStack(frameSize());
@@ -2639,7 +2643,8 @@ CodeGenerator::visitNewSlots(LNewSlots *lir)
     masm.callWithABI(JS_FUNC_TO_DATA_PTR(void *, NewSlots));
 
     masm.testPtr(output, output);
-    if (!bailoutIf(Assembler::Zero, lir->snapshot()))
+    if (!bailoutIf(Assembler::Zero, lir->snapshot(),
+                   ParallelBailoutNewSlots))
         return false;
 
     return true;
@@ -3318,7 +3323,8 @@ CodeGenerator::visitAbsI(LAbsI *ins)
     masm.test32(input, input);
     masm.j(Assembler::GreaterThanOrEqual, &positive);
     masm.neg32(input);
-    if (ins->snapshot() && !bailoutIf(Assembler::Overflow, ins->snapshot()))
+    if (ins->snapshot() && !bailoutIf(Assembler::Overflow, ins->snapshot(),
+                                      ParallelBailoutIntOverflow))
         return false;
     masm.bind(&positive);
 
@@ -4198,17 +4204,20 @@ CodeGenerator::visitBoundsCheck(LBoundsCheck *lir)
             uint32_t length = ToInt32(lir->length());
             if (index < length)
                 return true;
-            return bailout(lir->snapshot());
+            return bailout(lir->snapshot(), ParallelBailoutBoundsCheck);
         }
         masm.cmp32(ToOperand(lir->length()), Imm32(index));
-        return bailoutIf(Assembler::BelowOrEqual, lir->snapshot());
+        return bailoutIf(Assembler::BelowOrEqual, lir->snapshot(),
+                         ParallelBailoutBoundsCheck);
     }
     if (lir->length()->isConstant()) {
         masm.cmp32(ToRegister(lir->index()), Imm32(ToInt32(lir->length())));
-        return bailoutIf(Assembler::AboveOrEqual, lir->snapshot());
+        return bailoutIf(Assembler::AboveOrEqual, lir->snapshot(),
+                         ParallelBailoutBoundsCheck);
     }
     masm.cmp32(ToOperand(lir->length()), ToRegister(lir->index()));
-    return bailoutIf(Assembler::BelowOrEqual, lir->snapshot());
+    return bailoutIf(Assembler::BelowOrEqual, lir->snapshot(),
+                     ParallelBailoutBoundsCheck);
 }
 
 bool
@@ -4224,7 +4233,8 @@ CodeGenerator::visitBoundsCheckRange(LBoundsCheckRange *lir)
         int32_t index = ToInt32(lir->index());
         if (SafeAdd(index, min, &nmin) && SafeAdd(index, max, &nmax) && nmin >= 0) {
             masm.cmp32(ToOperand(lir->length()), Imm32(nmax));
-            return bailoutIf(Assembler::BelowOrEqual, lir->snapshot());
+            return bailoutIf(Assembler::BelowOrEqual, lir->snapshot(),
+                             ParallelBailoutBoundsCheck);
         }
         masm.mov(Imm32(index), temp);
     } else {
@@ -4237,7 +4247,8 @@ CodeGenerator::visitBoundsCheckRange(LBoundsCheckRange *lir)
     if (min != max) {
         if (min != 0) {
             masm.add32(Imm32(min), temp);
-            if (!bailoutIf(Assembler::Overflow, lir->snapshot()))
+            if (!bailoutIf(Assembler::Overflow, lir->snapshot(),
+                           ParallelBailoutBoundsCheck))
                 return false;
             int32_t diff;
             if (SafeSub(max, min, &diff))
@@ -4247,7 +4258,8 @@ CodeGenerator::visitBoundsCheckRange(LBoundsCheckRange *lir)
         }
 
         masm.cmp32(temp, Imm32(0));
-        if (!bailoutIf(Assembler::LessThan, lir->snapshot()))
+        if (!bailoutIf(Assembler::LessThan, lir->snapshot(),
+                       ParallelBailoutBoundsCheck))
             return false;
     }
 
@@ -4258,12 +4270,14 @@ CodeGenerator::visitBoundsCheckRange(LBoundsCheckRange *lir)
     // would succeed on any nonnegative index).
     if (max != 0) {
         masm.add32(Imm32(max), temp);
-        if (max < 0 && !bailoutIf(Assembler::Overflow, lir->snapshot()))
+        if (max < 0 && !bailoutIf(Assembler::Overflow, lir->snapshot(),
+                                  ParallelBailoutBoundsCheck))
             return false;
     }
 
     masm.cmp32(ToOperand(lir->length()), temp);
-    return bailoutIf(Assembler::BelowOrEqual, lir->snapshot());
+    return bailoutIf(Assembler::BelowOrEqual, lir->snapshot(),
+                     ParallelBailoutBoundsCheck);
 }
 
 bool
@@ -4271,7 +4285,8 @@ CodeGenerator::visitBoundsCheckLower(LBoundsCheckLower *lir)
 {
     int32_t min = lir->mir()->minimum();
     masm.cmp32(ToRegister(lir->index()), Imm32(min));
-    return bailoutIf(Assembler::LessThan, lir->snapshot());
+    return bailoutIf(Assembler::LessThan, lir->snapshot(),
+                     ParallelBailoutBoundsCheck);
 }
 
 class OutOfLineStoreElementHole : public OutOfLineCodeBase<CodeGenerator>
@@ -4305,7 +4320,7 @@ CodeGenerator::emitStoreHoleCheck(Register elements, const LAllocation *index, L
         cond = masm.testMagic(Assembler::Equal, Address(elements, ToInt32(index) * sizeof(js::Value)));
     else
         cond = masm.testMagic(Assembler::Equal, BaseIndex(elements, ToRegister(index), TimesEight));
-    return bailoutIf(cond, snapshot);
+    return bailoutIf(cond, snapshot, ParallelBailoutHole);
 }
 
 bool
@@ -5349,7 +5364,7 @@ CodeGenerator::visitOutOfLineUnboxDouble(OutOfLineUnboxDouble *ool)
 
     if (ins->mir()->fallible()) {
         Assembler::Condition cond = masm.testInt32(Assembler::NotEqual, value);
-        if (!bailoutIf(cond, ins->snapshot()))
+        if (!bailoutIf(cond, ins->snapshot(), ParallelBailoutExpectedDouble))
             return false;
     }
     masm.int32ValueToDouble(value, ToFloatRegister(ins->output()));
@@ -6036,7 +6051,7 @@ CodeGenerator::visitLoadElementV(LLoadElementV *load)
 
     if (load->mir()->needsHoleCheck()) {
         Assembler::Condition cond = masm.testMagic(Assembler::Equal, out);
-        if (!bailoutIf(cond, load->snapshot()))
+        if (!bailoutIf(cond, load->snapshot(), ParallelBailoutHole))
             return false;
     }
 
@@ -6093,7 +6108,8 @@ CodeGenerator::visitLoadTypedArrayElement(LLoadTypedArrayElement *lir)
         masm.loadFromTypedArray(arrayType, source, out, temp, &fail);
     }
 
-    if (fail.used() && !bailoutFrom(&fail, lir->snapshot()))
+    if (fail.used() && !bailoutFrom(&fail, lir->snapshot(),
+                                    ParallelBailoutHole))
         return false;
 
     return true;
@@ -6152,7 +6168,8 @@ CodeGenerator::visitLoadTypedArrayElementHole(LLoadTypedArrayElementHole *lir)
                                 out.scratchReg(), &fail);
     }
 
-    if (fail.used() && !bailoutFrom(&fail, lir->snapshot()))
+    if (fail.used() && !bailoutFrom(&fail, lir->snapshot(),
+                                    ParallelBailoutHole))
         return false;
 
     masm.bind(ool->rejoin());
@@ -6301,7 +6318,7 @@ CodeGenerator::visitClampVToUint8(LClampVToUint8 *lir)
     masm.branchTestObject(Assembler::Equal, tag, &isZero);
 
     // Bailout for everything else (strings).
-    if (!bailout(lir->snapshot()))
+    if (!bailout(lir->snapshot(), ParallelBailoutClampString))
         return false;
 
     masm.bind(&isInt32);

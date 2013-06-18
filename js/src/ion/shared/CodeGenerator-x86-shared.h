@@ -26,7 +26,7 @@ class CodeGeneratorX86Shared : public CodeGeneratorShared
     }
 
     template <typename T>
-    bool bailout(const T &t, LSnapshot *snapshot);
+    bool bailout(const T &t, LSnapshot *snapshot, ParallelBailoutCause cause);
 
   protected:
     // Label for the common return path.
@@ -49,9 +49,14 @@ class CodeGeneratorX86Shared : public CodeGeneratorShared
 
     MoveResolver::MoveOperand toMoveOperand(const LAllocation *a) const;
 
-    bool bailoutIf(Assembler::Condition condition, LSnapshot *snapshot);
-    bool bailoutFrom(Label *label, LSnapshot *snapshot);
-    bool bailout(LSnapshot *snapshot);
+    bool bailoutIf(Assembler::Condition condition,
+                   LSnapshot *snapshot,
+                   ParallelBailoutCause cause);
+    bool bailoutFrom(Label *label,
+                     LSnapshot *snapshot,
+                     ParallelBailoutCause cause);
+    bool bailout(LSnapshot *snapshot,
+                 ParallelBailoutCause cause);
 
   protected:
     bool generatePrologue();

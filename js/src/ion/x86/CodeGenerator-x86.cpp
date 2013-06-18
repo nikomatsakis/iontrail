@@ -134,7 +134,8 @@ CodeGeneratorX86::visitUnbox(LUnbox *unbox)
 
     if (mir->fallible()) {
         masm.cmpl(ToOperand(unbox->type()), Imm32(MIRTypeToTag(mir->type())));
-        if (!bailoutIf(Assembler::NotEqual, unbox->snapshot()))
+        if (!bailoutIf(Assembler::NotEqual, unbox->snapshot(),
+                       ParallelBailoutUnboxTypeGuard))
             return false;
     }
     return true;
@@ -201,7 +202,7 @@ CodeGeneratorX86::visitLoadElementT(LLoadElementT *load)
 
     if (load->mir()->needsHoleCheck()) {
         Assembler::Condition cond = masm.testMagic(Assembler::Equal, source);
-        if (!bailoutIf(cond, load->snapshot()))
+        if (!bailoutIf(cond, load->snapshot(), ParallelBailoutHole))
             return false;
     }
 
@@ -256,7 +257,8 @@ CodeGeneratorX86::visitImplicitThis(LImplicitThis *lir)
     masm.cmpPtr(Operand(callee, JSFunction::offsetOfEnvironment()), ImmGCPtr(global));
 
     // TODO: OOL stub path.
-    if (!bailoutIf(Assembler::NotEqual, lir->snapshot()))
+    if (!bailoutIf(Assembler::NotEqual, lir->snapshot(),
+                   ParallelBailoutImplicitThis))
         return false;
 
     masm.moveValue(UndefinedValue(), out);
@@ -446,7 +448,8 @@ CodeGeneratorX86::visitLoadTypedArrayElementStatic(LLoadTypedArrayElementStatic 
     masm.cmpl(ptr, Imm32(mir->length()));
     if (ool)
         masm.j(Assembler::AboveOrEqual, ool->entry());
-    else if (!bailoutIf(Assembler::AboveOrEqual, ins->snapshot()))
+    else if (!bailoutIf(Assembler::AboveOrEqual, ins->snapshot(),
+                        ParallelBailoutHole))
         return false;
 
     Address srcAddr(ptr, (int32_t) mir->base());

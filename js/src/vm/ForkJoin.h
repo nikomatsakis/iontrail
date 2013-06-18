@@ -230,68 +230,107 @@ enum ParallelResult { TP_SUCCESS, TP_RETRY_SEQUENTIALLY, TP_RETRY_AFTER_GC, TP_F
 ///////////////////////////////////////////////////////////////////////////
 // Bailout tracking
 
+#define PARALLEL_BAILOUT_CAUSES(_)                                                      \
+    _(ParallelBailoutNone),                                                             \
+                                                                                        \
+    /* Meta errors */                                                                   \
+                                                                                        \
+    /* compiler returned Method_Skipped */                                              \
+    _(ParallelBailoutCompilationSkipped),                                               \
+                                                                                        \
+    /* compiler returned Method_CantCompile */                                          \
+    _(ParallelBailoutCompilationFailure),                                               \
+                                                                                        \
+    /* the periodic interrupt failed, which can mean that either */                     \
+    /* another thread canceled, the user interrupted us, etc */                         \
+    _(ParallelBailoutInterrupt),                                                        \
+                                                                                        \
+    /* an IC update failed */                                                           \
+    _(ParallelBailoutFailedIC),                                                         \
+                                                                                        \
+    /* Heap busy flag was set during interrupt */                                       \
+    _(ParallelBailoutHeapBusy),                                                         \
+                                                                                        \
+    _(ParallelBailoutMainScriptNotPresent),                                             \
+    _(ParallelBailoutCalledToUncompiledScript),                                         \
+    _(ParallelBailoutIllegalWrite),                                                     \
+    _(ParallelBailoutAccessToIntrinsic),                                                \
+    _(ParallelBailoutOverRecursed),                                                     \
+    _(ParallelBailoutOutOfMemory),                                                      \
+    _(ParallelBailoutRequestedGC),                                                      \
+    _(ParallelBailoutRequestedZoneGC),                                                  \
+                                                                                        \
+    /***************************************************************************/       \
+    /* Features that we don't support in parallel mode and may never support: */        \
+                                                                                        \
+    _(ParallelBailoutUnsupported),     /* Not well categorized */                       \
+    _(ParallelBailoutException),       /* Exception was thrown */                       \
+    _(ParallelBailoutArgumentsObject), /* Access to F.arguments */                      \
+    _(ParallelBailoutApply),           /* Access to F.apply */                          \
+    _(ParallelBailoutEval),            /* Access to eval */                             \
+    _(ParallelBailoutTypeOf),          /* Access to typeof */                           \
+    _(ParallelBailoutRegexOp),         /* Access to string ops */                       \
+    _(ParallelBailoutDOM),             /* Access to DOM function */                     \
+    _(ParallelBailoutNative),          /* Access to native function */                  \
+                                                                                        \
+    /***************************************************************************/       \
+    /* Standard ion bailouts */                                                         \
+    /* */                                                                               \
+    /* These all represent (what we believe to be) transient */                         \
+    /* conditions.  We can often gloss over the details in present */                   \
+    /* such errors to the user, though it is useful to have the */                      \
+    /* precise cause sometimes (for example, in bug reports). */                        \
+                                                                                        \
+    _(ParallelBailoutObjectToInt),     /* ValueToInt32 encountered source */            \
+    _(ParallelBailoutObjectToDouble),  /* ValueToDouble encountered source */           \
+    _(ParallelBailoutNegativeZero),    /* -0 encountered */                             \
+    _(ParallelBailoutUnexpectedShape), /* */                                            \
+    _(ParallelBailoutUnexpectedObject),/* */                                            \
+    _(ParallelBailoutUnexpectedClass), /* */                                            \
+    _(ParallelBailoutTypeGuard),       /* */                                            \
+    _(ParallelBailoutArgTypeGuard),    /* Type guard applied to a func arg */           \
+    _(ParallelBailoutUnboxTypeGuard),  /* Type guard as part of an unbox */             \
+    _(ParallelBailoutMonitorTypes),    /* */                                            \
+    _(ParallelBailoutApplyToNonFunc),  /* F.Apply(x) where x is not a func */           \
+    _(ParallelBailoutCallNonFunc),     /* f(x) where f is not a func */                 \
+    _(ParallelBailoutUndefinedName),   /* Access to global `x` that is not defined */   \
+    _(ParallelBailoutFilterArguments), /* Dynamic failure applying FilterArguments */   \
+    _(ParallelBailoutNewSlots),        /* Dynamic failure applying NewSlots */          \
+    _(ParallelBailoutIntOverflow),     /* */                                            \
+    _(ParallelBailoutBoundsCheck),     /* */                                            \
+    _(ParallelBailoutHole),            /* x[i] where i was not defined */               \
+    _(ParallelBailoutExpectedDouble),  /* UnboxDouble encountered a non-double */       \
+    _(ParallelBailoutExpectedInt),     /* Expected an integer result */                 \
+    _(ParallelBailoutClampString),     /* Attempt to clamp a string to uint8 */         \
+    _(ParallelBailoutDivideByZero),    /* Attempt to clamp a string to uint8 */         \
+    _(ParallelBailoutRoundNegZero),    /* Round should yield -0 */                      \
+    _(ParallelBailoutImplicitThis),    /* */                                            \
+                                                                                        \
+    /***************************************************************************/       \
+    /* Features that we don't support in parallel mode but we really ought to: */       \
+                                                                                        \
+    _(ParallelBailoutAllocation),      /* Allocations often fail in the hard cases */   \
+    _(ParallelBailoutConstructor),     /* Some elements of constructors */              \
+    _(ParallelBailoutUnspecialized),   /* Unspecialized math operation */               \
+    _(ParallelBailoutSparseArray),     /* Assignment that would create sparse array */  \
+    _(ParallelBailoutStringOp),        /* Access to string ops */                       \
+    _(ParallelBailoutWriteGuard),      /* Unable to insert write guard */               \
+    _(ParallelBailoutElement),         /* Insufficient TI to use `[]` syntax */         \
+    _(ParallelBailoutArrayMutation),   /* */                                            \
+    _(ParallelBailoutClampToUInt8),    /* */                                            \
+    _(ParallelBailoutIterator),                                                         \
+    _(ParallelBailoutPropertyIC),      /* */                                            \
+    _(ParallelBailoutInstanceOf),      /* */                                            \
+    _(ParallelBailoutRandom),          /* */                                            \
+    _(ParallelBailoutIn)               /* */
+
 enum ParallelBailoutCause {
-    ParallelBailoutNone,
-
-    ///////////////////////////////////////////////////////////////////////////
-    // Meta errors
-
-    // compiler returned Method_Skipped
-    ParallelBailoutCompilationSkipped,
-
-    // compiler returned Method_CantCompile
-    ParallelBailoutCompilationFailure,
-
-    // the periodic interrupt failed, which can mean that either
-    // another thread canceled, the user interrupted us, etc
-    ParallelBailoutInterrupt,
-
-    // an IC update failed
-    ParallelBailoutFailedIC,
-
-    // Heap busy flag was set during interrupt
-    ParallelBailoutHeapBusy,
-
-    ParallelBailoutMainScriptNotPresent,
-    ParallelBailoutCalledToUncompiledScript,
-    ParallelBailoutIllegalWrite,
-    ParallelBailoutAccessToIntrinsic,
-    ParallelBailoutOverRecursed,
-    ParallelBailoutOutOfMemory,
-    ParallelBailoutRequestedGC,
-    ParallelBailoutRequestedZoneGC,
-
-    ///////////////////////////////////////////////////////////////////////////
-    // Features that we don't support in parallel mode and may never support:
-
-    ParallelBailoutUnsupported,     // Not well categorized
-    ParallelBailoutException,       // Exception was thrown
-    ParallelBailoutArgumentsObject, // Access to F.arguments
-    ParallelBailoutApply,           // Access to F.apply
-    ParallelBailoutEval,            // Access to eval
-    ParallelBailoutTypeOf,          // Access to typeof
-    ParallelBailoutRegexOp,         // Access to string ops
-    ParallelBailoutDOM,             // Access to DOM function
-    ParallelBailoutNative,          // Access to native function
-
-    ///////////////////////////////////////////////////////////////////////////
-    // Features that we don't support in parallel mode but we really ought to:
-
-    ParallelBailoutAllocation,      // Allocations often fail in the hard cases
-    ParallelBailoutConstructor,     // Some elements of constructors
-    ParallelBailoutUnspecialized,   // Unspecialized math operation
-    ParallelBailoutSparseArray,     // Assignment that would create sparse array
-    ParallelBailoutStringOp,        // Access to string ops
-    ParallelBailoutWriteGuard,      // Unable to insert write guard
-    ParallelBailoutElement,         // Insufficient TI to use `[]` syntax
-    ParallelBailoutArrayMutation,   //
-    ParallelBailoutClampToUInt8,    //
-    ParallelBailoutIterator,
-    ParallelBailoutPropertyIC,      //
-    ParallelBailoutInstanceOf,      //
-    ParallelBailoutRandom,          //
-    ParallelBailoutIn,              //
+#define PARALLEL_BAILOUT_ENUM(x) x
+    PARALLEL_BAILOUT_CAUSES(PARALLEL_BAILOUT_ENUM)
+#undef PARALLEL_BAILOUT_ENUM
 };
+
+extern const char *ParallelBailoutCauseStrings[];
 
 struct ParallelBailoutTrace {
     JSScript *script;

@@ -968,90 +968,10 @@ js::ParallelDo::fatalError(ExecutionStatus *status)
     return RedLight;
 }
 
-static const char *
-BailoutExplanation(ParallelBailoutCause cause)
-{
-    switch (cause) {
-      case ParallelBailoutNone:
-        return "no particular reason";
-      case ParallelBailoutCompilationSkipped:
-        return "compilation failed (method skipped)";
-      case ParallelBailoutCompilationFailure:
-        return "compilation failed";
-      case ParallelBailoutInterrupt:
-        return "interrupted";
-      case ParallelBailoutFailedIC:
-        return "at runtime, the behavior changed, invalidating compiled code (IC update)";
-      case ParallelBailoutHeapBusy:
-        return "heap busy flag set during interrupt";
-      case ParallelBailoutMainScriptNotPresent:
-        return "main script not present";
-      case ParallelBailoutCalledToUncompiledScript:
-        return "called to uncompiled script";
-      case ParallelBailoutIllegalWrite:
-        return "illegal write";
-      case ParallelBailoutAccessToIntrinsic:
-        return "access to intrinsic";
-      case ParallelBailoutOverRecursed:
-        return "over recursed";
-      case ParallelBailoutOutOfMemory:
-        return "out of memory";
-      case ParallelBailoutRequestedGC:
-        return "requested GC";
-      case ParallelBailoutRequestedZoneGC:
-        return "requested zone GC";
-      case ParallelBailoutUnsupported:
-        return "unsupported operation";
-      case ParallelBailoutException:
-        return "exception thrown";
-      case ParallelBailoutArgumentsObject:
-        return "access to arguments object";
-      case ParallelBailoutApply:
-        return "use of Function.apply";
-      case ParallelBailoutEval:
-        return "use of eval";
-      case ParallelBailoutTypeOf:
-        return "typeof operation";
-      case ParallelBailoutRegexOp:
-        return "regular-expression operation";
-      case ParallelBailoutDOM:
-        return "access to DOM object";
-      case ParallelBailoutNative:
-        return "access to unsupported non-JavaScript object";
-      case ParallelBailoutAllocation:
-        return "unsupported allocation";
-      case ParallelBailoutConstructor:
-        return "use of constructor";
-      case ParallelBailoutUnspecialized:
-        return "unspecialized math operation ";
-      case ParallelBailoutSparseArray:
-        return "create sparse array";
-      case ParallelBailoutStringOp:
-        return "string operation";
-      case ParallelBailoutWriteGuard:
-        return "unable to insert write guard";
-      case ParallelBailoutElement:
-        return "use of [] operator on something not known to be an array ";
-      case ParallelBailoutArrayMutation:
-        return "unsupported array mutation operation";
-      case ParallelBailoutClampToUInt8:
-        return "clamp to uint8";
-      case ParallelBailoutIterator:
-        return "iterator operations";
-      case ParallelBailoutPropertyIC:
-        return "property access requires IC";
-      case ParallelBailoutInstanceOf:
-        return "instanceof operation";
-      case ParallelBailoutRandom:
-        return "cannot call random in parallel mode";
-      case ParallelBailoutIn:
-        return "in operator";
-
-        // do not use a default, so that we get warnings from GCC
-        // for missing cases
-    }
-    return "no known reason";
-}
+#define PARALLEL_BAILOUT_STRING(x) #x
+const char *js::ParallelBailoutCauseStrings[] = {
+    PARALLEL_BAILOUT_CAUSES(PARALLEL_BAILOUT_STRING)
+};
 
 void
 js::ParallelDo::determineBailoutCause()
@@ -1065,7 +985,7 @@ js::ParallelDo::determineBailoutCause()
             continue;
 
         bailoutCause = bailoutRecords_[i].cause;
-        const char *causeStr = BailoutExplanation(bailoutCause);
+        const char *causeStr = ParallelBailoutCauseStrings[bailoutCause];
         if (bailoutRecords_[i].depth) {
             bailoutScript = bailoutRecords_[i].trace[0].script;
             bailoutBytecode = bailoutRecords_[i].trace[0].bytecode;
@@ -1127,7 +1047,7 @@ js::ParallelDo::invalidateBailedOutScripts()
         Spew(SpewBailouts, "Invalidating script %p:%s:%d due to cause %d (%s)",
              script.get(), script->filename(), script->lineno,
              bailoutRecords_[i].cause,
-             BailoutExplanation(bailoutRecords_[i].cause));
+             ParallelBailoutCauseStrings[bailoutRecords_[i].cause]);
 
         types::RecompileInfo co = script->parallelIonScript()->recompileInfo();
 

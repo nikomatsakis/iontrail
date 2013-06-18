@@ -278,13 +278,15 @@ class BailoutLabel {
 };
 
 template <typename T> bool
-CodeGeneratorX86Shared::bailout(const T &binder, LSnapshot *snapshot)
+CodeGeneratorX86Shared::bailout(const T &binder,
+                                LSnapshot *snapshot,
+                                ParallelBailoutCause cause)
 {
     CompileInfo &info = snapshot->mir()->block()->info();
     switch (info.executionMode()) {
       case ParallelExecution: {
         // in parallel mode, make no attempt to recover, just signal an error.
-        OutOfLineParallelAbort *ool = oolParallelAbort(ParallelBailoutUnsupported,
+        OutOfLineParallelAbort *ool = oolParallelAbort(cause,
                                                        snapshot->mir()->block(),
                                                        snapshot->mir()->pc());
         binder(masm, ool->entry());
@@ -327,24 +329,28 @@ CodeGeneratorX86Shared::bailout(const T &binder, LSnapshot *snapshot)
 }
 
 bool
-CodeGeneratorX86Shared::bailoutIf(Assembler::Condition condition, LSnapshot *snapshot)
+CodeGeneratorX86Shared::bailoutIf(Assembler::Condition condition,
+                                  LSnapshot *snapshot,
+                                  ParallelBailoutCause cause)
 {
-    return bailout(BailoutJump(condition), snapshot);
+    return bailout(BailoutJump(condition), snapshot, cause);
 }
 
 bool
-CodeGeneratorX86Shared::bailoutFrom(Label *label, LSnapshot *snapshot)
+CodeGeneratorX86Shared::bailoutFrom(Label *label,
+                                    LSnapshot *snapshot,
+                                    ParallelBailoutCause cause)
 {
     JS_ASSERT(label->used() && !label->bound());
-    return bailout(BailoutLabel(label), snapshot);
+    return bailout(BailoutLabel(label), snapshot, cause);
 }
 
 bool
-CodeGeneratorX86Shared::bailout(LSnapshot *snapshot)
+CodeGeneratorX86Shared::bailout(LSnapshot *snapshot, ParallelBailoutCause cause)
 {
     Label label;
     masm.jump(&label);
-    return bailoutFrom(&label, snapshot);
+    return bailoutFrom(&label, snapshot, cause);
 }
 
 bool
@@ -484,7 +490,8 @@ CodeGeneratorX86Shared::visitAddI(LAddI *ins)
                 return false;
             masm.j(Assembler::Overflow, ool->entry());
         } else {
-            if (!bailoutIf(Assembler::Overflow, ins->snapshot()))
+            if (!bailoutIf(Assembler::Overflow, ins->snapshot(),
+                           ParallelBailoutIntOverflow))
                 return false;
         }
     }
@@ -506,7 +513,8 @@ CodeGeneratorX86Shared::visitSubI(LSubI *ins)
                 return false;
             masm.j(Assembler::Overflow, ool->entry());
         } else {
-            if (!bailoutIf(Assembler::Overflow, ins->snapshot()))
+            if (!bailoutIf(Assembler::Overflow, ins->snapshot(),
+                           ParallelBailoutIntOverflow))
                 return false;
         }
     }
@@ -544,7 +552,7 @@ CodeGeneratorX86Shared::visitOutOfLineUndoALUOperation(OutOfLineUndoALUOperation
             masm.addl(ToOperand(rhs), reg);
     }
 
-    return bailout(ool->ins()->snapshot());
+    return bailout(ool->ins()->snapshot(), ParallelBailoutIntOverflow);
 }
 
 class MulNegativeZeroCheck : public OutOfLineCodeBase<CodeGeneratorX86Shared>
@@ -578,7 +586,8 @@ CodeGeneratorX86Shared::visitMulI(LMulI *ins)
         if (mul->canBeNegativeZero() && constant <= 0) {
             Assembler::Condition bailoutCond = (constant == 0) ? Assembler::Signed : Assembler::Equal;
             masm.testl(ToRegister(lhs), ToRegister(lhs));
-            if (!bailoutIf(bailoutCond, ins->snapshot()))
+            if (!bailoutIf(bailoutCond, ins->snapshot(),
+                           ParallelBailoutIntOverflow))
                     return false;
         }
 
@@ -609,13 +618,15 @@ CodeGeneratorX86Shared::visitMulI(LMulI *ins)
         }
 
         // Bailout on overflow
-        if (mul->canOverflow() && !bailoutIf(Assembler::Overflow, ins->snapshot()))
+        if (mul->canOverflow() && !bailoutIf(Assembler::Overflow, ins->snapshot(),
+                                             ParallelBailoutIntOverflow))
             return false;
     } else {
         masm.imull(ToOperand(rhs), ToRegister(lhs));
 
         // Bailout on overflow
-        if (mul->canOverflow() && !bailoutIf(Assembler::Overflow, ins->snapshot()))
+        if (mul->canOverflow() && !bailoutIf(Assembler::Overflow, ins->snapshot(),
+                                             ParallelBailoutIntOverflow))
             return false;
 
         if (mul->canBeNegativeZero()) {
@@ -671,7 +682,8 @@ CodeGeneratorX86Shared::visitMulNegativeZeroCheck(MulNegativeZeroCheck *ool)
     // Result is -0 if lhs or rhs is negative.
     masm.movl(lhsCopy, result);
     masm.orl(rhs, result);
-    if (!bailoutIf(Assembler::Signed, ins->snapshot()))
+    if (!bailoutIf(Assembler::Signed, ins->snapshot(),
+                   ParallelBailoutNegativeZero))
         return false;
 
     masm.xorl(result, result);
@@ -695,7 +707,8 @@ CodeGeneratorX86Shared::visitDivPowTwoI(LDivPowTwoI *ins)
         if (!ins->mir()->isTruncated()) {
             // If the remainder is != 0, bailout since this must be a double.
             masm.testl(lhs, Imm32(UINT32_MAX >> (32 - shift)));
-            if (!bailoutIf(Assembler::NonZero, ins->snapshot()))
+            if (!bailoutIf(Assembler::NonZero, ins->snapshot(),
+                           ParallelBailoutExpectedInt))
                 return false;
         }
 
@@ -745,7 +758,8 @@ CodeGeneratorX86Shared::visitDivI(LDivI *ins)
             masm.bind(&notzero);
         } else {
             JS_ASSERT(mir->fallible());
-            if (!bailoutIf(Assembler::Zero, ins->snapshot()))
+            if (!bailoutIf(Assembler::Zero, ins->snapshot(),
+                           ParallelBailoutDivideByZero))
                 return false;
         }
     }
@@ -762,7 +776,8 @@ CodeGeneratorX86Shared::visitDivI(LDivI *ins)
             masm.j(Assembler::Equal, &done);
         } else {
             JS_ASSERT(mir->fallible());
-            if (!bailoutIf(Assembler::Equal, ins->snapshot()))
+            if (!bailoutIf(Assembler::Equal, ins->snapshot(),
+                           ParallelBailoutIntOverflow))
                 return false;
         }
         masm.bind(&notmin);
@@ -774,7 +789,8 @@ CodeGeneratorX86Shared::visitDivI(LDivI *ins)
         masm.testl(lhs, lhs);
         masm.j(Assembler::NonZero, &nonzero);
         masm.cmpl(rhs, Imm32(0));
-        if (!bailoutIf(Assembler::LessThan, ins->snapshot()))
+        if (!bailoutIf(Assembler::LessThan, ins->snapshot(),
+                       ParallelBailoutNegativeZero))
             return false;
         masm.bind(&nonzero);
     }
@@ -786,7 +802,8 @@ CodeGeneratorX86Shared::visitDivI(LDivI *ins)
     if (!mir->isTruncated()) {
         // If the remainder is > 0, bailout since this must be a double.
         masm.testl(remainder, remainder);
-        if (!bailoutIf(Assembler::NonZero, ins->snapshot()))
+        if (!bailoutIf(Assembler::NonZero, ins->snapshot(),
+                       ParallelBailoutExpectedInt))
             return false;
     }
 
@@ -817,8 +834,12 @@ CodeGeneratorX86Shared::visitModPowTwoI(LModPowTwoI *ins)
         masm.negl(lhs);
         masm.andl(Imm32((1 << shift) - 1), lhs);
         masm.negl(lhs);
-        if (!ins->mir()->isTruncated() && !bailoutIf(Assembler::Zero, ins->snapshot()))
+        if (!ins->mir()->isTruncated() &&
+            !bailoutIf(Assembler::Zero, ins->snapshot(),
+                       ParallelBailoutIntOverflow))
+        {
             return false;
+        }
     }
     masm.bind(&done);
     return true;
@@ -853,7 +874,8 @@ CodeGeneratorX86Shared::visitModI(LModI *ins)
         masm.jmp(&done);
         masm.bind(&notzero);
     } else {
-        if (!bailoutIf(Assembler::Zero, ins->snapshot()))
+        if (!bailoutIf(Assembler::Zero, ins->snapshot(),
+                       ParallelBailoutDivideByZero))
             return false;
     }
 
@@ -883,7 +905,8 @@ CodeGeneratorX86Shared::visitModI(LModI *ins)
             masm.xorl(edx, edx);
             masm.jmp(&done);
         } else {
-            if (!bailoutIf(Assembler::Equal, ins->snapshot()))
+            if (!bailoutIf(Assembler::Equal, ins->snapshot(),
+                           ParallelBailoutIntOverflow))
                 return false;
         }
         masm.bind(&notmin);
@@ -894,7 +917,8 @@ CodeGeneratorX86Shared::visitModI(LModI *ins)
         if (!ins->mir()->isTruncated()) {
             // A remainder of 0 means that the rval must be -0, which is a double.
             masm.testl(remainder, remainder);
-            if (!bailoutIf(Assembler::Zero, ins->snapshot()))
+            if (!bailoutIf(Assembler::Zero, ins->snapshot(),
+                           ParallelBailoutExpectedInt))
                 return false;
         }
     }
@@ -968,7 +992,8 @@ CodeGeneratorX86Shared::visitShiftI(LShiftI *ins)
             } else if (ins->mir()->toUrsh()->canOverflow()) {
                 // x >>> 0 can overflow.
                 masm.testl(lhs, lhs);
-                if (!bailoutIf(Assembler::Signed, ins->snapshot()))
+                if (!bailoutIf(Assembler::Signed, ins->snapshot(),
+                               ParallelBailoutIntOverflow))
                     return false;
             }
             break;
@@ -989,7 +1014,8 @@ CodeGeneratorX86Shared::visitShiftI(LShiftI *ins)
             if (ins->mir()->toUrsh()->canOverflow()) {
                 // x >>> 0 can overflow.
                 masm.testl(lhs, lhs);
-                if (!bailoutIf(Assembler::Signed, ins->snapshot()))
+                if (!bailoutIf(Assembler::Signed, ins->snapshot(),
+                               ParallelBailoutIntOverflow))
                     return false;
             }
             break;
@@ -1192,7 +1218,8 @@ CodeGeneratorX86Shared::visitFloor(LFloor *lir)
     if (AssemblerX86Shared::HasSSE41()) {
         // Bail on negative-zero.
         Assembler::Condition bailCond = masm.testNegativeZero(input, output);
-        if (!bailoutIf(bailCond, lir->snapshot()))
+        if (!bailoutIf(bailCond, lir->snapshot(),
+                       ParallelBailoutNegativeZero))
             return false;
 
         // Round toward -Infinity.
@@ -1200,7 +1227,8 @@ CodeGeneratorX86Shared::visitFloor(LFloor *lir)
 
         masm.cvttsd2si(scratch, output);
         masm.cmp32(output, Imm32(INT_MIN));
-        if (!bailoutIf(Assembler::Equal, lir->snapshot()))
+        if (!bailoutIf(Assembler::Equal, lir->snapshot(),
+                       ParallelBailoutIntOverflow))
             return false;
     } else {
         Label negative, end;
@@ -1211,13 +1239,15 @@ CodeGeneratorX86Shared::visitFloor(LFloor *lir)
 
         // Bail on negative-zero.
         Assembler::Condition bailCond = masm.testNegativeZero(input, output);
-        if (!bailoutIf(bailCond, lir->snapshot()))
+        if (!bailoutIf(bailCond, lir->snapshot(),
+                       ParallelBailoutNegativeZero))
             return false;
 
         // Input is non-negative, so truncation correctly rounds.
         masm.cvttsd2si(input, output);
         masm.cmp32(output, Imm32(INT_MIN));
-        if (!bailoutIf(Assembler::Equal, lir->snapshot()))
+        if (!bailoutIf(Assembler::Equal, lir->snapshot(),
+                       ParallelBailoutExpectedInt))
             return false;
 
         masm.jump(&end);
@@ -1231,7 +1261,8 @@ CodeGeneratorX86Shared::visitFloor(LFloor *lir)
             // This is off-by-one for everything but integer-valued inputs.
             masm.cvttsd2si(input, output);
             masm.cmp32(output, Imm32(INT_MIN));
-            if (!bailoutIf(Assembler::Equal, lir->snapshot()))
+            if (!bailoutIf(Assembler::Equal, lir->snapshot(),
+                           ParallelBailoutExpectedInt))
                 return false;
 
             // Test whether the input double was integer-valued.
@@ -1269,7 +1300,8 @@ CodeGeneratorX86Shared::visitRound(LRound *lir)
 
     // Bail on negative-zero.
     Assembler::Condition bailCond = masm.testNegativeZero(input, output);
-    if (!bailoutIf(bailCond, lir->snapshot()))
+    if (!bailoutIf(bailCond, lir->snapshot(),
+                   ParallelBailoutNegativeZero))
         return false;
 
     // Input is non-negative. Add 0.5 and truncate, rounding down. Note that we
@@ -1279,7 +1311,8 @@ CodeGeneratorX86Shared::visitRound(LRound *lir)
 
     masm.cvttsd2si(temp, output);
     masm.cmp32(output, Imm32(INT_MIN));
-    if (!bailoutIf(Assembler::Equal, lir->snapshot()))
+    if (!bailoutIf(Assembler::Equal, lir->snapshot(),
+                   ParallelBailoutIntOverflow))
         return false;
 
     masm.jump(&end);
@@ -1297,13 +1330,15 @@ CodeGeneratorX86Shared::visitRound(LRound *lir)
         // Truncate.
         masm.cvttsd2si(scratch, output);
         masm.cmp32(output, Imm32(INT_MIN));
-        if (!bailoutIf(Assembler::Equal, lir->snapshot()))
+        if (!bailoutIf(Assembler::Equal, lir->snapshot(),
+                       ParallelBailoutIntOverflow))
             return false;
 
         // If the result is positive zero, then the actual result is -0. Bail.
         // Otherwise, the truncation will have produced the correct negative integer.
         masm.testl(output, output);
-        if (!bailoutIf(Assembler::Zero, lir->snapshot()))
+        if (!bailoutIf(Assembler::Zero, lir->snapshot(),
+                       ParallelBailoutNegativeZero))
             return false;
 
     } else {
@@ -1316,7 +1351,8 @@ CodeGeneratorX86Shared::visitRound(LRound *lir)
             // This is off-by-one for everything but integer-valued inputs.
             masm.cvttsd2si(temp, output);
             masm.cmp32(output, Imm32(INT_MIN));
-            if (!bailoutIf(Assembler::Equal, lir->snapshot()))
+            if (!bailoutIf(Assembler::Equal, lir->snapshot(),
+                           ParallelBailoutIntOverflow))
                 return false;
 
             // Test whether the truncated double was integer-valued.
@@ -1332,7 +1368,8 @@ CodeGeneratorX86Shared::visitRound(LRound *lir)
         }
 
         masm.bind(&testZero);
-        if (!bailoutIf(Assembler::Zero, lir->snapshot()))
+        if (!bailoutIf(Assembler::Zero, lir->snapshot(),
+                       ParallelBailoutIntOverflow))
             return false;
     }
 
@@ -1346,7 +1383,8 @@ CodeGeneratorX86Shared::visitGuardShape(LGuardShape *guard)
     Register obj = ToRegister(guard->input());
     masm.cmpPtr(Operand(obj, JSObject::offsetOfShape()), ImmGCPtr(guard->mir()->shape()));
 
-    return bailoutIf(Assembler::NotEqual, guard->snapshot());
+    return bailoutIf(Assembler::NotEqual, guard->snapshot(),
+                     ParallelBailoutUnexpectedShape);
 }
 
 bool
@@ -1357,7 +1395,8 @@ CodeGeneratorX86Shared::visitGuardObjectType(LGuardObjectType *guard)
 
     Assembler::Condition cond =
         guard->mir()->bailOnEquality() ? Assembler::Equal : Assembler::NotEqual;
-    return bailoutIf(cond, guard->snapshot());
+    return bailoutIf(cond, guard->snapshot(),
+                     ParallelBailoutUnexpectedObject);
 }
 
 bool
@@ -1368,7 +1407,8 @@ CodeGeneratorX86Shared::visitGuardClass(LGuardClass *guard)
 
     masm.loadPtr(Address(obj, JSObject::offsetOfType()), tmp);
     masm.cmpPtr(Operand(tmp, offsetof(types::TypeObject, clasp)), ImmWord(guard->mir()->getClass()));
-    if (!bailoutIf(Assembler::NotEqual, guard->snapshot()))
+    if (!bailoutIf(Assembler::NotEqual, guard->snapshot(),
+                   ParallelBailoutUnexpectedClass))
         return false;
     return true;
 }

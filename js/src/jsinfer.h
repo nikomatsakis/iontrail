@@ -868,6 +868,29 @@ struct Property
     static jsid getKey(Property *p) { return p->id; }
 };
 
+struct TypeNewScript;
+
+struct TypeObjectAddendum
+{
+    enum Kind {
+        NewScript
+    };
+
+    Kind kind;
+
+    bool isNewScript() {
+        return kind == NewScript;
+    }
+
+    TypeNewScript *asNewScript() {
+        JS_ASSERT(isNewScript());
+        return (TypeNewScript*) this;
+    }
+
+    static inline void writeBarrierPre(TypeObjectAddendum *newScript);
+    static void writeBarrierPost(TypeObjectAddendum *newScript, void *addr) {}
+};
+
 /*
  * Information attached to a TypeObject if it is always constructed using 'new'
  * on a particular script. This is used to manage state related to the definite
@@ -878,7 +901,7 @@ struct Property
  * remove the definite property information and repair the JS stack if the
  * constraints are violated.
  */
-struct TypeNewScript
+struct TypeNewScript : public TypeObjectAddendum
 {
     HeapPtrFunction fun;
 
@@ -914,7 +937,6 @@ struct TypeNewScript
     Initializer *initializerList;
 
     static inline void writeBarrierPre(TypeNewScript *newScript);
-    static void writeBarrierPost(TypeNewScript *newScript, void *addr) {}
 };
 
 /*
@@ -972,11 +994,31 @@ struct TypeObject : gc::Cell
     static inline size_t offsetOfFlags() { return offsetof(TypeObject, flags); }
 
     /*
-     * If non-NULL, objects of this type have always been constructed using
-     * 'new' on the specified script, which adds some number of properties to
-     * the object in a definite order before the object escapes.
+     * This field allows various special classes of objects to attach
+     * additional information to a type object:
+     *
+     * - `TypeNewScript`: If addendum is a `TypeNewScript`, it
+     *   indicates that objects of this type have always been
+     *   constructed using 'new' on the specified script, which adds
+     *   some number of properties to the object in a definite order
+     *   before the object escapes.
      */
-    HeapPtr<TypeNewScript> newScript;
+    HeapPtr<TypeObjectAddendum> addendum;
+
+    bool hasNewScript() {
+        return addendum && addendum->isNewScript();
+    }
+
+    /*
+     * Returns addendum casted to a `TypeNewScript`, or NULL if
+     * there is no addendum or addendum is not a `TypeNewScript`.
+     */
+    TypeNewScript *newScript() {
+        TypeObjectAddendum *a = addendum;
+        if (!a)
+            return NULL;
+        return a->asNewScript();
+    }
 
     /*
      * Properties of this object. This may contain JSID_VOID, representing the

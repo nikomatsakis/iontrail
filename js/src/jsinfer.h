@@ -349,8 +349,8 @@ enum {
     /* Objects with this type are functions. */
     OBJECT_FLAG_FUNCTION              = 0x1,
 
-    /* If set, newScript information should not be installed on this object. */
-    OBJECT_FLAG_NEW_SCRIPT_CLEARED    = 0x2,
+    /* If set, addendum information should not be installed on this object. */
+    OBJECT_FLAG_ADDENDUM_CLEARED      = 0x2,
 
     /*
      * If set, type constraints covering the correctness of the newScript
@@ -868,6 +868,29 @@ struct Property
     static jsid getKey(Property *p) { return p->id; }
 };
 
+struct TypeNewScript;
+
+struct TypeObjectAddendum
+{
+    enum Kind {
+        NewScript
+    };
+
+    Kind kind;
+
+    bool isNewScript() {
+        return kind == NewScript;
+    }
+
+    TypeNewScript *asNewScript() {
+        JS_ASSERT(isNewScript());
+        return (TypeNewScript*) this;
+    }
+
+    static inline void writeBarrierPre(TypeObjectAddendum *newScript);
+    static void writeBarrierPost(TypeObjectAddendum *newScript, void *addr) {}
+};
+
 /*
  * Information attached to a TypeObject if it is always constructed using 'new'
  * on a particular script. This is used to manage state related to the definite
@@ -878,7 +901,7 @@ struct Property
  * remove the definite property information and repair the JS stack if the
  * constraints are violated.
  */
-struct TypeNewScript
+struct TypeNewScript : public TypeObjectAddendum
 {
     HeapPtrFunction fun;
 
@@ -914,7 +937,6 @@ struct TypeNewScript
     Initializer *initializerList;
 
     static inline void writeBarrierPre(TypeNewScript *newScript);
-    static void writeBarrierPost(TypeNewScript *newScript, void *addr) {}
 };
 
 /*
@@ -972,11 +994,24 @@ struct TypeObject : gc::Cell
     static inline size_t offsetOfFlags() { return offsetof(TypeObject, flags); }
 
     /*
-     * If non-NULL, objects of this type have always been constructed using
-     * 'new' on the specified script, which adds some number of properties to
-     * the object in a definite order before the object escapes.
+     * This field allows various special classes of objects to attach
+     * additional information to a type object:
+     *
+     * - `TypeNewScript`: If addendum is a `TypeNewScript`, it
+     *   indicates that objects of this type have always been
+     *   constructed using 'new' on the specified script, which adds
+     *   some number of properties to the object in a definite order
+     *   before the object escapes.
      */
-    HeapPtr<TypeNewScript> newScript;
+    HeapPtr<TypeObjectAddendum> addendum;
+
+    bool hasNewScript() {
+        return addendum && addendum->isNewScript();
+    }
+
+    TypeNewScript *newScript() {
+        return addendum->asNewScript();
+    }
 
     /*
      * Properties of this object. This may contain JSID_VOID, representing the
@@ -1070,7 +1105,8 @@ struct TypeObject : gc::Cell
     void markStateChange(JSContext *cx);
     void setFlags(JSContext *cx, TypeObjectFlags flags);
     void markUnknown(JSContext *cx);
-    void clearNewScript(JSContext *cx);
+    void clearAddendum(JSContext *cx);
+    void clearNewScriptAddendum(JSContext *cx);
     void getFromPrototypes(JSContext *cx, jsid id, TypeSet *types, bool force = false);
 
     void print();

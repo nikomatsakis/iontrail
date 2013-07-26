@@ -19,6 +19,7 @@
 #include "gc/Heap.h"
 #include "js/HashTable.h"
 #include "js/Vector.h"
+#include "builtin/TypeRepresentation.h"
 
 class JSScript;
 
@@ -869,11 +870,13 @@ struct Property
 };
 
 struct TypeNewScript;
+struct TypeBinaryData;
 
 struct TypeObjectAddendum
 {
     enum Kind {
-        NewScript
+        NewScript,
+        BinaryData
     };
 
     Kind kind;
@@ -885,6 +888,15 @@ struct TypeObjectAddendum
     TypeNewScript *asNewScript() {
         JS_ASSERT(isNewScript());
         return (TypeNewScript*) this;
+    }
+
+    bool isBinaryData() {
+        return kind == BinaryData;
+    }
+
+    TypeBinaryData *asBinaryData() {
+        JS_ASSERT(isBinaryData());
+        return (TypeBinaryData*) this;
     }
 
     static inline void writeBarrierPre(TypeObjectAddendum *newScript);
@@ -937,6 +949,11 @@ struct TypeNewScript : public TypeObjectAddendum
     Initializer *initializerList;
 
     static inline void writeBarrierPre(TypeNewScript *newScript);
+};
+
+struct TypeBinaryData : public TypeObjectAddendum
+{
+    TypeRepresentation *typeRepr;
 };
 
 /*
@@ -1018,6 +1035,21 @@ struct TypeObject : gc::Cell
         if (!a)
             return NULL;
         return a->asNewScript();
+    }
+
+    bool hasBinaryData() {
+        return addendum && addendum->isBinaryData();
+    }
+
+    /*
+     * Returns addendum casted to a `TypeNewScript`, or NULL if
+     * there is no addendum or addendum is not a `TypeNewScript`.
+     */
+    TypeBinaryData *binaryData() {
+        TypeObjectAddendum *a = addendum;
+        if (!a)
+            return NULL;
+        return a->asBinaryData();
     }
 
     /*

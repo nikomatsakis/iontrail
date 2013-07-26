@@ -877,23 +877,28 @@ ArrayType::toString(JSContext *cx, unsigned int argc, Value *vp)
     return true;
 }
 
-JSObject *
-BinaryArray::createEmpty(JSContext *cx, HandleObject type)
+static JSObject *
+CreateBinaryDataObject(JSContext *cx,
+                       HandleObject type,
+                       js::Class *class_)
 {
-    JS_ASSERT(IsArrayType(type));
-    RootedObject typeRooted(cx, type);
-
     RootedValue protoVal(cx);
-    if (!JSObject::getProperty(cx, typeRooted, typeRooted,
+    if (!JSObject::getProperty(cx, type, type,
                                cx->names().classPrototype, &protoVal))
         return NULL;
 
     RootedObject obj(cx,
-        NewObjectWithClassProto(cx, &BinaryArray::class_,
-                                protoVal.toObjectOrNull(), NULL));
+         NewObjectWithClassProto(cx, class_, protoVal.toObjectOrNull(), NULL));
     obj->setFixedSlot(SLOT_DATATYPE, ObjectValue(*type));
     obj->setFixedSlot(SLOT_BLOCKREFOWNER, NullValue());
     return obj;
+}
+
+JSObject *
+BinaryArray::createEmpty(JSContext *cx, HandleObject type)
+{
+    JS_ASSERT(IsArrayType(type));
+    return CreateBinaryDataObject(cx, type, &BinaryArray::class_);
 }
 
 JSObject *
@@ -1750,20 +1755,7 @@ JSObject *
 BinaryStruct::createEmpty(JSContext *cx, HandleObject type)
 {
     JS_ASSERT(IsStructType(type));
-    RootedObject typeRooted(cx, type);
-
-    RootedValue protoVal(cx);
-    if (!JSObject::getProperty(cx, typeRooted, typeRooted,
-                               cx->names().classPrototype, &protoVal))
-        return NULL;
-
-    RootedObject obj(cx,
-        NewObjectWithClassProto(cx, &BinaryStruct::class_,
-                                protoVal.toObjectOrNull(), NULL));
-
-    obj->setFixedSlot(SLOT_DATATYPE, ObjectValue(*type));
-    obj->setFixedSlot(SLOT_BLOCKREFOWNER, NullValue());
-    return obj;
+    return CreateBinaryDataObject(cx, type, &BinaryStruct::class_);
 }
 
 JSObject *

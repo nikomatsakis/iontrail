@@ -24,6 +24,7 @@
 #include "jsgc.h"
 #include "jsprvtd.h"
 
+#include "builtin/TypeRepresentation.h"
 #include "ds/FixedSizeHash.h"
 #include "ds/LifoAlloc.h"
 #include "frontend/ParseMaps.h"
@@ -1368,6 +1369,9 @@ struct JSRuntime : public JS::shadow::Runtime,
 
     /* Set of all currently-living atoms. */
     js::AtomSet         atoms;
+
+    /* Set of all currently living type representations. */
+    js::TypeRepresentationSet typeReprs;
 
     union {
         /*

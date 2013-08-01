@@ -1,6 +1,7 @@
 #include "jscntxt.h"
 #include "jsutil.h"
 #include "vm/Runtime.h"
+#include "vm/StringBuffer.h"
 #include "js/HashTable.h"
 #include "TypeRepresentation.h"
 #include "mozilla/HashFunctions.h"
@@ -10,6 +11,9 @@
 
 using namespace js;
 using namespace mozilla;
+
+typedef float float32_t;
+typedef double float64_t;
 
 ///////////////////////////////////////////////////////////////////////////
 // Class def'n for the dummy object
@@ -43,13 +47,7 @@ TypeRepresentationHasher::match(TypeRepresentation *key1,
         return false;
 
     switch (key1->kind()) {
-      case TypeRepresentation::Int8:
-      case TypeRepresentation::Int16:
-      case TypeRepresentation::Int32:
-      case TypeRepresentation::Uint8:
-      case TypeRepresentation::Uint16:
-      case TypeRepresentation::Uint32:
-      case TypeRepresentation::Float64:
+      case TypeRepresentation::Scalar:
         return true;
 
       case TypeRepresentation::Struct:
@@ -85,20 +83,15 @@ TypeRepresentationHasher::matchArrays(ArrayTypeRepresentation *key1,
                                       ArrayTypeRepresentation *key2)
 {
     // We assume that these pointers have been canonicalized:
-    return key1->element() == key2->element();
+    return key1->element() == key2->element() &&
+           key1->length() == key2->length();
 }
 
 HashNumber
 TypeRepresentationHasher::hash(TypeRepresentation *key) {
     switch (key->kind()) {
-      case TypeRepresentation::Int8:
-      case TypeRepresentation::Int16:
-      case TypeRepresentation::Int32:
-      case TypeRepresentation::Uint8:
-      case TypeRepresentation::Uint16:
-      case TypeRepresentation::Uint32:
-      case TypeRepresentation::Float64:
-        return HashGeneric(key->kind());
+      case TypeRepresentation::Scalar:
+        return hashScalar(key->toScalar());
 
       case TypeRepresentation::Struct:
         return hashStruct(key->toStruct());
@@ -108,6 +101,12 @@ TypeRepresentationHasher::hash(TypeRepresentation *key) {
     }
 
     MOZ_ASSUME_UNREACHABLE("Invalid kind");
+}
+
+HashNumber
+TypeRepresentationHasher::hashScalar(ScalarTypeRepresentation *key)
+{
+    return HashGeneric(key->kind(), key->type());
 }
 
 HashNumber
@@ -124,7 +123,7 @@ TypeRepresentationHasher::hashStruct(StructTypeRepresentation *key)
 HashNumber
 TypeRepresentationHasher::hashArray(ArrayTypeRepresentation *key)
 {
-    return HashGeneric(key->kind(), key->element());
+    return HashGeneric(key->kind(), key->element(), key->length());
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -136,16 +135,38 @@ TypeRepresentation::TypeRepresentation(Kind kind, uint32_t size, uint32_t align)
     kind_(kind)
 {}
 
-ScalarTypeRepresentation::ScalarTypeRepresentation(Kind kind,
-                                                   uint32_t size,
-                                                   uint32_t align)
-  : TypeRepresentation(kind, size, align)
+ScalarTypeRepresentation::ScalarTypeRepresentation(Type type)
+  : TypeRepresentation(Scalar, 0, 1),
+    type_(type)
 {
+    switch (type) {
+      case Int8:
+      case Uint8:
+        size_ = align_ = 1;
+        break;
+
+      case Int16:
+      case Uint16:
+        size_ = align_ = 2;
+        break;
+
+      case Int32:
+      case Uint32:
+      case Float32:
+        size_ = align_ = 4;
+        break;
+
+      case Float64:
+        size_ = align_ = 8;
+        break;
+    }
 }
 
-ArrayTypeRepresentation::ArrayTypeRepresentation(TypeRepresentation *element)
-  : TypeRepresentation(Array, element->size(), element->align()),
-    element_(element)
+ArrayTypeRepresentation::ArrayTypeRepresentation(TypeRepresentation *element,
+                                                 uint32_t length)
+  : TypeRepresentation(Array, element->size() * length, element->align()),
+    element_(element),
+    length_(length)
 {
 }
 
@@ -154,17 +175,21 @@ static inline uint32_t alignTo(uint32_t value, uint32_t align) {
 }
 
 StructTypeRepresentation::StructTypeRepresentation(JSContext *cx,
-                                                   const StructFieldPair *fields,
-                                                   uint32_t fieldCount)
+                                                   AutoIdVector &ids,
+                                                   AutoObjectVector &typeReprObjs)
   : TypeRepresentation(Struct, 0, 1)
 {
-    for (uint32_t i = 0; i < fieldCount; i++) {
-        size_ = alignTo(size_, fields[i].typeRepr->align());
+    JS_ASSERT(ids.length() == typeReprObjs.length());
+    fieldCount_ = ids.length();
+    for (uint32_t i = 0; i < ids.length(); i++) {
+        TypeRepresentation *fieldTypeRepr = typeRepresentation(typeReprObjs[i]);
+        size_ = alignTo(size_, fieldTypeRepr->align());
+        fields_[i].index = i;
         fields_[i].offset = size_;
-        fields_[i].id = fields[i].id;
-        fields_[i].typeRepr = fields[i].typeRepr;
-        align_ = js::Max(align_, fields[i].typeRepr->align());
-        size_ += fields[i].typeRepr->size();
+        fields_[i].id.init(ids[i]);
+        fields_[i].typeRepr = fieldTypeRepr;
+        align_ = js::Max(align_, fieldTypeRepr->align());
+        size_ += fieldTypeRepr->size();
     }
     size_ = alignTo(size_, align_);
 }
@@ -172,7 +197,7 @@ StructTypeRepresentation::StructTypeRepresentation(JSContext *cx,
 ///////////////////////////////////////////////////////////////////////////
 // Interning
 
-void
+JSObject *
 TypeRepresentation::makePairedObject(JSContext *cx)
 {
     JS_ASSERT(!pairedObject_);
@@ -182,104 +207,80 @@ TypeRepresentation::makePairedObject(JSContext *cx)
                                              gc::GetGCObjectKind(&class_)));
     obj->setPrivate(this);
     pairedObject_.init(obj);
+    return obj.get();
 }
 
 /*static*/
-ScalarTypeRepresentation *
+JSObject *
 ScalarTypeRepresentation::New(JSContext *cx,
-                              TypeRepresentation::Kind kind)
+                              ScalarTypeRepresentation::Type type)
 {
     JSRuntime *rt = cx->runtime();
 
-    uint32_t size, align;
-    switch (kind) {
-      case Int8:
-      case Uint8:
-        size = align = 1;
-        break;
-
-      case Int16:
-      case Uint16:
-        size = align = 2;
-        break;
-
-      case Int32:
-      case Uint32:
-        size = align = 4;
-        break;
-
-      case Float64:
-        size = align = 8;
-        break;
-
-      case Struct:
-      case Array:
-        MOZ_ASSUME_UNREACHABLE("Scalar type kind required");
-    }
-
-    ScalarTypeRepresentation sample(kind, size, align);
+    ScalarTypeRepresentation sample(type);
     TypeRepresentationSet::AddPtr p = rt->typeReprs.lookupForAdd(&sample);
     if (p)
-        return (ScalarTypeRepresentation*) *p;
+        return (*p)->object();
 
     ScalarTypeRepresentation *ptr =
         (ScalarTypeRepresentation *) cx->malloc_(
             sizeof(ScalarTypeRepresentation));
     if (!ptr)
         return NULL;
-    new(ptr) ScalarTypeRepresentation(kind, size, align);
+    new(ptr) ScalarTypeRepresentation(type);
     if (!rt->typeReprs.add(p, ptr)) {
         js_ReportOutOfMemory(cx);
         js_free(ptr);
         return NULL;
     }
-    ptr->makePairedObject(cx);
-    return ptr;
+    return ptr->makePairedObject(cx);
 }
 
 /*static*/
-ArrayTypeRepresentation *
-ArrayTypeRepresentation::New(JSContext *cx, TypeRepresentation *element)
+JSObject *
+ArrayTypeRepresentation::New(JSContext *cx,
+                             TypeRepresentation *element,
+                             uint32_t length)
 {
     JSRuntime *rt = cx->runtime();
 
-    ArrayTypeRepresentation sample(element);
+    ArrayTypeRepresentation sample(element, length);
     TypeRepresentationSet::AddPtr p = rt->typeReprs.lookupForAdd(&sample);
     if (p)
-        return (ArrayTypeRepresentation*) *p;
+        return (*p)->object();
 
     ArrayTypeRepresentation *ptr =
         (ArrayTypeRepresentation *) cx->malloc_(
             sizeof(ArrayTypeRepresentation));
     if (!ptr)
         return NULL;
-    new(ptr) ArrayTypeRepresentation(element);
+    new(ptr) ArrayTypeRepresentation(element, length);
     if (!rt->typeReprs.add(p, ptr)) {
         js_ReportOutOfMemory(cx);
         js_free(ptr);
         return NULL;
     }
-    ptr->makePairedObject(cx);
-    return ptr;
+    return ptr->makePairedObject(cx);
 }
 
 /*static*/
-StructTypeRepresentation *
+JSObject *
 StructTypeRepresentation::New(JSContext *cx,
-                              const StructFieldPair *fields,
-                              uint32_t count)
+                              AutoIdVector &ids,
+                              AutoObjectVector &typeReprObjs)
 {
+    uint32_t count = ids.length();
     JSRuntime *rt = cx->runtime();
 
     size_t size = sizeof(StructTypeRepresentation) + count * sizeof(StructField);
     StructTypeRepresentation *ptr =
         (StructTypeRepresentation *) cx->malloc_(size);
-    new(ptr) StructTypeRepresentation(cx, fields, count);
+    new(ptr) StructTypeRepresentation(cx, ids, typeReprObjs);
 
     TypeRepresentationSet::AddPtr p = rt->typeReprs.lookupForAdd(ptr);
     if (p) {
         js_free(ptr); // do not finalize, not present in the table
-        return (StructTypeRepresentation*) *p;
+        return (*p)->object();
     }
 
     if (!rt->typeReprs.add(p, ptr)) {
@@ -287,8 +288,7 @@ StructTypeRepresentation::New(JSContext *cx,
         js_free(ptr); // do not finalize, not present in the table
         return NULL;
     }
-    ptr->makePairedObject(cx);
-    return ptr;
+    return ptr->makePairedObject(cx);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -316,13 +316,7 @@ void
 TypeRepresentation::traceFields(JSTracer *trace)
 {
     switch (kind()) {
-      case Int8:
-      case Int16:
-      case Int32:
-      case Uint8:
-      case Uint16:
-      case Uint32:
-      case Float64:
+      case Scalar:
         break;
 
       case Struct:
@@ -363,6 +357,102 @@ TypeRepresentation::obj_finalize(js::FreeOp *fop, JSObject *object)
 }
 
 ///////////////////////////////////////////////////////////////////////////
+// To string
+
+bool
+TypeRepresentation::appendString(JSContext *cx, StringBuffer &contents)
+{
+    switch (kind()) {
+      case Scalar:
+        return toScalar()->appendStringScalar(cx, contents);
+
+      case Array:
+        return toArray()->appendStringArray(cx, contents);
+
+      case Struct:
+        return toStruct()->appendStringStruct(cx, contents);
+    }
+
+    MOZ_ASSUME_UNREACHABLE("Invalid kind");
+    return false;
+}
+
+/*static*/ const char *
+ScalarTypeRepresentation::typeName(Type type)
+{
+    switch (type) {
+#define NUMERIC_TYPE_TO_STRING(constant_, type_) case constant_: return #type_;
+        JS_FOR_EACH_SCALAR_TYPE_REPR(NUMERIC_TYPE_TO_STRING)
+    }
+    MOZ_ASSUME_UNREACHABLE("Invalid type");
+}
+
+bool
+ScalarTypeRepresentation::appendStringScalar(JSContext *cx, StringBuffer &contents)
+{
+    switch (type()) {
+#define NUMERIC_TYPE_APPEND_STRING(constant_, type_) \
+        case constant_: return contents.append(#type_);
+        JS_FOR_EACH_SCALAR_TYPE_REPR(NUMERIC_TYPE_APPEND_STRING)
+    }
+    MOZ_ASSUME_UNREACHABLE("Invalid type");
+}
+
+bool
+ArrayTypeRepresentation::appendStringArray(JSContext *cx, StringBuffer &contents)
+{
+    if (!contents.append("ArrayType("))
+        return false;
+
+    if (!element()->appendString(cx, contents))
+        return false;
+
+    if (!contents.append(", "))
+        return false;
+
+    Value len = NumberValue(length());
+    if (!contents.append(JS_ValueToString(cx, len)))
+        return false;
+
+    if (!contents.append(")"))
+        return false;
+
+    return true;
+}
+
+bool
+StructTypeRepresentation::appendStringStruct(JSContext *cx, StringBuffer &contents)
+{
+    if (!contents.append("StructType({"))
+        return false;
+
+    for (uint32_t i = 0; i < fieldCount(); i++) {
+        const StructField &fld = field(i);
+
+        if (i > 0)
+            contents.append(", ");
+
+        RootedString idString(cx, IdToString(cx, fld.id));
+        if (!idString)
+            return false;
+
+        if (!contents.append(idString))
+            return false;
+
+        if (!contents.append(": "))
+            return false;
+
+        if (!fld.typeRepr->appendString(cx, contents))
+            return false;
+    }
+
+    if (!contents.append("})"))
+        return false;
+
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////
 // Misc
 
 const StructField *
@@ -376,7 +466,7 @@ StructTypeRepresentation::fieldNamed(HandleId id) const
 }
 
 /*static*/ bool
-TypeRepresentation::isTypeRepresenetation(HandleObject obj)
+TypeRepresentation::isTypeRepresentation(HandleObject obj)
 {
     return obj->getClass() == &class_;
 }
@@ -389,7 +479,7 @@ TypeRepresentation::typeRepresentation(JSObject *obj)
 }
 
 /*static*/ TypeRepresentation *
-TypeRepresentation::typeRepresentation(HandleObject obj) {
+TypeRepresentation::of(HandleObject obj) {
     return typeRepresentation(obj.get());
 }
 

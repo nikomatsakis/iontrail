@@ -36,10 +36,10 @@ function runTests() {
     assertEq(Type.__proto__, Function.prototype);
     assertEq(Type.prototype, Data);
   
-    var sizes = [1, 2, 4, 8, 1, 2, 4, 8, 4, 8];
+    var sizes = [1, 2, 4, 1, 2, 4, 4, 8];
     [ uint8, uint16, uint32,
-      uint64, int8, int16,
-      int32, int64, float32, float64 ].forEach(function(numType, i) {
+      int8, int16, int32,
+      float32, float64 ].forEach(function(numType, i) {
         assertEq(numType.__proto__, Function.prototype);
         assertEq(numType.bytes, sizes[i]);
         assertThrows(function() new numType());

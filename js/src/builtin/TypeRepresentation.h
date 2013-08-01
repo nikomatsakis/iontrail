@@ -40,19 +40,14 @@
 
 namespace js {
 
+class ScalarTypeRepresentation;
 class ArrayTypeRepresentation;
 class StructTypeRepresentation;
 
 class TypeRepresentation {
   public:
     enum Kind {
-        Int8,
-        Int16,
-        Int32,
-        Uint8,
-        Uint16,
-        Uint32,
-        Float64,
+        Scalar,
         Struct,
         Array
     };
@@ -64,7 +59,7 @@ class TypeRepresentation {
     uint32_t align_;
     Kind kind_;
 
-    void makePairedObject(JSContext *cx);
+    JSObject *makePairedObject(JSContext *cx);
 
     static TypeRepresentation *typeRepresentation(JSObject *obj);
 
@@ -82,10 +77,21 @@ class TypeRepresentation {
     Kind kind() const { return kind_; }
     JSObject *object() const { return pairedObject_.get(); }
 
-    static bool isTypeRepresenetation(HandleObject obj);
-    static TypeRepresentation *typeRepresentation(HandleObject obj);
+    bool convertAndCopyTo(JSContext *cx, HandleValue from, uint8_t *mem);
 
-    TypeRepresentation *of(HandleObject typeReprObj);
+    bool appendString(JSContext *cx, StringBuffer &buffer);
+
+    static bool isTypeRepresentation(HandleObject obj);
+    static TypeRepresentation *of(HandleObject obj);
+
+    bool isScalar() {
+        return kind() == Scalar;
+    }
+
+    ScalarTypeRepresentation *toScalar() {
+        JS_ASSERT(isScalar());
+        return (ScalarTypeRepresentation*) this;
+    }
 
     bool isArray() {
         return kind() == Array;
@@ -109,30 +115,79 @@ class TypeRepresentation {
 };
 
 class ScalarTypeRepresentation : public TypeRepresentation {
+  public:
+    enum Type {
+        Int8,
+        Int16,
+        Int32,
+        Uint8,
+        Uint16,
+        Uint32,
+        Float32,
+        Float64
+    };
+    static const uint32_t NumTypes = Float64 + 1;
+
   private:
-    ScalarTypeRepresentation(Kind kind, uint32_t size, uint32_t align);
+    friend class TypeRepresentation;
+
+    Type type_;
+
+    ScalarTypeRepresentation(Type type);
+
+    bool appendStringScalar(JSContext *cx, StringBuffer &buffer);
+
+    bool convertAndCopyToScalar(JSContext *cx, HandleValue from, uint8_t *mem);
 
   public:
-    static ScalarTypeRepresentation *New(JSContext *cx, TypeRepresentation::Kind kind);
+    Type type() const {
+        return type_;
+    }
+
+    bool convertValue(JSContext *cx, HandleValue value, MutableHandleValue vp);
+
+    static const char *typeName(Type type);
+    static JSObject *New(JSContext *cx, Type type);
 };
+
+#define JS_FOR_EACH_SCALAR_TYPE_REPR(macro_)                                  \
+    macro_(ScalarTypeRepresentation::Int8,     int8)                          \
+    macro_(ScalarTypeRepresentation::Int16,    int16)                         \
+    macro_(ScalarTypeRepresentation::Int32,    int32)                         \
+    macro_(ScalarTypeRepresentation::Uint8,    uint8)                         \
+    macro_(ScalarTypeRepresentation::Uint16,   uint16)                        \
+    macro_(ScalarTypeRepresentation::Uint32,   uint32)                        \
+    macro_(ScalarTypeRepresentation::Float32,  float32)                       \
+    macro_(ScalarTypeRepresentation::Float64,  float64)
 
 class ArrayTypeRepresentation : public TypeRepresentation {
   private:
     friend class TypeRepresentation;
 
     TypeRepresentation *element_;
+    uint32_t length_;
 
-    ArrayTypeRepresentation(TypeRepresentation *element);
+    ArrayTypeRepresentation(TypeRepresentation *element,
+                            uint32_t length);
 
     void traceArrayFields(JSTracer *trace);
+
+    bool appendStringArray(JSContext *cx, StringBuffer &buffer);
+
+    bool convertAndCopyToArray(JSContext *cx, HandleValue from, uint8_t *mem);
 
   public:
     TypeRepresentation *element() {
         return element_;
     }
 
-    static ArrayTypeRepresentation *New(JSContext *cx,
-                                        TypeRepresentation *elementTypeRepr);
+    uint32_t length() {
+        return length_;
+    }
+
+    static JSObject *New(JSContext *cx,
+                         TypeRepresentation *elementTypeRepr,
+                         uint32_t length);
 };
 
 struct StructFieldPair {
@@ -141,6 +196,7 @@ struct StructFieldPair {
 };
 
 struct StructField {
+    uint32_t index;
     HeapId id;
     TypeRepresentation *typeRepr;
     uint32_t offset;
@@ -157,10 +213,14 @@ class StructTypeRepresentation : public TypeRepresentation {
     StructField fields_[];
 
     StructTypeRepresentation(JSContext *cx,
-                             const StructFieldPair *fields,
-                             uint32_t fieldCount);
+                             AutoIdVector &ids,
+                             AutoObjectVector &typeReprObjs);
 
     void traceStructFields(JSTracer *trace);
+
+    bool appendStringStruct(JSContext *cx, StringBuffer &buffer);
+
+    bool convertAndCopyToStruct(JSContext *cx, HandleValue from, uint8_t *mem);
 
   public:
     uint32_t fieldCount() const {
@@ -174,9 +234,9 @@ class StructTypeRepresentation : public TypeRepresentation {
 
     const StructField *fieldNamed(HandleId id) const;
 
-    static StructTypeRepresentation *New(JSContext *cx,
-                                         const StructFieldPair *fields,
-                                         uint32_t count);
+    static JSObject *New(JSContext *cx,
+                         AutoIdVector &ids,
+                         AutoObjectVector &typeReprObjs);
 };
 
 struct TypeRepresentationHasher
@@ -186,6 +246,7 @@ struct TypeRepresentationHasher
     static bool match(TypeRepresentation *key1, TypeRepresentation *key2);
 
   private:
+    static HashNumber hashScalar(ScalarTypeRepresentation *key);
     static HashNumber hashStruct(StructTypeRepresentation *key);
     static HashNumber hashArray(ArrayTypeRepresentation *key);
 

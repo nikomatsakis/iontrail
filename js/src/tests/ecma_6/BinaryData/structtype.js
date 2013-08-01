@@ -21,7 +21,7 @@ function runTests() {
     assertEq(S.prototype.__proto__, StructType.prototype.prototype);
     assertEq(S.toString(), "StructType({x: int32, y: uint8, z: float64})");
 
-    assertEq(S.bytes, 13);
+    assertEq(S.bytes, 16);
     assertEq(S.fields.x, int32);
     assertEq(S.fields.y, uint8);
     assertEq(S.fields.z, float64);

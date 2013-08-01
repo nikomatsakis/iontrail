@@ -64,10 +64,10 @@ function runTests() {
     for (var i = 0; i < a.length; i++)
         assertEq(b[i], i*2);
 
+
     var b = new A([0, 1, 0, 1, 0, 1, 0, 1, 0, 1]);
     for (var i = 0; i < b.length; i++)
         assertEq(b[i], i%2);
-
 
     assertThrows(function() new A(5));
     assertThrows(function() new A(/fail/));
@@ -94,7 +94,6 @@ function runTests() {
     assertThrows(function() mario[1] = 5);
     mario[1][1] = [];
     assertEq(Number.isNaN(mario[1][1]), true);
-
 
     // ok this is just for kicks
     var AllSprites = new ArrayType(Sprite, 65536);

@@ -17,24 +17,19 @@ namespace js {
 typedef float float32_t;
 typedef double float64_t;
 
-enum {
-    NUMERICTYPE_UINT8 = 0,
-    NUMERICTYPE_UINT16,
-    NUMERICTYPE_UINT32,
-    NUMERICTYPE_UINT64,
-    NUMERICTYPE_INT8,
-    NUMERICTYPE_INT16,
-    NUMERICTYPE_INT32,
-    NUMERICTYPE_INT64,
-    NUMERICTYPE_FLOAT32,
-    NUMERICTYPE_FLOAT64,
-    NUMERICTYPES
+enum TypeCommonSlots {
+    SLOT_TYPE_REPR=0,
+    TYPE_RESERVED_SLOTS
 };
 
-enum TypeCommonSlots {
-    SLOT_MEMSIZE = 0,
-    SLOT_ALIGN,
-    TYPE_RESERVED_SLOTS
+enum ArrayTypeCommonSlots {
+    SLOT_ARRAY_ELEM_TYPE = TYPE_RESERVED_SLOTS,
+    ARRAY_TYPE_RESERVED_SLOTS
+};
+
+enum StructTypeCommonSlots {
+    SLOT_STRUCT_FIELD_TYPES = TYPE_RESERVED_SLOTS,
+    STRUCT_TYPE_RESERVED_SLOTS
 };
 
 enum BlockCommonSlots {
@@ -53,68 +48,12 @@ class NumericType
   private:
     static Class * typeToClass();
   public:
-    static bool convert(JSContext *cx, HandleValue val, T *converted);
+    static bool convert(JSContext *cx, HandleValue val, T* converted);
     static bool reify(JSContext *cx, void *mem, MutableHandleValue vp);
     static JSBool call(JSContext *cx, unsigned argc, Value *vp);
 };
 
-template <typename T>
-JS_ALWAYS_INLINE
-bool NumericType<T>::reify(JSContext *cx, void *mem, MutableHandleValue vp)
-{
-    vp.setInt32(* ((T*)mem) );
-    return true;
-}
-
-template <>
-JS_ALWAYS_INLINE
-bool NumericType<float32_t>::reify(JSContext *cx, void *mem, MutableHandleValue vp)
-{
-    vp.setNumber(* ((float32_t*)mem) );
-    return true;
-}
-
-template <>
-JS_ALWAYS_INLINE
-bool NumericType<float64_t>::reify(JSContext *cx, void *mem, MutableHandleValue vp)
-{
-    vp.setNumber(* ((float64_t*)mem) );
-    return true;
-}
-
-#define BINARYDATA_FOR_EACH_NUMERIC_TYPES(macro_)\
-    macro_(NUMERICTYPE_UINT8,    uint8)\
-    macro_(NUMERICTYPE_UINT16,   uint16)\
-    macro_(NUMERICTYPE_UINT32,   uint32)\
-    macro_(NUMERICTYPE_UINT64,   uint64)\
-    macro_(NUMERICTYPE_INT8,     int8)\
-    macro_(NUMERICTYPE_INT16,    int16)\
-    macro_(NUMERICTYPE_INT32,    int32)\
-    macro_(NUMERICTYPE_INT64,    int64)\
-    macro_(NUMERICTYPE_FLOAT32,  float32)\
-    macro_(NUMERICTYPE_FLOAT64,  float64)
-
-#define BINARYDATA_NUMERIC_CLASSES(constant_, type_)\
-{\
-    #type_,\
-    JSCLASS_HAS_RESERVED_SLOTS(1) |\
-    JSCLASS_HAS_CACHED_PROTO(JSProto_##type_),\
-    JS_PropertyStub,       /* addProperty */\
-    JS_DeletePropertyStub, /* delProperty */\
-    JS_PropertyStub,       /* getProperty */\
-    JS_StrictPropertyStub, /* setProperty */\
-    JS_EnumerateStub,\
-    JS_ResolveStub,\
-    JS_ConvertStub,\
-    NULL,\
-    NULL,\
-    NumericType<type_##_t>::call,\
-    NULL,\
-    NULL,\
-    NULL\
-},
-
-extern Class NumericTypeClasses[NUMERICTYPES];
+extern Class NumericTypeClasses[ScalarTypeRepresentation::NumTypes];
 
 /* This represents the 'A' and it's [[Prototype]] chain
  * in:
@@ -134,16 +73,18 @@ class ArrayType : public JSObject
 
     static JSBool toString(JSContext *cx, unsigned int argc, jsval *vp);
 
-    static uint32_t length(JSContext *cx, HandleObject obj);
     static JSObject *elementType(JSContext *cx, HandleObject obj);
-    static bool convertAndCopyTo(JSContext *cx, HandleObject exemplar,
-                                 HandleValue from, uint8_t *mem);
-    static bool reify(JSContext *cx, HandleObject type, HandleObject owner,
-                      size_t offset, MutableHandleValue to);
+};
+
+class BinaryBlock
+{
+  public:
+    static bool isBlock(HandleObject val);
+    static uint8_t *mem(HandleObject val);
 };
 
 /* This represents the 'a' and it's [[Prototype]] chain */
-class BinaryArray
+class BinaryArray : public BinaryBlock
 {
   private:
     static JSObject *createEmpty(JSContext *cx, HandleObject type);
@@ -154,6 +95,8 @@ class BinaryArray
 
   public:
     static Class class_;
+
+    static bool isArray(HandleObject val);
 
     // creates initialized memory of size of type
     static JSObject *create(JSContext *cx, HandleObject type);
@@ -271,14 +214,9 @@ class StructType : public JSObject
     static JSBool construct(JSContext *cx, unsigned int argc, jsval *vp);
     static JSBool toString(JSContext *cx, unsigned int argc, jsval *vp);
 
-    static bool convertAndCopyTo(JSContext *cx, HandleObject exemplar,
+    static bool convertAndCopyTo(JSContext *cx,
+                                 StructTypeRepresentation *typeRepr,
                                  HandleValue from, uint8_t *mem);
-
-    static bool reify(JSContext *cx, HandleObject type, HandleObject owner,
-                      size_t offset, MutableHandleValue to);
-
-    static void finalize(js::FreeOp *op, JSObject *obj);
-    static void trace(JSTracer *tracer, JSObject *obj);
 };
 
 class BinaryStruct : public JSObject
@@ -289,6 +227,8 @@ class BinaryStruct : public JSObject
 
   public:
     static Class class_;
+
+    static bool isStruct(HandleObject val);
 
     static JSObject *create(JSContext *cx, HandleObject type,
                             HandleObject owner, size_t offset);

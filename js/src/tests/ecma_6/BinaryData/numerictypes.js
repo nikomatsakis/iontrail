@@ -67,8 +67,8 @@ function runTests()
         check(function() thrown, todo);
     }
 
-    var types = [uint8, uint16, uint32, uint64, int8, int16, int32, int64];
-    var strings = ["uint8", "uint16", "uint32", "uint64", "int8", "int16", "int32", "int64"];
+    var types = [uint8, uint16, uint32, int8, int16, int32];
+    var strings = ["uint8", "uint16", "uint32", "int8", "int16", "int32"];
     for (var i = 0; i < types.length; i++) {
         var type = types[i];
 

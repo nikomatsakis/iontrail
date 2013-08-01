@@ -356,6 +356,9 @@ JSRuntime::init(uint32_t maxbytes)
     if (!InitAtoms(this))
         return false;
 
+    if (!typeReprs.init())
+        return false;
+
     if (!InitRuntimeNumberState(this))
         return false;
 

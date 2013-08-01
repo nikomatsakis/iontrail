@@ -1129,6 +1129,10 @@ ScanTypeObject(GCMarker *gcmarker, types::TypeObject *type)
             PushMarkStack(gcmarker, type->newScript()->fun);
             PushMarkStack(gcmarker, type->newScript()->shape.get());
             break;
+
+          case types::TypeObjectAddendum::BinaryData:
+            PushMarkStack(gcmarker, type->binaryData()->typeRepr->object());
+            break;
         }
     }
 
@@ -1157,6 +1161,10 @@ gc::MarkChildren(JSTracer *trc, types::TypeObject *type)
           case types::TypeObjectAddendum::NewScript:
             MarkObject(trc, &type->newScript()->fun, "type_new_function");
             MarkShape(trc, &type->newScript()->shape, "type_new_shape");
+            break;
+
+          case types::TypeObjectAddendum::BinaryData:
+            type->binaryData()->typeRepr->trace(trc);
             break;
         }
     }

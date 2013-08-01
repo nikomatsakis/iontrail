@@ -3770,9 +3770,13 @@ TypeObject::clearAddendum(JSContext *cx)
 
     switch (addendum->kind) {
       case TypeObjectAddendum::NewScript:
-        return clearNewScriptAddendum(cx);
-    }
+        clearNewScriptAddendum(cx);
+        break;
 
+      case TypeObjectAddendum::BinaryData:
+        clearBinaryDataAddendum(cx);
+        break;
+    }
 
     /* We NULL out addendum *before* freeing it so the write barrier works. */
     TypeObjectAddendum *savedAddendum = addendum;
@@ -3780,8 +3784,6 @@ TypeObject::clearAddendum(JSContext *cx)
     js_free(savedAddendum);
 
     markStateChange(cx);
-
-    MOZ_ASSUME_UNREACHABLE("Invalid addendum kind");
 }
 
 void
@@ -3878,6 +3880,11 @@ TypeObject::clearNewScriptAddendum(JSContext *cx)
                 obj->rollbackProperties(cx, numProperties);
         }
     }
+}
+
+void
+TypeObject::clearBinaryDataAddendum(JSContext *cx)
+{
 }
 
 void
@@ -5253,6 +5260,7 @@ CheckNewScriptProperties(JSContext *cx, HandleTypeObject type, HandleFunction fu
         return;
     }
     JS_ASSERT(!type->addendum);
+    JS_ASSERT(!(type->flags & OBJECT_FLAG_ADDENDUM_CLEARED));
 
     gc::AllocKind kind = gc::GetGCObjectKind(state.baseobj->slotSpan());
 
@@ -6911,4 +6919,31 @@ TypeZone::sweep(FreeOp *fop, bool releaseTypes)
         gcstats::AutoPhase ap2(rt->gcStats, gcstats::PHASE_FREE_TI_ARENA);
         rt->freeLifoAlloc.transferFrom(&oldAlloc);
     }
+}
+
+/////////////////////////////////////////////////////////////////////
+// Binary data
+/////////////////////////////////////////////////////////////////////
+
+bool
+TypeObject::addBinaryDataAddendum(JSContext *cx, TypeRepresentation *repr)
+{
+    JS_ASSERT(repr);
+
+    if (addendum) {
+        JS_ASSERT(hasBinaryData());
+        JS_ASSERT(binaryData()->typeRepr == repr);
+        return true;
+    }
+
+    TypeBinaryData *binaryData = js_new<TypeBinaryData>(repr);
+    if (!binaryData)
+        return false;
+    addendum = binaryData;
+    return true;
+}
+
+TypeBinaryData::TypeBinaryData(TypeRepresentation *repr)
+  : typeRepr(repr)
+{
 }

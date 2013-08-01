@@ -189,6 +189,18 @@ GetType(HandleObject block)
     return block->getFixedSlot(SLOT_DATATYPE).toObjectOrNull();
 }
 
+/*
+ * Overwrites the contents of `block` with the converted form of `val`
+ */
+static bool
+ConvertAndCopyTo(JSContext *cx, HandleValue val, HandleObject block)
+{
+    uint8_t *memory = BlockMem(block);
+    RootedObject type(cx, GetType(block));
+    TypeRepresentation *typeRepr = typeRepresentation(cx, type);
+    return ConvertAndCopyTo(cx, typeRepr, val, memory);
+}
+
 struct FieldInfo
 {
     HeapId name;
@@ -886,21 +898,6 @@ BinaryArray::create(JSContext *cx, HandleObject type)
 }
 
 JSObject *
-BinaryArray::create(JSContext *cx, HandleObject type, HandleValue initial)
-{
-    RootedObject obj(cx, create(cx, type));
-    if (!obj)
-        return NULL;
-
-    uint8_t *memory = BlockMem(obj);
-    TypeRepresentation *typeRepr = typeRepresentation(cx, type);
-    if (!ConvertAndCopyTo(cx, typeRepr, initial, memory))
-        return NULL;
-
-    return obj;
-}
-
-JSObject *
 BinaryArray::create(JSContext *cx, HandleObject type,
                     HandleObject owner, size_t offset)
 {
@@ -926,18 +923,18 @@ BinaryArray::construct(JSContext *cx, unsigned int argc, Value *vp)
         return false;
     }
 
-    JSObject *obj = NULL;
+    RootedObject obj(cx, create(cx, callee));
+    if (!obj)
+        return false;
+
     if (argc == 1) {
-        RootedValue v(cx, args[0]);
-        obj = create(cx, callee, v);
-    } else {
-        obj = create(cx, callee);
+        RootedValue initial(cx, args[0]);
+        if (!ConvertAndCopyTo(cx, initial, obj))
+            return false;
     }
 
-    if (obj)
-        args.rval().setObject(*obj);
-
-    return obj != NULL;
+    args.rval().setObject(*obj);
+    return true;
 }
 
 void
@@ -1402,10 +1399,10 @@ Class BinaryStruct::class_ = {
     BinaryStruct::obj_trace,
     JS_NULL_CLASS_EXT,
     {
-        NULL, /* lookupGeneric */
-        NULL, /* lookupProperty */
-        NULL, /* lookupElement */
-        NULL, /* lookupSpecial */
+        BinaryStruct::obj_lookupGeneric,
+        NULL, /* obj_lookupProperty */
+        NULL, /* obj_lookupElement */
+        NULL, /* obj_lookupSpecial */
         NULL, /* defineGeneric */
         NULL, /* defineProperty */
         NULL, /* defineElement */
@@ -1699,12 +1696,18 @@ BinaryStruct::construct(JSContext *cx, unsigned int argc, Value *vp)
         return false;
     }
 
-    JSObject *obj = create(cx, callee);
+    RootedObject obj(cx, create(cx, callee));
+    if (!obj)
+        return false;
 
-    if (obj)
-        args.rval().setObject(*obj);
+    if (argc == 1) {
+        RootedValue initial(cx, args[0]);
+        if (!ConvertAndCopyTo(cx, initial, obj))
+            return false;
+    }
 
-    return obj != NULL;
+    args.rval().setObject(*obj);
+    return true;
 }
 
 void
@@ -1766,17 +1769,32 @@ BinaryStruct::obj_enumerate(JSContext *cx, HandleObject obj, JSIterateOp enum_op
 }
 
 JSBool
+BinaryStruct::obj_lookupGeneric(JSContext *cx, HandleObject obj, HandleId id,
+                                MutableHandleObject objp, MutableHandleShape propp)
+{
+    JS_ASSERT(IsBinaryStruct(obj));
+
+    RootedObject type(cx, GetType(obj));
+    JS_ASSERT(IsStructType(type));
+    StructTypeRepresentation *typeRepr = typeRepresentation(cx, type)->toStruct();
+    const StructField *field = typeRepr->fieldNamed(id);
+    if (field) {
+        MarkNonNativePropertyFound(propp);
+        objp.set(obj);
+        return true;
+    }
+
+    RootedObject proto(cx, obj->getProto());
+    JS_ASSERT(proto);
+    return JSObject::lookupGeneric(cx, proto, id, objp, propp);
+}
+
+JSBool
 BinaryStruct::obj_getGeneric(JSContext *cx, HandleObject obj,
                              HandleObject receiver, HandleId id,
                              MutableHandleValue vp)
 {
-    if (!IsBinaryStruct(obj)) {
-        char *valueStr = JS_EncodeString(cx, JS_ValueToString(cx, ObjectValue(*obj)));
-        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
-                JSMSG_BINARYDATA_NOT_BINARYSTRUCT, valueStr);
-        JS_free(cx, (void *) valueStr);
-        return false;
-    }
+    JS_ASSERT(IsBinaryStruct(obj));
 
     RootedObject type(cx, GetType(obj));
     JS_ASSERT(IsStructType(type));
@@ -1784,11 +1802,7 @@ BinaryStruct::obj_getGeneric(JSContext *cx, HandleObject obj,
     const StructField *field = typeRepr->fieldNamed(id);
     if (!field) {
         RootedObject proto(cx, obj->getProto());
-        if (!proto) {
-            vp.setUndefined();
-            return true;
-        }
-
+        JS_ASSERT(proto);
         return JSObject::getGeneric(cx, proto, receiver, id, vp);
     }
 

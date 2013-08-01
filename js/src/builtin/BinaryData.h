@@ -89,17 +89,14 @@ class BinaryArray : public BinaryBlock
   private:
     static JSObject *createEmpty(JSContext *cx, HandleObject type);
 
-    // attempts to [[Convert]]
-    static JSObject *create(JSContext *cx, HandleObject type,
-                            HandleValue initial);
-
   public:
     static Class class_;
 
     static bool isArray(HandleObject val);
 
-    // creates initialized memory of size of type
+    // creates zeroed memory of size of type
     static JSObject *create(JSContext *cx, HandleObject type);
+
     // uses passed block as memory
     static JSObject *create(JSContext *cx, HandleObject type,
                             HandleObject owner, size_t offset);
@@ -236,6 +233,24 @@ class BinaryStruct : public JSObject
 
     static void finalize(js::FreeOp *op, JSObject *obj);
     static void obj_trace(JSTracer *tracer, JSObject *obj);
+
+    static JSBool obj_lookupGeneric(JSContext *cx, HandleObject obj,
+                                    HandleId id, MutableHandleObject objp,
+                                    MutableHandleShape propp);
+
+    static JSBool obj_lookupProperty(JSContext *cx, HandleObject obj,
+                                     HandlePropertyName name,
+                                     MutableHandleObject objp,
+                                     MutableHandleShape propp);
+
+    static JSBool obj_lookupElement(JSContext *cx, HandleObject obj,
+                                    uint32_t index, MutableHandleObject objp,
+                                    MutableHandleShape propp);
+
+    static JSBool obj_lookupSpecial(JSContext *cx, HandleObject obj,
+                                    HandleSpecialId sid,
+                                    MutableHandleObject objp,
+                                    MutableHandleShape propp);
 
     static JSBool obj_enumerate(JSContext *cx, HandleObject obj,
                                 JSIterateOp enum_op,

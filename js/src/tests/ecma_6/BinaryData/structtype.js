@@ -39,6 +39,14 @@ function runTests() {
     var white = new Color();
     white.r = white.g = white.b = 255;
 
+    var white1 = new Color({r: 255, g: 254, b: 253});
+    var white2 = new Color({r: 255, g: 254, b: 253});
+    assertEq(white1.r, white2.r);
+    assertEq(white1.g, white2.g);
+    assertEq(white1.b, white2.b);
+    if (white.g === white1.g)
+      throw new TypeError("white ("+white+") should not equal white1 ("+white1+")");
+
     var Car = new StructType({color: Color, weight: uint32});
     assertEq(Car.toString(), "StructType({color: StructType({r: uint8, g: uint8, b: uint8}), weight: uint32})");
 

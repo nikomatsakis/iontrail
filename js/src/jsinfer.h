@@ -879,7 +879,9 @@ struct TypeObjectAddendum
         BinaryData
     };
 
-    Kind kind;
+    TypeObjectAddendum(Kind kind);
+
+    const Kind kind;
 
     bool isNewScript() {
         return kind == NewScript;
@@ -915,6 +917,8 @@ struct TypeObjectAddendum
  */
 struct TypeNewScript : public TypeObjectAddendum
 {
+    TypeNewScript();
+
     HeapPtrFunction fun;
 
     /* Allocation kind to use for newly constructed objects. */

@@ -2010,21 +2010,21 @@ BinaryBlock::createNull(JSContext *cx, HandleObject type, HandleValue owner)
     JS_ASSERT(IsBinaryType(type));
 
     TypeRepresentation *typeRepr = typeRepresentation(cx, type);
-    Class *class_ = NULL;
+    Class *classp = NULL;
     switch (typeRepr->kind()) {
       case TypeRepresentation::Scalar:
         MOZ_ASSUME_UNREACHABLE("Cannot `new` a scalar type descriptor");
         break;
 
       case TypeRepresentation::Array:
-        class_ = &BinaryArray::class_;
+        classp = &BinaryArray::class_;
         break;
 
       case TypeRepresentation::Struct:
-        class_ = &BinaryStruct::class_;
+        classp = &BinaryStruct::class_;
         break;
     }
-    JS_ASSERT(class_);
+    JS_ASSERT(classp);
 
     RootedValue protoVal(cx);
     if (!JSObject::getProperty(cx, type, type,
@@ -2032,9 +2032,19 @@ BinaryBlock::createNull(JSContext *cx, HandleObject type, HandleValue owner)
         return NULL;
 
     RootedObject obj(cx,
-         NewObjectWithClassProto(cx, class_, protoVal.toObjectOrNull(), NULL));
+         NewObjectWithClassProto(cx, classp, protoVal.toObjectOrNull(), NULL));
     obj->setFixedSlot(SLOT_DATATYPE, ObjectValue(*type));
     obj->setFixedSlot(SLOT_BLOCKREFOWNER, owner);
+
+    // Tag the type object for this instance with the type
+    // representation, if that has not been done already.
+    if (cx->typeInferenceEnabled()) {
+        RootedTypeObject typeObj(cx, obj->getType(cx));
+        if (typeObj) {
+            if (!typeObj->addBinaryDataAddendum(cx, typeRepr))
+                return NULL;
+        }
+    }
 
     return obj;
 }

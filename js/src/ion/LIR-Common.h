@@ -2865,6 +2865,20 @@ class LTypedArrayElements : public LInstructionHelper<1, 1, 0>
     }
 };
 
+// Load a typed array's elements vector.
+class LBinaryDataElements : public LInstructionHelper<1, 1, 0>
+{
+  public:
+    LIR_HEADER(BinaryDataElements)
+
+    LBinaryDataElements(const LAllocation &object) {
+        setOperand(0, object);
+    }
+    const LAllocation *object() {
+        return getOperand(0);
+    }
+};
+
 // Bailout if index >= length.
 class LBoundsCheck : public LInstructionHelper<0, 2, 0>
 {

@@ -358,6 +358,8 @@ class IonBuilder : public MIRGenerator
                                 bool barrier, types::StackTypeSet *types);
     bool getPropTryInlineAccess(bool *emitted, HandlePropertyName name, HandleId id,
                                 bool barrier, types::StackTypeSet *types);
+    bool getPropTryBinaryData(bool *emitted, HandleId id,
+                              bool barrier, types::StackTypeSet *types);
     bool getPropTryCache(bool *emitted, HandlePropertyName name, HandleId id,
                          bool barrier, types::StackTypeSet *types);
 
@@ -394,14 +396,14 @@ class IonBuilder : public MIRGenerator
     bool jsop_bindname(PropertyName *name);
     bool jsop_getelem();
     bool jsop_getelem_dense();
-    bool jsop_getelem_typed(int arrayType);
+    bool jsop_getelem_typed(ScalarTypeRepresentation::Type arrayType);
     bool jsop_getelem_typed_static(bool *psucceeded);
     bool jsop_getelem_string();
     bool jsop_setelem();
     bool jsop_setelem_dense(types::StackTypeSet::DoubleConversion conversion,
                             SetElemSafety safety,
                             MDefinition *object, MDefinition *index, MDefinition *value);
-    bool jsop_setelem_typed(int arrayType,
+    bool jsop_setelem_typed(ScalarTypeRepresentation::Type arrayType,
                             SetElemSafety safety,
                             MDefinition *object, MDefinition *index, MDefinition *value);
     bool jsop_setelem_typed_static(MDefinition *object, MDefinition *index, MDefinition *value,
@@ -487,7 +489,8 @@ class IonBuilder : public MIRGenerator
     // Array intrinsics.
     InliningStatus inlineUnsafePutElements(CallInfo &callInfo);
     bool inlineUnsafeSetDenseArrayElement(CallInfo &callInfo, uint32_t base);
-    bool inlineUnsafeSetTypedArrayElement(CallInfo &callInfo, uint32_t base, int arrayType);
+    bool inlineUnsafeSetTypedArrayElement(CallInfo &callInfo, uint32_t base,
+                                          ScalarTypeRepresentation::Type arrayType);
     InliningStatus inlineNewDenseArray(CallInfo &callInfo);
     InliningStatus inlineNewDenseArrayForSequentialExecution(CallInfo &callInfo);
     InliningStatus inlineNewDenseArrayForParallelExecution(CallInfo &callInfo);

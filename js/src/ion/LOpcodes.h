@@ -208,6 +208,7 @@
     _(ArrayLength)                  \
     _(TypedArrayLength)             \
     _(TypedArrayElements)           \
+    _(BinaryDataElements)           \
     _(StringLength)                 \
     _(ArgumentsLength)              \
     _(GetArgument)                  \

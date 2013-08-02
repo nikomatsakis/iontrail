@@ -4542,6 +4542,37 @@ class MTypedArrayElements
     }
 };
 
+// Load a binary data object's "elements", which is just its opaque
+// binary data space. Eventually this should probably be
+// unified with `MTypedArrayElements`.
+class MBinaryDataElements
+  : public MUnaryInstruction,
+    public SingleObjectPolicy
+{
+  public:
+    INSTRUCTION_HEADER(BinaryDataElements)
+
+    MBinaryDataElements(MDefinition *object)
+      : MUnaryInstruction(object)
+    {
+        setResultType(MIRType_Elements);
+        setMovable();
+    }
+
+    TypePolicy *typePolicy() {
+        return this;
+    }
+    MDefinition *object() const {
+        return getOperand(0);
+    }
+    bool congruentTo(MDefinition *const &ins) const {
+        return congruentIfOperandsEqual(ins);
+    }
+    AliasSet getAliasSet() const {
+        return AliasSet::Load(AliasSet::ObjectFields);
+    }
+};
+
 // Perform !-operation
 class MNot
   : public MUnaryInstruction,
@@ -5036,9 +5067,10 @@ class MArrayConcat
 class MLoadTypedArrayElement
   : public MBinaryInstruction
 {
-    int arrayType_;
+    ScalarTypeRepresentation::Type arrayType_;
 
-    MLoadTypedArrayElement(MDefinition *elements, MDefinition *index, int arrayType)
+    MLoadTypedArrayElement(MDefinition *elements, MDefinition *index,
+                           ScalarTypeRepresentation::Type arrayType)
       : MBinaryInstruction(elements, index), arrayType_(arrayType)
     {
         setResultType(MIRType_Value);
@@ -5051,11 +5083,11 @@ class MLoadTypedArrayElement
   public:
     INSTRUCTION_HEADER(LoadTypedArrayElement)
 
-    static MLoadTypedArrayElement *New(MDefinition *elements, MDefinition *index, int arrayType) {
+    static MLoadTypedArrayElement *New(MDefinition *elements, MDefinition *index, ScalarTypeRepresentation::Type arrayType) {
         return new MLoadTypedArrayElement(elements, index, arrayType);
     }
 
-    int arrayType() const {
+    ScalarTypeRepresentation::Type arrayType() const {
         return arrayType_;
     }
     bool fallible() const {
@@ -5071,6 +5103,8 @@ class MLoadTypedArrayElement
     AliasSet getAliasSet() const {
         return AliasSet::Load(AliasSet::TypedArrayElement);
     }
+
+    void printOpcode(FILE *fp) const;
 
     void computeRange();
 };
@@ -8475,7 +8509,8 @@ typedef Vector<MDefinition *, 8, IonAllocPolicy> MDefinitionVector;
 // Helper functions used to decide how to build MIR.
 
 bool ElementAccessIsDenseNative(MDefinition *obj, MDefinition *id);
-bool ElementAccessIsTypedArray(MDefinition *obj, MDefinition *id, int *arrayType);
+bool ElementAccessIsTypedArray(MDefinition *obj, MDefinition *id,
+                               ScalarTypeRepresentation::Type *arrayType);
 bool ElementAccessIsPacked(JSContext *cx, MDefinition *obj);
 bool ElementAccessHasExtraIndexedProperty(JSContext *cx, MDefinition *obj);
 MIRType DenseNativeElementType(JSContext *cx, MDefinition *obj);

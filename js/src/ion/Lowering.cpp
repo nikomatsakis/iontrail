@@ -1872,6 +1872,13 @@ LIRGenerator::visitTypedArrayElements(MTypedArrayElements *ins)
 }
 
 bool
+LIRGenerator::visitBinaryDataElements(MBinaryDataElements *ins)
+{
+    JS_ASSERT(ins->type() == MIRType_Elements);
+    return define(new LBinaryDataElements(useRegisterAtStart(ins->object())), ins);
+}
+
+bool
 LIRGenerator::visitInitializedLength(MInitializedLength *ins)
 {
     JS_ASSERT(ins->elements()->type() == MIRType_Elements);

@@ -2117,3 +2117,9 @@ BinaryBlock::construct(JSContext *cx, unsigned int argc, Value *vp)
     return true;
 }
 
+/* static */ int
+BinaryBlock::dataOffset()
+{
+    return JSObject::getPrivateDataOffset(BLOCK_RESERVED_SLOTS);
+}
+

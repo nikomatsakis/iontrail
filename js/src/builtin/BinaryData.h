@@ -98,8 +98,11 @@ class BinaryBlock
     // memory pointer properly.
     static JSObject *createNull(JSContext *cx, HandleObject type,
                                 HandleValue owner);
-
   public:
+    // Returns the offset within the object where the `void*` pointer
+    // can be found.
+    static int dataOffset();
+
     static bool isBlock(HandleObject val);
     static uint8_t *mem(HandleObject val);
 

@@ -15,6 +15,7 @@
 #include "jsnum.h"
 
 #include "builtin/Eval.h"
+#include "builtin/BinaryData.h"
 #include "gc/Nursery.h"
 #include "ion/ExecutionModeInlines.h"
 #include "ion/IonLinker.h"
@@ -3368,6 +3369,15 @@ CodeGenerator::visitTypedArrayElements(LTypedArrayElements *lir)
     Register obj = ToRegister(lir->object());
     Register out = ToRegister(lir->output());
     masm.loadPtr(Address(obj, TypedArrayObject::dataOffset()), out);
+    return true;
+}
+
+bool
+CodeGenerator::visitBinaryDataElements(LBinaryDataElements *lir)
+{
+    Register obj = ToRegister(lir->object());
+    Register out = ToRegister(lir->output());
+    masm.loadPtr(Address(obj, BinaryBlock::dataOffset()), out);
     return true;
 }
 

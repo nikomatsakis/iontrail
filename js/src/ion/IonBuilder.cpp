@@ -6318,7 +6318,7 @@ IonBuilder::jsop_getelem()
             return jsop_getelem_dense();
     }
 
-    int arrayType = ScalarTypeRepresentation::TYPE_MAX;
+    ScalarTypeRepresentation::Type arrayType;
     if (ElementAccessIsTypedArray(obj, index, &arrayType))
         return jsop_getelem_typed(arrayType);
 
@@ -6598,8 +6598,30 @@ IonBuilder::jsop_getelem_typed_static(bool *psucceeded)
     return true;
 }
 
+static
+MIRType
+MIRTypeForTypedArrayRead(ScalarTypeRepresentation::Type arrayType,
+                         bool observedDoubles)
+{
+    switch (arrayType) {
+      case ScalarTypeRepresentation::TYPE_INT8:
+      case ScalarTypeRepresentation::TYPE_UINT8:
+      case ScalarTypeRepresentation::TYPE_UINT8_CLAMPED:
+      case ScalarTypeRepresentation::TYPE_INT16:
+      case ScalarTypeRepresentation::TYPE_UINT16:
+      case ScalarTypeRepresentation::TYPE_INT32:
+        return MIRType_Int32;
+      case ScalarTypeRepresentation::TYPE_UINT32:
+        return observedDoubles ? MIRType_Double : MIRType_Int32;
+      case ScalarTypeRepresentation::TYPE_FLOAT32:
+      case ScalarTypeRepresentation::TYPE_FLOAT64:
+        return MIRType_Double;
+    }
+    MOZ_ASSUME_UNREACHABLE("Unknown typed array type");
+}
+
 bool
-IonBuilder::jsop_getelem_typed(int arrayType)
+IonBuilder::jsop_getelem_typed(ScalarTypeRepresentation::Type arrayType)
 {
     bool staticAccess = false;
     if (!jsop_getelem_typed_static(&staticAccess))
@@ -6632,26 +6654,7 @@ IonBuilder::jsop_getelem_typed(int arrayType)
         // the array type to determine the result type, even if the opcode has
         // never executed. The known pushed type is only used to distinguish
         // uint32 reads that may produce either doubles or integers.
-        MIRType knownType;
-        switch (arrayType) {
-          case ScalarTypeRepresentation::TYPE_INT8:
-          case ScalarTypeRepresentation::TYPE_UINT8:
-          case ScalarTypeRepresentation::TYPE_UINT8_CLAMPED:
-          case ScalarTypeRepresentation::TYPE_INT16:
-          case ScalarTypeRepresentation::TYPE_UINT16:
-          case ScalarTypeRepresentation::TYPE_INT32:
-            knownType = MIRType_Int32;
-            break;
-          case ScalarTypeRepresentation::TYPE_UINT32:
-            knownType = allowDouble ? MIRType_Double : MIRType_Int32;
-            break;
-          case ScalarTypeRepresentation::TYPE_FLOAT32:
-          case ScalarTypeRepresentation::TYPE_FLOAT64:
-            knownType = MIRType_Double;
-            break;
-          default:
-            MOZ_ASSUME_UNREACHABLE("Unknown typed array type");
-        }
+        MIRType knownType = MIRTypeForTypedArrayRead(arrayType, allowDouble);
 
         // Get the length.
         MInstruction *length = getTypedArrayLength(obj);
@@ -6742,7 +6745,7 @@ IonBuilder::jsop_setelem()
     MDefinition *index = current->pop();
     MDefinition *object = current->pop();
 
-    int arrayType = ScalarTypeRepresentation::TYPE_MAX;
+    ScalarTypeRepresentation::Type arrayType;
     if (ElementAccessIsTypedArray(object, index, &arrayType))
         return jsop_setelem_typed(arrayType, SetElem_Normal,
                                   object, index, value);
@@ -6961,7 +6964,7 @@ IonBuilder::jsop_setelem_typed_static(MDefinition *obj, MDefinition *id, MDefini
 }
 
 bool
-IonBuilder::jsop_setelem_typed(int arrayType,
+IonBuilder::jsop_setelem_typed(ScalarTypeRepresentation::Type arrayType,
                                SetElemSafety safety,
                                MDefinition *obj, MDefinition *id, MDefinition *value)
 {
@@ -7663,6 +7666,10 @@ IonBuilder::jsop_getprop(HandlePropertyName name)
 
     bool barrier = PropertyReadNeedsTypeBarrier(cx, current->peek(-1), name, types);
 
+    // Try to emit loads from known binary data blocks
+    if (!getPropTryBinaryData(&emitted, id, barrier, types) || emitted)
+        return emitted;
+
     // Try to emit loads from definite slots.
     if (!getPropTryDefiniteSlot(&emitted, name, barrier, types) || emitted)
         return emitted;
@@ -7741,6 +7748,103 @@ IonBuilder::getPropTryConstant(bool *emitted, HandleId id, types::StackTypeSet *
     current->push(known);
 
     *emitted = true;
+    return true;
+}
+
+bool
+IonBuilder::getPropTryBinaryData(bool *emitted, HandleId id,
+                                 bool barrier, types::StackTypeSet *resultTypes)
+{
+    types::StackTypeSet *objTypes = current->peek(-1)->resultTypeSet();
+
+    // Type set must contain only objects.
+    if (!objTypes || objTypes->getKnownTypeTag() != JSVAL_TYPE_OBJECT)
+        return true;
+
+    // And only known objects.
+    if (objTypes->unknownObject())
+        return true;
+
+    // All objects in type set must correspond to a binary data type
+    // repr that has the same field, at the same offset, with the same
+    // result type.
+    //
+    // FIXME--An improvement would be not to require the *same*
+    // `fieldTypeRepr` but rather to permit some amount of
+    // generalization of `fieldTypeRepr`, such as a common prefix.
+    TypeRepresentation *fieldTypeRepr = NULL;
+    size_t fieldOffset;
+    for (uint32_t i = 0; i < objTypes->getObjectCount(); i++) {
+        RootedTypeObject type(cx, objTypes->getTypeObject(0));
+        if (!type || type->unknownProperties())
+            return true;
+
+        if (!type->hasBinaryData())
+            return true;
+
+        // Type representation must be a struct with a field named `id`
+        TypeRepresentation *objTypeRepr = type->binaryData()->typeRepr;
+        const StructField *structField;
+        switch (objTypeRepr->kind()) {
+          case TypeRepresentation::Scalar:
+          case TypeRepresentation::Array:
+            return true;
+
+          case TypeRepresentation::Struct:
+            structField = objTypeRepr->toStruct()->fieldNamed(id);
+            if (!structField)
+                return true;
+            break;
+        }
+
+        if (fieldTypeRepr == NULL) {
+            fieldTypeRepr = structField->typeRepr;
+            fieldOffset = structField->offset;
+        } else if (structField->typeRepr != fieldTypeRepr ||
+                   structField->offset != fieldOffset) {
+            // Two type reprs that have the same field, but at a
+            // different offset or with incompatible types.
+            return NULL;
+        }
+    }
+    if (!fieldTypeRepr)
+        return true;
+
+    // Field offset must be representable as signed integer.
+    if (fieldOffset >= (size_t) INT_MAX)
+        return true;
+
+    // For now, the field must be scalar.
+    if (!fieldTypeRepr->isScalar())
+        return true;
+    ScalarTypeRepresentation *scalarFieldTypeRepr = fieldTypeRepr->toScalar();
+
+    // OK!
+    *emitted = true;
+
+    MDefinition *obj = current->pop();
+    MBinaryDataElements *elements = new MBinaryDataElements(obj);
+    current->add(elements);
+
+    // Reading from an Uint32Array will result in a double for values
+    // that don't fit in an int32. We have to bailout if this happens
+    // and the instruction is not known to return a double.
+    bool allowDouble =
+        resultTypes->hasType(types::Type::DoubleType());
+    MIRType knownType =
+        MIRTypeForTypedArrayRead(scalarFieldTypeRepr->type(),
+                                 allowDouble);
+
+    MConstant *offset = MConstant::New(Int32Value(fieldOffset));
+    current->add(offset);
+
+    MLoadTypedArrayElement *load =
+        MLoadTypedArrayElement::New(elements, offset,
+                                    scalarFieldTypeRepr->type());
+    load->setResultType(knownType);
+    current->add(load);
+    current->push(load);
+
     return true;
 }
 

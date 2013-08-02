@@ -203,6 +203,7 @@ class ParallelSafetyVisitor : public MInstructionVisitor
     SAFE_OP(ArrayLength)
     SAFE_OP(TypedArrayLength)
     SAFE_OP(TypedArrayElements)
+    SAFE_OP(BinaryDataElements)
     SAFE_OP(InitializedLength)
     WRITE_GUARDED_OP(SetInitializedLength, elements)
     SAFE_OP(Not)

@@ -117,6 +117,7 @@ namespace ion {
     _(ArrayLength)                                                          \
     _(TypedArrayLength)                                                     \
     _(TypedArrayElements)                                                   \
+    _(BinaryDataElements)                                                   \
     _(InitializedLength)                                                    \
     _(SetInitializedLength)                                                 \
     _(Not)                                                                  \

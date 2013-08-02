@@ -474,6 +474,13 @@ MConstantElements::printOpcode(FILE *fp) const
     fprintf(fp, " %p", value());
 }
 
+void
+MLoadTypedArrayElement::printOpcode(FILE *fp) const
+{
+    MDefinition::printOpcode(fp);
+    fprintf(fp, " %s", ScalarTypeRepresentation::typeName(arrayType()));
+}
+
 MParameter *
 MParameter::New(int32_t index, types::StackTypeSet *types)
 {
@@ -2439,7 +2446,8 @@ ion::ElementAccessIsDenseNative(MDefinition *obj, MDefinition *id)
 }
 
 bool
-ion::ElementAccessIsTypedArray(MDefinition *obj, MDefinition *id, int *arrayType)
+ion::ElementAccessIsTypedArray(MDefinition *obj, MDefinition *id,
+                               ScalarTypeRepresentation::Type *arrayType)
 {
     if (obj->mightBeType(MIRType_String))
         return false;
@@ -2451,7 +2459,7 @@ ion::ElementAccessIsTypedArray(MDefinition *obj, MDefinition *id, int *arrayType
     if (!types)
         return false;
 
-    *arrayType = types->getTypedArrayType();
+    *arrayType = (ScalarTypeRepresentation::Type) types->getTypedArrayType();
     return *arrayType != ScalarTypeRepresentation::TYPE_MAX;
 }
 

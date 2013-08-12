@@ -55,7 +55,7 @@ extern Class DataClass;
 
 extern Class TypeClass;
 
-template <typename T>
+template <ScalarTypeRepresentation::Type type, typename T>
 class NumericType
 {
   private:
@@ -66,7 +66,7 @@ class NumericType
     static JSBool call(JSContext *cx, unsigned argc, Value *vp);
 };
 
-extern Class NumericTypeClasses[ScalarTypeRepresentation::NumTypes];
+extern Class NumericTypeClasses[ScalarTypeRepresentation::TYPE_MAX];
 
 /* This represents the 'A' and it's [[Prototype]] chain
  * in:

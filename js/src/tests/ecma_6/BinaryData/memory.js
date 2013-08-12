@@ -10,7 +10,7 @@ function spin() {
 function runTests() {
     print(BUGNUMBER + ": " + summary);
 
-    var AA = new ArrayType(new ArrayType(uint8, 5), 5);
+    var AA = new ArrayType(new ArrayType(Uint8, 5), 5);
     var aa = new AA();
     var aa0 = aa[0];
     aa[0] = [0,1,2,3,4];
@@ -38,7 +38,7 @@ function runTests() {
     for (var i = 0; i < a0.length; i++)
         assertEq(a0[i], i);
 
-    var Color = new StructType({'r': uint8, 'g': uint8, 'b': uint8});
+    var Color = new StructType({'r': Uint8, 'g': Uint8, 'b': Uint8});
     var Rainbow = new ArrayType(Color, 7);
 
     var theOneISawWasJustBlack = Rainbow.repeat({'r': 0, 'g': 0, 'b': 0});
@@ -54,7 +54,7 @@ function runTests() {
 
 
     var scopedType = function() {
-        var Point = new StructType({'x': int32, 'y': int32});
+        var Point = new StructType({'x': Int32, 'y': Int32});
         var aPoint = new Point();
         aPoint.x = 4;
         aPoint.y = 5;
@@ -65,8 +65,8 @@ function runTests() {
     gc();
     spin();
     gc();
-    assertEq(point.constructor.fields.x, int32);
-    assertEq(point.constructor.fields.y, int32);
+    assertEq(point.constructor.fields.x, Int32);
+    assertEq(point.constructor.fields.y, Int32);
 
     if (typeof reportCompare === "function")
         reportCompare(true, true);

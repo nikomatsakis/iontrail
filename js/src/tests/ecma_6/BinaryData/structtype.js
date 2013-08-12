@@ -16,15 +16,15 @@ function assertThrows(f) {
 function runTests() {
     print(BUGNUMBER + ": " + summary);
 
-    var S = new StructType({x: int32, y: uint8, z: float64});
+    var S = new StructType({x: Int32, y: Uint8, z: Float64});
     assertEq(S.__proto__, StructType.prototype);
     assertEq(S.prototype.__proto__, StructType.prototype.prototype);
-    assertEq(S.toString(), "StructType({x: int32, y: uint8, z: float64})");
+    assertEq(S.toString(), "StructType({x: Int32, y: Uint8, z: Float64})");
 
     assertEq(S.bytes, 16);
-    assertEq(S.fields.x, int32);
-    assertEq(S.fields.y, uint8);
-    assertEq(S.fields.z, float64);
+    assertEq(S.fields.x, Int32);
+    assertEq(S.fields.y, Uint8);
+    assertEq(S.fields.z, Float64);
 
     var s = new S();
     assertEq(s.__proto__, S.prototype);
@@ -35,7 +35,7 @@ function runTests() {
     assertEq(s.y, 255);
     assertEq(s.z, 12.342345);
 
-    var Color = new StructType({r: uint8, g: uint8, b: uint8});
+    var Color = new StructType({r: Uint8, g: Uint8, b: Uint8});
     var white = new Color();
     white.r = white.g = white.b = 255;
 
@@ -47,8 +47,8 @@ function runTests() {
     if (white.g === white1.g)
       throw new TypeError("white ("+white+") should not equal white1 ("+white1+")");
 
-    var Car = new StructType({color: Color, weight: uint32});
-    assertEq(Car.toString(), "StructType({color: StructType({r: uint8, g: uint8, b: uint8}), weight: uint32})");
+    var Car = new StructType({color: Color, weight: Uint32});
+    assertEq(Car.toString(), "StructType({color: StructType({r: Uint8, g: Uint8, b: Uint8}), weight: Uint32})");
 
     var civic = new Car();
     civic.color = white;
@@ -80,7 +80,7 @@ function runTests() {
     assertThrows(function() civic.transmission = "automatic");
 
     // Test structural (not reference) equality
-    var OtherColor = new StructType({r: uint8, g: uint8, b: uint8});
+    var OtherColor = new StructType({r: Uint8, g: Uint8, b: Uint8});
     var gray = new OtherColor();
     gray.r = gray.g = gray.b = 0xEE;
     civic.color = gray;
@@ -89,7 +89,7 @@ function runTests() {
     assertEq(civic.color.b, 0xEE);
 
     var Showroom = new ArrayType(Car, 10);
-    assertEq(Showroom.toString(), "ArrayType(StructType({color: StructType({r: uint8, g: uint8, b: uint8}), weight: uint32}), 10)");
+    assertEq(Showroom.toString(), "ArrayType(StructType({color: StructType({r: Uint8, g: Uint8, b: Uint8}), weight: Uint32}), 10)");
     var mtvHonda = new Showroom();
     mtvHonda[0] = {'color': {'r':0, 'g':255, 'b':255}, 'weight': 1300};
 

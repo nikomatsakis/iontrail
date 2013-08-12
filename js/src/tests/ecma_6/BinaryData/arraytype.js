@@ -19,17 +19,17 @@ function runTests() {
     assertEq(typeof ArrayType.prototype.prototype.forEach == "function", true);
     assertEq(typeof ArrayType.prototype.prototype.subarray == "function", true);
 
-    assertThrows(function() ArrayType(uint8, 10));
+    assertThrows(function() ArrayType(Uint8, 10));
     assertThrows(function() new ArrayType());
     assertThrows(function() new ArrayType(""));
     assertThrows(function() new ArrayType(5));
-    assertThrows(function() new ArrayType(uint8, -1));
-    var A = new ArrayType(uint8, 10);
+    assertThrows(function() new ArrayType(Uint8, -1));
+    var A = new ArrayType(Uint8, 10);
     assertEq(A.__proto__, ArrayType.prototype);
     assertEq(A.length, 10);
-    assertEq(A.elementType, uint8);
+    assertEq(A.elementType, Uint8);
     assertEq(A.bytes, 10);
-    assertEq(A.toString(), "ArrayType(uint8, 10)");
+    assertEq(A.toString(), "ArrayType(Uint8, 10)");
 
     assertEq(A.prototype.__proto__, ArrayType.prototype.prototype);
     assertEq(typeof A.prototype.fill, "function");
@@ -74,10 +74,10 @@ function runTests() {
     // Length different
     assertThrows(function() new A([0, 1, 0, 1, 0, 1, 0, 1, 0]));
 
-    var Vec3 = new ArrayType(float32, 3);
+    var Vec3 = new ArrayType(Float32, 3);
     var Sprite = new ArrayType(Vec3, 3); // say for position, velocity, and direction
     assertEq(Sprite.elementType, Vec3);
-    assertEq(Sprite.elementType.elementType, float32);
+    assertEq(Sprite.elementType.elementType, Float32);
 
 
     var mario = new Sprite();
@@ -123,7 +123,7 @@ function runTests() {
 
     assertThrows(function() ArrayType.prototype.repeat.call(d, 2));
 
-    var MA = new ArrayType(uint32, 5);
+    var MA = new ArrayType(Uint32, 5);
     var ma = new MA([1, 2, 3, 4, 5]);
 
     var mb = ma.subarray(2);
@@ -139,7 +139,7 @@ function runTests() {
 
     // check similarity even though mb's ArrayType
     // is not script accessible
-    var Similar = new ArrayType(uint32, 3);
+    var Similar = new ArrayType(Uint32, 3);
     var sim = new Similar();
     sim.update(mb);
     assertEq(sim[0], 3);
@@ -191,7 +191,7 @@ function runTests() {
     assertThrows(function() Object.defineProperty(o, "foo", { value: "bar" }));
 
     // check if a reference acts the way it should
-    var AA = new ArrayType(new ArrayType(uint8, 5), 5);
+    var AA = new ArrayType(new ArrayType(Uint8, 5), 5);
     var aa = new AA();
     var aa0 = aa[0];
     aa[0] = [0,1,2,3,4];

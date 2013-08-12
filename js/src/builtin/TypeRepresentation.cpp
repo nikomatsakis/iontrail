@@ -140,23 +140,24 @@ ScalarTypeRepresentation::ScalarTypeRepresentation(Type type)
     type_(type)
 {
     switch (type) {
-      case Int8:
-      case Uint8:
+      case TYPE_INT8:
+      case TYPE_UINT8:
+      case TYPE_UINT8_CLAMPED:
         size_ = align_ = 1;
         break;
 
-      case Int16:
-      case Uint16:
+      case TYPE_INT16:
+      case TYPE_UINT16:
         size_ = align_ = 2;
         break;
 
-      case Int32:
-      case Uint32:
-      case Float32:
+      case TYPE_INT32:
+      case TYPE_UINT32:
+      case TYPE_FLOAT32:
         size_ = align_ = 4;
         break;
 
-      case Float64:
+      case TYPE_FLOAT64:
         size_ = align_ = 8;
         break;
     }
@@ -381,7 +382,8 @@ TypeRepresentation::appendString(JSContext *cx, StringBuffer &contents)
 ScalarTypeRepresentation::typeName(Type type)
 {
     switch (type) {
-#define NUMERIC_TYPE_TO_STRING(constant_, type_) case constant_: return #type_;
+#define NUMERIC_TYPE_TO_STRING(constant_, type_, name_) \
+        case constant_: return #name_;
         JS_FOR_EACH_SCALAR_TYPE_REPR(NUMERIC_TYPE_TO_STRING)
     }
     MOZ_ASSUME_UNREACHABLE("Invalid type");
@@ -391,8 +393,8 @@ bool
 ScalarTypeRepresentation::appendStringScalar(JSContext *cx, StringBuffer &contents)
 {
     switch (type()) {
-#define NUMERIC_TYPE_APPEND_STRING(constant_, type_) \
-        case constant_: return contents.append(#type_);
+#define NUMERIC_TYPE_APPEND_STRING(constant_, type_, name_)                   \
+        case constant_: return contents.append(#name_);
         JS_FOR_EACH_SCALAR_TYPE_REPR(NUMERIC_TYPE_APPEND_STRING)
     }
     MOZ_ASSUME_UNREACHABLE("Invalid type");

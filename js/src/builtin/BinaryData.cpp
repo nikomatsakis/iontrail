@@ -21,6 +21,7 @@
 #include "vm/String.h"
 #include "vm/StringBuffer.h"
 #include "vm/TypedArrayObject.h"
+#include "vm/ObjectImpl.h"
 
 #include "jsatominlines.h"
 #include "jsobjinlines.h"
@@ -110,7 +111,7 @@ IsNumericType(HandleObject type)
 {
     return type &&
            &NumericTypeClasses[0] <= type->getClass() &&
-           type->getClass() < &NumericTypeClasses[ScalarTypeRepresentation::NumTypes];
+           type->getClass() < &NumericTypeClasses[ScalarTypeRepresentation::TYPE_MAX];
 }
 
 static inline bool
@@ -244,27 +245,27 @@ Class js::TypeClass = {
     JS_ConvertStub
 };
 
-#define BINARYDATA_NUMERIC_CLASSES(constant_, type_)\
-{\
-    #type_,\
-    JSCLASS_HAS_RESERVED_SLOTS(1) |\
-    JSCLASS_HAS_CACHED_PROTO(JSProto_##type_),\
-    JS_PropertyStub,       /* addProperty */\
-    JS_DeletePropertyStub, /* delProperty */\
-    JS_PropertyStub,       /* getProperty */\
-    JS_StrictPropertyStub, /* setProperty */\
-    JS_EnumerateStub,\
-    JS_ResolveStub,\
-    JS_ConvertStub,\
-    NULL,\
-    NULL,\
-    NumericType<type_##_t>::call,\
-    NULL,\
-    NULL,\
-    NULL\
+#define BINARYDATA_NUMERIC_CLASSES(constant_, type_, name_)                   \
+{                                                                             \
+    #name_,                                                                   \
+    JSCLASS_HAS_RESERVED_SLOTS(1) |                                           \
+    JSCLASS_HAS_CACHED_PROTO(JSProto_##name_),                                \
+    JS_PropertyStub,       /* addProperty */                                  \
+    JS_DeletePropertyStub, /* delProperty */                                  \
+    JS_PropertyStub,       /* getProperty */                                  \
+    JS_StrictPropertyStub, /* setProperty */                                  \
+    JS_EnumerateStub,                                                         \
+    JS_ResolveStub,                                                           \
+    JS_ConvertStub,                                                           \
+    NULL,                                                                     \
+    NULL,                                                                     \
+    NumericType<constant_, type_>::call,                                      \
+    NULL,                                                                     \
+    NULL,                                                                     \
+    NULL                                                                      \
 },
 
-Class js::NumericTypeClasses[ScalarTypeRepresentation::NumTypes] = {
+Class js::NumericTypeClasses[ScalarTypeRepresentation::TYPE_MAX] = {
     JS_FOR_EACH_SCALAR_TYPE_REPR(BINARYDATA_NUMERIC_CLASSES)
 };
 
@@ -308,20 +309,12 @@ InRange<double, double>(double x)
            x <= std::numeric_limits<double>::max();
 }
 
-template <typename T>
-Class *
-js::NumericType<T>::typeToClass()
-{
-    abort();
-    return NULL;
-}
-
-#define BINARYDATA_TYPE_TO_CLASS(constant_, type_)\
-    template <>\
-    Class *\
-    NumericType<type_##_t>::typeToClass()\
-    {\
-        return &NumericTypeClasses[constant_];\
+#define BINARYDATA_TYPE_TO_CLASS(constant_, type_, name_)                     \
+    template <>                                                               \
+    Class *                                                                   \
+    NumericType<constant_, type_>::typeToClass()                              \
+    {                                                                         \
+        return &NumericTypeClasses[constant_];                                \
     }
 
 /**
@@ -330,20 +323,19 @@ js::NumericType<T>::typeToClass()
  * template functions.
  */
 namespace js {
-    JS_FOR_EACH_SCALAR_TYPE_REPR(BINARYDATA_TYPE_TO_CLASS);
-}
+JS_FOR_EACH_SCALAR_TYPE_REPR(BINARYDATA_TYPE_TO_CLASS);
 
-template <typename T>
+template <ScalarTypeRepresentation::Type type, typename T>
 JS_ALWAYS_INLINE
-bool NumericType<T>::reify(JSContext *cx, void *mem, MutableHandleValue vp)
+bool NumericType<type, T>::reify(JSContext *cx, void *mem, MutableHandleValue vp)
 {
     vp.setNumber((double)*((T*)mem) );
     return true;
 }
 
-template <typename T>
+template <ScalarTypeRepresentation::Type type, typename T>
 bool
-NumericType<T>::convert(JSContext *cx, HandleValue val, T* converted)
+NumericType<type, T>::convert(JSContext *cx, HandleValue val, T* converted)
 {
     if (val.isInt32()) {
         *converted = T(val.toInt32());
@@ -367,16 +359,35 @@ NumericType<T>::convert(JSContext *cx, HandleValue val, T* converted)
     return true;
 }
 
+template <>
+bool
+NumericType<ScalarTypeRepresentation::TYPE_UINT8_CLAMPED, uint8_t>::convert(
+    JSContext *cx, HandleValue val, uint8_t* converted)
+{
+    double d;
+    if (val.isInt32()) {
+        d = val.toInt32();
+    } else {
+        if (!ToDoubleForTypedArray(cx, val, &d))
+            return false;
+    }
+    *converted = ClampDoubleToUint8(d);
+    return true;
+}
+
+
+} // namespace js
+
 static bool
 ConvertAndCopyTo(JSContext *cx, ScalarTypeRepresentation *typeRepr,
                  HandleValue from, uint8_t *mem)
 {
-#define CONVERT_CASES(constant_, type_)                                       \
+#define CONVERT_CASES(constant_, type_, name_)                                \
     case constant_: {                                                         \
-        type_##_t temp;                                                       \
-        if (!NumericType<type_##_t>::convert(cx, from, &temp))                \
+        type_ temp;                                                           \
+        if (!NumericType<constant_, type_>::convert(cx, from, &temp))         \
             return false;                                                     \
-        memcpy(mem, &temp, sizeof(type_##_t));                                \
+        memcpy(mem, &temp, sizeof(type_));                                    \
         return true; }
 
     switch (typeRepr->type()) {
@@ -391,12 +402,12 @@ ReifyScalar(JSContext *cx, ScalarTypeRepresentation *typeRepr, HandleObject type
             HandleObject owner, size_t offset, MutableHandleValue to)
 {
     JS_ASSERT(&NumericTypeClasses[0] <= type->getClass() &&
-              type->getClass() <= &NumericTypeClasses[ScalarTypeRepresentation::NumTypes]);
+              type->getClass() <= &NumericTypeClasses[ScalarTypeRepresentation::TYPE_MAX]);
 
     switch (typeRepr->type()) {
-#define REIFY_CASES(constant_, type_)                                         \
+#define REIFY_CASES(constant_, type_, name_)                                  \
         case constant_:                                                       \
-            return NumericType<type_##_t>::reify(                             \
+          return NumericType<constant_, type_>::reify(                        \
                 cx, BlockMem(owner) + offset, to);
         JS_FOR_EACH_SCALAR_TYPE_REPR(REIFY_CASES)
     }
@@ -406,9 +417,9 @@ ReifyScalar(JSContext *cx, ScalarTypeRepresentation *typeRepr, HandleObject type
     return false;
 }
 
-template <typename T>
+template <ScalarTypeRepresentation::Type type, typename T>
 JSBool
-NumericType<T>::call(JSContext *cx, unsigned argc, Value *vp)
+NumericType<type, T>::call(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
     if (args.length() < 1) {
@@ -425,7 +436,7 @@ NumericType<T>::call(JSContext *cx, unsigned argc, Value *vp)
         return false; // convert() raises TypeError.
 
     RootedValue reified(cx);
-    if (!NumericType<T>::reify(cx, &answer, &reified)) {
+    if (!NumericType<type, T>::reify(cx, &answer, &reified)) {
         return false;
     }
 
@@ -437,7 +448,7 @@ template<ScalarTypeRepresentation::Type N>
 JSBool
 NumericTypeToString(JSContext *cx, unsigned int argc, Value *vp)
 {
-    JS_STATIC_ASSERT(N < ScalarTypeRepresentation::NumTypes);
+    JS_STATIC_ASSERT(N < ScalarTypeRepresentation::TYPE_MAX);
     CallArgs args = CallArgsFromVp(argc, vp);
     JSString *s = JS_NewStringCopyZ(cx, ScalarTypeRepresentation::typeName(N));
     args.rval().set(StringValue(s));
@@ -1986,8 +1997,8 @@ js_InitBinaryDataClasses(JSContext *cx, HandleObject obj)
     Rooted<GlobalObject *> global(cx, &obj->as<GlobalObject>());
 
     RootedObject globalProto(cx, JS_GetFunctionPrototype(cx, global));
-#define BINARYDATA_NUMERIC_DEFINE(constant_, type_)                             \
-    if (!DefineNumericClass<constant_>(cx, global, globalProto, obj, #type_))   \
+#define BINARYDATA_NUMERIC_DEFINE(constant_, type_, name_)                      \
+    if (!DefineNumericClass<constant_>(cx, global, globalProto, obj, #name_))   \
         return NULL;
     JS_FOR_EACH_SCALAR_TYPE_REPR(BINARYDATA_NUMERIC_DEFINE)
 #undef BINARYDATA_NUMERIC_DEFINE

@@ -1359,7 +1359,7 @@ JS_InitStandardClasses(JSContext *cx, JSObject *objArg)
 
 #define CLASP(name)                 (&name##Class)
 #define OCLASP(name)                (&name##Object::class_)
-#define TYPED_ARRAY_CLASP(type)     (&TypedArrayObject::classes[TypedArrayObject::type])
+#define TYPED_ARRAY_CLASP(type)     (&TypedArrayObject::classes[ScalarTypeRepresentation::type])
 #define EAGER_ATOM(name)            NAME_OFFSET(name)
 #define EAGER_CLASS_ATOM(name)      NAME_OFFSET(name)
 #define EAGER_ATOM_AND_CLASP(name)  EAGER_CLASS_ATOM(name), CLASP(name)
@@ -1468,8 +1468,8 @@ static const JSStdName standard_class_names[] = {
 #ifdef ENABLE_BINARYDATA
     {js_InitBinaryDataClasses,          EAGER_ATOM_AND_CLASP(Type)},
     {js_InitBinaryDataClasses,          EAGER_ATOM_AND_CLASP(Data)},
-#define BINARYDATA_NUMERIC_NAMES(constant_, type_)\
-    {js_InitBinaryDataClasses,          EAGER_CLASS_ATOM(type_),      &NumericTypeClasses[constant_]},
+#define BINARYDATA_NUMERIC_NAMES(constant_, type_, name_) \
+    {js_InitBinaryDataClasses,          EAGER_CLASS_ATOM(name_),      &NumericTypeClasses[constant_]},
     JS_FOR_EACH_SCALAR_TYPE_REPR(BINARYDATA_NUMERIC_NAMES)
 #undef BINARYDATA_NUMERIC_NAMES
     {js_InitBinaryDataClasses,          EAGER_CLASS_ATOM(ArrayType),  &js::ArrayType::class_},

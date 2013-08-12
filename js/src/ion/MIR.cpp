@@ -2452,7 +2452,7 @@ ion::ElementAccessIsTypedArray(MDefinition *obj, MDefinition *id, int *arrayType
         return false;
 
     *arrayType = types->getTypedArrayType();
-    return *arrayType != TypedArrayObject::TYPE_MAX;
+    return *arrayType != ScalarTypeRepresentation::TYPE_MAX;
 }
 
 bool

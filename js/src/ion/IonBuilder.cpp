@@ -8,6 +8,7 @@
 
 #include "mozilla/DebugOnly.h"
 
+#include "builtin/TypeRepresentation.h"
 #include "builtin/Eval.h"
 #include "frontend/SourceNotes.h"
 #include "ion/BaselineFrame.h"
@@ -6317,7 +6318,7 @@ IonBuilder::jsop_getelem()
             return jsop_getelem_dense();
     }
 
-    int arrayType = TypedArrayObject::TYPE_MAX;
+    int arrayType = ScalarTypeRepresentation::TYPE_MAX;
     if (ElementAccessIsTypedArray(obj, index, &arrayType))
         return jsop_getelem_typed(arrayType);
 
@@ -6633,19 +6634,19 @@ IonBuilder::jsop_getelem_typed(int arrayType)
         // uint32 reads that may produce either doubles or integers.
         MIRType knownType;
         switch (arrayType) {
-          case TypedArrayObject::TYPE_INT8:
-          case TypedArrayObject::TYPE_UINT8:
-          case TypedArrayObject::TYPE_UINT8_CLAMPED:
-          case TypedArrayObject::TYPE_INT16:
-          case TypedArrayObject::TYPE_UINT16:
-          case TypedArrayObject::TYPE_INT32:
+          case ScalarTypeRepresentation::TYPE_INT8:
+          case ScalarTypeRepresentation::TYPE_UINT8:
+          case ScalarTypeRepresentation::TYPE_UINT8_CLAMPED:
+          case ScalarTypeRepresentation::TYPE_INT16:
+          case ScalarTypeRepresentation::TYPE_UINT16:
+          case ScalarTypeRepresentation::TYPE_INT32:
             knownType = MIRType_Int32;
             break;
-          case TypedArrayObject::TYPE_UINT32:
+          case ScalarTypeRepresentation::TYPE_UINT32:
             knownType = allowDouble ? MIRType_Double : MIRType_Int32;
             break;
-          case TypedArrayObject::TYPE_FLOAT32:
-          case TypedArrayObject::TYPE_FLOAT64:
+          case ScalarTypeRepresentation::TYPE_FLOAT32:
+          case ScalarTypeRepresentation::TYPE_FLOAT64:
             knownType = MIRType_Double;
             break;
           default:
@@ -6679,18 +6680,18 @@ IonBuilder::jsop_getelem_typed(int arrayType)
         // will bailout when we read a double.
         bool needsBarrier = true;
         switch (arrayType) {
-          case TypedArrayObject::TYPE_INT8:
-          case TypedArrayObject::TYPE_UINT8:
-          case TypedArrayObject::TYPE_UINT8_CLAMPED:
-          case TypedArrayObject::TYPE_INT16:
-          case TypedArrayObject::TYPE_UINT16:
-          case TypedArrayObject::TYPE_INT32:
-          case TypedArrayObject::TYPE_UINT32:
+          case ScalarTypeRepresentation::TYPE_INT8:
+          case ScalarTypeRepresentation::TYPE_UINT8:
+          case ScalarTypeRepresentation::TYPE_UINT8_CLAMPED:
+          case ScalarTypeRepresentation::TYPE_INT16:
+          case ScalarTypeRepresentation::TYPE_UINT16:
+          case ScalarTypeRepresentation::TYPE_INT32:
+          case ScalarTypeRepresentation::TYPE_UINT32:
             if (types->hasType(types::Type::Int32Type()))
                 needsBarrier = false;
             break;
-          case TypedArrayObject::TYPE_FLOAT32:
-          case TypedArrayObject::TYPE_FLOAT64:
+          case ScalarTypeRepresentation::TYPE_FLOAT32:
+          case ScalarTypeRepresentation::TYPE_FLOAT64:
             if (allowDouble)
                 needsBarrier = false;
             break;
@@ -6741,7 +6742,7 @@ IonBuilder::jsop_setelem()
     MDefinition *index = current->pop();
     MDefinition *object = current->pop();
 
-    int arrayType = TypedArrayObject::TYPE_MAX;
+    int arrayType = ScalarTypeRepresentation::TYPE_MAX;
     if (ElementAccessIsTypedArray(object, index, &arrayType))
         return jsop_setelem_typed(arrayType, SetElem_Normal,
                                   object, index, value);
@@ -7001,7 +7002,7 @@ IonBuilder::jsop_setelem_typed(int arrayType,
 
     // Clamp value to [0, 255] for Uint8ClampedArray.
     MDefinition *toWrite = value;
-    if (arrayType == TypedArrayObject::TYPE_UINT8_CLAMPED) {
+    if (arrayType == ScalarTypeRepresentation::TYPE_UINT8_CLAMPED) {
         toWrite = MClampToUint8::New(value);
         current->add(toWrite->toInstruction());
     }
@@ -7074,7 +7075,7 @@ IonBuilder::jsop_length_fastPath()
             return true;
         }
 
-        if (objTypes && objTypes->getTypedArrayType() != TypedArrayObject::TYPE_MAX) {
+        if (objTypes && objTypes->getTypedArrayType() != ScalarTypeRepresentation::TYPE_MAX) {
             current->pop();
             MInstruction *length = getTypedArrayLength(obj);
             current->add(length);

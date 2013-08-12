@@ -123,17 +123,24 @@ class TypeRepresentation {
 
 class ScalarTypeRepresentation : public TypeRepresentation {
   public:
+    // Must match order of JS_FOR_EACH_SCALAR_TYPE_REPR below
     enum Type {
-        Int8,
-        Int16,
-        Int32,
-        Uint8,
-        Uint16,
-        Uint32,
-        Float32,
-        Float64
+        TYPE_INT8 = 0,
+        TYPE_UINT8,
+        TYPE_INT16,
+        TYPE_UINT16,
+        TYPE_INT32,
+        TYPE_UINT32,
+        TYPE_FLOAT32,
+        TYPE_FLOAT64,
+
+        /*
+         * Special type that's a uint8_t, but assignments are clamped to 0 .. 255.
+         * Treat the raw data type as a uint8_t.
+         */
+        TYPE_UINT8_CLAMPED,
     };
-    static const uint32_t NumTypes = Float64 + 1;
+    static const int32_t TYPE_MAX = TYPE_UINT8_CLAMPED + 1;
 
   private:
     friend class TypeRepresentation;
@@ -157,15 +164,17 @@ class ScalarTypeRepresentation : public TypeRepresentation {
     static JSObject *New(JSContext *cx, Type type);
 };
 
-#define JS_FOR_EACH_SCALAR_TYPE_REPR(macro_)                                  \
-    macro_(ScalarTypeRepresentation::Int8,     int8)                          \
-    macro_(ScalarTypeRepresentation::Int16,    int16)                         \
-    macro_(ScalarTypeRepresentation::Int32,    int32)                         \
-    macro_(ScalarTypeRepresentation::Uint8,    uint8)                         \
-    macro_(ScalarTypeRepresentation::Uint16,   uint16)                        \
-    macro_(ScalarTypeRepresentation::Uint32,   uint32)                        \
-    macro_(ScalarTypeRepresentation::Float32,  float32)                       \
-    macro_(ScalarTypeRepresentation::Float64,  float64)
+// Must be in same order as the enum:
+#define JS_FOR_EACH_SCALAR_TYPE_REPR(macro_)                                    \
+    macro_(ScalarTypeRepresentation::TYPE_INT8,    int8_t,   Int8)              \
+    macro_(ScalarTypeRepresentation::TYPE_UINT8,   uint8_t,  Uint8)             \
+    macro_(ScalarTypeRepresentation::TYPE_INT16,   int16_t,  Int16)             \
+    macro_(ScalarTypeRepresentation::TYPE_UINT16,  uint16_t, Uint16)            \
+    macro_(ScalarTypeRepresentation::TYPE_INT32,   int32_t,  Int32)             \
+    macro_(ScalarTypeRepresentation::TYPE_UINT32,  uint32_t, Uint32)            \
+    macro_(ScalarTypeRepresentation::TYPE_FLOAT32, float,    Float32)           \
+    macro_(ScalarTypeRepresentation::TYPE_FLOAT64, double,   Float64)           \
+    macro_(ScalarTypeRepresentation::TYPE_UINT8_CLAMPED, uint8_t, Uint8Clamped)
 
 class ArrayTypeRepresentation : public TypeRepresentation {
   private:

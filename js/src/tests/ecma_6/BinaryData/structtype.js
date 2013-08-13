@@ -17,15 +17,6 @@ function runTests() {
     print(BUGNUMBER + ": " + summary);
 
     var S = new StructType({x: int32, y: uint8, z: float64});
-    assertEq(S.__proto__, StructType.prototype);
-    assertEq(S.prototype.__proto__, StructType.prototype.prototype);
-    assertEq(S.toString(), "StructType({x: int32, y: uint8, z: float64})");
-
-    assertEq(S.bytes, 13);
-    assertEq(S.fields.x, int32);
-    assertEq(S.fields.y, uint8);
-    assertEq(S.fields.z, float64);
-
     var s = new S();
     assertEq(s.__proto__, S.prototype);
     s.x = 2;
@@ -35,15 +26,20 @@ function runTests() {
     assertEq(s.y, 255);
     assertEq(s.z, 12.342345);
 
-    assertThrows(function() new StructType(RegExp));
-    assertThrows(function() new StructType(RegExp()));
-
     var Color = new StructType({r: uint8, g: uint8, b: uint8});
     var white = new Color();
     white.r = white.g = white.b = 255;
 
+    var white1 = new Color({r: 255, g: 254, b: 253});
+    var white2 = new Color({r: 255, g: 254, b: 253});
+    assertEq(white1.r, white2.r);
+    assertEq(white1.g, white2.g);
+    assertEq(white1.b, white2.b);
+    if (white.g === white1.g)
+      throw new TypeError("white ("+white+") should not equal white1 ("+white1+")");
+
     var Car = new StructType({color: Color, weight: uint32});
-    assertEq(Car.toString(), "StructType({color: StructType({r: uint8, g: uint8, b: uint8}), weight: uint32})");
+    assertEq(Car.toSource(), "StructType({color: StructType({r: uint8, g: uint8, b: uint8}), weight: uint32})");
 
     var civic = new Car();
     civic.color = white;
@@ -84,7 +80,7 @@ function runTests() {
     assertEq(civic.color.b, 0xEE);
 
     var Showroom = new ArrayType(Car, 10);
-    assertEq(Showroom.toString(), "ArrayType(StructType({color: StructType({r: uint8, g: uint8, b: uint8}), weight: uint32}), 10)");
+    assertEq(Showroom.toSource(), "ArrayType(StructType({color: StructType({r: uint8, g: uint8, b: uint8}), weight: uint32}), 10)");
     var mtvHonda = new Showroom();
     mtvHonda[0] = {'color': {'r':0, 'g':255, 'b':255}, 'weight': 1300};
 

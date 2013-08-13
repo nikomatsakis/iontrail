@@ -8,6 +8,7 @@
 
 #include "mozilla/DebugOnly.h"
 
+#include "builtin/TypeRepresentation.h"
 #include "jit/CodeGenerator.h"
 #include "jit/Ion.h"
 #include "jit/IonLinker.h"
@@ -1065,7 +1066,7 @@ GenerateTypedArrayLength(JSContext *cx, MacroAssembler &masm, IonCache::StubAtta
     // Implement the negated version of JSObject::isTypedArray predicate.
     masm.loadObjClass(object, tmpReg);
     masm.branchPtr(Assembler::Below, tmpReg, ImmWord(&TypedArrayObject::classes[0]), &failures);
-    masm.branchPtr(Assembler::AboveOrEqual, tmpReg, ImmWord(&TypedArrayObject::classes[TypedArrayObject::TYPE_MAX]), &failures);
+    masm.branchPtr(Assembler::AboveOrEqual, tmpReg, ImmWord(&TypedArrayObject::classes[ScalarTypeRepresentation::TYPE_MAX]), &failures);
 
     // Load length.
     masm.loadTypedOrValue(Address(object, TypedArrayObject::lengthOffset()), output);
@@ -2459,8 +2460,8 @@ GetElementIC::canAttachTypedArrayElement(JSObject *obj, const Value &idval,
     // The output register is not yet specialized as a float register, the only
     // way to accept float typed arrays for now is to return a Value type.
     int arrayType = obj->as<TypedArrayObject>().type();
-    bool floatOutput = arrayType == TypedArrayObject::TYPE_FLOAT32 ||
-                       arrayType == TypedArrayObject::TYPE_FLOAT64;
+    bool floatOutput = arrayType == ScalarTypeRepresentation::TYPE_FLOAT32 ||
+                       arrayType == ScalarTypeRepresentation::TYPE_FLOAT64;
     return !floatOutput || output.hasValue();
 }
 

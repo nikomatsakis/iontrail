@@ -5119,31 +5119,32 @@ class MArrayConcat
 class MLoadTypedArrayElement
   : public MBinaryInstruction
 {
-    int arrayType_;
+    ScalarTypeRepresentation::Type arrayType_;
 
-    MLoadTypedArrayElement(MDefinition *elements, MDefinition *index, int arrayType)
+    MLoadTypedArrayElement(MDefinition *elements, MDefinition *index,
+                           ScalarTypeRepresentation::Type arrayType)
       : MBinaryInstruction(elements, index), arrayType_(arrayType)
     {
         setResultType(MIRType_Value);
         setMovable();
         JS_ASSERT(elements->type() == MIRType_Elements);
         JS_ASSERT(index->type() == MIRType_Int32);
-        JS_ASSERT(arrayType >= 0 && arrayType < TypedArrayObject::TYPE_MAX);
+        JS_ASSERT(arrayType >= 0 && arrayType < ScalarTypeRepresentation::TYPE_MAX);
     }
 
   public:
     INSTRUCTION_HEADER(LoadTypedArrayElement)
 
-    static MLoadTypedArrayElement *New(MDefinition *elements, MDefinition *index, int arrayType) {
+    static MLoadTypedArrayElement *New(MDefinition *elements, MDefinition *index, ScalarTypeRepresentation::Type arrayType) {
         return new MLoadTypedArrayElement(elements, index, arrayType);
     }
 
-    int arrayType() const {
+    ScalarTypeRepresentation::Type arrayType() const {
         return arrayType_;
     }
     bool fallible() const {
         // Bailout if the result does not fit in an int32.
-        return arrayType_ == TypedArrayObject::TYPE_UINT32 && type() == MIRType_Int32;
+        return arrayType_ == ScalarTypeRepresentation::TYPE_UINT32 && type() == MIRType_Int32;
     }
     MDefinition *elements() const {
         return getOperand(0);
@@ -5173,7 +5174,7 @@ class MLoadTypedArrayElementHole
         setResultType(MIRType_Value);
         setMovable();
         JS_ASSERT(index->type() == MIRType_Int32);
-        JS_ASSERT(arrayType >= 0 && arrayType < TypedArrayObject::TYPE_MAX);
+        JS_ASSERT(arrayType >= 0 && arrayType < ScalarTypeRepresentation::TYPE_MAX);
     }
 
   public:
@@ -5190,7 +5191,7 @@ class MLoadTypedArrayElementHole
         return allowDouble_;
     }
     bool fallible() const {
-        return arrayType_ == TypedArrayObject::TYPE_UINT32 && !allowDouble_;
+        return arrayType_ == ScalarTypeRepresentation::TYPE_UINT32 && !allowDouble_;
     }
     TypePolicy *typePolicy() {
         return this;
@@ -5215,7 +5216,7 @@ class MLoadTypedArrayElementStatic
       : MUnaryInstruction(ptr), typedArray_(typedArray), fallible_(true)
     {
         int type = typedArray_->type();
-        if (type == TypedArrayObject::TYPE_FLOAT32 || type == TypedArrayObject::TYPE_FLOAT64)
+        if (type == ScalarTypeRepresentation::TYPE_FLOAT32 || type == ScalarTypeRepresentation::TYPE_FLOAT64)
             setResultType(MIRType_Double);
         else
             setResultType(MIRType_Int32);
@@ -5272,7 +5273,7 @@ class MStoreTypedArrayElement
         setMovable();
         JS_ASSERT(elements->type() == MIRType_Elements);
         JS_ASSERT(index->type() == MIRType_Int32);
-        JS_ASSERT(arrayType >= 0 && arrayType < TypedArrayObject::TYPE_MAX);
+        JS_ASSERT(arrayType >= 0 && arrayType < ScalarTypeRepresentation::TYPE_MAX);
     }
 
   public:
@@ -5287,13 +5288,13 @@ class MStoreTypedArrayElement
         return arrayType_;
     }
     bool isByteArray() const {
-        return (arrayType_ == TypedArrayObject::TYPE_INT8 ||
-                arrayType_ == TypedArrayObject::TYPE_UINT8 ||
-                arrayType_ == TypedArrayObject::TYPE_UINT8_CLAMPED);
+        return (arrayType_ == ScalarTypeRepresentation::TYPE_INT8 ||
+                arrayType_ == ScalarTypeRepresentation::TYPE_UINT8 ||
+                arrayType_ == ScalarTypeRepresentation::TYPE_UINT8_CLAMPED);
     }
     bool isFloatArray() const {
-        return (arrayType_ == TypedArrayObject::TYPE_FLOAT32 ||
-                arrayType_ == TypedArrayObject::TYPE_FLOAT64);
+        return (arrayType_ == ScalarTypeRepresentation::TYPE_FLOAT32 ||
+                arrayType_ == ScalarTypeRepresentation::TYPE_FLOAT64);
     }
     TypePolicy *typePolicy() {
         return this;
@@ -5337,7 +5338,7 @@ class MStoreTypedArrayElementHole
         JS_ASSERT(elements->type() == MIRType_Elements);
         JS_ASSERT(length->type() == MIRType_Int32);
         JS_ASSERT(index->type() == MIRType_Int32);
-        JS_ASSERT(arrayType >= 0 && arrayType < TypedArrayObject::TYPE_MAX);
+        JS_ASSERT(arrayType >= 0 && arrayType < ScalarTypeRepresentation::TYPE_MAX);
     }
 
   public:
@@ -5353,13 +5354,13 @@ class MStoreTypedArrayElementHole
         return arrayType_;
     }
     bool isByteArray() const {
-        return (arrayType_ == TypedArrayObject::TYPE_INT8 ||
-                arrayType_ == TypedArrayObject::TYPE_UINT8 ||
-                arrayType_ == TypedArrayObject::TYPE_UINT8_CLAMPED);
+        return (arrayType_ == ScalarTypeRepresentation::TYPE_INT8 ||
+                arrayType_ == ScalarTypeRepresentation::TYPE_UINT8 ||
+                arrayType_ == ScalarTypeRepresentation::TYPE_UINT8_CLAMPED);
     }
     bool isFloatArray() const {
-        return (arrayType_ == TypedArrayObject::TYPE_FLOAT32 ||
-                arrayType_ == TypedArrayObject::TYPE_FLOAT64);
+        return (arrayType_ == ScalarTypeRepresentation::TYPE_FLOAT32 ||
+                arrayType_ == ScalarTypeRepresentation::TYPE_FLOAT64);
     }
     TypePolicy *typePolicy() {
         return this;
@@ -8395,7 +8396,8 @@ typedef Vector<MDefinition *, 8, IonAllocPolicy> MDefinitionVector;
 // Helper functions used to decide how to build MIR.
 
 bool ElementAccessIsDenseNative(MDefinition *obj, MDefinition *id);
-bool ElementAccessIsTypedArray(MDefinition *obj, MDefinition *id, int *arrayType);
+bool ElementAccessIsTypedArray(MDefinition *obj, MDefinition *id,
+                               ScalarTypeRepresentation::Type *arrayType);
 bool ElementAccessIsPacked(JSContext *cx, MDefinition *obj);
 bool ElementAccessHasExtraIndexedProperty(JSContext *cx, MDefinition *obj);
 MIRType DenseNativeElementType(JSContext *cx, MDefinition *obj);

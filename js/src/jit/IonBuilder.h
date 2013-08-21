@@ -362,6 +362,8 @@ class IonBuilder : public MIRGenerator
                                 bool barrier, types::StackTypeSet *types);
     bool getPropTryInlineAccess(bool *emitted, HandlePropertyName name, HandleId id,
                                 bool barrier, types::StackTypeSet *types);
+    bool getPropTryBinaryData(bool *emitted, HandleId id,
+                              bool barrier, types::StackTypeSet *types);
     bool getPropTryCache(bool *emitted, HandlePropertyName name, HandleId id,
                          bool barrier, types::StackTypeSet *types);
 

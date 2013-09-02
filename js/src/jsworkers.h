@@ -265,9 +265,7 @@ class AutoLockWorkerThreadState
     {
         MOZ_GUARD_OBJECT_NOTIFIER_INIT;
         state.lock();
-#else
         //(void)state;
-#endif
     }
 
     ~AutoLockWorkerThreadState() {

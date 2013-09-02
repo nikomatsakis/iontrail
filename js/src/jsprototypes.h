@@ -64,12 +64,12 @@
     macro(int16,                 45,     js_InitBinaryDataClasses) \
     macro(int32,                 46,     js_InitBinaryDataClasses) \
     macro(int64,                 47,     js_InitBinaryDataClasses) \
-    macro(float32,               47,     js_InitBinaryDataClasses) \
-    macro(float64,               48,     js_InitBinaryDataClasses) \
-    macro(ArrayType,             49,     js_InitBinaryDataClasses) \
-    macro(StructType,            50,     js_InitBinaryDataClasses) \
-    macro(ArrayTypeObject,       51,     js_InitBinaryDataClasses) \
-    macro(GeneratorFunction,     52,     js_InitIteratorClasses) \
-    macro(float32x4,             53,     js_InitFloat32x4) \
+    macro(float32,               48,     js_InitBinaryDataClasses) \
+    macro(float64,               49,     js_InitBinaryDataClasses) \
+    macro(ArrayType,             50,     js_InitBinaryDataClasses) \
+    macro(StructType,            51,     js_InitBinaryDataClasses) \
+    macro(ArrayTypeObject,       52,     js_InitBinaryDataClasses) \
+    macro(GeneratorFunction,     53,     js_InitIteratorClasses) \
+    macro(float32x4,             54,     js_InitFloat32x4) \
 
 #endif /* jsprototypes_h */

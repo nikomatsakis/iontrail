@@ -1786,6 +1786,9 @@ CodeGenerator::visitCallGeneric(LCallGeneric *call)
         if (!emitCallToUncompiledScriptPar(call, calleereg))
             return false;
         break;
+
+      default:
+        MOZ_ASSUME_UNREACHABLE("No such execution mode");
     }
 
     masm.bind(&end);
@@ -1911,6 +1914,9 @@ CodeGenerator::visitCallKnown(LCallKnown *call)
         if (!emitCallToUncompiledScriptPar(call, calleereg))
             return false;
         break;
+
+      default:
+        MOZ_ASSUME_UNREACHABLE("No such execution mode");
     }
 
     masm.bind(&end);
@@ -4346,7 +4352,13 @@ IonCompartment::generateStringConcatStub(JSContext *cx, ExecutionMode mode)
     masm.ret();
 
     Linker linker(masm);
-    return linker.newCode(cx, JSC::OTHER_CODE);
+    IonCode *code = linker.newCode(cx, JSC::OTHER_CODE);
+
+#ifdef JS_ION_PERF
+    writePerfSpewerIonCodeProfile(code, "StringConcatStub");
+#endif
+
+    return code;
 }
 
 typedef bool (*CharCodeAtFn)(JSContext *, HandleString, int32_t, uint32_t *);
@@ -4800,7 +4812,7 @@ CodeGenerator::visitOutOfLineStoreElementHole(OutOfLineStoreElementHole *ool)
         masm.jump(ool->rejoin());
         return true;
 
-      case ParallelExecution:
+      case ParallelExecution: {
         //////////////////////////////////////////////////////////////
         // If the problem is that we do not have sufficient capacity,
         // try to reallocate the elements array and then branch back
@@ -4855,6 +4867,10 @@ CodeGenerator::visitOutOfLineStoreElementHole(OutOfLineStoreElementHole *ool)
             return false;
         masm.jump(bail1->entry());
         return true;
+      }
+
+      default:
+        MOZ_ASSUME_UNREACHABLE("No such execution mode");
     }
 
     JS_ASSERT(false);
@@ -5433,6 +5449,10 @@ CodeGenerator::generateAsmJS()
         return false;
     if (!generateEpilogue())
         return false;
+#if defined(JS_ION_PERF)
+    // Note the end of the inline code and start of the OOL code.
+    gen->perfSpewer().noteEndInlineCode(masm);
+#endif
     if (!generateOutOfLineCode())
         return false;
 
@@ -5500,6 +5520,10 @@ CodeGenerator::generate()
         return false;
     if (!generateInvalidateEpilogue())
         return false;
+#if defined(JS_ION_PERF)
+    // Note the end of the inline code and start of the OOL code.
+    perfSpewer_.noteEndInlineCode(masm);
+#endif
     if (!generateOutOfLineCode())
         return false;
 
@@ -5558,8 +5582,12 @@ CodeGenerator::link()
     IonCode *code = (executionMode == SequentialExecution)
                     ? linker.newCodeForIonScript(cx)
                     : linker.newCode(cx, JSC::ION_CODE);
-    if (!code)
+    if (!code) {
+        // Use js_free instead of IonScript::Destroy: the cache list and
+        // backedge list are still uninitialized.
+        js_free(ionScript);
         return false;
+    }
 
     JSScript *script = gen->info().script();
     JS_ASSERT(!HasIonScript(script, executionMode));
@@ -5595,8 +5623,10 @@ CodeGenerator::link()
 
     ionScript->setDeoptTable(deoptTable_);
 
+#if defined(JS_ION_PERF)
     if (PerfEnabled())
         perfSpewer_.writeProfile(script, code, masm);
+#endif
 
     // for generating inline caches during the execution.
     if (runtimeData_.length())

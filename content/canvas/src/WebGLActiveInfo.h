@@ -6,22 +6,16 @@
 #ifndef WEBGLACTIVEINFO_H_
 #define WEBGLACTIVEINFO_H_
 
-#include "WebGLTypes.h"
-#include "nsISupports.h"
+#include "WebGLObjectModel.h"
 #include "nsString.h"
-
-struct JSContext;
-class JSObject;
-namespace JS {
-template <typename T> class Handle;
-}
+#include "js/TypeDecls.h"
 
 namespace mozilla {
 
 class WebGLActiveInfo MOZ_FINAL
 {
 public:
-    WebGLActiveInfo(WebGLint size, WebGLenum type, const nsACString& name) :
+    WebGLActiveInfo(GLint size, GLenum type, const nsACString& name) :
         mSize(size),
         mType(type),
         mName(NS_ConvertASCIItoUTF16(name))
@@ -29,11 +23,11 @@ public:
 
     // WebIDL attributes
 
-    WebGLint Size() const {
+    GLint Size() const {
         return mSize;
     }
 
-    WebGLenum Type() const {
+    GLenum Type() const {
         return mType;
     }
 
@@ -46,8 +40,8 @@ public:
    NS_INLINE_DECL_REFCOUNTING(WebGLActiveInfo)
 
 protected:
-    WebGLint mSize;
-    WebGLenum mType;
+    GLint mSize;
+    GLenum mType;
     nsString mName;
 };
 

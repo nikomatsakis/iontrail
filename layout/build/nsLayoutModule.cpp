@@ -54,7 +54,7 @@
 #include "nsIMessageManager.h"
 
 // Transformiix stuff
-#include "nsXPathEvaluator.h"
+#include "mozilla/dom/XPathEvaluator.h"
 #include "txMozillaXSLTProcessor.h"
 #include "txNodeSetAdaptor.h"
 
@@ -123,11 +123,6 @@ using mozilla::dom::bluetooth::BluetoothService;
 using mozilla::dom::gonk::AudioManager;
 #include "nsVolumeService.h"
 using mozilla::system::nsVolumeService;
-#endif
-
-#ifdef MOZ_B2G_FM
-#include "FMRadio.h"
-using mozilla::dom::fm::FMRadio;
 #endif
 
 #include "AudioChannelAgent.h"
@@ -262,7 +257,7 @@ using mozilla::dom::time::TimeService;
 
 // Factory Constructor
 NS_GENERIC_FACTORY_CONSTRUCTOR(txMozillaXSLTProcessor)
-NS_GENERIC_AGGREGATED_CONSTRUCTOR_INIT(nsXPathEvaluator, Init)
+NS_GENERIC_FACTORY_CONSTRUCTOR(XPathEvaluator)
 NS_GENERIC_FACTORY_CONSTRUCTOR_INIT(txNodeSetAdaptor, Init)
 NS_GENERIC_FACTORY_CONSTRUCTOR(nsDOMSerializer)
 NS_GENERIC_FACTORY_CONSTRUCTOR_INIT(nsXMLHttpRequest, Init)
@@ -301,10 +296,6 @@ NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(nsSynthVoiceRegistry,
 
 #ifdef MOZ_WIDGET_GONK
 NS_GENERIC_FACTORY_CONSTRUCTOR(AudioManager)
-#endif
-
-#ifdef MOZ_B2G_FM
-NS_GENERIC_FACTORY_CONSTRUCTOR(FMRadio)
 #endif
 
 NS_GENERIC_FACTORY_CONSTRUCTOR(AudioChannelAgent)
@@ -761,10 +752,6 @@ NS_DEFINE_NAMED_CID(NS_AUDIOMANAGER_CID);
 NS_DEFINE_NAMED_CID(NS_VOLUMESERVICE_CID);
 #endif
 
-#ifdef MOZ_B2G_FM
-NS_DEFINE_NAMED_CID(NS_FMRADIO_CID);
-#endif
-
 NS_DEFINE_NAMED_CID(NS_AUDIOCHANNELAGENT_CID);
 
 NS_DEFINE_NAMED_CID(NS_HTMLEDITOR_CID);
@@ -1019,7 +1006,7 @@ static const mozilla::Module::CIDEntry kLayoutCIDs[] = {
   { &kNS_VIDEODOCUMENT_CID, false, NULL, CreateVideoDocument },
   { &kNS_STYLESHEETSERVICE_CID, false, NULL, nsStyleSheetServiceConstructor },
   { &kTRANSFORMIIX_XSLT_PROCESSOR_CID, false, NULL, txMozillaXSLTProcessorConstructor },
-  { &kTRANSFORMIIX_XPATH_EVALUATOR_CID, false, NULL, nsXPathEvaluatorConstructor },
+  { &kTRANSFORMIIX_XPATH_EVALUATOR_CID, false, NULL, XPathEvaluatorConstructor },
   { &kTRANSFORMIIX_NODESET_CID, false, NULL, txNodeSetAdaptorConstructor },
   { &kNS_XMLSERIALIZER_CID, false, NULL, nsDOMSerializerConstructor },
   { &kNS_FILEREADER_CID, false, NULL, nsDOMFileReaderConstructor },
@@ -1049,9 +1036,6 @@ static const mozilla::Module::CIDEntry kLayoutCIDs[] = {
 #ifdef MOZ_WIDGET_GONK
   { &kNS_AUDIOMANAGER_CID, true, NULL, AudioManagerConstructor },
   { &kNS_VOLUMESERVICE_CID, true, NULL, nsVolumeServiceConstructor },
-#endif
-#ifdef MOZ_B2G_FM
-  { &kNS_FMRADIO_CID, true, NULL, FMRadioConstructor },
 #endif
   { &kNS_AUDIOCHANNELAGENT_CID, true, NULL, AudioChannelAgentConstructor },
   { &kNS_HTMLEDITOR_CID, false, NULL, nsHTMLEditorConstructor },
@@ -1207,9 +1191,6 @@ static const mozilla::Module::ContractIDEntry kLayoutContracts[] = {
 #ifdef MOZ_WIDGET_GONK
   { NS_AUDIOMANAGER_CONTRACTID, &kNS_AUDIOMANAGER_CID },
   { NS_VOLUMESERVICE_CONTRACTID, &kNS_VOLUMESERVICE_CID },
-#endif
-#ifdef MOZ_B2G_FM
-  { NS_FMRADIO_CONTRACTID, &kNS_FMRADIO_CID },
 #endif
   { NS_AUDIOCHANNELAGENT_CONTRACTID, &kNS_AUDIOCHANNELAGENT_CID },
   { "@mozilla.org/editor/htmleditor;1", &kNS_HTMLEDITOR_CID },

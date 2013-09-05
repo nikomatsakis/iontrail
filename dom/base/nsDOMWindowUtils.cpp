@@ -281,13 +281,13 @@ nsDOMWindowUtils::GetViewportInfo(uint32_t aDisplayWidth,
   nsCOMPtr<nsIDocument> doc = window->GetExtantDoc();
   NS_ENSURE_STATE(doc);
 
-  nsViewportInfo info = nsContentUtils::GetViewportInfo(doc, aDisplayWidth, aDisplayHeight);
-  *aDefaultZoom = info.GetDefaultZoom();
+  nsViewportInfo info = nsContentUtils::GetViewportInfo(doc, ScreenIntSize(aDisplayWidth, aDisplayHeight));
+  *aDefaultZoom = info.GetDefaultZoom().scale;
   *aAllowZoom = info.IsZoomAllowed();
-  *aMinZoom = info.GetMinZoom();
-  *aMaxZoom = info.GetMaxZoom();
-  *aWidth = info.GetWidth();
-  *aHeight = info.GetHeight();
+  *aMinZoom = info.GetMinZoom().scale;
+  *aMaxZoom = info.GetMaxZoom().scale;
+  *aWidth = info.GetSize().width;
+  *aHeight = info.GetSize().height;
   *aAutoSize = info.IsAutoSizeEnabled();
   return NS_OK;
 }
@@ -623,7 +623,7 @@ static LayoutDeviceIntPoint
 ToWidgetPoint(const CSSPoint& aPoint, const nsPoint& aOffset,
               nsPresContext* aPresContext)
 {
-  return LayoutDeviceIntPoint::FromAppUnits(
+  return LayoutDeviceIntPoint::FromAppUnitsRounded(
     CSSPoint::ToAppUnits(aPoint) + aOffset,
     aPresContext->AppUnitsPerDevPixel());
 }

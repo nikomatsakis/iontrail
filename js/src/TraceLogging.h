@@ -10,7 +10,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-class JSScript;
+#include "js/TypeDecls.h"
 
 namespace JS {
 class CompileOptions;
@@ -60,6 +60,7 @@ class TraceLogging
         Type type() const { return (Type) type_; }
     };
 
+    uint64_t startupTime;
     uint64_t loggingTime;
     Entry *entries;
     unsigned int curEntry;

@@ -3386,6 +3386,19 @@ gfxFont::SetupGlyphExtents(gfxContext *aContext, uint32_t aGlyphID, bool aNeedTi
 {
     gfxContextMatrixAutoSaveRestore matrixRestore(aContext);
     aContext->IdentityMatrix();
+
+    gfxRect svgBounds;
+    if (mFontEntry->TryGetSVGData() && mFontEntry->HasSVGGlyph(aGlyphID) &&
+        mFontEntry->GetSVGGlyphExtents(aContext, aGlyphID, &svgBounds)) {
+        gfxFloat d2a = aExtents->GetAppUnitsPerDevUnit();
+        aExtents->SetTightGlyphExtents(aGlyphID,
+                                       gfxRect(svgBounds.x * d2a,
+                                               svgBounds.y * d2a,
+                                               svgBounds.width * d2a,
+                                               svgBounds.height * d2a));
+        return;
+    }
+
     cairo_glyph_t glyph;
     glyph.index = aGlyphID;
     glyph.x = 0;
@@ -3414,16 +3427,6 @@ gfxFont::SetupGlyphExtents(gfxContext *aContext, uint32_t aGlyphID, bool aNeedTi
     gfxFloat d2a = appUnitsPerDevUnit;
     gfxRect bounds(extents.x_bearing*d2a, extents.y_bearing*d2a,
                    extents.width*d2a, extents.height*d2a);
-
-    gfxRect svgBounds;
-    if (mFontEntry->TryGetSVGData() &&
-        mFontEntry->HasSVGGlyph(aGlyphID) &&
-        mFontEntry->GetSVGGlyphExtents(aContext, aGlyphID, &svgBounds)) {
-
-        bounds = bounds.Union(gfxRect(svgBounds.x * d2a, svgBounds.y * d2a,
-                                      svgBounds.width * d2a, svgBounds.height * d2a));
-    }
-
     aExtents->SetTightGlyphExtents(aGlyphID, bounds);
 }
 
@@ -4383,7 +4386,36 @@ gfxFontGroup::InitTextRun(gfxContext *aContext,
         }
     }
 
+#ifdef PR_LOGGING
+    PRLogModuleInfo *log = (mStyle.systemFont ?
+                            gfxPlatform::GetLog(eGfxLog_textrunui) :
+                            gfxPlatform::GetLog(eGfxLog_textrun));
+#endif
+
     if (sizeof(T) == sizeof(uint8_t) && !transformedString) {
+
+#ifdef PR_LOGGING
+        if (MOZ_UNLIKELY(log)) {
+            nsAutoCString lang;
+            mStyle.language->ToUTF8String(lang);
+            nsAutoCString str((const char*)aString, aLength);
+            PR_LOG(log, PR_LOG_WARNING,\
+                   ("(%s) fontgroup: [%s] lang: %s script: %d len %d "
+                    "weight: %d width: %d style: %s size: %6.2f %d-byte "
+                    "TEXTRUN [%s] ENDTEXTRUN\n",
+                    (mStyle.systemFont ? "textrunui" : "textrun"),
+                    NS_ConvertUTF16toUTF8(mFamilies).get(),
+                    lang.get(), MOZ_SCRIPT_LATIN, aLength,
+                    uint32_t(mStyle.weight), uint32_t(mStyle.stretch),
+                    (mStyle.style & NS_FONT_STYLE_ITALIC ? "italic" :
+                    (mStyle.style & NS_FONT_STYLE_OBLIQUE ? "oblique" :
+                                                            "normal")),
+                    mStyle.size,
+                    sizeof(T),
+                    str.get()));
+        }
+#endif
+
         // the text is still purely 8-bit; bypass the script-run itemizer
         // and treat it as a single Latin run
         InitScriptRun(aContext, aTextRun, aString,
@@ -4402,12 +4434,6 @@ gfxFontGroup::InitTextRun(gfxContext *aContext,
         // the font matching process below
         gfxScriptItemizer scriptRuns(textPtr, aLength);
 
-#ifdef PR_LOGGING
-        PRLogModuleInfo *log = (mStyle.systemFont ?
-                                gfxPlatform::GetLog(eGfxLog_textrunui) :
-                                gfxPlatform::GetLog(eGfxLog_textrun));
-#endif
-
         uint32_t runStart = 0, runLimit = aLength;
         int32_t runScript = MOZ_SCRIPT_LATIN;
         while (scriptRuns.Next(runStart, runLimit, runScript)) {
@@ -4419,7 +4445,7 @@ gfxFontGroup::InitTextRun(gfxContext *aContext,
                 uint32_t runLen = runLimit - runStart;
                 PR_LOG(log, PR_LOG_WARNING,\
                        ("(%s) fontgroup: [%s] lang: %s script: %d len %d "
-                        "weight: %d width: %d style: %s "
+                        "weight: %d width: %d style: %s size: %6.2f %d-byte "
                         "TEXTRUN [%s] ENDTEXTRUN\n",
                         (mStyle.systemFont ? "textrunui" : "textrun"),
                         NS_ConvertUTF16toUTF8(mFamilies).get(),
@@ -4428,6 +4454,8 @@ gfxFontGroup::InitTextRun(gfxContext *aContext,
                         (mStyle.style & NS_FONT_STYLE_ITALIC ? "italic" :
                         (mStyle.style & NS_FONT_STYLE_OBLIQUE ? "oblique" :
                                                                 "normal")),
+                        mStyle.size,
+                        sizeof(T),
                         NS_ConvertUTF16toUTF8(textPtr + runStart, runLen).get()));
             }
 #endif

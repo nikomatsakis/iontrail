@@ -270,7 +270,12 @@ private:
       return !JS_IsExceptionPending(aCx);
     }
 
-    return worker->Terminate(aCx);
+    if (!worker->Terminate(aCx)) {
+      return false;
+    }
+
+    JS_RVAL(aCx, aVp).setUndefined();
+    return true;
   }
 
   static bool
@@ -294,7 +299,12 @@ private:
       return false;
     }
 
-    return worker->PostMessage(aCx, message, transferable);
+    if (!worker->PostMessage(aCx, message, transferable)) {
+      return false;
+    }
+
+    JS_RVAL(aCx, aVp).setUndefined();
+    return true;
   }
 };
 

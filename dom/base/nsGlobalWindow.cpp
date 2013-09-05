@@ -189,6 +189,9 @@
 #include "prenv.h"
 #include "prprf.h"
 
+#include "mozilla/dom/MessageChannel.h"
+#include "mozilla/dom/MessagePort.h"
+#include "mozilla/dom/MessagePortBinding.h"
 #include "mozilla/dom/indexedDB/IDBFactory.h"
 #include "mozilla/dom/quota/QuotaManager.h"
 
@@ -1283,13 +1286,7 @@ nsGlobalWindow::CleanupCachedXBLHandlers(nsGlobalWindow* aWindow)
   if (aWindow->mCachedXBLPrototypeHandlers.IsInitialized() &&
       aWindow->mCachedXBLPrototypeHandlers.Count() > 0) {
     aWindow->mCachedXBLPrototypeHandlers.Clear();
-
-    nsISupports* supports;
-    aWindow->QueryInterface(NS_GET_IID(nsCycleCollectionISupports),
-                            reinterpret_cast<void**>(&supports));
-    NS_ASSERTION(supports, "Failed to QI to nsCycleCollectionISupports?!");
-
-    nsContentUtils::DropJSObjects(supports);
+    mozilla::DropJSObjects(aWindow);
   }
 }
 
@@ -2052,8 +2049,9 @@ nsGlobalWindow::SetOuterObject(JSContext* aCx, JS::Handle<JSObject*> aOuterObjec
 {
   JSAutoCompartment ac(aCx, aOuterObject);
 
-  // Indicate the default compartment object associated with this cx.
-  js::SetDefaultObjectForContext(aCx, aOuterObject);
+  // Inform the nsJSContext, which is the canonical holder of the outer.
+  MOZ_ASSERT(IsOuterWindow());
+  mContext->SetWindowProxy(aOuterObject);
 
   // Set up the prototype for the outer object.
   JS::Rooted<JSObject*> inner(aCx, JS_GetParent(aOuterObject));
@@ -2365,7 +2363,7 @@ nsGlobalWindow::SetNewDocument(nsIDocument* aDocument,
       CreateOuterObject(newInnerWindow);
       mContext->DidInitializeContext();
 
-      mJSObject = mContext->GetNativeGlobal();
+      mJSObject = mContext->GetWindowProxy();
       SetWrapper(mJSObject);
     } else {
       JS::Rooted<JSObject*> global(cx,
@@ -2449,11 +2447,7 @@ nsGlobalWindow::SetNewDocument(nsIDocument* aDocument,
         newInnerWindow->FastGetGlobalJSObject());
 #endif
 
-    // Now that we're connecting the outer global to the inner one,
-    // we must have transplanted it. The JS engine tries to maintain
-    // the global object's compartment as its default compartment,
-    // so update that now since it might have changed.
-    js::SetDefaultObjectForContext(cx, mJSObject);
+    MOZ_ASSERT(mContext->GetWindowProxy() == mJSObject);
 #ifdef DEBUG
     JS::Rooted<JSObject*> rootedJSObject(cx, mJSObject);
     JS::Rooted<JSObject*> proto1(cx), proto2(cx);
@@ -6750,6 +6744,7 @@ namespace {
 struct StructuredCloneInfo {
   PostMessageEvent* event;
   bool subsumes;
+  nsPIDOMWindow* window;
 };
 
 static JSObject*
@@ -6774,6 +6769,21 @@ PostMessageReadStructuredClone(JSContext* cx,
                                                     val.address(),
                                                     getter_AddRefs(wrapper)))) {
           return JSVAL_TO_OBJECT(val);
+        }
+      }
+    }
+  }
+
+  if (MessageChannel::PrefEnabled() && tag == SCTAG_DOM_MESSAGEPORT) {
+    NS_ASSERTION(!data, "Data should be empty");
+
+    MessagePort* port;
+    if (JS_ReadBytes(reader, &port, sizeof(port))) {
+      JS::Rooted<JSObject*> global(cx, JS::CurrentGlobalOrNull(cx));
+      if (global) {
+        JS::Rooted<JSObject*> obj(cx, port->WrapObject(cx, global));
+        if (JS_WrapObject(cx, obj.address())) {
+          return obj;
         }
       }
     }
@@ -6817,6 +6827,18 @@ PostMessageWriteStructuredClone(JSContext* cx,
       return JS_WriteUint32Pair(writer, scTag, 0) &&
              JS_WriteBytes(writer, &supports, sizeof(supports)) &&
              scInfo->event->StoreISupports(supports);
+  }
+
+  if (MessageChannel::PrefEnabled()) {
+    MessagePort* port = nullptr;
+    nsresult rv = UNWRAP_OBJECT(MessagePort, cx, obj, port);
+    if (NS_SUCCEEDED(rv) && scInfo->subsumes) {
+      nsRefPtr<MessagePort> newPort = port->Clone(scInfo->window);
+
+      return JS_WriteUint32Pair(writer, SCTAG_DOM_MESSAGEPORT, 0) &&
+             JS_WriteBytes(writer, &newPort, sizeof(newPort)) &&
+             scInfo->event->StoreISupports(newPort);
+    }
   }
 
   const JSStructuredCloneCallbacks* runtimeCallbacks =
@@ -6910,6 +6932,7 @@ PostMessageEvent::Run()
   {
     StructuredCloneInfo scInfo;
     scInfo.event = this;
+    scInfo.window = targetWindow;
 
     if (!buffer.read(cx, messageData.address(), &kPostMessageCallbacks,
                      &scInfo)) {
@@ -7056,6 +7079,7 @@ nsGlobalWindow::PostMessageMoz(const JS::Value& aMessage,
   JSAutoStructuredCloneBuffer buffer;
   StructuredCloneInfo scInfo;
   scInfo.event = event;
+  scInfo.window = this;
 
   nsIPrincipal* principal = GetPrincipal();
   if (NS_FAILED(callerPrin->Subsumes(principal, &scInfo.subsumes)))
@@ -7602,19 +7626,7 @@ nsGlobalWindow::CacheXBLPrototypeHandler(nsXBLPrototypeHandler* aKey,
   }
 
   if (!mCachedXBLPrototypeHandlers.Count()) {
-    // Can't use macros to get the participant because nsGlobalChromeWindow also
-    // runs through this code. Use QueryInterface to get the correct objects.
-    nsXPCOMCycleCollectionParticipant* participant;
-    CallQueryInterface(this, &participant);
-    NS_ASSERTION(participant,
-                 "Failed to QI to nsXPCOMCycleCollectionParticipant!");
-
-    nsISupports* thisSupports;
-    QueryInterface(NS_GET_IID(nsCycleCollectionISupports),
-                   reinterpret_cast<void**>(&thisSupports));
-    NS_ASSERTION(thisSupports, "Failed to QI to nsCycleCollectionISupports!");
-
-    nsContentUtils::HoldJSObjects(thisSupports, participant);
+    mozilla::HoldJSObjects(this);
   }
 
   mCachedXBLPrototypeHandlers.Put(aKey, aHandler);

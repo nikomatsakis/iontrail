@@ -3929,16 +3929,21 @@ IonBuilder::makeInliningDecision(JSFunction *target, CallInfo &callInfo)
         return false;
     }
 
-    // Caller must be... somewhat hot.
+    // Caller must be... somewhat hot. Ignore use counts when inlining for
+    // the definite properties analysis, as the caller has not run yet.
     uint32_t callerUses = script()->getUseCount();
-    if (callerUses < js_IonOptions.usesBeforeInlining()) {
+    if (callerUses < js_IonOptions.usesBeforeInlining() &&
+        info().executionMode() != DefinitePropertiesAnalysis)
+    {
         IonSpew(IonSpew_Inlining, "%s:%d - Vetoed: caller is insufficiently hot.",
                                   targetScript->filename(), targetScript->lineno);
         return false;
     }
 
     // Callee must be hot relative to the caller.
-    if (targetScript->getUseCount() * js_IonOptions.inlineUseCountRatio < callerUses) {
+    if (targetScript->getUseCount() * js_IonOptions.inlineUseCountRatio < callerUses &&
+        info().executionMode() != DefinitePropertiesAnalysis)
+    {
         IonSpew(IonSpew_Inlining, "%s:%d - Vetoed: callee is not hot.",
                                   targetScript->filename(), targetScript->lineno);
         return false;
@@ -4803,7 +4808,7 @@ IonBuilder::jsop_funapplyarguments(uint32_t argc)
 
     // When this script isn't inlined, use MApplyArgs,
     // to copy the arguments from the stack and call the function
-    if (inliningDepth_ == 0) {
+    if (inliningDepth_ == 0 && info().executionMode() != DefinitePropertiesAnalysis) {
 
         // Vp
         MPassArg *passVp = current->pop()->toPassArg();
@@ -4841,7 +4846,9 @@ IonBuilder::jsop_funapplyarguments(uint32_t argc)
 
     // When inlining we have the arguments the function gets called with
     // and can optimize even more, by just calling the functions with the args.
-    JS_ASSERT(inliningDepth_ > 0);
+    // We also try this path when doing the definite properties analysis, as we
+    // can inline the apply() target and don't care about the actual arguments
+    // that were passed in.
 
     CallInfo callInfo(cx, false);
 
@@ -4853,8 +4860,10 @@ IonBuilder::jsop_funapplyarguments(uint32_t argc)
 
     // Arguments
     Vector<MDefinition *> args(cx);
-    if (!args.append(inlineCallInfo_->argv().begin(), inlineCallInfo_->argv().end()))
-        return false;
+    if (inliningDepth_) {
+        if (!args.append(inlineCallInfo_->argv().begin(), inlineCallInfo_->argv().end()))
+            return false;
+    }
     callInfo.setArgs(&args);
 
     // This
@@ -5570,6 +5579,7 @@ IonBuilder::jsop_initprop(HandlePropertyName name)
     // forkjoin.cpp for more information.
     switch (info().executionMode()) {
       case SequentialExecution:
+      case DefinitePropertiesAnalysis:
         break;
       case ParallelExecution:
         needsBarrier = false;
@@ -7626,24 +7636,81 @@ IonBuilder::jsop_not()
     return true;
 }
 
+inline bool
+TestClassHasAccessorHook(Class *clasp, bool isGetter)
+{
+    if (isGetter && clasp->ops.getGeneric)
+        return true;
+    if (!isGetter && clasp->ops.setGeneric)
+        return true;
+    return false;
+}
 
 inline bool
-IonBuilder::TestCommonPropFunc(JSContext *cx, types::StackTypeSet *types, HandleId id,
-                               JSFunction **funcp, bool isGetter, bool *isDOM,
-                               MDefinition **guardOut)
+TestTypeHasOwnProperty(JSContext *cx, types::TypeObject *typeObj, HandleId id, bool &cont)
 {
-    JSObject *found = NULL;
-    JSObject *foundProto = NULL;
+    cont = true;
+    types::HeapTypeSet *propSet = typeObj->getProperty(cx, types::IdToTypeId(id), false);
+    if (!propSet)
+        return false;
+    if (propSet->ownProperty(false))
+        cont = false;
+    return true;
+}
 
-    *funcp = NULL;
-    *isDOM = false;
+inline bool
+TestCommonAccessorProtoChain(JSContext *cx, HandleId id, bool isGetter, JSObject *foundProto,
+                             JSObject *obj, bool &cont)
+{
+    cont = false;
+    RootedObject curObj(cx, obj);
+    JSObject *stopAt = foundProto->getProto();
+    while (curObj != stopAt) {
+        // Don't optimize if we have a hook that would have to be called.
+        if (TestClassHasAccessorHook(curObj->getClass(), isGetter))
+            return true;
 
-    // No sense looking if we don't know what's going on.
-    if (!types || types->unknownObject())
-        return true;
+        // Check here to make sure that everyone has Type Objects with known
+        // properties between them and the proto we found the accessor on. We
+        // need those to add freezes safely. NOTE: We do not do this above, as
+        // we may be able to freeze all the types up to where we found the
+        // property, even if there are unknown types higher in the prototype
+        // chain.
+        if (curObj != foundProto) {
+            types::TypeObject *typeObj = curObj->getType(cx);
+            if (!typeObj)
+                return false;
 
-    // Iterate down all the types to see if they all have the same getter or
-    // setter.
+            if (typeObj->unknownProperties())
+                return true;
+
+            // Check here to make sure that nobody on the prototype chain is
+            // marked as having the property as an "own property". This can
+            // happen in cases of |delete| having been used, or cases with
+            // watched objects. If TI ever decides to be more accurate about
+            // |delete| handling, this should go back to curObj->watched().
+
+            // Even though we are not directly accessing the properties on the whole
+            // prototype chain, we need to fault in the sets anyway, as we need
+            // to freeze on them.
+            bool lcont;
+            if (!TestTypeHasOwnProperty(cx, typeObj, id, lcont))
+                return false;
+            if (!lcont)
+                return true;
+        }
+
+        curObj = curObj->getProto();
+    }
+    cont = true;
+    return true;
+}
+
+inline bool
+SearchCommonPropFunc(JSContext *cx, types::StackTypeSet *types, HandleId id, bool isGetter,
+                     JSObject *&found, JSObject *&foundProto, bool &cont)
+{
+    cont = false;
     for (unsigned i = 0; i < types->getObjectCount(); i++) {
         RootedObject curObj(cx, types->getSingleObject(i));
 
@@ -7659,17 +7726,15 @@ IonBuilder::TestCommonPropFunc(JSContext *cx, types::StackTypeSet *types, Handle
 
             // If the class of the object has a hook, we can't
             // inline, as we would need to call the hook.
-            if (isGetter && typeObj->clasp->ops.getGeneric)
-                return true;
-            if (!isGetter && typeObj->clasp->ops.setGeneric)
+            if (TestClassHasAccessorHook(typeObj->clasp, isGetter))
                 return true;
 
             // If the type has an own property, we can't be sure we don't shadow
             // the chain.
-            types::HeapTypeSet *propSet = typeObj->getProperty(cx, types::IdToTypeId(id), false);
-            if (!propSet)
+            bool lcont;
+            if (!TestTypeHasOwnProperty(cx, typeObj, id, lcont))
                 return false;
-            if (propSet->ownProperty(false))
+            if (!lcont)
                 return true;
 
             // Otherwise try using the prototype.
@@ -7725,71 +7790,19 @@ IonBuilder::TestCommonPropFunc(JSContext *cx, types::StackTypeSet *types, Handle
         else if (foundProto != proto)
             return true;
 
-        JSObject *stopAt = foundProto->getProto();
-        while (curObj != stopAt) {
-            // Don't optimize if we have a hook that would have to be called.
-            if (isGetter && curObj->getClass()->ops.getGeneric)
-                return true;
-            if (!isGetter && curObj->getClass()->ops.setGeneric)
-                return true;
-
-            // Check here to make sure that everyone has Type Objects with known
-            // properties between them and the proto we found the accessor on. We
-            // need those to add freezes safely. NOTE: We do not do this above, as
-            // we may be able to freeze all the types up to where we found the
-            // property, even if there are unknown types higher in the prototype
-            // chain.
-            if (curObj != foundProto) {
-                types::TypeObject *typeObj = curObj->getType(cx);
-                if (!typeObj)
-                    return false;
-
-                if (typeObj->unknownProperties())
-                    return true;
-
-                // Check here to make sure that nobody on the prototype chain is
-                // marked as having the property as an "own property". This can
-                // happen in cases of |delete| having been used, or cases with
-                // watched objects. If TI ever decides to be more accurate about
-                // |delete| handling, this should go back to curObj->watched().
-
-                // Even though we are not directly accessing the properties on the whole
-                // prototype chain, we need to fault in the sets anyway, as we need
-                // to freeze on them.
-                types::HeapTypeSet *propSet =
-                    typeObj->getProperty(cx, types::IdToTypeId(id), false);
-                if (!propSet)
-                    return false;
-                if (propSet->ownProperty(false))
-                    return true;
-            }
-
-            curObj = curObj->getProto();
-        }
+        bool lcont;
+        if (!TestCommonAccessorProtoChain(cx, id, isGetter, foundProto, curObj, lcont))
+            return false;
+        if (!lcont)
+            return true;
     }
+    cont = true;
+    return true;
+}
 
-    // No need to add a freeze if we didn't find anything
-    if (!found)
-        return true;
-
-    JS_ASSERT(foundProto);
-
-    // Add a shape guard on the prototype we found the property on. The rest of
-    // the prototype chain is guarded by TI freezes. Note that a shape guard is
-    // good enough here, even in the proxy case, because we have ensured there
-    // are no lookup hooks for this property.
-    MInstruction *wrapper = MConstant::New(ObjectValue(*foundProto));
-    current->add(wrapper);
-    wrapper = addShapeGuard(wrapper, foundProto->lastProperty(), Bailout_ShapeGuard);
-
-    // Pass the guard back so it can be an operand.
-    if (isGetter) {
-        JS_ASSERT(wrapper->isGuardShape());
-        *guardOut = wrapper;
-    }
-
-    // Now we have to freeze all the property typesets to ensure there isn't a
-    // lower shadowing getter or setter installed in the future.
+inline bool
+FreezePropTypeSets(JSContext *cx, types::StackTypeSet *types, JSObject *foundProto, HandleId id)
+{
     types::TypeObject *curType;
     for (unsigned i = 0; i < types->getObjectCount(); i++) {
         curType = types->getTypeObject(i);
@@ -7829,6 +7842,56 @@ IonBuilder::TestCommonPropFunc(JSContext *cx, types::StackTypeSet *types, Handle
             }
         }
     }
+    return true;
+}
+
+inline bool
+IonBuilder::TestCommonPropFunc(JSContext *cx, types::StackTypeSet *types, HandleId id,
+                               JSFunction **funcp, bool isGetter, bool *isDOM,
+                               MDefinition **guardOut)
+{
+    JSObject *found = NULL;
+    JSObject *foundProto = NULL;
+
+    *funcp = NULL;
+    *isDOM = false;
+
+    // No sense looking if we don't know what's going on.
+    if (!types || types->unknownObject())
+        return true;
+
+    // Iterate down all the types to see if they all have the same getter or
+    // setter.
+    bool cont;
+    if (!SearchCommonPropFunc(cx, types, id, isGetter, found, foundProto, cont))
+        return false;
+    if (!cont)
+        return true;
+
+    // No need to add a freeze if we didn't find anything
+    if (!found)
+        return true;
+
+    JS_ASSERT(foundProto);
+
+    // Add a shape guard on the prototype we found the property on. The rest of
+    // the prototype chain is guarded by TI freezes. Note that a shape guard is
+    // good enough here, even in the proxy case, because we have ensured there
+    // are no lookup hooks for this property.
+    MInstruction *wrapper = MConstant::New(ObjectValue(*foundProto));
+    current->add(wrapper);
+    wrapper = addShapeGuard(wrapper, foundProto->lastProperty(), Bailout_ShapeGuard);
+
+    // Pass the guard back so it can be an operand.
+    if (guardOut) {
+        JS_ASSERT(wrapper->isGuardShape());
+        *guardOut = wrapper;
+    }
+
+    // Now we have to freeze all the property typesets to ensure there isn't a
+    // lower shadowing getter or setter installed in the future.
+    if (!FreezePropTypeSets(cx, types, foundProto, id))
+        return false;
 
     *funcp = &found->as<JSFunction>();
     *isDOM = types->isDOMClass();
@@ -8019,11 +8082,22 @@ IonBuilder::jsop_getprop(HandlePropertyName name)
     if (!getPropTryArgumentsLength(&emitted) || emitted)
         return emitted;
 
+    bool barrier = PropertyReadNeedsTypeBarrier(cx, current->peek(-1), name, types);
+
     // Try to hardcode known constants.
     if (!getPropTryConstant(&emitted, id, types) || emitted)
         return emitted;
 
-    bool barrier = PropertyReadNeedsTypeBarrier(cx, current->peek(-1), name, types);
+    // Except when loading constants above, always use a call if we are doing
+    // the definite properties analysis and not actually emitting code, to
+    // simplify later analysis.
+    if (info().executionMode() == DefinitePropertiesAnalysis) {
+        MDefinition *obj = current->pop();
+        MCallGetProperty *call = MCallGetProperty::New(obj, name);
+        current->add(call);
+        current->push(call);
+        return resumeAfter(call);
+    }
 
     // Try to emit loads from definite slots.
     if (!getPropTryDefiniteSlot(&emitted, name, barrier, types) || emitted)
@@ -8369,6 +8443,15 @@ IonBuilder::jsop_setprop(HandlePropertyName name)
 
     RootedId id(cx, NameToId(name));
     bool emitted = false;
+
+    // Always use a call if we are doing the definite properties analysis and
+    // not actually emitting code, to simplify later analysis.
+    if (info().executionMode() == DefinitePropertiesAnalysis) {
+        MInstruction *ins = MCallSetProperty::New(obj, value, name, script()->strict);
+        current->add(ins);
+        current->push(value);
+        return resumeAfter(ins);
+    }
 
     // Add post barrier if needed.
     if (NeedsPostBarrier(info(), value))
@@ -8755,6 +8838,15 @@ IonBuilder::jsop_this()
         // This is safe, because if the entry type of |this| is an object, it
         // will necessarily be an object throughout the entire function. OSR
         // can introduce a phi, but this phi will be specialized.
+        current->pushSlot(info().thisSlot());
+        return true;
+    }
+
+    // If we are doing a definite properties analysis, we don't yet know the
+    // |this| type as its type object is being created right now. Instead of
+    // bailing out just push the |this| slot, as this code won't actually
+    // execute and it does not matter whether |this| is primitive.
+    if (info().executionMode() == DefinitePropertiesAnalysis) {
         current->pushSlot(info().thisSlot());
         return true;
     }

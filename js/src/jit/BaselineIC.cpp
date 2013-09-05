@@ -15,6 +15,7 @@
 #include "jit/BaselineJIT.h"
 #include "jit/IonLinker.h"
 #include "jit/IonSpewer.h"
+#include "jit/PerfSpewer.h"
 #include "jit/VMFunctions.h"
 
 #include "jsboolinlines.h"
@@ -560,6 +561,10 @@ ICStubCompiler::getStubCode()
         return NULL;
 
     JS_ASSERT(entersStubFrame_ == ICStub::CanMakeCalls(kind));
+
+#ifdef JS_ION_PERF
+    writePerfSpewerIonCodeProfile(newStubCode, "BaselineIC");
+#endif
 
     return newStubCode;
 }
@@ -3965,7 +3970,7 @@ ICGetElem_Arguments::Compiler::generateStubCode(MacroAssembler &masm)
     regs = availableGeneralRegs(0);
     regs.takeUnchecked(objReg);
     regs.takeUnchecked(idxReg);
-    regs.takeUnchecked(scratchReg);
+    regs.take(scratchReg);
     Register argData = regs.takeAny();
     Register tempReg = regs.takeAny();
 
@@ -3987,6 +3992,7 @@ ICGetElem_Arguments::Compiler::generateStubCode(MacroAssembler &masm)
     masm.addPtr(Imm32(ArgumentsData::offsetOfArgs()), argData);
     regs.add(scratchReg);
     regs.add(tempReg);
+    regs.add(argData);
     ValueOperand tempVal = regs.takeAnyValue();
     masm.loadValue(BaseIndex(argData, idxReg, ScaleFromElemWidth(sizeof(Value))), tempVal);
 

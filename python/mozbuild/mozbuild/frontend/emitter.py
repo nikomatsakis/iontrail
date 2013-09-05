@@ -118,17 +118,21 @@ class TreeMetadataEmitter(LoggingMixin):
             CPP_UNIT_TESTS='CPP_UNIT_TESTS',
             CSRCS='CSRCS',
             DEFINES='DEFINES',
+            EXPORT_LIBRARY='EXPORT_LIBRARY',
             EXTRA_COMPONENTS='EXTRA_COMPONENTS',
             EXTRA_JS_MODULES='EXTRA_JS_MODULES',
             EXTRA_PP_COMPONENTS='EXTRA_PP_COMPONENTS',
             EXTRA_PP_JS_MODULES='EXTRA_PP_JS_MODULES',
             FAIL_ON_WARNINGS='FAIL_ON_WARNINGS',
+            FORCE_SHARED_LIB='FORCE_SHARED_LIB',
+            FORCE_STATIC_LIB='FORCE_STATIC_LIB',
             GTEST_CMMSRCS='GTEST_CMM_SOURCES',
             GTEST_CPPSRCS='GTEST_CPP_SOURCES',
             GTEST_CSRCS='GTEST_C_SOURCES',
             HOST_CPPSRCS='HOST_CPPSRCS',
             HOST_CSRCS='HOST_CSRCS',
             HOST_LIBRARY_NAME='HOST_LIBRARY_NAME',
+            IS_COMPONENT='IS_COMPONENT',
             JS_MODULES_PATH='JS_MODULES_PATH',
             LIBRARY_NAME='LIBRARY_NAME',
             LIBS='LIBS',
@@ -150,7 +154,8 @@ class TreeMetadataEmitter(LoggingMixin):
 
         exports = sandbox.get('EXPORTS')
         if exports:
-            yield Exports(sandbox, exports)
+            yield Exports(sandbox, exports,
+                dist_install=not sandbox.get('NO_DIST_INSTALL', False))
 
         program = sandbox.get('PROGRAM')
         if program:

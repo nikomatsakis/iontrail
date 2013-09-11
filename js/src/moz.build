@@ -87,6 +87,7 @@ CPP_SOURCES += [
     'Debugger.cpp',
     'Eval.cpp',
     'ExecutableAllocator.cpp',
+	 'Float32x4.cpp',
     'FoldConstants.cpp',
     'ForkJoin.cpp',
     'GlobalObject.cpp',

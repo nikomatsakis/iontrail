@@ -30,6 +30,9 @@ js_InitTypedArrayClasses(JSContext *cx, js::HandleObject obj);
 extern JSObject *
 js_InitBinaryDataClasses(JSContext *cx, js::HandleObject obj);
 
+extern JSObject *
+js_InitFloat32x4(JSContext *cx, js::HandleObject obj);
+
 namespace js {
 
 class Debugger;

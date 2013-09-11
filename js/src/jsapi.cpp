@@ -50,6 +50,7 @@
 #endif
 #include "builtin/BinaryData.h"
 #include "builtin/Eval.h"
+#include "builtin/Float32x4.h"
 #include "builtin/Intl.h"
 #include "builtin/MapObject.h"
 #include "builtin/ParallelArray.h"
@@ -1439,6 +1440,9 @@ static const JSStdName standard_class_names[] = {
 #undef BINARYDATA_NUMERIC_NAMES
     {js_InitBinaryDataClasses,          EAGER_CLASS_ATOM(ArrayType),  &js::ArrayType::class_},
     {js_InitBinaryDataClasses,          EAGER_CLASS_ATOM(StructType), &js::StructType::class_},
+#endif
+#ifdef ENABLE_ECMA_SIMD
+    {js_InitFloat32x4,                  EAGER_CLASS_ATOM(float32x4), &js::Float32x4::class_},
 #endif
     {NULL,                      0, NULL}
 };

@@ -106,7 +106,7 @@ Float32x4::construct(JSContext *cx, unsigned int argc, jsval *vp)
 
     if (argc != 0 && argc != 1 && argc != 4) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
-                             JSMSG_MORE_ARGS_NEEDED, "float32x4", argc, "s");
+                             JSMSG_FLOAT32X4_BAD_ARGS);
         return false;
     }
 
@@ -127,7 +127,6 @@ Float32x4::construct(JSContext *cx, unsigned int argc, jsval *vp)
 				 !setSlot(cx, obj, SLOT_W, args[0])) {
 			 return false;
 		 }
-
 	 } else if (argc == 4){
 		 if (!setSlot(cx, obj, SLOT_X, args[0]) ||
 				 !setSlot(cx, obj, SLOT_Y, args[1]) ||

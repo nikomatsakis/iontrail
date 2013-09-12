@@ -70,5 +70,6 @@
     macro(ArrayTypeObject,       51,     js_InitBinaryDataClasses) \
     macro(GeneratorFunction,     52,     js_InitIteratorClasses) \
 	 macro(float32x4,             53,     js_InitFloat32x4) \
+	 macro(SIMD,             		54,     js_InitSIMD) \
 
 #endif /* jsprototypes_h */

@@ -11,42 +11,42 @@
 #include "jsobj.h"
 
 namespace js {
-class Float32x4
-{
-  public:
-    static Class class_;
+	class Float32x4
+	{
+		public:
+			static Class class_;
 
-    static JSObject* initClass(JSContext *cx, Handle<GlobalObject *> global);
+			static JSObject* initClass(JSContext *cx, Handle<GlobalObject *> global);
 
-    static bool is(const Value &v);
-    static bool construct(JSContext *cx, unsigned int argc, jsval *vp);
+			static bool is(const Value &v);
+			static bool construct(JSContext *cx, unsigned int argc, jsval *vp);
 
 #define LANE_ACCESSOR(lane, name)\
-    static bool get##lane(JSContext *cx, unsigned int argc, jsval *vp) {\
-        return getLane(cx, argc, vp, SLOT_##lane, name);\
-    }
-    LANE_ACCESSOR(X, "x");
-    LANE_ACCESSOR(Y, "y");
-    LANE_ACCESSOR(Z, "z");
-    LANE_ACCESSOR(W, "w");
+			static bool get##lane(JSContext *cx, unsigned int argc, jsval *vp) {\
+				return getLane(cx, argc, vp, SLOT_##lane, name);\
+			}
+			LANE_ACCESSOR(X, "x");
+			LANE_ACCESSOR(Y, "y");
+			LANE_ACCESSOR(Z, "z");
+			LANE_ACCESSOR(W, "w");
 #undef LANE_ACCESSOR
 
-    static bool toString(JSContext *cx, unsigned int argc, jsval *vp);
+			static bool toString(JSContext *cx, unsigned int argc, jsval *vp);
 
-private:
-    enum Float32x4Slots {
-        SLOT_X = 0,
-        SLOT_Y,
-        SLOT_Z,
-        SLOT_W,
+		private:
+			enum Float32x4Slots {
+				SLOT_X = 0,
+				SLOT_Y,
+				SLOT_Z,
+				SLOT_W,
 
-        SLOT_COUNT
-    };
+				SLOT_COUNT
+			};
 
-    static const JSPropertySpec properties[];
+			static const JSPropertySpec properties[];
 
-    static bool getLane(JSContext *cx, unsigned int argc, jsval *vp, unsigned int slot, const char *laneName);
-};
+			static bool getLane(JSContext *cx, unsigned int argc, jsval *vp, unsigned int slot, const char *laneName);
+	};
 
 } // namespace js
 

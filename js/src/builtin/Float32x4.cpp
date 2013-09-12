@@ -104,7 +104,7 @@ Float32x4::construct(JSContext *cx, unsigned int argc, jsval *vp)
 
     CallArgs args = CallArgsFromVp(argc, vp);
 
-    if (argc != 0 && argc != 1 && argc != 4) {
+    if (argc != 1 && argc != 4) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
                              JSMSG_FLOAT32X4_BAD_ARGS);
         return false;
@@ -114,13 +114,7 @@ Float32x4::construct(JSContext *cx, unsigned int argc, jsval *vp)
     if (!obj)
         return false;
 
-	 if(argc == 0 ){
-	   double d = 0;
-		obj->setReservedSlot(SLOT_X,DoubleValue(float(d))); 
-		obj->setReservedSlot(SLOT_Y,DoubleValue(float(d))); 
-		obj->setReservedSlot(SLOT_Z,DoubleValue(float(d))); 
-		obj->setReservedSlot(SLOT_W,DoubleValue(float(d))); 
-	 } else if (argc == 1){
+	 if (argc == 1){
 		 if (!setSlot(cx, obj, SLOT_X, args[0]) ||
 				 !setSlot(cx, obj, SLOT_Y, args[0]) ||
 				 !setSlot(cx, obj, SLOT_Z, args[0]) ||

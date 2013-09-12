@@ -55,6 +55,7 @@
 #include "builtin/MapObject.h"
 #include "builtin/ParallelArray.h"
 #include "builtin/RegExp.h"
+#include "builtin/SIMD.h"
 #include "frontend/BytecodeCompiler.h"
 #include "frontend/FullParseHandler.h"  // for JS_BufferIsCompileableUnit
 #include "frontend/Parser.h" // for JS_BufferIsCompileableUnit
@@ -1443,6 +1444,7 @@ static const JSStdName standard_class_names[] = {
 #endif
 #ifdef ENABLE_ECMA_SIMD
     {js_InitFloat32x4,                  EAGER_CLASS_ATOM(float32x4), &js::Float32x4::class_},
+	 {js_InitSIMD,                  EAGER_CLASS_ATOM(SIMD), &js::SIMD::class_},
 #endif
     {NULL,                      0, NULL}
 };

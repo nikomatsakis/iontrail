@@ -412,4 +412,4 @@ MSG_DEF(JSMSG_BINARYDATA_STRUCTTYPE_BAD_FIELD, 358, 1, JSEXN_ERR, "field {0} is 
 MSG_DEF(JSMSG_GENERATOR_FINISHED,     359, 0, JSEXN_TYPEERR, "generator has already finished")
 MSG_DEF(JSMSG_BINARYDATA_TOO_BIG, 360, 0, JSEXN_ERR, "Type is too large to allocate")
 MSG_DEF(JSMSG_BINARYDATA_NOT_TYPE_OBJECT, 361, 0, JSEXN_ERR, "Expected a type object")
-MSG_DEF(JSMSG_FLOAT32X4_BAD_ARGS, 362, 0, JSEXN_ERR, "float32x4 requires 1, 2, or 4 arguments")
+MSG_DEF(JSMSG_FLOAT32X4_BAD_ARGS, 362, 0, JSEXN_ERR, "float32x4 requires 1 or 4 arguments")

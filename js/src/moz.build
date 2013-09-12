@@ -124,6 +124,7 @@ CPP_SOURCES += [
     'ScopeObject.cpp',
     'SelfHosting.cpp',
     'Shape.cpp',
+	 'SIMD.cpp',
     'Stack.cpp',
     'Statistics.cpp',
     'StoreBuffer.cpp',

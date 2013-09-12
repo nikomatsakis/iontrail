@@ -41,6 +41,11 @@ const Class js::TypedObjectClass = {
     JS_ConvertStub
 };
 
+static const JSFunctionSpec TypedObjectMethods[] = {
+    JS_SELF_HOSTED_FN("objectType", "TypeOfTypedDatum", 1, 0),
+    JS_FS_END
+};
+
 static void
 ReportCannotConvertTo(JSContext *cx, HandleValue fromValue, const char *toType)
 {
@@ -1326,6 +1331,23 @@ DefineMetaTypeObject(JSContext *cx,
     return ctor;
 }
 
+bool
+GlobalObject::initTypedObject(JSContext *cx, Handle<GlobalObject*> global)
+{
+    RootedObject TypedObject(cx);
+    TypedObject = NewObjectWithGivenProto(cx, &TypedObjectClass, global->getOrCreateObjectPrototype(cx),
+                                          global, SingletonObject);
+    if (!TypedObject)
+        return false;
+
+    if (!JS_DefineFunctions(cx, TypedObject, TypedObjectMethods))
+        return false;
+
+    global->setConstructor(JSProto_TypedObject, ObjectValue(*TypedObject));
+    return true;
+
+}
+
 JSObject *
 js_InitTypedObjectClass(JSContext *cx, HandleObject obj)
 {
@@ -1340,12 +1362,7 @@ js_InitTypedObjectClass(JSContext *cx, HandleObject obj)
     JS_ASSERT(obj->is<GlobalObject>());
     Rooted<GlobalObject *> global(cx, &obj->as<GlobalObject>());
 
-    RootedObject objProto(cx, global->getOrCreateObjectPrototype(cx));
-    if (!objProto)
-        return nullptr;
-
-    RootedObject module(cx, NewObjectWithClassProto(cx, &JSObject::class_,
-                                                    objProto, global));
+    RootedObject module(cx, global->getOrCreateTypedObject(cx));
     if (!module)
         return nullptr;
 
@@ -1401,8 +1418,6 @@ js_InitTypedObjectClass(JSContext *cx, HandleObject obj)
                                   nullptr, nullptr,
                                   0))
         return nullptr;
-    global->setConstructor(JSProto_TypedObject, moduleValue);
-    global->setArrayType(arrayType);
 
     //  Handle
 
@@ -1421,6 +1436,8 @@ js_InitTypedObjectClass(JSContext *cx, HandleObject obj)
     {
         return nullptr;
     }
+
+    global->setArrayType(arrayType);
 
     return module;
 }
@@ -2517,6 +2534,15 @@ js::Memcpy(ThreadSafeContext *, unsigned argc, Value *vp)
 const JSJitInfo js::MemcpyJitInfo =
     JS_JITINFO_NATIVE_PARALLEL(
         JSParallelNativeThreadSafeWrapper<js::Memcpy>);
+
+bool
+js::StandardTypeObjectDescriptors(JSContext *cx, unsigned argc, Value *vp)
+{
+    CallArgs args = CallArgsFromVp(argc, vp);
+    Rooted<GlobalObject*> global(cx, cx->global());
+    args.rval().setObject(global->getTypedObject());
+    return true;
+}
 
 #define JS_STORE_SCALAR_CLASS_IMPL(_constant, T, _name)                       \
 bool                                                                          \

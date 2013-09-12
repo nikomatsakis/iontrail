@@ -418,6 +418,17 @@ class GlobalObject : public JSObject
         return getOrCreateObject(cx, APPLICATION_SLOTS + JSProto_Intl, initIntlObject);
     }
 
+    JSObject *getOrCreateTypedObject(JSContext *cx) {
+        return getOrCreateObject(cx, APPLICATION_SLOTS + JSProto_TypedObject, initTypedObject);
+    }
+
+    JSObject &getTypedObject() {
+        Value v = getSlotRef(APPLICATION_SLOTS + JSProto_TypedObject);
+        // only gets called from contexts where TypedObject must be initialized
+        JS_ASSERT(v.isObject());
+        return v.toObject();
+    }
+
     JSObject *getIteratorPrototype() {
         return &getPrototype(JSProto_Iterator).toObject();
     }
@@ -595,6 +606,9 @@ class GlobalObject : public JSObject
     static bool initCollatorProto(JSContext *cx, Handle<GlobalObject*> global);
     static bool initNumberFormatProto(JSContext *cx, Handle<GlobalObject*> global);
     static bool initDateTimeFormatProto(JSContext *cx, Handle<GlobalObject*> global);
+
+    // Implemented in builtin/TypedObject.cpp
+    static bool initTypedObject(JSContext *cx, Handle<GlobalObject*> global);
 
     static bool initStandardClasses(JSContext *cx, Handle<GlobalObject*> global);
 

@@ -38,6 +38,8 @@ Class SIMD::class_ = {
 static const JSFunctionSpec SIMD_static_methods[] = {
 		JS_FN("addf",          SIMD::addf,             2, 0),
 		JS_FN("mulf",          SIMD::mulf,             2, 0),
+		JS_FN("addu",          SIMD::addu,             2, 0),
+		JS_FN("mulu",          SIMD::mulu,             2, 0),
 		JS_FS_END
 };
 
@@ -88,6 +90,67 @@ SIMD::mulf(JSContext *cx, unsigned argc, Value *vp)
 	op2 = &(args[1].toObject());
 
    RootedObject ret(cx, NewBuiltinClassInstance(cx, &Float32x4::class_));
+	if(!ret)
+		return false;
+
+	for (int i=0; i< 4; i++){
+		double d1, d2;
+		if(!ToNumber(cx,op1->getReservedSlot(i),&d1) || !ToNumber(cx,op2->getReservedSlot(i),&d2)){
+			return false;
+		}
+		ret->setReservedSlot(i, DoubleValue(float(d1*d2)));
+	}
+
+   args.rval().setObject(*ret);
+	return true;
+}
+
+SIMD::addu(JSContext *cx, unsigned argc, Value *vp)
+{
+	CallArgs args = CallArgsFromVp(argc, vp);
+
+   //Check Uint32x4 arguments
+	if(!Uint32x4::is(args[0]) || !Uint32x4::is(args[1])){
+		return false;
+	}
+	//printf ("All arguments checked as Uint32x4\n");
+
+	JSObject *op1, *op2;
+	op1 = &(args[0].toObject());
+	op2 = &(args[1].toObject());
+
+   RootedObject ret(cx, NewBuiltinClassInstance(cx, &Uint32x4::class_));
+	if(!ret)
+		return false;
+
+	for (int i=0; i< 4; i++){
+		double d1, d2;
+		if(!ToNumber(cx,op1->getReservedSlot(i),&d1) || !ToNumber(cx,op2->getReservedSlot(i),&d2)){
+			return false;
+		}
+		ret->setReservedSlot(i, DoubleValue(d1+d2));
+	}
+
+   args.rval().setObject(*ret);
+	return true;
+}
+
+bool
+SIMD::mulu(JSContext *cx, unsigned argc, Value *vp)
+{
+	CallArgs args = CallArgsFromVp(argc, vp);
+
+   //Check Float32x4 arguments
+	if(!Uint32x4::is(args[0]) || !Uint32x4::is(args[1])){
+		return false;
+	}
+	//printf ("All arguments checked as Uint32x4\n");
+
+	JSObject *op1, *op2;
+	op1 = &(args[0].toObject());
+	op2 = &(args[1].toObject());
+
+   RootedObject ret(cx, NewBuiltinClassInstance(cx, &Uintt32x4::class_));
 	if(!ret)
 		return false;
 

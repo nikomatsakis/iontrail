@@ -136,6 +136,7 @@ CPP_SOURCES += [
     'TokenStream.cpp',
     'TypeRepresentation.cpp',
     'TypedArrayObject.cpp',
+	 'Uint32x4.cpp',
     'Unicode.cpp',
     'Value.cpp',
     'Verifier.cpp',

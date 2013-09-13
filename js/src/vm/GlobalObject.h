@@ -34,6 +34,9 @@ extern JSObject *
 js_InitFloat32x4(JSContext *cx, js::HandleObject obj);
 
 extern JSObject *
+js_InitUint32x4(JSContext *cx, js::HandleObject obj);
+
+extern JSObject *
 js_InitSIMD(JSContext *cx, js::HandleObject obj);
 
 namespace js {

@@ -106,7 +106,7 @@ Float32x4::construct(JSContext *cx, unsigned int argc, jsval *vp)
 
     if (argc != 1 && argc != 4) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
-                             JSMSG_FLOAT32X4_BAD_ARGS);
+                             JSMSG_SIMD32X4_BAD_ARGS, "float32x4");
         return false;
     }
 

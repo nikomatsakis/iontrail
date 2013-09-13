@@ -10,6 +10,7 @@
 
 #include "builtin/SIMD.h"
 #include "builtin/Float32x4.h"
+#include "builtin/Uint32x4.h"
 #include "jsapi.h"
 
 #include "jsfriendapi.h"
@@ -105,6 +106,7 @@ SIMD::mulf(JSContext *cx, unsigned argc, Value *vp)
 	return true;
 }
 
+bool
 SIMD::addu(JSContext *cx, unsigned argc, Value *vp)
 {
 	CallArgs args = CallArgsFromVp(argc, vp);
@@ -150,7 +152,7 @@ SIMD::mulu(JSContext *cx, unsigned argc, Value *vp)
 	op1 = &(args[0].toObject());
 	op2 = &(args[1].toObject());
 
-   RootedObject ret(cx, NewBuiltinClassInstance(cx, &Uintt32x4::class_));
+   RootedObject ret(cx, NewBuiltinClassInstance(cx, &Uint32x4::class_));
 	if(!ret)
 		return false;
 

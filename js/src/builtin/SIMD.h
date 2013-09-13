@@ -26,6 +26,10 @@ namespace js {
 
 			static bool mulf(JSContext *cx, unsigned argc, Value *vp);
 
+			static bool addu(JSContext *cx, unsigned argc, Value *vp);
+
+			static bool mulu(JSContext *cx, unsigned argc, Value *vp);
+
 	};
 
 }  /* namespace js */

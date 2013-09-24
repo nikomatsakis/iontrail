@@ -17,20 +17,21 @@
  */
 
 namespace js {
-	class SIMD
-	{
-		public:
-			static Class class_;
 
-			static bool addf(JSContext *cx, unsigned argc, Value *vp);
+class SIMD
+{
+  public:
+    static Class class_;
 
-			static bool mulf(JSContext *cx, unsigned argc, Value *vp);
+    static bool add(JSContext *cx, unsigned argc, Value *vp);
 
-			static bool addu(JSContext *cx, unsigned argc, Value *vp);
+    static bool mul(JSContext *cx, unsigned argc, Value *vp);
 
-			static bool mulu(JSContext *cx, unsigned argc, Value *vp);
+    static bool addu32(JSContext *cx, unsigned argc, Value *vp);
 
-	};
+    static bool mulu32(JSContext *cx, unsigned argc, Value *vp);
+
+};
 
 }  /* namespace js */
 

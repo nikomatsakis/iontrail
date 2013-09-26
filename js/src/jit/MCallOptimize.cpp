@@ -8,6 +8,8 @@
 
 #include "builtin/ParallelArray.h"
 #include "builtin/TestingFunctions.h"
+#include "builtin/SIMD.h"
+#include "builtin/Float32x4.h"
 #include "jit/IonBuilder.h"
 #include "jit/MIR.h"
 #include "jit/MIRGraph.h"
@@ -114,6 +116,16 @@ IonBuilder::inlineNativeCall(CallInfo &callInfo, JSNative native)
     if (native == regexp_test)
         return inlineRegExpTest(callInfo);
 
+    // SIMD natives.
+    if (native == SIMD::add)
+        return inlineSIMDaddFunction(callInfo);
+    if (native == SIMD::mul)
+        return inlineSIMDmulFunction(callInfo);
+    //if (native == SIMD:addu32)
+    //    return inlineSIMDFunction(callInfo);
+    //if (native == SIMD:mulu32)
+    //    return inlineSIMDFunction(callInfo);
+
     // Array intrinsics.
     if (native == intrinsic_UnsafePutElements)
         return inlineUnsafePutElements(callInfo);
@@ -189,6 +201,58 @@ IonBuilder::inlineMathFunction(CallInfo &callInfo, MMathFunction::Function funct
     MMathFunction *ins = MMathFunction::New(callInfo.getArg(0), function, cache);
     current->add(ins);
     current->push(ins);
+    return InliningStatus_Inlined;
+}
+
+IonBuilder::InliningStatus
+IonBuilder::inlineSIMDaddFunction(CallInfo &callInfo)
+{
+    if (callInfo.constructing() || callInfo.argc() != 1)
+        return InliningStatus_NotInlined;
+
+    if (getInlineReturnType() != MIRType_Float32x4)
+        return InliningStatus_NotInlined;
+
+    if (callInfo.getArg(0)->type() != MIRType_Float32x4 && callInfo.getArg(1)->type() != MIRType_Float32x4)
+        return InliningStatus_NotInlined;
+
+	 types::StackTypeSet *thisTypes = callInfo.thisArg()->resultTypeSet();
+	 Class *clasp = thisTypes ? thisTypes->getKnownClass() : NULL;
+	 if(clasp != &Float32x4::class_)
+		 return InliningStatus_NotInlined;
+
+    callInfo.unwrapArgs();
+
+    MMulf32 *mulf32 = MMulf32::New(callInfo.getArg(0), callInfo.getArg(1));
+    current->add(mulf32);
+    current->push(mulf32);
+
+    return InliningStatus_Inlined;
+}
+
+IonBuilder::InliningStatus
+IonBuilder::inlineSIMDmulFunction(CallInfo &callInfo)
+{
+    if (callInfo.constructing() || callInfo.argc() != 1)
+        return InliningStatus_NotInlined;
+
+    if (getInlineReturnType() != MIRType_Float32x4)
+        return InliningStatus_NotInlined;
+
+    if (callInfo.getArg(0)->type() != MIRType_Float32x4 && callInfo.getArg(1)->type() != MIRType_Float32x4)
+        return InliningStatus_NotInlined;
+
+	 types::StackTypeSet *thisTypes = callInfo.thisArg()->resultTypeSet();
+	 Class *clasp = thisTypes ? thisTypes->getKnownClass() : NULL;
+	 if(clasp != &Float32x4::class_)
+		 return InliningStatus_NotInlined;
+
+    callInfo.unwrapArgs();
+
+    MAddf32 *addf32 = MAddf32::New(callInfo.getArg(0), callInfo.getArg(1));
+    current->add(addf32);
+    current->push(addf32);
+
     return InliningStatus_Inlined;
 }
 

@@ -129,6 +129,8 @@ class LIRGenerator : public LIRGeneratorSpecific
     bool visitLsh(MLsh *ins);
     bool visitRsh(MRsh *ins);
     bool visitUrsh(MUrsh *ins);
+    bool visitAddf32(MAddf32 *ins);
+    bool visitMulf32(MMulf32 *ins);
     bool visitFloor(MFloor *ins);
     bool visitRound(MRound *ins);
     bool visitMinMax(MMinMax *ins);

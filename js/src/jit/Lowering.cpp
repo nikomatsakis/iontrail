@@ -1063,6 +1063,32 @@ LIRGenerator::visitUrsh(MUrsh *ins)
 }
 
 bool
+LIRGenerator::visitAddf32(MAddf32 *ins)
+{
+    MDefinition *op1 = ins->op1();
+    JS_ASSERT(op1->type() == MIRType_Float32x4);
+
+    MDefinition *op2 = ins->op2();
+    JS_ASSERT(op2->type() == MIRType_Float32x4);
+
+    LAddf32 *lir = new LAddf32(useRegisterAtStart(op1), useRegisterAtStart(op2), tempFixed(CallTempReg0));
+    return defineReturn(lir, ins);
+}
+
+bool
+LIRGenerator::visitMulf32(MMulf32 *ins)
+{
+    MDefinition *op1 = ins->op1();
+    JS_ASSERT(op1->type() == MIRType_Float32x4);
+
+    MDefinition *op2 = ins->op2();
+    JS_ASSERT(op2->type() == MIRType_Float32x4);
+
+    LMulf32 *lir = new LMulf32(useRegisterAtStart(op1), useRegisterAtStart(op2), tempFixed(CallTempReg0));
+    return defineReturn(lir, ins);
+}
+
+bool
 LIRGenerator::visitFloor(MFloor *ins)
 {
     JS_ASSERT(ins->num()->type() == MIRType_Double);

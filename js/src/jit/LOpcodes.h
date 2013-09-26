@@ -88,6 +88,8 @@
     _(IsNullOrLikeUndefinedAndBranch)\
     _(EmulatesUndefined)            \
     _(EmulatesUndefinedAndBranch)   \
+    _(Addf32)						\
+    _(Mulf32)						\
     _(MinMaxI)                      \
     _(MinMaxD)                      \
     _(NegI)                         \

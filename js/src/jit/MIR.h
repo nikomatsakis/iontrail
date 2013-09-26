@@ -3058,6 +3058,76 @@ class MUrsh : public MShiftInstruction
     void computeRange();
 };
 
+// Inline implementation of addf32 (SIMD add float32x4).
+class MAddf32
+  : public MBinaryInstruction
+{
+	MAddf32(MDefinition *op1, MDefinition *op2)
+      : MBinaryInstruction(op1, op2)
+    {
+        setResultType(MIRType_Float32x4);
+        setMovable();
+    }
+
+  public:
+    INSTRUCTION_HEADER(Addf32)
+    static MAddf32 *New(MDefinition *op1, MDefinition *op2) {
+        return new MAddf32(op1, op2);
+    }
+
+    MDefinition *op1() const {
+        return getOperand(0);
+    }
+
+    MDefinition *op2() const {
+        return getOperand(1);
+    }
+
+    bool congruentTo(MDefinition *ins) const {
+        return congruentIfOperandsEqual(ins);
+    }
+
+    AliasSet getAliasSet() const {
+        return AliasSet::None();
+    }
+
+};
+
+// Inline implementation of addf32 (SIMD add float32x4).
+class MMulf32
+  : public MBinaryInstruction
+{
+	MMulf32(MDefinition *op1, MDefinition *op2)
+      : MBinaryInstruction(op1, op2)
+    {
+        setResultType(MIRType_Float32x4);
+        setMovable();
+    }
+
+  public:
+    INSTRUCTION_HEADER(Mulf32)
+    static MMulf32 *New(MDefinition *op1, MDefinition *op2) {
+        return new MMulf32(op1, op2);
+    }
+
+    MDefinition *op1() const {
+        return getOperand(0);
+    }
+
+    MDefinition *op2() const {
+        return getOperand(1);
+    }
+
+    bool congruentTo(MDefinition *ins) const {
+        return congruentIfOperandsEqual(ins);
+    }
+
+    AliasSet getAliasSet() const {
+        return AliasSet::None();
+    }
+
+};
+
 class MBinaryArithInstruction
   : public MBinaryInstruction,
     public ArithPolicy

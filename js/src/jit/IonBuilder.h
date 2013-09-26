@@ -526,6 +526,10 @@ class IonBuilder : public MIRGenerator
     // RegExp natives.
     InliningStatus inlineRegExpTest(CallInfo &callInfo);
 
+    // SIMD natives.
+    InliningStatus inlineSIMDaddFunction(CallInfo &callInfo);
+    InliningStatus inlineSIMDmulFunction(CallInfo &callInfo);
+
     // Array intrinsics.
     InliningStatus inlineUnsafePutElements(CallInfo &callInfo);
     bool inlineUnsafeSetDenseArrayElement(CallInfo &callInfo, uint32_t base);

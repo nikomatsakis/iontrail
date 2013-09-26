@@ -51,6 +51,8 @@ namespace jit {
     _(Lsh)                                                                  \
     _(Rsh)                                                                  \
     _(Ursh)                                                                 \
+    _(Addf32)																\
+    _(Mulf32)																\
     _(MinMax)                                                               \
     _(Abs)                                                                  \
     _(Sqrt)                                                                 \

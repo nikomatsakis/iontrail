@@ -143,6 +143,8 @@ class ParallelSafetyVisitor : public MInstructionVisitor
     SAFE_OP(Lsh)
     SAFE_OP(Rsh)
     SAFE_OP(Ursh)
+    UNSAFE_OP(Addf32)
+    UNSAFE_OP(Mulf32)
     SPECIALIZED_OP(MinMax, PERMIT_NUMERIC)
     SAFE_OP(Abs)
     SAFE_OP(Sqrt)

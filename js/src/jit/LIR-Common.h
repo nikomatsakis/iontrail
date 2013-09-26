@@ -2018,6 +2018,59 @@ class LUrshD : public LBinaryMath<1>
     }
 };
 
+class LAddf32 : public LCallInstructionHelper<1, 2, 1>
+{
+  public:
+    LIR_HEADER(Addf32)
+    LAddf32(const LAllocation &op1, const LAllocation &op2, const LDefinition &temp) {
+        setOperand(0, op1);
+        setOperand(1, op2);
+        setTemp(0, temp);
+    }
+
+    const LAllocation *op1() {
+        return getOperand(0);
+    }
+
+    const LAllocation *op2() {
+        return getOperand(1);
+    }
+
+    const LDefinition *temp() {
+        return getTemp(0);
+    }
+
+    const LDefinition *output() {
+        return getDef(0);
+    }
+};
+
+class LMulf32 : public LCallInstructionHelper<1, 2, 1>
+{
+  public:
+    LIR_HEADER(Mulf32)
+    LMulf32(const LAllocation &op1, const LAllocation &op2, const LDefinition &temp) {
+        setOperand(0, op1);
+        setOperand(1, op2);
+        setTemp(0, temp);
+    }
+
+    const LAllocation *op1() {
+        return getOperand(0);
+    }
+
+    const LAllocation *op2() {
+        return getOperand(1);
+    }
+
+    const LDefinition *temp() {
+        return getTemp(0);
+    }
+
+    const LDefinition *output() {
+        return getDef(0);
+    }
+};
 // Returns from the function being compiled (not used in inlined frames). The
 // input must be a box.
 class LReturn : public LInstructionHelper<0, BOX_PIECES, 0>

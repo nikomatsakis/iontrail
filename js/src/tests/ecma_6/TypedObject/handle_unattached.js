@@ -12,7 +12,7 @@ var T = TypedObject;
 
 function runTests() {
   var Line = new T.StructType({from: T.uint8, to: T.uint8});
-  var Lines = new T.ArrayType(Line, 3);
+  var Lines = Line.array(3);
 
   // Create unattached handle to array, struct:
   var handle = Lines.handle();

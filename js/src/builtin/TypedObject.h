@@ -131,6 +131,18 @@ class ReferenceType
 class ArrayType : public JSObject
 {
   private:
+    // Helper for creating a new ArrayType object, either sized or unsized.
+    // - `arrayTypePrototype` - prototype for the new object to be created,
+    //                          either ArrayType.prototype or
+    //                          unsizedArrayType.__proto__ depending on
+    //                          whether this is a sized or unsized array
+    // - `arrayTypeReprObj` - a type representation object for the array
+    // - `elementType` - type object for the elements in the array
+    static JSObject *create(JSContext *cx,
+                            HandleObject arrayTypePrototype,
+                            HandleObject arrayTypeReprObj,
+                            HandleObject elementType);
+
   public:
     static const Class class_;
 
@@ -148,10 +160,9 @@ class ArrayType : public JSObject
     // does `new ArrayType(elem)`. It produces an array type object.
     static bool construct(JSContext *cx, unsigned argc, Value *vp);
 
-    static JSObject *create(JSContext *cx, HandleObject arrayTypeGlobal,
-                            HandleObject elementType, size_t length);
-    static bool repeat(JSContext *cx, unsigned argc, Value *vp);
-    static bool subarray(JSContext *cx, unsigned argc, Value *vp);
+    // This is the sized method on unsized array type objects.  It
+    // produces a sized variant.
+    static bool dimension(JSContext *cx, unsigned int argc, jsval *vp);
 
     static JSObject *elementType(JSContext *cx, HandleObject obj);
 };
@@ -285,7 +296,8 @@ class TypedDatum : public JSObject
 
     static TypedDatum *createUnattachedWithClass(JSContext *cx,
                                                  const Class *clasp,
-                                                 HandleObject type);
+                                                 HandleObject type,
+                                                 int32_t length);
 
     // Creates an unattached typed object or handle (depending on the
     // type parameter T). Note that it is only legal for unattached
@@ -295,7 +307,7 @@ class TypedDatum : public JSObject
     // Arguments:
     // - type: type object for resulting object
     template<class T>
-    static T *createUnattached(JSContext *cx, HandleObject type);
+    static T *createUnattached(JSContext *cx, HandleObject type, int32_t length);
 
     // Creates a datum that aliases the memory pointed at by `owner`
     // at the given offset. The datum will be a handle iff type is a
@@ -304,6 +316,7 @@ class TypedDatum : public JSObject
                                      HandleObject type,
                                      HandleObject typedContents,
                                      size_t offset);
+
 
     // If `this` is the owner of the memory, use this.
     void attach(uint8_t *mem);
@@ -317,9 +330,6 @@ class TypedObject : public TypedDatum
   public:
     static const Class class_;
 
-    // creates zeroed memory of size of type
-    static JSObject *createZeroed(JSContext *cx, HandleObject type);
-
     // user-accessible constructor (`new TypeDescriptor(...)`)
     static bool construct(JSContext *cx, unsigned argc, Value *vp);
 };
@@ -330,6 +340,13 @@ class TypedHandle : public TypedDatum
     static const Class class_;
     static const JSFunctionSpec handleStaticMethods[];
 };
+
+/*
+ * Usage: NewTypedHandle(typeObj)
+ *
+ * Constructs a new, unattached instance of `Handle`.
+ */
+bool NewTypedHandle(JSContext *cx, unsigned argc, Value *vp);
 
 /*
  * Usage: NewTypedHandle(typeObj)

@@ -113,9 +113,9 @@ class TypeRepresentationSet {
     TypeRepresentation *getTypeRepresentation();
 
     //////////////////////////////////////////////////////////////////////
-    // Array operations
+    // SizedArray operations
     //
-    // Only valid when `kind() == TypeRepresentation::Array`
+    // Only valid when `kind() == TypeRepresentation::SizedArray`
 
     // Returns the length of the arrays in this set, or SIZE_MAX
     // if they are not all the same.

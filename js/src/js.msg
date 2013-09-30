@@ -427,3 +427,4 @@ MSG_DEF(JSMSG_FROM_AFTER_IMPORT_SPEC_SET, 372, 0, JSEXN_SYNTAXERR, "missing keyw
 MSG_DEF(JSMSG_DECLARATION_AFTER_IMPORT, 373, 0, JSEXN_SYNTAXERR, "missing declaration after 'import' keyword")
 MSG_DEF(JSMSG_MODULE_SPEC_AFTER_FROM,   374, 0, JSEXN_SYNTAXERR, "missing module specifier after 'from' keyword")
 MSG_DEF(JSMSG_MODULES_NOT_IMPLEMENTED,  375, 0, JSEXN_SYNTAXERR, "modules are not implemented yet")
+MSG_DEF(JSMSG_TYPEDOBJECT_INVALID_PROTOTYPE, 376, 0, JSEXN_TYPEERR, "prototype field is not an object")

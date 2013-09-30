@@ -10,6 +10,8 @@ var LineType = new TypedObject.StructType({source: PointType,
                                            target: PointType});
 
 function manhattenDistance(line) {
+  print(line.target.x,line.source.x,
+        line.target.y,line.source.y);
   return (Math.abs(line.target.x - line.source.x) +
           Math.abs(line.target.y - line.source.y));
 }
@@ -23,8 +25,10 @@ function foo() {
   var fromAToB = new LineType({source: {x: 22, y: 44},
                                target: {x: 66, y: 88}});
 
-  for (var i = 0; i < N; i++)
+  for (var i = 0; i < N; i++) {
+    print(fromAToB.toSource());
     assertEq(manhattenDistance(fromAToB), 88);
+  }
 }
 
 foo();

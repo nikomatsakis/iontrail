@@ -1,3 +1,4 @@
+
 // |reftest| skip-if(!this.hasOwnProperty("TypedObject"))
 var BUGNUMBER = 898359;
 var summary = 'TypedObjects reference type trace';
@@ -20,8 +21,17 @@ function TestStructFields(RefType) {
 }
 
 function TestArrayElements(RefType) {
-  var S1 = new ArrayType(RefType, 1);
+  var S1 = new ArrayType(RefType).dimension(1);
   var s1 = new S1([{}]);
+  var count1 = countHeap(s1, "object");
+  s1[0] = null;
+  var count2 = countHeap(s1, "object");
+  assertEq(count1, count2+1);
+}
+
+function TestUnsizedArrayElements(RefType) {
+  var S1 = new ArrayType(RefType);
+  var s1 = new S1(1, [{}]);
   var count1 = countHeap(s1, "object");
   s1[0] = null;
   var count2 = countHeap(s1, "object");
@@ -30,7 +40,7 @@ function TestArrayElements(RefType) {
 
 function TestStructInArray(RefType) {
   var S2 = new StructType({f: RefType, g: RefType});
-  var S1 = new ArrayType(S2, 1);
+  var S1 = new ArrayType(S2).dimension(1);
   var s1 = new S1([{f: {}, g: {}}]);
   var count1 = countHeap(s1, "object");
   print(count1);
@@ -62,6 +72,9 @@ function runTests()
 
   TestArrayElements(Object);
   TestArrayElements(Any);
+
+  TestUnsizedArrayElements(Object);
+  TestUnsizedArrayElements(Any);
 
   // FIXME -- for some reason I do not understand the following tests fail:
 

@@ -184,7 +184,18 @@ TypeRepresentationSet::allOfArrayKind()
     if (empty())
         return false;
 
-    return kind() == TypeRepresentation::Array;
+    switch (kind()) {
+      case TypeRepresentation::SizedArray:
+      case TypeRepresentation::UnsizedArray:
+        return true;
+
+      case TypeRepresentation::Reference:
+      case TypeRepresentation::Scalar:
+      case TypeRepresentation::Struct:
+        return false;
+    }
+
+    MOZ_ASSUME_UNREACHABLE("Invalid kind() in TypeRepresentationSet");
 }
 
 bool
@@ -202,9 +213,11 @@ TypeRepresentationSet::allHaveSameSize(size_t *out)
     if (empty())
         return false;
 
-    size_t size = get(0)->size();
+    JS_ASSERT(TypeRepresentation::isSized(kind()));
+
+    size_t size = get(0)->asSized()->size();
     for (size_t i = 1; i < length(); i++) {
-        if (get(i)->size() != size)
+        if (get(i)->asSized()->size() != size)
             return false;
     }
 
@@ -222,10 +235,10 @@ TypeRepresentationSet::kind()
 size_t
 TypeRepresentationSet::arrayLength()
 {
-    JS_ASSERT(kind() == TypeRepresentation::Array);
-    const size_t result = get(0)->asArray()->length();
+    JS_ASSERT(kind() == TypeRepresentation::SizedArray);
+    const size_t result = get(0)->asSizedArray()->length();
     for (size_t i = 1; i < length(); i++) {
-        if (get(i)->asArray()->length() != result)
+        if (get(i)->asSizedArray()->length() != result)
             return SIZE_MAX;
     }
     return result;
@@ -235,11 +248,11 @@ bool
 TypeRepresentationSet::arrayElementType(IonBuilder &builder,
                                         TypeRepresentationSet *out)
 {
-    JS_ASSERT(kind() == TypeRepresentation::Array);
+    JS_ASSERT(kind() == TypeRepresentation::SizedArray);
 
     TypeRepresentationSetBuilder elementTypes;
     for (size_t i = 0; i < length(); i++) {
-        if (!elementTypes.insert(get(i)->asArray()->element()))
+        if (!elementTypes.insert(get(i)->asSizedArray()->element()))
             return false;
     }
     return elementTypes.build(builder, out);

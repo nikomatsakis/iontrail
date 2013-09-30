@@ -6485,24 +6485,32 @@ IonBuilder::getElemTryTypedObject(bool *emitted, MDefinition *obj, MDefinition *
     if (!objTypeReprs.allOfArrayKind())
         return true;
 
+    // FIXME
+    if (objTypeReprs.kind() != TypeRepresentation::SizedArray)
+        return true;
+
     TypeRepresentationSet elemTypeReprs;
     if (!objTypeReprs.arrayElementType(*this, &elemTypeReprs))
         return false;
+    if (elemTypeReprs.empty())
+        return true;
+
+    JS_ASSERT(TypeRepresentation::isSized(elemTypeReprs.kind()));
 
     size_t elemSize;
     if (!elemTypeReprs.allHaveSameSize(&elemSize))
         return true;
 
     switch (elemTypeReprs.kind()) {
-    case TypeRepresentation::Struct:
-    case TypeRepresentation::Array:
+      case TypeRepresentation::Struct:
+      case TypeRepresentation::SizedArray:
         return getElemTryComplexElemOfTypedObject(emitted,
                                                   obj,
                                                   index,
                                                   objTypeReprs,
                                                   elemTypeReprs,
                                                   elemSize);
-    case TypeRepresentation::Scalar:
+      case TypeRepresentation::Scalar:
         return getElemTryScalarElemOfTypedObject(emitted,
                                                  obj,
                                                  index,
@@ -6512,6 +6520,9 @@ IonBuilder::getElemTryTypedObject(bool *emitted, MDefinition *obj, MDefinition *
 
       case TypeRepresentation::Reference:
         return true;
+
+      case TypeRepresentation::UnsizedArray:
+        MOZ_ASSUME_UNREACHABLE("Unsized arrays cannot be element types");
     }
 
     MOZ_ASSUME_UNREACHABLE("Bad kind");
@@ -6529,7 +6540,7 @@ IonBuilder::getElemTryScalarElemOfTypedObject(bool *emitted,
                                               TypeRepresentationSet elemTypeReprs,
                                               size_t elemSize)
 {
-    JS_ASSERT(objTypeReprs.allOfArrayKind());
+    JS_ASSERT(objTypeReprs.kind() == TypeRepresentation::SizedArray);
 
     // Must always be loading the same scalar type
     if (!elemTypeReprs.singleton())
@@ -6592,7 +6603,7 @@ IonBuilder::getElemTryComplexElemOfTypedObject(bool *emitted,
                                                TypeRepresentationSet elemTypeReprs,
                                                size_t elemSize)
 {
-    JS_ASSERT(objTypeReprs.allOfArrayKind());
+    JS_ASSERT(objTypeReprs.kind() == TypeRepresentation::SizedArray);
 
     MDefinition *type = loadTypedObjectType(obj);
     MDefinition *elemType = typeObjectForElementFromArrayStructType(type);
@@ -8169,7 +8180,7 @@ IonBuilder::getPropTryTypedObject(bool *emitted, PropertyName *name,
         return true;
 
       case TypeRepresentation::Struct:
-      case TypeRepresentation::Array:
+      case TypeRepresentation::SizedArray:
         return getPropTryComplexPropOfTypedObject(emitted,
                                                   fieldOffset,
                                                   fieldTypeReprs,
@@ -8181,6 +8192,9 @@ IonBuilder::getPropTryTypedObject(bool *emitted, PropertyName *name,
                                                  fieldOffset,
                                                  fieldTypeReprs,
                                                  resultTypes);
+
+      case TypeRepresentation::UnsizedArray:
+        MOZ_ASSUME_UNREACHABLE("Field of unsized array type");
     }
 
     MOZ_ASSUME_UNREACHABLE("Bad kind");
@@ -8703,7 +8717,8 @@ IonBuilder::setPropTryTypedObject(bool *emitted, MDefinition *obj,
     switch (fieldTypeReprs.kind()) {
       case TypeRepresentation::Reference:
       case TypeRepresentation::Struct:
-      case TypeRepresentation::Array:
+      case TypeRepresentation::SizedArray:
+      case TypeRepresentation::UnsizedArray:
         // For now, only optimize storing scalars.
         return true;
 

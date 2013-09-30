@@ -14,6 +14,8 @@
     UnsafeGetReservedSlot(obj, JS_DATUM_SLOT_TYPE_OBJ)
 #define DATUM_OWNER(obj) \
     UnsafeGetReservedSlot(obj, JS_DATUM_SLOT_OWNER)
+#define DATUM_LENGTH(obj) \
+    TO_INT32(UnsafeGetReservedSlot(obj, JS_DATUM_SLOT_LENGTH))
 
 // Type repr slots
 
@@ -95,6 +97,18 @@ TypedObjectPointer.prototype.kind = function() {
   return REPR_KIND(this.typeRepr);
 }
 
+TypedObjectPointer.prototype.length = function() {
+  switch (this.kind()) {
+  case JS_TYPEREPR_SIZED_ARRAY_KIND:
+    return REPR_LENGTH(this.typeRepr);
+
+  case JS_TYPEREPR_UNSIZED_ARRAY_KIND:
+    return DATUM_LENGTH(this.datum);
+  }
+  assert(false, "length() invoked on non-array-type");
+  return 0;
+}
+
 ///////////////////////////////////////////////////////////////////////////
 // Moving the pointer
 //
@@ -109,13 +123,14 @@ TypedObjectPointer.prototype.moveTo = function(propName) {
   case JS_TYPEREPR_REFERENCE_KIND:
     break;
 
-  case JS_TYPEREPR_ARRAY_KIND:
+  case JS_TYPEREPR_SIZED_ARRAY_KIND:
+  case JS_TYPEREPR_UNSIZED_ARRAY_KIND:
     // For an array, property must be an element. Note that we use the
     // length as loaded from the type *representation* as opposed to
     // the type *object*; this is because some type objects represent
     // unsized arrays and hence do not have a length.
     var index = TO_INT32(propName);
-    if (index === propName && index >= 0 && index < REPR_LENGTH(this.typeRepr))
+    if (index === propName && index >= 0 && index < this.length())
       return this.moveToElem(index);
     break;
 
@@ -132,11 +147,12 @@ TypedObjectPointer.prototype.moveTo = function(propName) {
 // must be a array type and `index` must be within bounds. Returns
 // `this`.
 TypedObjectPointer.prototype.moveToElem = function(index) {
-  assert(this.kind() == JS_TYPEREPR_ARRAY_KIND,
+  assert(this.kind() == JS_TYPEREPR_SIZED_ARRAY_KIND ||
+         this.kind() == JS_TYPEREPR_UNSIZED_ARRAY_KIND,
          "moveToElem invoked on non-array");
   assert(TO_INT32(index) === index,
          "moveToElem invoked with non-integer index");
-  assert(index >= 0 && index < REPR_LENGTH(this.typeRepr),
+  assert(index >= 0 && index < this.length(),
          "moveToElem invoked with out-of-bounds index");
 
   var elementTypeObj = this.typeObj.elementType;
@@ -188,13 +204,24 @@ TypedObjectPointer.prototype.moveToField = function(propName) {
 TypedObjectPointer.prototype.get = function() {
   assert(ObjectIsAttached(this.datum), "get() called with unattached datum");
 
-  if (REPR_KIND(this.typeRepr) == JS_TYPEREPR_SCALAR_KIND)
+  switch (REPR_KIND(this.typeRepr)) {
+  case JS_TYPEREPR_SCALAR_KIND:
     return this.getScalar();
 
-  if (REPR_KIND(this.typeRepr) == JS_TYPEREPR_REFERENCE_KIND)
+  case JS_TYPEREPR_REFERENCE_KIND:
     return this.getReference();
 
-  return NewDerivedTypedDatum(this.typeObj, this.datum, this.offset);
+  case JS_TYPEREPR_SIZED_ARRAY_KIND:
+    return NewDerivedTypedDatum(this.typeObj, this.datum, this.offset);
+
+  case JS_TYPEREPR_STRUCT_KIND:
+    return NewDerivedTypedDatum(this.typeObj, this.datum, this.offset);
+
+  case JS_TYPEREPR_UNSIZED_ARRAY_KIND:
+    assert(false, "Unhandled repr kind: " + REPR_KIND(this.typeRepr));
+  }
+
+  assert(false, "Unhandled repr kind: " + REPR_KIND(this.typeRepr));
 }
 
 TypedObjectPointer.prototype.getScalar = function() {
@@ -261,8 +288,8 @@ TypedObjectPointer.prototype.set = function(fromValue) {
   // Fast path: `fromValue` is a typed object with same type
   // representation as the destination. In that case, we can just do a
   // memcpy.
-  if (IsObject(fromValue) && HaveSameClass(fromValue, this.datum)) {
-    if (DATUM_TYPE_REPR(fromValue) === typeRepr) {
+  if (IsObject(fromValue) && ObjectIsTypedDatum(fromValue)) {
+    if (!typeRepr.variable && DATUM_TYPE_REPR(fromValue) === typeRepr) {
       if (!ObjectIsAttached(fromValue))
         ThrowError(JSMSG_TYPEDOBJECT_HANDLE_UNATTACHED);
 
@@ -281,12 +308,13 @@ TypedObjectPointer.prototype.set = function(fromValue) {
     this.setReference(fromValue);
     return;
 
-  case JS_TYPEREPR_ARRAY_KIND:
+  case JS_TYPEREPR_SIZED_ARRAY_KIND:
+  case JS_TYPEREPR_UNSIZED_ARRAY_KIND:
     if (!IsObject(fromValue))
       break;
 
     // Check that "array-like" fromValue has an appropriate length.
-    var length = REPR_LENGTH(typeRepr);
+    var length = this.length();
     if (fromValue.length !== length)
       break;
 
@@ -485,9 +513,22 @@ function TypedArrayRedimension(newArrayType) {
   // Peel away the outermost array layers from the type of `this` to find
   // the core element type. In the process, count the number of elements.
   var oldArrayType = DATUM_TYPE_OBJ(this);
+  var oldArrayReprKind = REPR_KIND(TYPE_TYPE_REPR(oldArrayType));
   var oldElementType = oldArrayType;
   var oldElementCount = 1;
-  while (REPR_KIND(TYPE_TYPE_REPR(oldElementType)) == JS_TYPEREPR_ARRAY_KIND) {
+  switch (oldArrayReprKind) {
+  case JS_TYPEREPR_UNSIZED_ARRAY_KIND:
+    oldElementCount *= this.length;
+    oldElementType = oldElementType.elementType;
+    break;
+
+  case JS_TYPEREPR_SIZED_ARRAY_KIND:
+    break;
+
+  default:
+    ThrowError(JSMSG_TYPEDOBJECT_HANDLE_BAD_ARGS, "this", "typed array");
+  }
+  while (REPR_KIND(TYPE_TYPE_REPR(oldElementType)) === JS_TYPEREPR_SIZED_ARRAY_KIND) {
     oldElementCount *= oldElementType.length;
     oldElementType = oldElementType.elementType;
   }
@@ -496,7 +537,7 @@ function TypedArrayRedimension(newArrayType) {
   // process, count the number of elements.
   var newElementType = newArrayType;
   var newElementCount = 1;
-  while (REPR_KIND(TYPE_TYPE_REPR(newElementType)) == JS_TYPEREPR_ARRAY_KIND) {
+  while (REPR_KIND(TYPE_TYPE_REPR(newElementType)) == JS_TYPEREPR_SIZED_ARRAY_KIND) {
     newElementCount *= newElementType.length;
     newElementType = newElementType.elementType;
   }
@@ -533,9 +574,10 @@ function TypedArrayRedimension(newArrayType) {
 //
 // FIXME bug 929656 -- label algorithms with steps from the spec
 function HandleCreate(obj, ...path) {
-  if (!ObjectIsTypeObject(this))
+  if (!IsObject(this) || !ObjectIsTypeObject(this))
     ThrowError(JSMSG_INCOMPATIBLE_PROTO, "Type", "handle", "value");
 
+  // Only relevant for sized arrays, for other types yields 0
   var handle = NewTypedHandle(this);
 
   if (obj !== undefined)
@@ -609,6 +651,21 @@ function HandleTest(obj) {
 // This is the `objectType()` function defined in the spec.
 // It returns the type of its argument.
 //
+// Warning: user exposed!
+function ArrayShorthand(...dims) {
+  if (!IsObject(this) || !ObjectIsTypeObject(this))
+    ThrowError(JSMSG_TYPEDOBJECT_HANDLE_BAD_ARGS,
+               "this", "typed object");
+
+  if (dims.length == 0)
+    return new global.TypedObject.ArrayType(this); //FIXME
+
+  var accum = this;
+  for (var i = dims.length - 1; i >= 0; i--)
+    accum = new global.TypedObject.ArrayType(accum).dimension(dims[i]); // FIXME
+  return accum;
+}
+
 // Warning: user exposed!
 function TypeOfTypedDatum(obj) {
   if (IsObject(obj) && ObjectIsTypedDatum(obj))

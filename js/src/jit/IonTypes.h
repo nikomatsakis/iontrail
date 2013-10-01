@@ -93,7 +93,7 @@ enum MIRType
     MIRType_Pointer,      // An opaque pointer that receives no special treatment
     MIRType_Shape,        // A Shape pointer.
     MIRType_ForkJoinSlice, // js::ForkJoinSlice*
-	 MIRType_Float32x4
+	MIRType_Float32x4
 };
 
 static inline MIRType
@@ -114,6 +114,8 @@ MIRTypeFromValueType(JSValueType type)
         return MIRType_Null;
       case JSVAL_TYPE_OBJECT:
         return MIRType_Object;
+      case JSVAL_TYPE_FLOAT32x4:
+        return MIRType_Float32x4;
       case JSVAL_TYPE_MAGIC:
         return MIRType_Magic;
       case JSVAL_TYPE_UNKNOWN:

@@ -212,6 +212,8 @@ PrimitiveTypeFlag(JSValueType type)
         return TYPE_FLAG_STRING;
       case JSVAL_TYPE_MAGIC:
         return TYPE_FLAG_LAZYARGS;
+      case JSVAL_TYPE_FLOAT32x4:
+    	  return TYPE_FLAG_FLOAT32x4;
       default:
         MOZ_ASSUME_UNREACHABLE("Bad type");
     }
@@ -235,6 +237,8 @@ TypeFlagPrimitive(TypeFlags flags)
         return JSVAL_TYPE_STRING;
       case TYPE_FLAG_LAZYARGS:
         return JSVAL_TYPE_MAGIC;
+      case TYPE_FLAG_FLOAT32x4:
+    	  return JSVAL_TYPE_FLOAT32x4;
       default:
         MOZ_ASSUME_UNREACHABLE("Bad type");
     }

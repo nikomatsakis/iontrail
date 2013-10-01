@@ -207,7 +207,7 @@ IonBuilder::inlineMathFunction(CallInfo &callInfo, MMathFunction::Function funct
 IonBuilder::InliningStatus
 IonBuilder::inlineSIMDaddFunction(CallInfo &callInfo)
 {
-    if (callInfo.constructing() || callInfo.argc() != 1)
+    if (callInfo.constructing() || callInfo.argc() != 2)
         return InliningStatus_NotInlined;
 
     if (getInlineReturnType() != MIRType_Float32x4)
@@ -233,7 +233,7 @@ IonBuilder::inlineSIMDaddFunction(CallInfo &callInfo)
 IonBuilder::InliningStatus
 IonBuilder::inlineSIMDmulFunction(CallInfo &callInfo)
 {
-    if (callInfo.constructing() || callInfo.argc() != 1)
+    if (callInfo.constructing() || callInfo.argc() != 2)
         return InliningStatus_NotInlined;
 
     if (getInlineReturnType() != MIRType_Float32x4)

@@ -86,14 +86,15 @@ enum MIRType
     MIRType_String,
     MIRType_Object,
     MIRType_Magic,
+	MIRType_Float32x4,
+	MIRType_Uint32x4,
     MIRType_Value,
     MIRType_None,          // Invalid, used as a placeholder.
     MIRType_Slots,         // A slots vector
     MIRType_Elements,      // An elements vector
     MIRType_Pointer,       // An opaque pointer that receives no special treatment
     MIRType_Shape,         // A Shape pointer.
-    MIRType_ForkJoinSlice, // js::ForkJoinSlice*
-	MIRType_Float32x4
+    MIRType_ForkJoinSlice // js::ForkJoinSlice*
 };
 
 static inline MIRType
@@ -116,6 +117,8 @@ MIRTypeFromValueType(JSValueType type)
         return MIRType_Object;
       case JSVAL_TYPE_FLOAT32X4:
         return MIRType_Float32x4;
+      case JSVAL_TYPE_UINT32X4:
+        return MIRType_Uint32x4;
       case JSVAL_TYPE_MAGIC:
         return MIRType_Magic;
       case JSVAL_TYPE_UNKNOWN:
@@ -143,6 +146,10 @@ ValueTypeFromMIRType(MIRType type)
       return JSVAL_TYPE_STRING;
     case MIRType_Magic:
       return JSVAL_TYPE_MAGIC;
+    case MIRType_Float32x4:
+      return JSVAL_TYPE_FLOAT32X4;
+    case MIRType_Uint32x4:
+      return JSVAL_TYPE_UINT32X4;
     default:
       JS_ASSERT(type == MIRType_Object);
       return JSVAL_TYPE_OBJECT;
@@ -175,6 +182,10 @@ StringFromMIRType(MIRType type)
       return "Object";
     case MIRType_Magic:
       return "Magic";
+    case MIRType_Float32x4:
+      return "Float32x4";
+    case MIRType_Uint32x4:
+      return "Uint32x4";
     case MIRType_Value:
       return "Value";
     case MIRType_None:
@@ -187,8 +198,6 @@ StringFromMIRType(MIRType type)
       return "Pointer";
     case MIRType_ForkJoinSlice:
       return "ForkJoinSlice";
-    case MIRType_Float32x4:
-      return "Float32x4";
     default:
       MOZ_ASSUME_UNREACHABLE("Unknown MIRType.");
   }

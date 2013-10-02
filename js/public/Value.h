@@ -75,6 +75,7 @@ JS_ENUM_HEADER(JSValueType, uint8_t)
     JSVAL_TYPE_NULL                = 0x06,
     JSVAL_TYPE_OBJECT              = 0x07,
     JSVAL_TYPE_FLOAT32X4           = 0x08,
+    JSVAL_TYPE_UINT32X4            = 0x09,
 
     /* These never appear in a jsval; they are only provided as an out-of-band value. */
     JSVAL_TYPE_UNKNOWN             = 0x20,
@@ -96,7 +97,8 @@ JS_ENUM_HEADER(JSValueTag, uint32_t)
     JSVAL_TAG_MAGIC                = JSVAL_TAG_CLEAR | JSVAL_TYPE_MAGIC,
     JSVAL_TAG_NULL                 = JSVAL_TAG_CLEAR | JSVAL_TYPE_NULL,
     JSVAL_TAG_OBJECT               = JSVAL_TAG_CLEAR | JSVAL_TYPE_OBJECT,
-    JSVAL_TAG_FLOAT32x4            = JSVAL_TAG_CLEAR | JSVAL_TYPE_FLOAT32X4
+    JSVAL_TAG_FLOAT32X4            = JSVAL_TAG_CLEAR | JSVAL_TYPE_FLOAT32X4,
+    JSVAL_TAG_UINT32X4             = JSVAL_TAG_CLEAR | JSVAL_TYPE_UINT32X4
 } JS_ENUM_FOOTER(JSValueTag);
 
 JS_STATIC_ASSERT(sizeof(JSValueTag) == 4);
@@ -106,7 +108,7 @@ JS_STATIC_ASSERT(sizeof(JSValueTag) == 4);
 /* Remember to propagate changes to the C defines below. */
 JS_ENUM_HEADER(JSValueTag, uint32_t)
 {
-    JSVAL_TAG_MAX_DOUBLE           = 0x1FFF0,
+    JSVAL_TAG_MAX_DOUBLE           = 0x1FFE0,
     JSVAL_TAG_INT32                = JSVAL_TAG_MAX_DOUBLE | JSVAL_TYPE_INT32,
     JSVAL_TAG_UNDEFINED            = JSVAL_TAG_MAX_DOUBLE | JSVAL_TYPE_UNDEFINED,
     JSVAL_TAG_STRING               = JSVAL_TAG_MAX_DOUBLE | JSVAL_TYPE_STRING,
@@ -114,7 +116,8 @@ JS_ENUM_HEADER(JSValueTag, uint32_t)
     JSVAL_TAG_MAGIC                = JSVAL_TAG_MAX_DOUBLE | JSVAL_TYPE_MAGIC,
     JSVAL_TAG_NULL                 = JSVAL_TAG_MAX_DOUBLE | JSVAL_TYPE_NULL,
     JSVAL_TAG_OBJECT               = JSVAL_TAG_MAX_DOUBLE | JSVAL_TYPE_OBJECT,
-    JSVAL_TAG_FLOAT32x4            = JSVAL_TAG_MAX_DOUBLE | JSVAL_TYPE_FLOAT32X4
+    JSVAL_TAG_FLOAT32x4            = JSVAL_TAG_MAX_DOUBLE | JSVAL_TYPE_FLOAT32X4,
+    JSVAL_TAG_UINT32x4             = JSVAL_TAG_MAX_DOUBLE | JSVAL_TYPE_UINT32X4
 } JS_ENUM_FOOTER(JSValueTag);
 
 JS_STATIC_ASSERT(sizeof(JSValueTag) == sizeof(uint32_t));
@@ -129,7 +132,8 @@ JS_ENUM_HEADER(JSValueShiftedTag, uint64_t)
     JSVAL_SHIFTED_TAG_MAGIC        = (((uint64_t)JSVAL_TAG_MAGIC)      << JSVAL_TAG_SHIFT),
     JSVAL_SHIFTED_TAG_NULL         = (((uint64_t)JSVAL_TAG_NULL)       << JSVAL_TAG_SHIFT),
     JSVAL_SHIFTED_TAG_OBJECT       = (((uint64_t)JSVAL_TAG_OBJECT)     << JSVAL_TAG_SHIFT),
-    JSVAL_SHIFTED_TAG_FLOAT32x4    = (((uint64_t)JSVAL_TAG_FLOAT32x4)     << JSVAL_TAG_SHIFT)
+    JSVAL_SHIFTED_TAG_FLOAT32x4    = (((uint64_t)JSVAL_TAG_FLOAT32x4)  << JSVAL_TAG_SHIFT),
+    JSVAL_SHIFTED_TAG_UINT32x4     = (((uint64_t)JSVAL_TAG_UINT32x4)   << JSVAL_TAG_SHIFT)
 } JS_ENUM_FOOTER(JSValueShiftedTag);
 
 JS_STATIC_ASSERT(sizeof(JSValueShiftedTag) == sizeof(uint64_t));
@@ -148,6 +152,7 @@ typedef uint8_t JSValueType;
 #define JSVAL_TYPE_NULL              ((uint8_t)0x06)
 #define JSVAL_TYPE_OBJECT            ((uint8_t)0x07)
 #define JSVAL_TYPE_FLOAT32X4         ((uint8_t)0x08)
+#define JSVAL_TYPE_UINT32X4          ((uint8_t)0x09)
 #define JSVAL_TYPE_UNKNOWN           ((uint8_t)0x20)
 
 #if JS_BITS_PER_WORD == 32
@@ -162,11 +167,12 @@ typedef uint32_t JSValueTag;
 #define JSVAL_TAG_NULL               ((uint32_t)(JSVAL_TAG_CLEAR | JSVAL_TYPE_NULL))
 #define JSVAL_TAG_OBJECT             ((uint32_t)(JSVAL_TAG_CLEAR | JSVAL_TYPE_OBJECT))
 #define JSVAL_TAG_FLOAT32x4          ((uint32_t)(JSVAL_TAG_CLEAR | JSVAL_TYPE_FLOAT32X4))
+#define JSVAL_TAG_UINT32x4           ((uint32_t)(JSVAL_TAG_CLEAR | JSVAL_TYPE_UINT32X4))
 
 #elif JS_BITS_PER_WORD == 64
 
 typedef uint32_t JSValueTag;
-#define JSVAL_TAG_MAX_DOUBLE         ((uint32_t)(0x1FFF0))
+#define JSVAL_TAG_MAX_DOUBLE         ((uint32_t)(0x1FFE0))
 #define JSVAL_TAG_INT32              (uint32_t)(JSVAL_TAG_MAX_DOUBLE | JSVAL_TYPE_INT32)
 #define JSVAL_TAG_UNDEFINED          (uint32_t)(JSVAL_TAG_MAX_DOUBLE | JSVAL_TYPE_UNDEFINED)
 #define JSVAL_TAG_STRING             (uint32_t)(JSVAL_TAG_MAX_DOUBLE | JSVAL_TYPE_STRING)
@@ -175,6 +181,7 @@ typedef uint32_t JSValueTag;
 #define JSVAL_TAG_NULL               (uint32_t)(JSVAL_TAG_MAX_DOUBLE | JSVAL_TYPE_NULL)
 #define JSVAL_TAG_OBJECT             (uint32_t)(JSVAL_TAG_MAX_DOUBLE | JSVAL_TYPE_OBJECT)
 #define JSVAL_TAG_FLOAT32x4          (uint32_t)(JSVAL_TAG_MAX_DOUBLE | JSVAL_TYPE_FLOAT32X4)
+#define JSVAL_TAG_UINT32x4           (uint32_t)(JSVAL_TAG_MAX_DOUBLE | JSVAL_TYPE_UINT32X4)
 
 typedef uint64_t JSValueShiftedTag;
 #define JSVAL_SHIFTED_TAG_MAX_DOUBLE ((((uint64_t)JSVAL_TAG_MAX_DOUBLE) << JSVAL_TAG_SHIFT) | 0xFFFFFFFF)
@@ -185,7 +192,8 @@ typedef uint64_t JSValueShiftedTag;
 #define JSVAL_SHIFTED_TAG_MAGIC      (((uint64_t)JSVAL_TAG_MAGIC)      << JSVAL_TAG_SHIFT)
 #define JSVAL_SHIFTED_TAG_NULL       (((uint64_t)JSVAL_TAG_NULL)       << JSVAL_TAG_SHIFT)
 #define JSVAL_SHIFTED_TAG_OBJECT     (((uint64_t)JSVAL_TAG_OBJECT)     << JSVAL_TAG_SHIFT)
-#define JSVAL_SHIFTED_TAG_FLOAT32x4  (((uint64_t)JSVAL_TAG_FLOAT32x4)     << JSVAL_TAG_SHIFT)
+#define JSVAL_SHIFTED_TAG_FLOAT32x4  (((uint64_t)JSVAL_TAG_FLOAT32x4)  << JSVAL_TAG_SHIFT)
+#define JSVAL_SHIFTED_TAG_UINT32x4   (((uint64_t)JSVAL_TAG_UINT32x4)   << JSVAL_TAG_SHIFT)
 
 #endif  /* JS_BITS_PER_WORD */
 #endif  /* !defined(__SUNPRO_CC) && !defined(__xlC__) */

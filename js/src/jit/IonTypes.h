@@ -114,7 +114,7 @@ MIRTypeFromValueType(JSValueType type)
         return MIRType_Null;
       case JSVAL_TYPE_OBJECT:
         return MIRType_Object;
-      case JSVAL_TYPE_FLOAT32x4:
+      case JSVAL_TYPE_FLOAT32X4:
         return MIRType_Float32x4;
       case JSVAL_TYPE_MAGIC:
         return MIRType_Magic;

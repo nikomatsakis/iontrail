@@ -226,9 +226,9 @@ IonBuilder::inlineSIMDaddFunction(CallInfo &callInfo)
 
     callInfo.unwrapArgs();
 
-    MMulf32 *mulf32 = MMulf32::New(callInfo.getArg(0), callInfo.getArg(1));
-    current->add(mulf32);
-    current->push(mulf32);
+    MAddf32 *addf32 = MAddf32::New(callInfo.getArg(0), callInfo.getArg(1));
+    current->add(addf32);
+    current->push(addf32);
 
     return InliningStatus_Inlined;
 }
@@ -252,9 +252,9 @@ IonBuilder::inlineSIMDmulFunction(CallInfo &callInfo)
 
     callInfo.unwrapArgs();
 
-    MAddf32 *addf32 = MAddf32::New(callInfo.getArg(0), callInfo.getArg(1));
-    current->add(addf32);
-    current->push(addf32);
+    MMulf32 *mulf32 = MMulf32::New(callInfo.getArg(0), callInfo.getArg(1));
+    current->add(mulf32);
+    current->push(mulf32);
 
     return InliningStatus_Inlined;
 }

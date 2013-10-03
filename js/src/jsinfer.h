@@ -191,7 +191,6 @@ class Type
     static inline Type StringType()    { return Type(JSVAL_TYPE_STRING); }
     static inline Type MagicArgType()  { return Type(JSVAL_TYPE_MAGIC); }
     static inline Type AnyObjectType() { return Type(JSVAL_TYPE_OBJECT); }
-    static inline Type Float32x4Type() { return Type(JSVAL_TYPE_FLOAT32X4); }
     static inline Type UnknownType()   { return Type(JSVAL_TYPE_UNKNOWN); }
 
     static inline Type PrimitiveType(JSValueType type) {
@@ -287,18 +286,15 @@ enum {
     TYPE_FLAG_DOUBLE    = 0x10,
     TYPE_FLAG_STRING    = 0x20,
     TYPE_FLAG_LAZYARGS  = 0x40,
-    TYPE_FLAG_FLOAT32X4 = 0x80,
-    TYPE_FLAG_UINT32X4  = 0x100,
-    TYPE_FLAG_ANYOBJECT = 0x200,
+    TYPE_FLAG_ANYOBJECT = 0x80,
 
     /* Mask containing all primitives */
     TYPE_FLAG_PRIMITIVE = TYPE_FLAG_UNDEFINED | TYPE_FLAG_NULL | TYPE_FLAG_BOOLEAN |
-                          TYPE_FLAG_INT32 | TYPE_FLAG_DOUBLE | TYPE_FLAG_STRING | 
-                          TYPE_FLAG_FLOAT32X4 | TYPE_FLAG_UINT32X4,
+                          TYPE_FLAG_INT32 | TYPE_FLAG_DOUBLE | TYPE_FLAG_STRING,
 
     /* Mask/shift for the number of objects in objectSet */
-    TYPE_FLAG_OBJECT_COUNT_MASK   = 0x7c00,
-    TYPE_FLAG_OBJECT_COUNT_SHIFT  = 10,
+    TYPE_FLAG_OBJECT_COUNT_MASK   = 0x1f00,
+    TYPE_FLAG_OBJECT_COUNT_SHIFT  = 8,
     TYPE_FLAG_OBJECT_COUNT_LIMIT  =
         TYPE_FLAG_OBJECT_COUNT_MASK >> TYPE_FLAG_OBJECT_COUNT_SHIFT,
 

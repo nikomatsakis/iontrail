@@ -189,8 +189,6 @@ types::TypeString(Type type)
             return "string";
           case JSVAL_TYPE_MAGIC:
             return "lazyargs";
-          case JSVAL_TYPE_FLOAT32X4:
-            return "float32x4";
           default:
             MOZ_ASSUME_UNREACHABLE("Bad type");
         }

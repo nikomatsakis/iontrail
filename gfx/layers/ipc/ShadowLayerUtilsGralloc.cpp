@@ -28,6 +28,8 @@
 
 #include "cutils/properties.h"
 
+#include "MainThreadUtils.h"
+
 using namespace android;
 using namespace base;
 using namespace mozilla::layers;
@@ -113,40 +115,40 @@ MagicGrallocBufferHandle::MagicGrallocBufferHandle(const sp<GraphicBuffer>& aGra
 //-----------------------------------------------------------------------------
 // Parent process
 
-static gfxASurface::gfxImageFormat
+static gfxImageFormat
 ImageFormatForPixelFormat(android::PixelFormat aFormat)
 {
   switch (aFormat) {
   case PIXEL_FORMAT_RGBA_8888:
-    return gfxASurface::ImageFormatARGB32;
+    return gfxImageFormatARGB32;
   case PIXEL_FORMAT_RGBX_8888:
-    return gfxASurface::ImageFormatRGB24;
+    return gfxImageFormatRGB24;
   case PIXEL_FORMAT_RGB_565:
-    return gfxASurface::ImageFormatRGB16_565;
+    return gfxImageFormatRGB16_565;
   case PIXEL_FORMAT_A_8:
-    return gfxASurface::ImageFormatA8;
+    return gfxImageFormatA8;
   default:
     MOZ_CRASH("Unknown gralloc pixel format");
   }
-  return gfxASurface::ImageFormatARGB32;
+  return gfxImageFormatARGB32;
 }
 
 static android::PixelFormat
-PixelFormatForImageFormat(gfxASurface::gfxImageFormat aFormat)
+PixelFormatForImageFormat(gfxImageFormat aFormat)
 {
   switch (aFormat) {
-  case gfxASurface::ImageFormatARGB32:
+  case gfxImageFormatARGB32:
     return android::PIXEL_FORMAT_RGBA_8888;
-  case gfxASurface::ImageFormatRGB24:
+  case gfxImageFormatRGB24:
     return android::PIXEL_FORMAT_RGBX_8888;
-  case gfxASurface::ImageFormatRGB16_565:
+  case gfxImageFormatRGB16_565:
     return android::PIXEL_FORMAT_RGB_565;
-  case gfxASurface::ImageFormatA8:
+  case gfxImageFormatA8:
     return android::PIXEL_FORMAT_A_8;
   default:
     MOZ_CRASH("Unknown gralloc pixel format");
   }
-  return gfxASurface::ImageFormatARGB32;
+  return gfxImageFormatARGB32;
 }
 
 static size_t
@@ -172,25 +174,25 @@ BytesPerPixelForPixelFormat(android::PixelFormat aFormat)
 }
 
 static android::PixelFormat
-PixelFormatForContentType(gfxASurface::gfxContentType aContentType)
+PixelFormatForContentType(gfxContentType aContentType)
 {
   return PixelFormatForImageFormat(
     gfxPlatform::GetPlatform()->OptimalFormatForContent(aContentType));
 }
 
-static gfxASurface::gfxContentType
+static gfxContentType
 ContentTypeFromPixelFormat(android::PixelFormat aFormat)
 {
   return gfxASurface::ContentFromFormat(ImageFormatForPixelFormat(aFormat));
 }
 
-class GrallocReporter MOZ_FINAL : public MemoryReporterBase
+class GrallocReporter MOZ_FINAL : public MemoryUniReporter
 {
   friend class GrallocBufferActor;
 
 public:
   GrallocReporter()
-    : MemoryReporterBase("gralloc", KIND_OTHER, UNITS_BYTES,
+    : MemoryUniReporter("gralloc", KIND_OTHER, UNITS_BYTES,
 "Special RAM that can be shared between processes and directly accessed by "
 "both the CPU and GPU.  Gralloc memory is usually a relatively precious "
 "resource, with much less available than generic RAM.  When it's exhausted, "
@@ -216,7 +218,6 @@ int64_t GrallocReporter::sAmount = 0;
 
 GrallocBufferActor::GrallocBufferActor()
 : mAllocBytes(0)
-, mDeprecatedTextureHost(nullptr)
 {
   static bool registered;
   if (!registered) {
@@ -267,18 +268,27 @@ GrallocBufferActor::Create(const gfxIntSize& aSize,
   return actor;
 }
 
-// used only for hacky fix in gecko 23 for bug 862324
+// used only for hacky fix for bug 862324
 void GrallocBufferActor::ActorDestroy(ActorDestroyReason)
 {
-  if (mDeprecatedTextureHost) {
-    mDeprecatedTextureHost->ForgetBuffer();
+  for (size_t i = 0; i < mDeprecatedTextureHosts.Length(); i++) {
+    mDeprecatedTextureHosts[i]->ForgetBuffer();
   }
 }
 
-// used only for hacky fix in gecko 23 for bug 862324
-void GrallocBufferActor::SetDeprecatedTextureHost(DeprecatedTextureHost* aDeprecatedTextureHost)
+// used only for hacky fix for bug 862324
+void GrallocBufferActor::AddDeprecatedTextureHost(DeprecatedTextureHost* aDeprecatedTextureHost)
 {
-  mDeprecatedTextureHost = aDeprecatedTextureHost;
+  mDeprecatedTextureHosts.AppendElement(aDeprecatedTextureHost);
+}
+
+// used only for hacky fix for bug 862324
+void GrallocBufferActor::RemoveDeprecatedTextureHost(DeprecatedTextureHost* aDeprecatedTextureHost)
+{
+  mDeprecatedTextureHosts.RemoveElement(aDeprecatedTextureHost);
+  // that should be the only occurence, otherwise we'd leak this TextureHost...
+  // assert that that's not happening.
+  MOZ_ASSERT(!mDeprecatedTextureHosts.Contains(aDeprecatedTextureHost));
 }
 
 /*static*/ already_AddRefed<TextureImage>
@@ -358,7 +368,7 @@ ShadowLayerForwarder::AllocGrallocBuffer(const gfxIntSize& aSize,
 
 bool
 ISurfaceAllocator::PlatformAllocSurfaceDescriptor(const gfxIntSize& aSize,
-                                                  gfxASurface::gfxContentType aContent,
+                                                  gfxContentType aContent,
                                                   uint32_t aCaps,
                                                   SurfaceDescriptor* aBuffer)
 {

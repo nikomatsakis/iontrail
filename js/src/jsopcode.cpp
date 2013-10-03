@@ -61,9 +61,6 @@ JS_STATIC_ASSERT(sizeof(uint32_t) * JS_BITS_PER_BYTE >= INDEX_LIMIT_LOG2 + 1);
 #include "jsopcode.tbl"
 #undef OPDEF
 
-static const char js_incop_strs[][3] = {"++", "--"};
-static const char js_for_each_str[]  = "for each";
-
 const JSCodeSpec js_CodeSpec[] = {
 #define OPDEF(op,val,name,token,length,nuses,ndefs,format) \
     {length,nuses,ndefs,format},
@@ -170,11 +167,7 @@ js::StackDefs(JSScript *script, jsbytecode *pc)
 }
 
 static const char * const countBaseNames[] = {
-    "interp",
-    "mjit",
-    "mjit_calls",
-    "mjit_code",
-    "mjit_pics"
+    "interp"
 };
 
 JS_STATIC_ASSERT(JS_ARRAY_LENGTH(countBaseNames) == PCCounts::BASE_LIMIT);
@@ -732,7 +725,7 @@ Sprinter::realloc_(size_t newSize)
     return true;
 }
 
-Sprinter::Sprinter(JSContext *cx)
+Sprinter::Sprinter(ExclusiveContext *cx)
   : context(cx),
 #ifdef DEBUG
     initialized(false),
@@ -867,7 +860,7 @@ Sprinter::putString(JSString *s)
     char *buffer = reserve(size);
     if (!buffer)
         return -1;
-    DeflateStringToBuffer(context, chars, length, buffer, &size);
+    DeflateStringToBuffer(NULL, chars, length, buffer, &size);
     buffer[size] = 0;
 
     return oldOffset;
@@ -1023,14 +1016,15 @@ QuoteString(Sprinter *sp, JSString *str, uint32_t quote)
 }
 
 JSString *
-js_QuoteString(JSContext *cx, JSString *str, jschar quote)
+js_QuoteString(ExclusiveContext *cx, JSString *str, jschar quote)
 {
     Sprinter sprinter(cx);
     if (!sprinter.init())
         return NULL;
     char *bytes = QuoteString(&sprinter, str, quote);
-    JSString *escstr = bytes ? JS_NewStringCopyZ(cx, bytes) : NULL;
-    return escstr;
+    if (!bytes)
+        return NULL;
+    return js_NewStringCopyZ<CanGC>(cx, bytes);
 }
 
 /************************************************************************/
@@ -1306,6 +1300,9 @@ ExpressionDecompiler::decompilePC(jsbytecode *pc)
       case JSOP_CALL:
       case JSOP_FUNCALL:
         return decompilePC(pcstack[-int32_t(GET_ARGC(pc) + 2)]) &&
+               write("(...)");
+      case JSOP_SPREADCALL:
+        return decompilePC(pcstack[-int32_t(3)]) &&
                write("(...)");
       case JSOP_NEWARRAY:
         return write("[]");
@@ -2008,10 +2005,12 @@ js::CallResultEscapes(jsbytecode *pc)
      * - call / not / ifeq
      */
 
-    if (*pc != JSOP_CALL)
+    if (*pc == JSOP_CALL)
+        pc += JSOP_CALL_LENGTH;
+    else if (*pc == JSOP_SPREADCALL)
+        pc += JSOP_SPREADCALL_LENGTH;
+    else
         return true;
-
-    pc += JSOP_CALL_LENGTH;
 
     if (*pc == JSOP_POP)
         return false;

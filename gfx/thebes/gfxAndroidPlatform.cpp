@@ -30,12 +30,12 @@ using namespace mozilla::gfx;
 
 static FT_Library gPlatformFTLibrary = nullptr;
 
-class FreetypeReporter MOZ_FINAL : public MemoryReporterBase
+class FreetypeReporter MOZ_FINAL : public MemoryUniReporter
 {
 public:
     FreetypeReporter()
-      : MemoryReporterBase("explicit/freetype", KIND_HEAP, UNITS_BYTES,
-                           "Memory used by Freetype.")
+      : MemoryUniReporter("explicit/freetype", KIND_HEAP, UNITS_BYTES,
+                          "Memory used by Freetype.")
     {
 #ifdef DEBUG
         // There must be only one instance of this class, due to |sAmount|
@@ -106,11 +106,11 @@ gfxAndroidPlatform::gfxAndroidPlatform()
     screen->GetColorDepth(&mScreenDepth);
 
     mOffscreenFormat = mScreenDepth == 16
-                       ? gfxASurface::ImageFormatRGB16_565
-                       : gfxASurface::ImageFormatRGB24;
+                       ? gfxImageFormatRGB16_565
+                       : gfxImageFormatRGB24;
 
     if (Preferences::GetBool("gfx.android.rgb16.force", false)) {
-        mOffscreenFormat = gfxASurface::ImageFormatRGB16_565;
+        mOffscreenFormat = gfxImageFormatRGB16_565;
     }
 
 }
@@ -127,7 +127,7 @@ gfxAndroidPlatform::~gfxAndroidPlatform()
 
 already_AddRefed<gfxASurface>
 gfxAndroidPlatform::CreateOffscreenSurface(const gfxIntSize& size,
-                                      gfxASurface::gfxContentType contentType)
+                                      gfxContentType contentType)
 {
     nsRefPtr<gfxASurface> newSurface;
     newSurface = new gfxImageSurface(size, OptimalFormatForContent(contentType));

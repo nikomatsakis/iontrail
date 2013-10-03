@@ -10,6 +10,7 @@
 #include "DOMRequest.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
+#include "nsServiceManagerUtils.h"
 
 USING_BLUETOOTH_NAMESPACE
 
@@ -41,7 +42,7 @@ BluetoothPropertyContainer::SetProperty(nsIDOMWindow* aOwner,
 
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
-    NS_WARNING("Bluetooth service not available!");
+    BT_WARNING("Bluetooth service not available!");
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
   }

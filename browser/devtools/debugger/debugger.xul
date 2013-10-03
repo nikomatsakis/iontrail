@@ -32,6 +32,8 @@
   <commandset id="sourceEditorCommands"/>
 
   <commandset id="debuggerCommands">
+    <command id="prettyPrintCommand"
+             oncommand="DebuggerView.Sources.prettyPrint()"/>
     <command id="unBlackBoxButton"
              oncommand="DebuggerView.Sources._onStopBlackBoxing()"/>
     <command id="nextSourceCommand"
@@ -70,6 +72,8 @@
              oncommand="DebuggerView.WatchExpressions._onCmdRemoveAllExpressions()"/>
     <command id="togglePauseOnExceptions"
              oncommand="DebuggerView.Options._togglePauseOnExceptions()"/>
+    <command id="toggleIgnoreCaughtExceptions"
+             oncommand="DebuggerView.Options._toggleIgnoreCaughtExceptions()"/>
     <command id="toggleShowPanesOnStartup"
              oncommand="DebuggerView.Options._toggleShowPanesOnStartup()"/>
     <command id="toggleShowOnlyEnum"
@@ -137,6 +141,9 @@
                 accesskey="&debuggerUI.focusVariables.key;"
                 key="variablesFocusKey"
                 command="variablesFocusCommand"/>
+      <menuitem id="se-dbg-cMenu-prettyPrint"
+                label="&debuggerUI.sources.prettyPrint;"
+                command="prettyPrintCommand"/>
     </menupopup>
     <menupopup id="debuggerWatchExpressionsContextMenu">
       <menuitem id="add-watch-expression"
@@ -160,6 +167,11 @@
                 label="&debuggerUI.pauseExceptions;"
                 accesskey="&debuggerUI.pauseExceptions.key;"
                 command="togglePauseOnExceptions"/>
+      <menuitem id="ignore-caught-exceptions"
+                type="checkbox"
+                label="&debuggerUI.ignoreCaughtExceptions;"
+                accesskey="&debuggerUI.ignoreCaughtExceptions.key;"
+                command="toggleIgnoreCaughtExceptions"/>
       <menuitem id="show-panes-on-startup"
                 type="checkbox"
                 label="&debuggerUI.showPanesOnInit;"
@@ -307,8 +319,17 @@
       <scrollbox id="globalsearch" orient="vertical" hidden="true"/>
       <splitter class="devtools-horizontal-splitter" hidden="true"/>
       <hbox flex="1">
-        <vbox id="sources-pane">
-          <vbox id="sources" flex="1"/>
+        <vbox id="sources-container">
+          <vbox id="sources-pane" flex="1">
+            <vbox id="sources" flex="1"/>
+          </vbox>
+          <toolbar id="sources-toolbar" class="devtools-toolbar">
+            <toolbarbutton id="pretty-print"
+                           label="{}"
+                           tooltiptext="&debuggerUI.sources.prettyPrint;"
+                           class="devtools-toolbarbutton devtools-monospace"
+                           command="prettyPrintCommand"/>
+          </toolbar>
         </vbox>
         <splitter class="devtools-side-splitter"/>
         <deck id="editor-deck" flex="1" selectedIndex="0">

@@ -26,7 +26,7 @@
 #include "mozilla/layers/Compositor.h"  // for Compositor
 #include "mozilla/layers/CompositorTypes.h"
 #include "mozilla/layers/LayerManagerComposite.h"  // for LayerComposite
-#include "mozilla/layers/LayerTransaction.h"  // for TransformFunction, etc
+#include "mozilla/layers/LayersMessages.h"  // for TransformFunction, etc
 #include "nsAString.h"
 #include "nsCSSValue.h"                 // for nsCSSValue::Array, etc
 #include "nsPrintfCString.h"            // for nsPrintfCString
@@ -118,7 +118,7 @@ LayerManager::GetScrollableLayers(nsTArray<Layer*>& aArray)
 
 already_AddRefed<gfxASurface>
 LayerManager::CreateOptimalSurface(const gfxIntSize &aSize,
-                                   gfxASurface::gfxImageFormat aFormat)
+                                   gfxImageFormat aFormat)
 {
   return gfxPlatform::GetPlatform()->
     CreateOffscreenSurface(aSize, gfxASurface::ContentFromFormat(aFormat));
@@ -127,7 +127,7 @@ LayerManager::CreateOptimalSurface(const gfxIntSize &aSize,
 already_AddRefed<gfxASurface>
 LayerManager::CreateOptimalMaskSurface(const gfxIntSize &aSize)
 {
-  return CreateOptimalSurface(aSize, gfxASurface::ImageFormatA8);
+  return CreateOptimalSurface(aSize, gfxImageFormatA8);
 }
 
 TemporaryRef<DrawTarget>
@@ -181,11 +181,14 @@ Layer::Layer(LayerManager* aManager, void* aImplData) :
   mPostXScale(1.0f),
   mPostYScale(1.0f),
   mOpacity(1.0),
+  mMixBlendMode(gfxContext::OPERATOR_OVER),
+  mForceIsolatedGroup(false),
   mContentFlags(0),
   mUseClipRect(false),
   mUseTileSourceRect(false),
   mIsFixedPosition(false),
   mMargins(0, 0, 0, 0),
+  mStickyPositionData(nullptr),
   mDebugColorIndex(0),
   mAnimationGeneration(0)
 {}
@@ -679,6 +682,20 @@ Layer::GetEffectiveOpacity()
   }
   return opacity;
 }
+  
+gfxContext::GraphicsOperator
+Layer::GetEffectiveMixBlendMode()
+{
+  if(mMixBlendMode != gfxContext::OPERATOR_OVER)
+    return mMixBlendMode;
+  for (ContainerLayer* c = GetParent(); c && !c->UseIntermediateSurface();
+    c = c->GetParent()) {
+    if(c->mMixBlendMode != gfxContext::OPERATOR_OVER)
+      return c->mMixBlendMode;
+  }
+
+  return mMixBlendMode;
+}
 
 void
 Layer::ComputeEffectiveTransformForMaskLayer(const gfx3DMatrix& aTransformToSurface)
@@ -1154,9 +1171,10 @@ void WriteSnapshotToDumpFile(LayerManager* aManager, gfxASurface* aSurf)
   WriteSnapshotToDumpFile_internal(aManager, aSurf);
 }
 
-void WriteSnapshotToDumpFile(Compositor* aCompositor, gfxASurface* aSurf)
+void WriteSnapshotToDumpFile(Compositor* aCompositor, DrawTarget* aTarget)
 {
-  WriteSnapshotToDumpFile_internal(aCompositor, aSurf);
+  nsRefPtr<gfxASurface> surf = gfxPlatform::GetPlatform()->GetThebesSurfaceForDrawTarget(aTarget);
+  WriteSnapshotToDumpFile_internal(aCompositor, surf);
 }
 #endif
 
@@ -1173,9 +1191,13 @@ Layer::Dump(FILE* aFile, const char* aPrefix, bool aDumpHtml)
     fprintf(aFile, ">");
   }
   DumpSelf(aFile, aPrefix);
+
+#ifdef MOZ_DUMP_PAINTING
   if (AsLayerComposite() && AsLayerComposite()->GetCompositableHost()) {
     AsLayerComposite()->GetCompositableHost()->Dump(aFile, aPrefix, aDumpHtml);
   }
+#endif
+
   if (aDumpHtml) {
     fprintf(aFile, "</a>");
   }
@@ -1210,7 +1232,11 @@ Layer::DumpSelf(FILE* aFile, const char* aPrefix)
 {
   nsAutoCString str;
   PrintInfo(str, aPrefix);
-  fprintf(FILEOrDefault(aFile), "%s\n", str.get());
+  if (!aFile || aFile == stderr) {
+    printf_stderr("%s\n", str.get());
+  } else {
+    fprintf(aFile, "%s\n", str.get());
+  }
 }
 
 void
@@ -1276,6 +1302,14 @@ Layer::PrintInfo(nsACString& aTo, const char* aPrefix)
   if (GetIsFixedPosition()) {
     aTo.AppendPrintf(" [isFixedPosition anchor=%f,%f]", mAnchor.x, mAnchor.y);
   }
+  if (GetIsStickyPosition()) {
+    aTo.AppendPrintf(" [isStickyPosition scrollId=%d outer=%f,%f %fx%f "
+                     "inner=%f,%f %fx%f]", mStickyPositionData->mScrollId,
+                     mStickyPositionData->mOuter.x, mStickyPositionData->mOuter.y,
+                     mStickyPositionData->mOuter.width, mStickyPositionData->mOuter.height,
+                     mStickyPositionData->mInner.x, mStickyPositionData->mInner.y,
+                     mStickyPositionData->mInner.width, mStickyPositionData->mInner.height);
+  }
 
   return aTo;
 }
@@ -1318,7 +1352,7 @@ nsACString&
 CanvasLayer::PrintInfo(nsACString& aTo, const char* aPrefix)
 {
   Layer::PrintInfo(aTo, aPrefix);
-  if (mFilter != gfxPattern::FILTER_GOOD) {
+  if (mFilter != GraphicsFilter::FILTER_GOOD) {
     AppendToString(aTo, mFilter, " [filter=", "]");
   }
   return aTo;
@@ -1328,7 +1362,7 @@ nsACString&
 ImageLayer::PrintInfo(nsACString& aTo, const char* aPrefix)
 {
   Layer::PrintInfo(aTo, aPrefix);
-  if (mFilter != gfxPattern::FILTER_GOOD) {
+  if (mFilter != GraphicsFilter::FILTER_GOOD) {
     AppendToString(aTo, mFilter, " [filter=", "]");
   }
   return aTo;

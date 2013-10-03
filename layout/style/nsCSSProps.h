@@ -12,9 +12,8 @@
 #define nsCSSProps_h___
 
 #include "nsString.h"
-#include "nsChangeHint.h"
 #include "nsCSSProperty.h"
-#include "nsStyleStruct.h"
+#include "nsStyleStructFwd.h"
 #include "nsCSSKeywords.h"
 
 // Flags for ParseVariant method
@@ -49,6 +48,8 @@
 #define VARIANT_ELEMENT       0x08000000  // eCSSUnit_Element
 #define VARIANT_POSITIVE_DIMENSION 0x10000000 // Only lengths greater than 0.0
 #define VARIANT_NONNEGATIVE_DIMENSION 0x20000000 // Only lengths greater than or equal to 0.0
+// Keyword used iff gfx.font_rendering.opentype_svg.enabled is true:
+#define VARIANT_OPENTYPE_SVG_KEYWORD 0x40000000
 
 // Common combinations of variants
 #define VARIANT_AL   (VARIANT_AUTO | VARIANT_LENGTH)
@@ -171,10 +172,10 @@ static_assert((CSS_PROPERTY_PARSE_PROPERTY_MASK &
 // should enforce that the value of this property must be 1 or larger.
 #define CSS_PROPERTY_VALUE_AT_LEAST_ONE           (2<<13)
 
-// Does this property suppor the hashless hex color quirk in quirks mode?
+// Does this property support the hashless hex color quirk in quirks mode?
 #define CSS_PROPERTY_HASHLESS_COLOR_QUIRK         (1<<15)
 
-// Does this property suppor the unitless length quirk in quirks mode?
+// Does this property support the unitless length quirk in quirks mode?
 #define CSS_PROPERTY_UNITLESS_LENGTH_QUIRK        (1<<16)
 
 // Is this property (which must be a shorthand) really an alias?
@@ -185,6 +186,10 @@ static_assert((CSS_PROPERTY_PARSE_PROPERTY_MASK &
 
 // This property is allowed in an @page rule.
 #define CSS_PROPERTY_APPLIES_TO_PAGE_RULE         (1<<19)
+
+// This property's getComputedStyle implementation requires layout to be
+// flushed.
+#define CSS_PROPERTY_GETCS_NEEDS_LAYOUT_FLUSH     (1<<20)
 
 /**
  * Types of animatable values.
@@ -456,7 +461,7 @@ public:
   static const int32_t kShapeRenderingKTable[];
   static const int32_t kStrokeLinecapKTable[];
   static const int32_t kStrokeLinejoinKTable[];
-  static const int32_t kStrokeObjectValueKTable[];
+  static const int32_t kStrokeContextValueKTable[];
   static const int32_t kVectorEffectKTable[];
   static const int32_t kTextAnchorKTable[];
   static const int32_t kTextRenderingKTable[];
@@ -505,8 +510,8 @@ public:
   static const int32_t kListStylePositionKTable[];
   static const int32_t kListStyleKTable[];
   static const int32_t kMaskTypeKTable[];
-  static const int32_t kObjectOpacityKTable[];
-  static const int32_t kObjectPatternKTable[];
+  static const int32_t kContextOpacityKTable[];
+  static const int32_t kContextPatternKTable[];
   static const int32_t kOrientKTable[];
   static const int32_t kOutlineStyleKTable[];
   static const int32_t kOutlineColorKTable[];
@@ -518,7 +523,9 @@ public:
   static const int32_t kPageSizeKTable[];
   static const int32_t kPitchKTable[];
   static const int32_t kPointerEventsKTable[];
-  static const int32_t kPositionKTable[];
+  // Not const because we modify its entries when the pref
+  // "layout.css.sticky.enabled" changes:
+  static int32_t kPositionKTable[];
   static const int32_t kRadialGradientShapeKTable[];
   static const int32_t kRadialGradientSizeKTable[];
   static const int32_t kRadialGradientLegacySizeKTable[];

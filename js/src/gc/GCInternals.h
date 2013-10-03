@@ -7,7 +7,6 @@
 #ifndef gc_GCInternals_h
 #define gc_GCInternals_h
 
-#include "jsapi.h"
 #include "jsworkers.h"
 
 #include "vm/Runtime.h"
@@ -70,14 +69,14 @@ class IncrementalSafety
     IncrementalSafety(const char *reason) : reason_(reason) {}
 
   public:
-    static IncrementalSafety Safe() { return IncrementalSafety(NULL); }
+    static IncrementalSafety Safe() { return IncrementalSafety(nullptr); }
     static IncrementalSafety Unsafe(const char *reason) { return IncrementalSafety(reason); }
 
     typedef void (IncrementalSafety::* ConvertibleToBool)();
     void nonNull() {}
 
     operator ConvertibleToBool() const {
-        return reason_ == NULL ? &IncrementalSafety::nonNull : 0;
+        return reason_ == nullptr ? &IncrementalSafety::nonNull : 0;
     }
 
     const char *reason() {

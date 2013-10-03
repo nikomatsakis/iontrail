@@ -18,6 +18,10 @@
 #include "mozilla/MemoryReporting.h"
 #include "mozilla/css/ImageLoader.h"
 #include "mozilla/Likely.h"
+#include "gfxFontConstants.h"
+#include "nsPresContext.h"
+#include "imgRequestProxy.h"
+#include "nsDeviceContext.h"
 
 namespace css = mozilla::css;
 
@@ -1809,8 +1813,6 @@ css::ImageValue::ImageValue(nsIURI* aURI, nsStringBuffer* aString,
   if (!loadingDoc) {
     loadingDoc = aDocument;
   }
-
-  mRequests.Init();
 
   loadingDoc->StyleImageLoader()->LoadImage(aURI, aOriginPrincipal, aReferrer,
                                             this);

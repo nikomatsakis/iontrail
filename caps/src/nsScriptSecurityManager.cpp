@@ -77,6 +77,18 @@ nsIStringBundle *nsScriptSecurityManager::sStrBundle = nullptr;
 JSRuntime       *nsScriptSecurityManager::sRuntime   = 0;
 bool nsScriptSecurityManager::sStrictFileOriginPolicy = true;
 
+// Lazily initialized. Use the getter below.
+static jsid sEnabledID = JSID_VOID;
+static JS::HandleId
+EnabledID()
+{
+    if (sEnabledID != JSID_VOID)
+        return JS::HandleId::fromMarkedLocation(&sEnabledID);
+    AutoSafeJSContext cx;
+    sEnabledID = INTERNED_STRING_TO_JSID(cx, JS_InternString(cx, "enabled"));
+    return JS::HandleId::fromMarkedLocation(&sEnabledID);
+}
+
 bool
 nsScriptSecurityManager::SubjectIsPrivileged()
 {
@@ -468,7 +480,7 @@ nsScriptSecurityManager::ContentSecurityPolicyPermitsJSAction(JSContext *cx)
         unsigned lineNum = 0;
         NS_NAMED_LITERAL_STRING(scriptSample, "call to eval() or related function blocked by CSP");
 
-        JSScript *script;
+        JS::RootedScript script(cx);
         if (JS_DescribeScriptedCaller(cx, &script, &lineNum)) {
             if (const char *file = JS_GetScriptFilename(cx, script)) {
                 CopyUTF8toUTF16(nsDependentCString(file), fileName);
@@ -972,7 +984,7 @@ nsScriptSecurityManager::CheckSameOriginDOMProp(nsIPrincipal* aSubject,
 nsresult
 nsScriptSecurityManager::LookupPolicy(nsIPrincipal* aPrincipal,
                                       ClassInfoData& aClassData,
-                                      jsid aProperty,
+                                      JS::Handle<jsid> aProperty,
                                       uint32_t aAction,
                                       ClassPolicy** aCachedClassPolicy,
                                       SecurityLevel* result)
@@ -1446,7 +1458,7 @@ nsScriptSecurityManager::CheckLoadURIWithPrincipal(nsIPrincipal* aPrincipal,
         ClassInfoData nameData(nullptr, loadURIPrefGroup);
 
         SecurityLevel secLevel;
-        rv = LookupPolicy(aPrincipal, nameData, sEnabledID,
+        rv = LookupPolicy(aPrincipal, nameData, EnabledID(),
                           nsIXPCSecurityManager::ACCESS_GET_PROPERTY,
                           nullptr, &secLevel);
         if (NS_SUCCEEDED(rv) && secLevel.level == SCRIPT_SECURITY_ALL_ACCESS)
@@ -1733,7 +1745,7 @@ nsScriptSecurityManager::CanExecuteScripts(JSContext* cx,
     ClassInfoData nameData(nullptr, jsPrefGroupName);
 
     SecurityLevel secLevel;
-    rv = LookupPolicy(aPrincipal, nameData, sEnabledID,
+    rv = LookupPolicy(aPrincipal, nameData, EnabledID(),
                       nsIXPCSecurityManager::ACCESS_GET_PROPERTY,
                       nullptr, &secLevel);
     if (NS_FAILED(rv) || secLevel.level == SCRIPT_SECURITY_NO_ACCESS)
@@ -1945,117 +1957,8 @@ nsScriptSecurityManager::doGetObjectPrincipal(JS::Handle<JSObject*> aObj)
 {
     JSCompartment *compartment = js::GetObjectCompartment(aObj);
     JSPrincipals *principals = JS_GetCompartmentPrincipals(compartment);
-    nsIPrincipal *principal = nsJSPrincipals::get(principals);
-
-    // We leave the old code in for a little while to make sure that pulling
-    // object principals directly off the compartment always gives an equivalent
-    // result (from a security perspective).
-#ifdef DEBUG
-    nsIPrincipal *old = old_doGetObjectPrincipal(aObj);
-    MOZ_ASSERT(NS_SUCCEEDED(CheckSameOriginPrincipal(principal, old)));
-#endif
-
-    return principal;
+    return nsJSPrincipals::get(principals);
 }
-
-#ifdef DEBUG
-// static
-nsIPrincipal*
-nsScriptSecurityManager::old_doGetObjectPrincipal(JS::Handle<JSObject*> aObj,
-                                                  bool aAllowShortCircuit)
-{
-    NS_ASSERTION(aObj, "Bad call to doGetObjectPrincipal()!");
-    nsIPrincipal* result = nullptr;
-
-    JSContext* cx = nsXPConnect::XPConnect()->GetCurrentJSContext();
-    JS::RootedObject obj(cx, aObj);
-    JS::RootedObject origObj(cx, obj);
-
-    // A common case seen in this code is that we enter this function
-    // with obj being a Function object, whose parent is a Call
-    // object. Neither of those have object principals, so we can skip
-    // those objects here before we enter the below loop. That way we
-    // avoid wasting time checking properties of their classes etc in
-    // the loop.
-
-    if (js::IsFunctionObject(obj)) {
-        obj = js::GetObjectParent(obj);
-
-        if (!obj)
-            return nullptr;
-
-        if (js::IsCallObject(obj)) {
-            obj = js::GetObjectParentMaybeScope(obj);
-
-            if (!obj)
-                return nullptr;
-        }
-    }
-
-    js::Class *jsClass = js::GetObjectClass(obj);
-
-    do {
-        // Note: jsClass is set before this loop, and also at the
-        // *end* of this loop.
-
-        if (IS_WN_CLASS(jsClass)) {
-            result = nsXPConnect::XPConnect()->GetPrincipal(obj,
-                                                            aAllowShortCircuit);
-            if (result) {
-                break;
-            }
-        } else {
-            nsISupports *priv;
-            if (!(~jsClass->flags & (JSCLASS_HAS_PRIVATE |
-                                     JSCLASS_PRIVATE_IS_NSISUPPORTS))) {
-                priv = (nsISupports *) js::GetObjectPrivate(obj);
-            } else {
-                priv = UnwrapDOMObjectToISupports(obj);
-            }
-
-            if (aAllowShortCircuit) {
-                nsCOMPtr<nsIXPConnectWrappedNative> xpcWrapper =
-                    do_QueryInterface(priv);
-
-                NS_ASSERTION(!xpcWrapper ||
-                             !strcmp(jsClass->name, "XPCNativeWrapper"),
-                             "Uh, an nsIXPConnectWrappedNative with the "
-                             "wrong JSClass or getObjectOps hooks!");
-            }
-
-            nsCOMPtr<nsIScriptObjectPrincipal> objPrin =
-                do_QueryInterface(priv);
-
-            if (objPrin) {
-                result = objPrin->GetPrincipal();
-
-                if (result) {
-                    break;
-                }
-            }
-        }
-
-        obj = js::GetObjectParentMaybeScope(obj);
-
-        if (!obj)
-            break;
-
-        jsClass = js::GetObjectClass(obj);
-    } while (1);
-
-    if (aAllowShortCircuit) {
-        nsIPrincipal *principal = old_doGetObjectPrincipal(origObj, false);
-
-        // Because of inner window reuse, we can have objects with one principal
-        // living in a scope with a different (but same-origin) principal. So
-        // just check same-origin here.
-        NS_ASSERTION(NS_SUCCEEDED(CheckSameOriginPrincipal(result, principal)),
-                     "Principal mismatch.  Not good");
-    }
-
-    return result;
-}
-#endif /* DEBUG */
 
 ////////////////////////////////////////////////
 // Methods implementing nsIXPCSecurityManager //
@@ -2330,14 +2233,6 @@ nsScriptSecurityManager::nsScriptSecurityManager(void)
 
 nsresult nsScriptSecurityManager::Init()
 {
-    JSContext* cx = GetSafeJSContext();
-    if (!cx) return NS_ERROR_FAILURE;   // this can happen of xpt loading fails
-    
-    ::JS_BeginRequest(cx);
-    if (sEnabledID == JSID_VOID)
-        sEnabledID = INTERNED_STRING_TO_JSID(cx, ::JS_InternString(cx, "enabled"));
-    ::JS_EndRequest(cx);
-
     InitPrefs();
 
     nsresult rv = CallGetService(NS_IOSERVICE_CONTRACTID, &sIOService);
@@ -2377,8 +2272,6 @@ nsresult nsScriptSecurityManager::Init()
 }
 
 static StaticRefPtr<nsScriptSecurityManager> gScriptSecMan;
-
-jsid nsScriptSecurityManager::sEnabledID   = JSID_VOID;
 
 nsScriptSecurityManager::~nsScriptSecurityManager(void)
 {
@@ -2776,32 +2669,26 @@ nsScriptSecurityManager::InitPrefs()
 namespace mozilla {
 
 void
-GetExtendedOrigin(nsIURI* aURI, uint32_t aAppId, bool aInMozBrowser,
-                  nsACString& aExtendedOrigin)
+GetJarPrefix(uint32_t aAppId, bool aInMozBrowser, nsACString& aJarPrefix)
 {
-  MOZ_ASSERT(aURI);
   MOZ_ASSERT(aAppId != nsIScriptSecurityManager::UNKNOWN_APP_ID);
 
   if (aAppId == nsIScriptSecurityManager::UNKNOWN_APP_ID) {
     aAppId = nsIScriptSecurityManager::NO_APP_ID;
   }
 
-  nsAutoCString origin;
-  nsPrincipal::GetOriginForURI(aURI, getter_Copies(origin));
+  aJarPrefix.Truncate();
 
   // Fallback.
   if (aAppId == nsIScriptSecurityManager::NO_APP_ID && !aInMozBrowser) {
-    aExtendedOrigin.Assign(origin);
     return;
   }
 
-  // aExtendedOrigin = appId + "+" + { 't', 'f' } "+" + origin;
-  aExtendedOrigin.Truncate();
-  aExtendedOrigin.AppendInt(aAppId);
-  aExtendedOrigin.Append('+');
-  aExtendedOrigin.Append(aInMozBrowser ? 't' : 'f');
-  aExtendedOrigin.Append('+');
-  aExtendedOrigin.Append(origin);
+  // aJarPrefix = appId + "+" + { 't', 'f' } + "+";
+  aJarPrefix.AppendInt(aAppId);
+  aJarPrefix.Append('+');
+  aJarPrefix.Append(aInMozBrowser ? 't' : 'f');
+  aJarPrefix.Append('+');
 
   return;
 }
@@ -2809,13 +2696,12 @@ GetExtendedOrigin(nsIURI* aURI, uint32_t aAppId, bool aInMozBrowser,
 } // namespace mozilla
 
 NS_IMETHODIMP
-nsScriptSecurityManager::GetExtendedOrigin(nsIURI* aURI,
-                                           uint32_t aAppId,
-                                           bool aInMozBrowser,
-                                           nsACString& aExtendedOrigin)
+nsScriptSecurityManager::GetJarPrefix(uint32_t aAppId,
+                                      bool aInMozBrowser,
+                                      nsACString& aJarPrefix)
 {
   MOZ_ASSERT(aAppId != nsIScriptSecurityManager::UNKNOWN_APP_ID);
 
-  mozilla::GetExtendedOrigin(aURI, aAppId, aInMozBrowser, aExtendedOrigin);
+  mozilla::GetJarPrefix(aAppId, aInMozBrowser, aJarPrefix);
   return NS_OK;
 }

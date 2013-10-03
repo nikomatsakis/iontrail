@@ -6,7 +6,7 @@
 const URI_GENERIC_ICON_DOWNLOAD = "chrome://browser/skin/images/alert-downloads-30.png";
 const TOAST_URI_GENERIC_ICON_DOWNLOAD = "ms-appx:///metro/chrome/chrome/skin/images/alert-downloads-30.png"
 
-var Downloads = {
+var MetroDownloadsView = {
   /**
    * _downloadCount keeps track of the number of downloads that a single
    * notification bar groups together. A download is grouped with other
@@ -57,11 +57,16 @@ var Downloads = {
     Services.obs.addObserver(this, "dl-request", true);
 
     this._notificationBox = Browser.getNotificationBox();
+    this._notificationBox.addEventListener('AlertClose', this.handleEvent, true);
 
     this._progress = new DownloadProgressListener(this);
     this.manager.addListener(this._progress);
 
     this._downloadProgressIndicator = document.getElementById("download-progress");
+
+    if (this.manager.activeDownloadCount) {
+      setTimeout (this._restartWithActiveDownloads.bind(this), 0);
+    }
   },
 
   uninit: function dh_uninit() {
@@ -71,6 +76,24 @@ var Downloads = {
       Services.obs.removeObserver(this, "dl-run");
       Services.obs.removeObserver(this, "dl-failed");
       Services.obs.removeObserver(this, "dl-request");
+    }
+  },
+
+  _restartWithActiveDownloads: function() {
+    let activeDownloads = this.manager.activeDownloads;
+
+    while (activeDownloads.hasMoreElements()) {
+      let dl = activeDownloads.getNext();
+      switch (dl.state) {
+        case 0: // Downloading
+        case 5: // Queued
+          this.watchDownload(dl);
+          this.updateInfobar();
+          break;
+      }
+    }
+    if (this.manager.activeDownloadCount) {
+      Services.obs.notifyObservers(null, "dl-request", "");
     }
   },
 
@@ -131,8 +154,8 @@ var Downloads = {
 
   // Cancels all downloads.
   cancelDownloads: function dh_cancelDownloads() {
-    for (let info of this._progressNotificationInfo) {
-      this.cancelDownload(info[1].download);
+    for (let [guid, info] of this._progressNotificationInfo) {
+      this.cancelDownload(info.download);
     }
     this._downloadCount = 0;
     this._progressNotificationInfo.clear();
@@ -154,7 +177,7 @@ var Downloads = {
     let download = this.manager.getDownload(id);
     let uri = this._getReferrerOrSource(download);
     if (uri)
-      BrowserUI.newTab(uri, Browser.selectedTab);
+      BrowserUI.addAndShowTab(uri, Browser.selectedTab);
   },
 
   showAlert: function dh_showAlert(aName, aMessage, aTitle, aIcon, aObserver) {
@@ -171,12 +194,12 @@ var Downloads = {
   },
 
   showNotification: function dh_showNotification(title, msg, buttons, priority) {
-    this._notificationBox.notificationsHidden = false;
-    return this._notificationBox.appendNotification(msg,
+    let notification = this._notificationBox.appendNotification(msg,
                                               title,
                                               URI_GENERIC_ICON_DOWNLOAD,
                                               priority,
                                               buttons);
+    return notification;
   },
 
   _showDownloadFailedNotification: function (aDownload) {
@@ -194,14 +217,15 @@ var Downloads = {
         label: tryAgainButtonText,
         accessKey: "",
         callback: function() {
-          Downloads.manager.retryDownload(aDownload.id);
+          MetroDownloadsView.manager.retryDownload(aDownload.id);
         }
       },
       {
         label: cancelButtonText,
         accessKey: "",
         callback: function() {
-          Downloads.cancelDownload(aDownload);
+          MetroDownloadsView.cancelDownload(aDownload);
+          MetroDownloadsView._downloadProgressIndicator.reset();
         }
       }
     ];
@@ -219,7 +243,7 @@ var Downloads = {
         accessKey: "",
         callback: function() {
           let fileURI = aDownload.target;
-          let file = Downloads._getLocalFile(fileURI);
+          let file = MetroDownloadsView._getLocalFile(fileURI);
           file.reveal();
         }
       }
@@ -240,7 +264,7 @@ var Downloads = {
         label: runButtonText,
         accessKey: "",
         callback: function() {
-          Downloads.openDownload(aDownload);
+          MetroDownloadsView.openDownload(aDownload);
         }
       });
     }
@@ -264,12 +288,12 @@ var Downloads = {
           switch (aTopic) {
             case "alertclickcallback":
               let fileURI = aDownload.target;
-              let file = Downloads._getLocalFile(fileURI);
+              let file = MetroDownloadsView._getLocalFile(fileURI);
               file.reveal();
 
               let downloadCompleteNotification =
-                Downloads._notificationBox.getNotificationWithValue("download-complete");
-              Downloads._notificationBox.removeNotification(downloadCompleteNotification);
+                MetroDownloadsView._notificationBox.getNotificationWithValue("download-complete");
+              MetroDownloadsView._notificationBox.removeNotification(downloadCompleteNotification);
               break;
           }
         }
@@ -282,11 +306,11 @@ var Downloads = {
         observe: function (aSubject, aTopic, aData) {
           switch (aTopic) {
             case "alertclickcallback":
-              Downloads.openDownload(aDownload);
+              MetroDownloadsView.openDownload(aDownload);
 
               let downloadCompleteNotification =
-                Downloads._notificationBox.getNotificationWithValue("download-complete");
-              Downloads._notificationBox.removeNotification(downloadCompleteNotification);
+                MetroDownloadsView._notificationBox.getNotificationWithValue("download-complete");
+              MetroDownloadsView._notificationBox.removeNotification(downloadCompleteNotification);
               break;
           }
         }
@@ -301,22 +325,22 @@ var Downloads = {
     }
 
     let totPercent = 0;
-    for (let info of this._progressNotificationInfo) {
-      // info[0]          => download guid
-      // info[1].download => nsIDownload
-      totPercent += info[1].download.percentComplete;
+    for (let [guid, info] of this._progressNotificationInfo) {
+      // info.download => nsIDownload
+      totPercent += info.download.percentComplete;
     }
 
     let percentComplete = totPercent / this._progressNotificationInfo.size;
     this._downloadProgressIndicator.updateProgress(percentComplete);
   },
 
-  _computeDownloadProgressString: function dv_computeDownloadProgressString(aDownload) {
+  _computeDownloadProgressString: function dv_computeDownloadProgressString() {
     let totTransferred = 0, totSize = 0, totSecondsLeft = 0;
-    for (let info of this._progressNotificationInfo) {
-      let size = info[1].download.size;
-      let amountTransferred = info[1].download.amountTransferred;
-      let speed = info[1].download.speed;
+    let guid, info;
+    for ([guid, info] of this._progressNotificationInfo) {
+      let size = info.download.size;
+      let amountTransferred = info.download.amountTransferred;
+      let speed = info.download.speed;
 
       totTransferred += amountTransferred;
       totSize += size;
@@ -334,7 +358,7 @@ var Downloads = {
 
     if (this._downloadCount == 1) {
       return Strings.browser.GetStringFromName("alertDownloadsStart2")
-        .replace("#1", aDownload.displayName)
+        .replace("#1", info.download.displayName)
         .replace("#2", progress)
         .replace("#3", timeLeft)
     }
@@ -356,14 +380,23 @@ var Downloads = {
     this._progressNotificationInfo.set(aDownload.guid, infoObj);
   },
 
-  updateInfobar: function dv_updateInfobar(aDownload) {
-    this._saveDownloadData(aDownload);
-    let message = this._computeDownloadProgressString(aDownload);
+  onDownloadButton: function dv_onDownloadButton() {
+    if (this._progressNotification) {
+      let progressBar = this._notificationBox.getNotificationWithValue("download-progress");
+      if (progressBar) {
+        this._notificationBox.removeNotification(progressBar);
+      } else {
+        this.updateInfobar();
+      }
+    }
+  },
+
+  updateInfobar: function dv_updateInfobar() {
+    let message = this._computeDownloadProgressString();
     this._updateCircularProgressMeter();
 
     if (this._progressNotification == null ||
         !this._notificationBox.getNotificationWithValue("download-progress")) {
-
       let cancelButtonText =
               Strings.browser.GetStringFromName("downloadCancel");
 
@@ -373,7 +406,8 @@ var Downloads = {
           label: cancelButtonText,
           accessKey: "",
           callback: function() {
-            Downloads.cancelDownloads();
+            MetroDownloadsView.cancelDownloads();
+            MetroDownloadsView._downloadProgressIndicator.reset();
           }
         }
       ];
@@ -395,6 +429,30 @@ var Downloads = {
     }
   },
 
+  watchDownload: function dv_watchDownload(aDownload) {
+    this._saveDownloadData(aDownload);
+    this._downloadCount++;
+    this._downloadsInProgress++;
+    if (!this._progressNotificationInfo.get(aDownload.guid)) {
+      this._progressNotificationInfo.set(aDownload.guid, {});
+    }
+    if (!this._progressAlert) {
+      this._progressAlert = new AlertDownloadProgressListener();
+      this.manager.addListener(this._progressAlert);
+    }
+  },
+
+  handleEvent: function handleEvent(aEvent) {
+    switch (aEvent.type) {
+      case "AlertClose":
+        if (aEvent.notification.value == "download-complete" &&
+            !MetroDownloadsView._notificationBox.getNotificationWithValue("download-complete")) {
+          MetroDownloadsView._downloadProgressIndicator.reset();
+        }
+        break;
+    }
+  },
+
   observe: function (aSubject, aTopic, aData) {
     let message = "";
     let msgTitle = "";
@@ -405,17 +463,9 @@ var Downloads = {
         this._runDownloadBooleanMap.set(file.path, (aData == 'true'));
         break;
       case "dl-start":
-        this._downloadCount++;
-        this._downloadsInProgress++;
         let download = aSubject.QueryInterface(Ci.nsIDownload);
-        if (!this._progressNotificationInfo.get(download.guid)) {
-          this._progressNotificationInfo.set(download.guid, {});
-        }
-        if (!this._progressAlert) {
-          this._progressAlert = new AlertDownloadProgressListener();
-          this.manager.addListener(this._progressAlert);
-        }
-        this.updateInfobar(download);
+        this.watchDownload(download);
+        this.updateInfobar();
         break;
       case "dl-done":
         this._downloadsInProgress--;
@@ -431,7 +481,6 @@ var Downloads = {
             this._showDownloadCompleteToast(download);
             this._showDownloadCompleteNotification(download);
           }
-          this._downloadProgressIndicator.reset();
           this._progressNotificationInfo.clear();
           this._downloadCount = 0;
           this._notificationBox.removeNotification(this._progressNotification);
@@ -441,7 +490,6 @@ var Downloads = {
       case "dl-failed":
         download = aSubject.QueryInterface(Ci.nsIDownload);
         this._showDownloadFailedNotification(download);
-        this._downloadProgressIndicator.reset();
         break;
       case "dl-request":
         setTimeout(function() {
@@ -514,10 +562,10 @@ AlertDownloadProgressListener.prototype = {
 
     let contentLength = aDownload.size;
     if (availableSpace > 0 && contentLength > 0 && contentLength > availableSpace) {
-      Downloads.showAlert(aDownload.target.spec.replace("file:", "download:"),
-                          strings.GetStringFromName("alertDownloadsNoSpace"),
-                          strings.GetStringFromName("alertDownloadsSize"));
-      Downloads.cancelDownload(aDownload);
+      MetroDownloadsView.showAlert(aDownload.target.spec.replace("file:", "download:"),
+                                   strings.GetStringFromName("alertDownloadsNoSpace"),
+                                   strings.GetStringFromName("alertDownloadsSize"));
+      MetroDownloadsView.cancelDownload(aDownload);
     }
   },
 

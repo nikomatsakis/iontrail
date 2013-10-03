@@ -17,6 +17,9 @@
 #include "nsClipboard.h"
 #include "KeyboardLayout.h"
 
+#include "mozilla/MouseEvents.h"
+
+using namespace mozilla;
 using namespace mozilla::widget;
 
 /* Define Class IDs */
@@ -153,7 +156,7 @@ void
 nsNativeDragTarget::DispatchDragDropEvent(uint32_t aEventType, POINTL aPT)
 {
   nsEventStatus status;
-  nsDragEvent event(true, aEventType, mWidget);
+  WidgetDragEvent event(true, aEventType, mWidget);
 
   nsWindow * win = static_cast<nsWindow *>(mWidget);
   win->InitEvent(event);
@@ -203,7 +206,8 @@ nsNativeDragTarget::ProcessDrag(uint32_t     aEventType,
 
   if (aEventType != NS_DRAGDROP_DROP) {
     // Get the cached drag effect from the drag service, the data member should
-    // have been set by whoever handled the nsGUIEvent or nsIDOMEvent on drags.
+    // have been set by whoever handled the WidgetGUIEvent or nsIDOMEvent on
+    // drags.
     bool canDrop;
     currSession->GetCanDrop(&canDrop);
     if (!canDrop) {

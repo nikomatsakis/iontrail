@@ -20,8 +20,11 @@
 // A jsid is not implicitly convertible to or from a jsval; JS_ValueToId or
 // JS_IdToValue must be used instead.
 
+#include "mozilla/NullPtr.h"
+ 
 #include "jstypes.h"
 
+#include "js/RootingAPI.h"
 #include "js/TypeDecls.h"
 #include "js/Utility.h"
 
@@ -115,7 +118,7 @@ static JS_ALWAYS_INLINE jsid
 OBJECT_TO_JSID(JSObject *obj)
 {
     jsid id;
-    JS_ASSERT(obj != NULL);
+    JS_ASSERT(obj != nullptr);
     JS_ASSERT(((size_t)obj & JSID_TYPE_MASK) == 0);
     JSID_BITS(id) = ((size_t)obj | JSID_TYPE_OBJECT);
     return id;
@@ -156,5 +159,34 @@ extern JS_PUBLIC_DATA(const jsid) JSID_EMPTY;
 # define JSID_VOID ((jsid)JSID_TYPE_VOID)
 # define JSID_EMPTY ((jsid)JSID_TYPE_OBJECT)
 #endif
+
+extern JS_PUBLIC_DATA(const JS::Handle<jsid>) JSID_VOIDHANDLE;
+extern JS_PUBLIC_DATA(const JS::Handle<jsid>) JSID_EMPTYHANDLE;
+
+namespace js {
+
+inline bool
+IsPoisonedId(jsid iden)
+{
+    if (JSID_IS_STRING(iden))
+        return JS::IsPoisonedPtr(JSID_TO_STRING(iden));
+    if (JSID_IS_OBJECT(iden))
+        return JS::IsPoisonedPtr(JSID_TO_OBJECT(iden));
+    return false;
+}
+
+template <> struct GCMethods<jsid>
+{
+    static jsid initial() { return JSID_VOID; }
+    static ThingRootKind kind() { return THING_ROOT_ID; }
+    static bool poisoned(jsid id) { return IsPoisonedId(id); }
+    static bool needsPostBarrier(jsid id) { return false; }
+#ifdef JSGC_GENERATIONAL
+    static void postBarrier(jsid *idp) {}
+    static void relocate(jsid *idp) {}
+#endif
+};
+
+}
 
 #endif /* js_Id_h */

@@ -7,6 +7,7 @@
 #define __editor_h__
 
 #include "mozilla/Assertions.h"         // for MOZ_ASSERT, etc.
+#include "mozilla/EventForwards.h"      // for WidgetKeyboardEvent
 #include "mozilla/TypedEnum.h"          // for MOZ_BEGIN_ENUM_CLASS, etc.
 #include "nsAutoPtr.h"                  // for nsRefPtr
 #include "nsCOMArray.h"                 // for nsCOMArray
@@ -63,7 +64,6 @@ class nsISelection;
 class nsISupports;
 class nsITransaction;
 class nsIWidget;
-class nsKeyEvent;
 class nsRange;
 class nsString;
 class nsTransactionManager;
@@ -405,7 +405,7 @@ protected:
    */
   bool GetDesiredSpellCheckState();
 
-  nsKeyEvent* GetNativeKeyEvent(nsIDOMKeyEvent* aDOMKeyEvent);
+  mozilla::WidgetKeyboardEvent* GetNativeKeyEvent(nsIDOMKeyEvent* aDOMKeyEvent);
 
   bool CanEnableSpellCheck()
   {

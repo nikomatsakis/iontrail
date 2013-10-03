@@ -6,6 +6,7 @@
 #ifndef nsChromeRegistryChrome_h
 #define nsChromeRegistryChrome_h
 
+#include "nsCOMArray.h"
 #include "nsChromeRegistry.h"
 #include "nsVoidArray.h"
 #include "mozilla/Move.h"
@@ -142,7 +143,6 @@ class nsChromeRegistryChrome : public nsChromeRegistry
     OverlayListHash() { }
     ~OverlayListHash() { }
 
-    void Init() { mTable.Init(); }
     void Add(nsIURI* aBase, nsIURI* aOverlay);
     void Clear() { mTable.Clear(); }
     const nsCOMArray<nsIURI>* GetArray(nsIURI* aBase);

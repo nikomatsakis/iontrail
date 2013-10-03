@@ -6,12 +6,12 @@
 #ifndef nsEventListenerManager_h__
 #define nsEventListenerManager_h__
 
+#include "mozilla/BasicEvents.h"
 #include "mozilla/dom/EventListenerBinding.h"
 #include "mozilla/MemoryReporting.h"
 #include "nsCOMPtr.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsGkAtoms.h"
-#include "nsGUIEvent.h"
 #include "nsIDOMEventListener.h"
 #include "nsIJSEventListener.h"
 #include "nsTObserverArray.h"
@@ -187,7 +187,7 @@ struct nsListenerStruct
     }
   }
 
-  MOZ_ALWAYS_INLINE bool IsListening(const nsEvent* aEvent) const
+  MOZ_ALWAYS_INLINE bool IsListening(const mozilla::WidgetEvent* aEvent) const
   {
     if (mFlags.mInSystemGroup != aEvent->mFlags.mInSystemGroup) {
       return false;
@@ -298,7 +298,7 @@ public:
   void RemoveEventHandler(nsIAtom *aName, const nsAString& aTypeString);
 
   void HandleEvent(nsPresContext* aPresContext,
-                   nsEvent* aEvent, 
+                   mozilla::WidgetEvent* aEvent, 
                    nsIDOMEvent** aDOMEvent,
                    mozilla::dom::EventTarget* aCurrentTarget,
                    nsEventStatus* aEventStatus,
@@ -405,7 +405,7 @@ public:
   mozilla::dom::EventTarget* GetTarget() { return mTarget; }
 protected:
   void HandleEventInternal(nsPresContext* aPresContext,
-                           nsEvent* aEvent,
+                           mozilla::WidgetEvent* aEvent,
                            nsIDOMEvent** aDOMEvent,
                            mozilla::dom::EventTarget* aCurrentTarget,
                            nsEventStatus* aEventStatus,
@@ -440,13 +440,12 @@ protected:
    * allowed to be null.  The nsListenerStruct that results, if any, is returned
    * in aListenerStruct.
    */
-  nsresult SetEventHandlerInternal(nsIScriptContext *aContext,
-                                   JS::Handle<JSObject*> aScopeGlobal,
-                                   nsIAtom* aName,
-                                   const nsAString& aTypeString,
-                                   const nsEventHandler& aHandler,
-                                   bool aPermitUntrustedEvents,
-                                   nsListenerStruct **aListenerStruct);
+  nsListenerStruct* SetEventHandlerInternal(nsIScriptContext *aContext,
+                                            JS::Handle<JSObject*> aScopeGlobal,
+                                            nsIAtom* aName,
+                                            const nsAString& aTypeString,
+                                            const nsEventHandler& aHandler,
+                                            bool aPermitUntrustedEvents);
 
   bool IsDeviceType(uint32_t aType);
   void EnableDevice(uint32_t aType);
@@ -457,11 +456,11 @@ public:
    * Set the "inline" event listener for aEventName to aHandler.  If
    * aHandler is null, this will actually remove the event listener
    */
-  nsresult SetEventHandler(nsIAtom* aEventName,
-                           const nsAString& aTypeString,
-                           mozilla::dom::EventHandlerNonNull* aHandler);
-  nsresult SetEventHandler(mozilla::dom::OnErrorEventHandlerNonNull* aHandler);
-  nsresult SetEventHandler(mozilla::dom::BeforeUnloadEventHandlerNonNull* aHandler);
+  void SetEventHandler(nsIAtom* aEventName,
+                       const nsAString& aTypeString,
+                       mozilla::dom::EventHandlerNonNull* aHandler);
+  void SetEventHandler(mozilla::dom::OnErrorEventHandlerNonNull* aHandler);
+  void SetEventHandler(mozilla::dom::BeforeUnloadEventHandlerNonNull* aHandler);
 
   /**
    * Get the value of the "inline" event listener for aEventName.
@@ -529,7 +528,7 @@ protected:
   nsPIDOMWindow* GetInnerWindowForTarget();
   already_AddRefed<nsPIDOMWindow> GetTargetAsInnerWindow() const;
 
-  bool ListenerCanHandle(nsListenerStruct* aLs, nsEvent* aEvent);
+  bool ListenerCanHandle(nsListenerStruct* aLs, mozilla::WidgetEvent* aEvent);
 
   uint32_t mMayHavePaintEventListener : 1;
   uint32_t mMayHaveMutationListeners : 1;

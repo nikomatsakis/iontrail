@@ -7,7 +7,6 @@
 #define MOZILLA_GFX_IMAGEHOST_H
 
 #include <stdio.h>                      // for FILE, NULL
-#include "mozilla-config.h"             // for MOZ_DUMP_PAINTING
 #include "CompositableHost.h"           // for CompositableHost
 #include "mozilla/Attributes.h"         // for MOZ_OVERRIDE
 #include "mozilla/RefPtr.h"             // for RefPtr
@@ -57,6 +56,8 @@ public:
                          TiledLayerProperties* aLayerProperties = nullptr) MOZ_OVERRIDE;
 
   virtual void UseTextureHost(TextureHost* aTexture) MOZ_OVERRIDE;
+
+  virtual void RemoveTextureHost(uint64_t aTextureID) MOZ_OVERRIDE;
 
   virtual TextureHost* GetTextureHost() MOZ_OVERRIDE;
 

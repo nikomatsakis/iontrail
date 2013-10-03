@@ -8,9 +8,11 @@
 #include "nsDOMUIEvent.h"
 #include "nsTArray.h"
 #include "mozilla/Attributes.h"
+#include "mozilla/TouchEvents.h"
 #include "nsJSEnvironment.h"
 #include "mozilla/dom/TouchEventBinding.h"
 #include "nsWrapperCache.h"
+
 
 class nsAString;
 
@@ -80,7 +82,8 @@ class nsDOMTouchEvent : public nsDOMUIEvent
 {
 public:
   nsDOMTouchEvent(mozilla::dom::EventTarget* aOwner,
-                  nsPresContext* aPresContext, nsTouchEvent* aEvent);
+                  nsPresContext* aPresContext,
+                  mozilla::WidgetTouchEvent* aEvent);
   virtual ~nsDOMTouchEvent();
 
   NS_DECL_ISUPPORTS_INHERITED
@@ -98,22 +101,22 @@ public:
 
   bool AltKey()
   {
-    return static_cast<nsInputEvent*>(mEvent)->IsAlt();
+    return static_cast<mozilla::WidgetInputEvent*>(mEvent)->IsAlt();
   }
 
   bool MetaKey()
   {
-    return static_cast<nsInputEvent*>(mEvent)->IsMeta();
+    return static_cast<mozilla::WidgetInputEvent*>(mEvent)->IsMeta();
   }
 
   bool CtrlKey()
   {
-    return static_cast<nsInputEvent*>(mEvent)->IsControl();
+    return static_cast<mozilla::WidgetInputEvent*>(mEvent)->IsControl();
   }
 
   bool ShiftKey()
   {
-    return static_cast<nsInputEvent*>(mEvent)->IsShift();
+    return static_cast<mozilla::WidgetInputEvent*>(mEvent)->IsShift();
   }
 
   void InitTouchEvent(const nsAString& aType,

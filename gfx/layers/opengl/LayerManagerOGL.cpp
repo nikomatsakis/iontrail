@@ -6,7 +6,6 @@
 #include "LayerManagerOGL.h"
 #include <stddef.h>                     // for size_t
 #include <stdint.h>                     // for uint32_t, uint8_t, etc
-#include "mozilla-config.h"             // for MOZ_DUMP_PAINTING
 #include "CanvasLayerOGL.h"             // for CanvasLayerOGL
 #include "ColorLayerOGL.h"              // for ColorLayerOGL
 #include "Composer2D.h"                 // for Composer2D
@@ -582,7 +581,7 @@ already_AddRefed<gfxASurface>
 LayerManagerOGL::CreateOptimalMaskSurface(const gfxIntSize &aSize)
 {
   return gfxPlatform::GetPlatform()->
-    CreateOffscreenImageSurface(aSize, gfxASurface::CONTENT_ALPHA);
+    CreateOffscreenImageSurface(aSize, GFX_CONTENT_ALPHA);
 }
 
 already_AddRefed<ThebesLayer>
@@ -876,7 +875,7 @@ LayerManagerOGL::Render()
     } else {
       mWidget->GetClientBounds(rect);
     }
-    nsRefPtr<gfxASurface> surf = gfxPlatform::GetPlatform()->CreateOffscreenSurface(rect.Size(), gfxASurface::CONTENT_COLOR_ALPHA);
+    nsRefPtr<gfxASurface> surf = gfxPlatform::GetPlatform()->CreateOffscreenSurface(rect.Size(), GFX_CONTENT_COLOR_ALPHA);
     nsRefPtr<gfxContext> ctx = new gfxContext(surf);
     CopyToTarget(ctx);
 
@@ -897,7 +896,7 @@ LayerManagerOGL::Render()
   }
 
   if (mFPS) {
-    mFPS->DrawFPS(TimeStamp::Now(), mGLContext, GetProgram(Copy2DProgramType));
+    mFPS->DrawFPS(TimeStamp::Now(), 0, mGLContext, GetProgram(Copy2DProgramType));
   }
 
   if (mGLContext->IsDoubleBuffered()) {
@@ -1125,7 +1124,7 @@ LayerManagerOGL::CopyToTarget(gfxContext *aTarget)
 
   nsRefPtr<gfxImageSurface> imageSurface =
     new gfxImageSurface(gfxIntSize(width, height),
-                        gfxASurface::ImageFormatARGB32);
+                        gfxImageFormatARGB32);
 
   mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER,
                                mGLContext->IsDoubleBuffered() ? 0 : mBackBufferFBO);

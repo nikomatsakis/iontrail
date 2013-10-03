@@ -4,8 +4,6 @@
 
 OS_CXXFLAGS := $(filter-out -fshort-wchar,$(OS_CXXFLAGS))
 
-EXPORT_LIBRARY = 1
-
 ACDEFINES =
 
 ifndef MOZ_NATIVE_LIBEVENT # {
@@ -78,10 +76,12 @@ ifeq ($(OS_TARGET),Android) # {
 LOCAL_INCLUDES += -I$(srcdir)/src/third_party/libevent/android
 else # } else {
 LOCAL_INCLUDES += -I$(srcdir)/src/third_party/libevent/linux
+CSRCS += \
+  epoll_sub.c \
+  $(NULL)
 endif # }
 CSRCS += \
   epoll.c \
-  epoll_sub.c \
   $(NULL)
 
 else # } else (OS_BSD)  {

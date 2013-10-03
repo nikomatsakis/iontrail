@@ -19,9 +19,11 @@
 #include "jit/AsmJS.h"
 #include "jit/AsmJSLink.h"
 #include "vm/ForkJoin.h"
+#include "vm/GlobalObject.h"
 #include "vm/Interpreter.h"
+#include "vm/ProxyObject.h"
 
-#include "vm/ObjectImpl-inl.h"
+#include "jscntxtinlines.h"
 
 using namespace js;
 using namespace JS;
@@ -31,7 +33,7 @@ using mozilla::ArrayLength;
 static bool
 GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
 {
-    RootedObject info(cx, JS_NewObject(cx, NULL, NULL, NULL));
+    RootedObject info(cx, JS_NewObject(cx, nullptr, nullptr, nullptr));
     if (!info)
         return false;
     RootedValue value(cx);
@@ -596,7 +598,7 @@ NondeterministicGetWeakMapKeys(JSContext *cx, unsigned argc, jsval *vp)
         return false;
     }
     if (!args[0].isObject()) {
-        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_NOT_EXPECTED_TYPE,
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_NOT_EXPECTED_TYPE,
                              "nondeterministicGetWeakMapKeys", "WeakMap",
                              InformalValueTypeName(args[0]));
         return false;
@@ -605,7 +607,7 @@ NondeterministicGetWeakMapKeys(JSContext *cx, unsigned argc, jsval *vp)
     if (!JS_NondeterministicGetWeakMapKeys(cx, &args[0].toObject(), arr.address()))
         return false;
     if (!arr) {
-        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_NOT_EXPECTED_TYPE,
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_NOT_EXPECTED_TYPE,
                              "nondeterministicGetWeakMapKeys", "WeakMap",
                              args[0].toObject().getClass()->name);
         return false;
@@ -726,8 +728,8 @@ CountHeap(JSContext *cx, unsigned argc, jsval *vp)
         return false;
     }
     countTracer.ok = true;
-    countTracer.traceList = NULL;
-    countTracer.recycleList = NULL;
+    countTracer.traceList = nullptr;
+    countTracer.recycleList = nullptr;
 
     if (startValue.isUndefined()) {
         JS_TraceRuntime(&countTracer.base);
@@ -736,7 +738,7 @@ CountHeap(JSContext *cx, unsigned argc, jsval *vp)
     }
 
     counter = 0;
-    while ((node = countTracer.traceList) != NULL) {
+    while ((node = countTracer.traceList) != nullptr) {
         if (traceKind == -1 || node->kind == traceKind)
             counter++;
         countTracer.traceList = node->next;
@@ -744,7 +746,7 @@ CountHeap(JSContext *cx, unsigned argc, jsval *vp)
         countTracer.recycleList = node;
         JS_TraceChildren(&countTracer.base, node->thing, node->kind);
     }
-    while ((node = countTracer.recycleList) != NULL) {
+    while ((node = countTracer.recycleList) != nullptr) {
         countTracer.recycleList = node->next;
         js_free(node);
     }
@@ -788,7 +790,7 @@ finalize_counter_finalize(JSFreeOp *fop, JSObject *obj)
     ++finalizeCount;
 }
 
-static JSClass FinalizeCounterClass = {
+static const JSClass FinalizeCounterClass = {
     "FinalizeCounter", JSCLASS_IS_ANONYMOUS,
     JS_PropertyStub,       /* addProperty */
     JS_DeletePropertyStub, /* delProperty */
@@ -807,7 +809,7 @@ MakeFinalizeObserver(JSContext *cx, unsigned argc, jsval *vp)
     if (!scope)
         return false;
 
-    JSObject *obj = JS_NewObjectWithGivenProto(cx, &FinalizeCounterClass, NULL, scope);
+    JSObject *obj = JS_NewObjectWithGivenProto(cx, &FinalizeCounterClass, nullptr, scope);
     if (!obj)
         return false;
 
@@ -825,32 +827,52 @@ FinalizeCount(JSContext *cx, unsigned argc, jsval *vp)
 static bool
 DumpHeapComplete(JSContext *cx, unsigned argc, jsval *vp)
 {
-    const char *fileName = NULL;
-    JSAutoByteString fileNameBytes;
-    if (argc > 0) {
-        Value v = JS_ARGV(cx, vp)[0];
+    CallArgs args = CallArgsFromVp(argc, vp);
+
+    DumpHeapNurseryBehaviour nurseryBehaviour = js::IgnoreNurseryObjects;
+    FILE *dumpFile = NULL;
+
+    unsigned i = 0;
+    if (argc > i) {
+        Value v = args[i];
         if (v.isString()) {
             JSString *str = v.toString();
+            bool same = false;
+            if (!JS_StringEqualsAscii(cx, str, "collectNurseryBeforeDump", &same))
+                return false;
+            if (same) {
+                nurseryBehaviour = js::CollectNurseryBeforeDump;
+                ++i;
+            }
+        }
+    }
+
+    if (argc > i) {
+        Value v = args[i];
+        if (v.isString()) {
+            JSString *str = v.toString();
+            JSAutoByteString fileNameBytes;
             if (!fileNameBytes.encodeLatin1(cx, str))
                 return false;
-            fileName = fileNameBytes.ptr();
+            const char *fileName = fileNameBytes.ptr();
+            dumpFile = fopen(fileName, "w");
+            if (!dumpFile) {
+                JS_ReportError(cx, "can't open %s", fileName);
+                return false;
+            }
+            ++i;
         }
     }
 
-    FILE *dumpFile;
-    if (!fileName) {
-        dumpFile = stdout;
-    } else {
-        dumpFile = fopen(fileName, "w");
-        if (!dumpFile) {
-            JS_ReportError(cx, "can't open %s", fileName);
-            return false;
-        }
+    if (i != argc) {
+        JS_ReportError(cx, "bad arguments passed to dumpHeapComplete");
+        return false;
     }
 
-    js::DumpHeapComplete(JS_GetRuntime(cx), dumpFile);
+    js::DumpHeapComplete(JS_GetRuntime(cx), dumpFile ? dumpFile : stdout, nurseryBehaviour);
 
-    fclose(dumpFile);
+    if (dumpFile)
+        fclose(dumpFile);
 
     JS_SET_RVAL(cx, vp, JSVAL_VOID);
     return true;
@@ -914,7 +936,7 @@ DisplayName(JSContext *cx, unsigned argc, jsval *vp)
 
     JSFunction *fun = &args[0].toObject().as<JSFunction>();
     JSString *str = fun->displayAtom();
-    vp->setString(str == NULL ? cx->runtime()->emptyString : str);
+    vp->setString(str == nullptr ? cx->runtime()->emptyString : str);
     return true;
 }
 
@@ -938,7 +960,7 @@ ShellObjectMetadataCallback(JSContext *cx, JSObject **pmetadata)
         return false;
 
     RootedValue rval(cx);
-    if (!Invoke(cx, UndefinedValue(), fun, 0, NULL, &rval))
+    if (!Invoke(cx, UndefinedValue(), fun, 0, nullptr, &rval))
         return false;
 
     if (rval.isObject())
@@ -957,11 +979,11 @@ SetObjectMetadataCallback(JSContext *cx, unsigned argc, jsval *vp)
     if (argc == 0 || !args[0].isObject() || !args[0].toObject().is<JSFunction>()) {
         if (!JS_DeleteProperty(cx, cx->global(), ObjectMetadataPropertyName))
             return false;
-        js::SetObjectMetadataCallback(cx, NULL);
+        js::SetObjectMetadataCallback(cx, nullptr);
         return true;
     }
 
-    if (!JS_DefineProperty(cx, cx->global(), ObjectMetadataPropertyName, args[0], NULL, NULL, 0))
+    if (!JS_DefineProperty(cx, cx->global(), ObjectMetadataPropertyName, args[0], nullptr, nullptr, 0))
         return false;
 
     js::SetObjectMetadataCallback(cx, ShellObjectMetadataCallback);
@@ -999,6 +1021,14 @@ GetObjectMetadata(JSContext *cx, unsigned argc, jsval *vp)
 
 bool
 js::testingFunc_bailout(JSContext *cx, unsigned argc, jsval *vp)
+{
+    // NOP when not in IonMonkey
+    JS_SET_RVAL(cx, vp, JSVAL_VOID);
+    return true;
+}
+
+bool
+js::testingFunc_assertFloat32(JSContext *cx, unsigned argc, jsval *vp)
 {
     // NOP when not in IonMonkey
     JS_SET_RVAL(cx, vp, JSVAL_VOID);
@@ -1113,7 +1143,7 @@ static const JSFunctionSpecWithHelp TestingFunctions[] = {
 "    4: Verify pre write barriers between instructions\n"
 "    5: Verify pre write barriers between paints\n"
 "    6: Verify stack rooting\n"
-"    7: Verify stack rooting (yes, it's the same as 6)\n"
+"    7: Collect the nursery every N nursery allocations\n"
 "    8: Incremental GC in two slices: 1) mark roots 2) finish collection\n"
 "    9: Incremental GC in two slices: 1) mark all 2) new marking and finish\n"
 "   10: Incremental GC in multiple slices\n"
@@ -1174,8 +1204,10 @@ static const JSFunctionSpecWithHelp TestingFunctions[] = {
 "  If true, obj is a proxy of some sort"),
 
     JS_FN_HELP("dumpHeapComplete", DumpHeapComplete, 1, 0,
-"dumpHeapComplete([filename])",
-"  Dump reachable and unreachable objects to a file."),
+"dumpHeapComplete(['collectNurseryBeforeDump'], [filename])",
+"  Dump reachable and unreachable objects to the named file, or to stdout.  If\n"
+"  'collectNurseryBeforeDump' is specified, a minor GC is performed first,\n"
+"  otherwise objects in the nursery are ignored."),
 
     JS_FN_HELP("terminate", Terminate, 0, 0,
 "terminate()",

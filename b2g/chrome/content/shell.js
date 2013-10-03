@@ -6,6 +6,7 @@
 
 Cu.import('resource://gre/modules/ContactService.jsm');
 Cu.import('resource://gre/modules/SettingsChangeNotifier.jsm');
+Cu.import('resource://gre/modules/DataStoreChangeNotifier.jsm');
 Cu.import('resource://gre/modules/AlarmService.jsm');
 Cu.import('resource://gre/modules/ActivitiesService.jsm');
 Cu.import('resource://gre/modules/PermissionPromptHelper.jsm');
@@ -183,7 +184,7 @@ var shell = {
 
   get contentBrowser() {
     delete this.contentBrowser;
-    return this.contentBrowser = document.getElementById('homescreen');
+    return this.contentBrowser = document.getElementById('systemapp');
   },
 
   get homeURL() {
@@ -266,25 +267,29 @@ var shell = {
     }
 
     let manifestURL = this.manifestURL;
-    // <html:iframe id="homescreen"
+    // <html:iframe id="systemapp"
     //              mozbrowser="true" allowfullscreen="true"
-    //              style="overflow: hidden; -moz-box-flex: 1; border: none;"
+    //              style="overflow: hidden; height: 100%; width: 100%; border: none;"
     //              src="data:text/html;charset=utf-8,%3C!DOCTYPE html>%3Cbody style='background:black;'>"/>
-    let browserFrame =
+    let systemAppFrame =
       document.createElementNS('http://www.w3.org/1999/xhtml', 'html:iframe');
-    browserFrame.setAttribute('id', 'homescreen');
-    browserFrame.setAttribute('mozbrowser', 'true');
-    browserFrame.setAttribute('mozapp', manifestURL);
-    browserFrame.setAttribute('allowfullscreen', 'true');
-    browserFrame.setAttribute('style', "overflow: hidden; -moz-box-flex: 1; border: none;");
-    browserFrame.setAttribute('src', "data:text/html;charset=utf-8,%3C!DOCTYPE html>%3Cbody style='background:black;");
-    document.getElementById('shell').appendChild(browserFrame);
+    systemAppFrame.setAttribute('id', 'systemapp');
+    systemAppFrame.setAttribute('mozbrowser', 'true');
+    systemAppFrame.setAttribute('mozapp', manifestURL);
+    systemAppFrame.setAttribute('allowfullscreen', 'true');
+    systemAppFrame.setAttribute('style', "overflow: hidden; height: 100%; width: 100%; border: none;");
+    systemAppFrame.setAttribute('src', "data:text/html;charset=utf-8,%3C!DOCTYPE html>%3Cbody style='background:black;");
+    let container = document.getElementById('container');
+#ifdef MOZ_WIDGET_COCOA
+    container.removeChild(document.getElementById('placeholder'));
+#endif
+    container.appendChild(systemAppFrame);
 
-    browserFrame.contentWindow
-                .QueryInterface(Ci.nsIInterfaceRequestor)
-                .getInterface(Ci.nsIWebNavigation)
-                .sessionHistory = Cc["@mozilla.org/browser/shistory;1"]
-                                    .createInstance(Ci.nsISHistory);
+    systemAppFrame.contentWindow
+                  .QueryInterface(Ci.nsIInterfaceRequestor)
+                  .getInterface(Ci.nsIWebNavigation)
+                  .sessionHistory = Cc["@mozilla.org/browser/shistory;1"]
+                                      .createInstance(Ci.nsISHistory);
 
     // Capture all key events so we can filter out hardware buttons
     // And send them to Gaia via mozChromeEvents.
@@ -597,6 +602,10 @@ var shell = {
 
     this.sendEvent(window, 'ContentStart');
 
+#ifdef MOZ_B2G_RIL
+    Cu.import('resource://gre/modules/OperatorApps.jsm');
+#endif
+
     content.addEventListener('load', function shell_homeLoaded() {
       content.removeEventListener('load', shell_homeLoaded);
       shell.isHomeLoaded = true;
@@ -627,9 +636,18 @@ Services.obs.addObserver(function onSystemMessageOpenApp(subject, topic, data) {
   shell.openAppForSystemMessage(msg);
 }, 'system-messages-open-app', false);
 
-Services.obs.addObserver(function(aSubject, aTopic, aData) {
+Services.obs.addObserver(function onInterAppCommConnect(subject, topic, data) {
+  data = JSON.parse(data);
+  shell.sendChromeEvent({ type: "inter-app-comm-permission",
+                          chromeEventID: data.callerID,
+                          manifestURL: data.manifestURL,
+                          keyword: data.keyword,
+                          peers: data.appsToSelect });
+}, 'inter-app-comm-select-app', false);
+
+Services.obs.addObserver(function onFullscreenOriginChange(subject, topic, data) {
   shell.sendChromeEvent({ type: "fullscreenoriginchange",
-                          fullscreenorigin: aData });
+                          fullscreenorigin: data });
 }, "fullscreen-origin-change", false);
 
 Services.obs.addObserver(function onWebappsStart(subject, topic, data) {
@@ -696,6 +714,16 @@ var CustomEventManager = {
       case 'captive-portal-login-cancel':
         CaptivePortalLoginHelper.handleEvent(detail);
         break;
+      case 'inter-app-comm-permission':
+        Services.obs.notifyObservers(null, 'inter-app-comm-select-app-result',
+          JSON.stringify({ callerID: detail.chromeEventID,
+                           keyword: detail.keyword,
+                           manifestURL: detail.manifestURL,
+                           selectedApps: detail.peers }));
+        break;
+      case 'inputmethod-update-layouts':
+        KeyboardHelper.handleEvent(detail);
+        break;
     }
   }
 }
@@ -723,16 +751,19 @@ var AlertsHelper = {
       topic = "alertfinished";
     }
 
-    if (uid.startsWith("app-notif")) {
+    if (uid.startsWith("alert")) {
+      try {
+        listener.observer.observe(null, topic, listener.cookie);
+      } catch (e) { }
+    } else {
       try {
         listener.mm.sendAsyncMessage("app-notification-return", {
           uid: uid,
           topic: topic,
           target: listener.target
         });
-      } catch(e) {
+      } catch (e) {
         // we get an exception if the app is not launched yet
-
         gSystemMessenger.sendMessage("notification", {
             clicked: (detail.type === "desktop-notification-click"),
             title: listener.title,
@@ -743,10 +774,6 @@ var AlertsHelper = {
           Services.io.newURI(listener.manifestURL, null, null)
         );
       }
-    } else if (uid.startsWith("alert")) {
-      try {
-        listener.observer.observe(null, topic, listener.cookie);
-      } catch (e) { }
     }
 
     // we're done with this notification
@@ -1021,11 +1048,19 @@ let RemoteDebugger = {
       DebuggerServer.addActors('chrome://browser/content/dbg-browser-actors.js');
       DebuggerServer.addActors("resource://gre/modules/devtools/server/actors/webapps.js");
       DebuggerServer.registerModule("devtools/server/actors/device");
+      DebuggerServer.registerModule("devtools/server/actors/inspector")
+
+#ifdef MOZ_WIDGET_GONK
+      DebuggerServer.onConnectionChange = function(what) {
+        AdbController.updateState();
+      }
+#endif
     }
 
-    let port = Services.prefs.getIntPref('devtools.debugger.remote-port') || 6000;
+    let path = Services.prefs.getCharPref("devtools.debugger.unix-domain-socket") ||
+               "/data/local/debugger-socket";
     try {
-      DebuggerServer.openListener(port);
+      DebuggerServer.openListener(path);
     } catch (e) {
       dump('Unable to start debugger server: ' + e + '\n');
     }
@@ -1043,6 +1078,12 @@ let RemoteDebugger = {
     }
   }
 }
+
+let KeyboardHelper = {
+  handleEvent: function keyboard_handleEvent(detail) {
+    Keyboard.setLayouts(detail.layouts);
+  }
+};
 
 // This is the backend for Gaia's screenshot feature.  Gaia requests a
 // screenshot by sending a mozContentEvent with detail.type set to
@@ -1127,6 +1168,9 @@ window.addEventListener('ContentStart', function cr_onContentStart() {
 });
 
 window.addEventListener('ContentStart', function update_onContentStart() {
+  Cu.import('resource://gre/modules/WebappsUpdater.jsm');
+  WebappsUpdater.handleContentStart(shell);
+
   let promptCc = Cc["@mozilla.org/updates/update-prompt;1"];
   if (!promptCc) {
     return;
@@ -1176,6 +1220,15 @@ window.addEventListener('ContentStart', function update_onContentStart() {
       channel: aData
     });
 }, "audio-channel-changed", false);
+})();
+
+(function defaultVolumeChannelChangedTracker() {
+  Services.obs.addObserver(function(aSubject, aTopic, aData) {
+    shell.sendChromeEvent({
+      type: 'default-volume-channel-changed',
+      channel: aData
+    });
+}, "default-volume-channel-changed", false);
 })();
 
 (function visibleAudioChannelChangedTracker() {
@@ -1290,3 +1343,56 @@ let SensorsListener = {
 
 SensorsListener.init();
 #endif
+
+// Calling this observer will cause a shutdown an a profile reset.
+// Use eg. : Services.obs.notifyObservers(null, 'b2g-reset-profile', null);
+Services.obs.addObserver(function resetProfile(subject, topic, data) {
+  Services.obs.removeObserver(resetProfile, topic);
+
+  // Listening for 'profile-before-change2' which is late in the shutdown
+  // sequence, but still has xpcom access.
+  Services.obs.addObserver(function clearProfile(subject, topic, data) {
+    Services.obs.removeObserver(clearProfile, topic);
+#ifdef MOZ_WIDGET_GONK
+    let json = Cc['@mozilla.org/file/local;1'].createInstance(Ci.nsIFile);
+    json.initWithPath('/system/b2g/webapps/webapps.json');
+    let toRemove = json.exists()
+      // This is a user build, just rm -r /data/local /data/b2g/mozilla
+      ? ['/data/local', '/data/b2g/mozilla']
+      // This is an eng build. We clear the profile and a set of files
+      // under /data/local.
+      : ['/data/b2g/mozilla',
+         '/data/local/permissions.sqlite',
+         '/data/local/storage',
+         '/data/local/OfflineCache'];
+
+    toRemove.forEach(function(dir) {
+      try {
+        let file = Cc['@mozilla.org/file/local;1'].createInstance(Ci.nsIFile);
+        file.initWithPath(dir);
+        file.remove(true);
+      } catch(e) { dump(e); }
+    });
+#else
+    // Desktop builds.
+    let profile = Services.dirsvc.get('ProfD', Ci.nsIFile);
+
+    // We don't want to remove everything from the profile, since this
+    // would prevent us from starting up.
+    let whitelist = ['defaults', 'extensions', 'settings.json',
+                     'user.js', 'webapps'];
+    let enumerator = profile.directoryEntries;
+    while (enumerator.hasMoreElements()) {
+      let file = enumerator.getNext().QueryInterface(Ci.nsIFile);
+      if (whitelist.indexOf(file.leafName) == -1) {
+        file.remove(true);
+      }
+    }
+#endif
+  },
+  'profile-before-change2', false);
+
+  let appStartup = Cc['@mozilla.org/toolkit/app-startup;1']
+                     .getService(Ci.nsIAppStartup);
+  appStartup.quit(Ci.nsIAppStartup.eForceQuit);
+}, 'b2g-reset-profile', false);

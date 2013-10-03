@@ -214,7 +214,7 @@ ResolveInterpretedFunctionPrototype(JSContext *cx, HandleObject obj)
         objProto = obj->global().getOrCreateObjectPrototype(cx);
     if (!objProto)
         return NULL;
-    Class *clasp = &JSObject::class_;
+    const Class *clasp = &JSObject::class_;
 
     RootedObject proto(cx, NewObjectWithGivenProto(cx, clasp, objProto, NULL, SingletonObject));
     if (!proto)
@@ -307,7 +307,7 @@ js::fun_resolve(JSContext *cx, HandleObject obj, HandleId id, unsigned flags,
 
             PropertyOp getter;
             StrictPropertyOp setter;
-            unsigned attrs = JSPROP_PERMANENT;
+            unsigned attrs = JSPROP_PERMANENT | JSPROP_SHARED;
             if (fun->isInterpretedLazy() && !fun->getOrCreateScript(cx))
                 return false;
             if (fun->isInterpreted() ? fun->strict() : fun->isBoundFunction()) {
@@ -523,7 +523,7 @@ fun_trace(JSTracer *trc, JSObject *obj)
     obj->as<JSFunction>().trace(trc);
 }
 
-Class JSFunction::class_ = {
+const Class JSFunction::class_ = {
     js_Function_str,
     JSCLASS_NEW_RESOLVE | JSCLASS_IMPLEMENTS_BARRIERS |
     JSCLASS_HAS_CACHED_PROTO(JSProto_Function),
@@ -542,7 +542,7 @@ Class JSFunction::class_ = {
     fun_trace
 };
 
-Class* const js::FunctionClassPtr = &JSFunction::class_;
+const Class* const js::FunctionClassPtr = &JSFunction::class_;
 
 /* Find the body of a function (not including braces). */
 static bool
@@ -649,7 +649,7 @@ js::FunctionToString(JSContext *cx, HandleFunction fun, bool bodyOnly, bool lamb
     }
     bool haveSource = fun->isInterpreted() && !fun->isSelfHostedBuiltin();
     if (haveSource && !script->scriptSource()->hasSourceData() &&
-        !JSScript::loadSource(cx, script, &haveSource))
+        !JSScript::loadSource(cx, script->scriptSource(), &haveSource))
     {
         return NULL;
     }
@@ -829,13 +829,14 @@ fun_toSource(JSContext *cx, unsigned argc, Value *vp)
     if (!obj)
         return false;
 
-    if (!obj->is<JSFunction>() && !obj->is<FunctionProxyObject>())
-        return obj_toSource(cx, argc, vp);
+    RootedString str(cx);
+    if (obj->is<JSFunction>() || obj->is<FunctionProxyObject>())
+        str = fun_toStringHelper(cx, obj, JS_DONT_PRETTY_PRINT);
+    else
+        str = ObjectToSource(cx, obj);
 
-    RootedString str(cx, fun_toStringHelper(cx, obj, JS_DONT_PRETTY_PRINT));
     if (!str)
         return false;
-
     args.rval().setString(str);
     return true;
 }
@@ -1196,8 +1197,7 @@ JSFunction::createScriptForLazilyInterpretedFunction(JSContext *cx, HandleFuncti
     }
 
     /* Lazily cloned self hosted script. */
-    JSFunctionSpec *fs = static_cast<JSFunctionSpec *>(fun->getExtendedSlot(0).toPrivate());
-    RootedAtom funAtom(cx, Atomize(cx, fs->selfHostedName, strlen(fs->selfHostedName)));
+    RootedAtom funAtom(cx, &fun->getExtendedSlot(0).toString()->asAtom());
     if (!funAtom)
         return false;
     Rooted<PropertyName *> funName(cx, funAtom->asPropertyName());
@@ -1798,7 +1798,7 @@ js::IsConstructor(const Value &v)
 }
 
 void
-js::ReportIncompatibleMethod(JSContext *cx, CallReceiver call, Class *clasp)
+js::ReportIncompatibleMethod(JSContext *cx, CallReceiver call, const Class *clasp)
 {
     RootedValue thisv(cx, call.thisv());
 

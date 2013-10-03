@@ -82,7 +82,9 @@ ifeq ($(OS_ARCH),WINNT)
 RCINCLUDE = splash.rc
 # Rebuild firefox.exe if the manifest changes - it's included by splash.rc.
 # (this dependency should really be just for firefox.exe, not other targets)
-EXTRA_DEPS += $(PROGRAM).manifest
+# Note the manifest file exists in the tree, so we use the explicit filename
+# here.
+EXTRA_DEPS += firefox.exe.manifest
 ifndef GNU_CC
 RCFLAGS += -DMOZ_PHOENIX -I$(srcdir)
 else
@@ -170,7 +172,7 @@ endif
 MAC_BUNDLE_VERSION = $(shell $(PYTHON) $(srcdir)/macversion.py --version=$(MOZ_APP_VERSION) --buildid=$(DEPTH)/config/buildid)
 
 .PHONY: repackage
-libs repackage:: $(PROGRAM)
+tools repackage:: $(PROGRAM)
 	$(MKDIR) -p $(dist_dest)/Contents/MacOS
 	$(MKDIR) -p $(dist_dest)/Contents/Resources/$(AB).lproj
 	rsync -a --exclude "*.in" $(srcdir)/macbuild/Contents $(dist_dest) --exclude English.lproj

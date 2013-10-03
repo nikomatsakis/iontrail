@@ -237,8 +237,18 @@ public:
   TemporaryRef<ImageClient> CreateImageClientNow(CompositableType aType);
 
   static void DispatchReleaseImageClient(ImageClient* aClient);
+  static void DispatchReleaseTextureClient(TextureClient* aClient);
   static void DispatchImageClientUpdate(ImageClient* aClient, ImageContainer* aContainer);
 
+  /**
+   * Flush all Images sent to CompositableHost.
+   */
+  static void FlushImage(ImageClient* aClient, ImageContainer* aContainer);
+
+  /**
+   * Must be called on the ImageBridgeChild's thread.
+   */
+  static void FlushImageNow(ImageClient* aClient, ImageContainer* aContainer);
 
   // CompositableForwarder
 

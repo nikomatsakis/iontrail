@@ -23,6 +23,7 @@ extern "C" {
 #include "mozilla/TimeStamp.h"
 #include "VorbisUtils.h"
 #include "MediaMetadataManager.h"
+#include "nsISeekableStream.h"
 
 namespace mozilla {
 
@@ -167,8 +168,8 @@ void OggReader::BuildSerialList(nsTArray<uint32_t>& aTracks)
   }
 }
 
-nsresult OggReader::ReadMetadata(VideoInfo* aInfo,
-                                   MetadataTags** aTags)
+nsresult OggReader::ReadMetadata(MediaInfo* aInfo,
+                                 MetadataTags** aTags)
 {
   NS_ASSERTION(mDecoder->OnDecodeThread(), "Should be on decode thread.");
 
@@ -276,8 +277,8 @@ nsresult OggReader::ReadMetadata(VideoInfo* aInfo,
                         mTheoraState->mInfo.frame_height);
     if (VideoInfo::ValidateVideoRegion(frameSize, picture, displaySize)) {
       // Video track's frame sizes will not overflow. Activate the video track.
-      mInfo.mHasVideo = true;
-      mInfo.mDisplay = displaySize;
+      mInfo.mVideo.mHasVideo = true;
+      mInfo.mVideo.mDisplay = displaySize;
       mPicture = picture;
 
       VideoFrameContainer* container = mDecoder->GetVideoFrameContainer();
@@ -294,9 +295,9 @@ nsresult OggReader::ReadMetadata(VideoInfo* aInfo,
   }
 
   if (mVorbisState && ReadHeaders(mVorbisState)) {
-    mInfo.mHasAudio = true;
-    mInfo.mAudioRate = mVorbisState->mInfo.rate;
-    mInfo.mAudioChannels = mVorbisState->mInfo.channels > 2 ? 2 : mVorbisState->mInfo.channels;
+    mInfo.mAudio.mHasAudio = true;
+    mInfo.mAudio.mRate = mVorbisState->mInfo.rate;
+    mInfo.mAudio.mChannels = mVorbisState->mInfo.channels > 2 ? 2 : mVorbisState->mInfo.channels;
     // Copy Vorbis info data for time computations on other threads.
     memcpy(&mVorbisInfo, &mVorbisState->mInfo, sizeof(mVorbisInfo));
     mVorbisInfo.codec_setup = NULL;
@@ -307,9 +308,9 @@ nsresult OggReader::ReadMetadata(VideoInfo* aInfo,
   }
 #ifdef MOZ_OPUS
   if (mOpusState && ReadHeaders(mOpusState)) {
-    mInfo.mHasAudio = true;
-    mInfo.mAudioRate = mOpusState->mRate;
-    mInfo.mAudioChannels = mOpusState->mChannels > 2 ? 2 : mOpusState->mChannels;
+    mInfo.mAudio.mHasAudio = true;
+    mInfo.mAudio.mRate = mOpusState->mRate;
+    mInfo.mAudio.mChannels = mOpusState->mChannels > 2 ? 2 : mOpusState->mChannels;
     mOpusSerial = mOpusState->mSerial;
     mOpusPreSkip = mOpusState->mPreSkip;
 
@@ -622,7 +623,6 @@ bool OggReader::DecodeAudioData()
   } while (packet && codecState->IsHeader(packet));
 
   if (!packet) {
-    mAudioQueue.Finish();
     return false;
   }
 
@@ -641,7 +641,6 @@ bool OggReader::DecodeAudioData()
     // We've encountered an end of bitstream packet, or we've hit the end of
     // file while trying to decode, so inform the audio queue that there'll
     // be no more samples.
-    mAudioQueue.Finish();
     return false;
   }
 
@@ -800,7 +799,7 @@ nsresult OggReader::DecodeTheora(ogg_packet* aPacket, int64_t aTimeThreshold)
       b.mPlanes[i].mOffset = b.mPlanes[i].mSkip = 0;
     }
 
-    VideoData *v = VideoData::Create(mInfo,
+    VideoData *v = VideoData::Create(mInfo.mVideo,
                                      mDecoder->GetImageContainer(),
                                      mDecoder->GetResource()->Tell(),
                                      time,
@@ -839,7 +838,6 @@ bool OggReader::DecodeVideoFrame(bool &aKeyframeSkip,
     packet = NextOggPacket(mTheoraState);
   } while (packet && mTheoraState->IsHeader(packet));
   if (!packet) {
-    mVideoQueue.Finish();
     return false;
   }
   nsAutoRef<ogg_packet> autoRelease(packet);
@@ -863,7 +861,6 @@ bool OggReader::DecodeVideoFrame(bool &aKeyframeSkip,
   if (eos) {
     // We've encountered an end of bitstream packet. Inform the queue that
     // there will be no more frames.
-    mVideoQueue.Finish();
     return false;
   }
 
@@ -895,7 +892,6 @@ bool OggReader::ReadOggPage(ogg_page* aPage)
       return false;
     }
 
-    mDecoder->NotifyBytesConsumed(bytesRead);
     // Update the synchronisation layer with the number
     // of bytes written to the buffer
     ret = ogg_sync_wrote(&mOggState, bytesRead);
@@ -1772,7 +1768,7 @@ nsresult OggReader::GetBuffered(TimeRanges* aBuffered, int64_t aStartTime)
   // HasAudio and HasVideo are not used here as they take a lock and cause
   // a deadlock. Accessing mInfo doesn't require a lock - it doesn't change
   // after metadata is read.
-  if (!mInfo.mHasVideo && !mInfo.mHasAudio) {
+  if (!mInfo.HasValidMedia()) {
     // No need to search through the file if there are no audio or video tracks
     return NS_OK;
   }
@@ -1876,7 +1872,6 @@ nsresult OggReader::GetBuffered(TimeRanges* aBuffered, int64_t aStartTime)
 OggCodecStore::OggCodecStore()
 : mMonitor("CodecStore")
 {
-  mCodecStates.Init();
 }
 
 void OggCodecStore::Add(uint32_t serial, OggCodecState* codecState)

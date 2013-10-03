@@ -106,7 +106,7 @@ public:
   void* GetPluginPortFromWidget();
   void ReleasePluginPort(void* pluginPort);
 
-  nsEventStatus ProcessEvent(const nsGUIEvent & anEvent);
+  nsEventStatus ProcessEvent(const mozilla::WidgetGUIEvent& anEvent);
   
 #ifdef XP_MACOSX
   enum { ePluginPaintEnable, ePluginPaintDisable };
@@ -320,6 +320,8 @@ private:
   nsresult DispatchKeyToPlugin(nsIDOMEvent* aKeyEvent);
   nsresult DispatchMouseToPlugin(nsIDOMEvent* aMouseEvent);
   nsresult DispatchFocusToPlugin(nsIDOMEvent* aFocusEvent);
+
+  int mLastMouseDownButtonType;
   
   nsresult EnsureCachedAttrParamArrays();
   

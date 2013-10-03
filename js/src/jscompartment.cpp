@@ -24,12 +24,10 @@
 #include "vm/StopIterationObject.h"
 #include "vm/WrapperObject.h"
 
+#include "jsatominlines.h"
 #include "jsfuninlines.h"
 #include "jsgcinlines.h"
 #include "jsinferinlines.h"
-#include "jsscriptinlines.h"
-
-#include "gc/Barrier-inl.h"
 
 using namespace js;
 using namespace js::gc;
@@ -49,12 +47,12 @@ JSCompartment::JSCompartment(Zone *zone, const JS::CompartmentOptions &options =
     global_(NULL),
     enterCompartmentDepth(0),
     lastCodeRelease(0),
-    analysisLifoAlloc(ANALYSIS_LIFO_ALLOC_PRIMARY_CHUNK_SIZE),
     data(NULL),
     objectMetadataCallback(NULL),
     lastAnimationTime(0),
     regExps(runtime_),
     typeReprs(runtime_),
+    globalWriteBarriered(false),
     propertyTree(thisForCtor()),
     gcIncomingGrayPointers(NULL),
     gcLiveArrayBuffers(NULL),
@@ -291,6 +289,13 @@ JSCompartment::wrap(JSContext *cx, MutableHandleObject obj, HandleObject existin
     if (obj->compartment() == this)
         return WrapForSameCompartment(cx, obj);
 
+    /* Unwrap the object, but don't unwrap outer windows. */
+    unsigned flags = 0;
+    obj.set(UncheckedUnwrap(obj, /* stopAtOuter = */ true, &flags));
+
+    if (obj->compartment() == this)
+        return WrapForSameCompartment(cx, obj);
+
     /* Translate StopIteration singleton. */
     if (obj->is<StopIterationObject>()) {
         RootedValue v(cx);
@@ -299,13 +304,6 @@ JSCompartment::wrap(JSContext *cx, MutableHandleObject obj, HandleObject existin
         obj.set(&v.toObject());
         return true;
     }
-
-    /* Unwrap the object, but don't unwrap outer windows. */
-    unsigned flags = 0;
-    obj.set(UncheckedUnwrap(obj, /* stopAtOuter = */ true, &flags));
-
-    if (obj->compartment() == this)
-        return WrapForSameCompartment(cx, obj);
 
     /* Invoke the prewrap callback. We're a bit worried about infinite
      * recursion here, so we do a check - see bug 809295. */
@@ -541,14 +539,11 @@ JSCompartment::sweep(FreeOp *fop, bool releaseTypes)
         WeakMapBase::sweepCompartment(this);
     }
 
-    if (!zone()->isPreservingCode()) {
-        JS_ASSERT(!types.constrainedOutputs);
-        gcstats::AutoPhase ap(rt->gcStats, gcstats::PHASE_DISCARD_ANALYSIS);
-        gcstats::AutoPhase ap2(rt->gcStats, gcstats::PHASE_FREE_TI_ARENA);
-        rt->freeLifoAlloc.transferFrom(&analysisLifoAlloc);
-    } else {
+    if (zone()->isPreservingCode()) {
         gcstats::AutoPhase ap2(rt->gcStats, gcstats::PHASE_DISCARD_ANALYSIS);
         types.sweepShapes(fop);
+    } else {
+        JS_ASSERT(!types.constrainedOutputs);
     }
 
     NativeIterator *ni = enumerators->next();
@@ -612,7 +607,6 @@ JSCompartment::clearTables()
 #endif
     JS_ASSERT(!debugScopes);
     JS_ASSERT(!gcWeakMapList);
-    JS_ASSERT(!analysisLifoAlloc.used());
     JS_ASSERT(enumerators->next() == enumerators);
 
     if (baseShapes.initialized())
@@ -858,26 +852,33 @@ JSCompartment::clearTraps(FreeOp *fop)
 }
 
 void
-JSCompartment::sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf, size_t *compartmentObject,
-                                   JS::TypeInferenceSizes *tiSizes, size_t *shapesCompartmentTables,
-                                   size_t *crossCompartmentWrappersArg, size_t *regexpCompartment,
-                                   size_t *debuggeesSet, size_t *baselineStubsOptimized)
+JSCompartment::addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf,
+                                      size_t *tiPendingArrays,
+                                      size_t *tiAllocationSiteTables,
+                                      size_t *tiArrayTypeTables,
+                                      size_t *tiObjectTypeTables,
+                                      size_t *compartmentObject,
+                                      size_t *shapesCompartmentTables,
+                                      size_t *crossCompartmentWrappersArg,
+                                      size_t *regexpCompartment,
+                                      size_t *debuggeesSet,
+                                      size_t *baselineStubsOptimized)
 {
-    *compartmentObject = mallocSizeOf(this);
-    sizeOfTypeInferenceData(tiSizes, mallocSizeOf);
-    *shapesCompartmentTables = baseShapes.sizeOfExcludingThis(mallocSizeOf)
-                             + initialShapes.sizeOfExcludingThis(mallocSizeOf)
-                             + newTypeObjects.sizeOfExcludingThis(mallocSizeOf)
-                             + lazyTypeObjects.sizeOfExcludingThis(mallocSizeOf);
-    *crossCompartmentWrappersArg = crossCompartmentWrappers.sizeOfExcludingThis(mallocSizeOf);
-    *regexpCompartment = regExps.sizeOfExcludingThis(mallocSizeOf);
-    *debuggeesSet = debuggees.sizeOfExcludingThis(mallocSizeOf);
+    *compartmentObject += mallocSizeOf(this);
+    types.addSizeOfExcludingThis(mallocSizeOf, tiPendingArrays, tiAllocationSiteTables,
+                                 tiArrayTypeTables, tiObjectTypeTables);
+    *shapesCompartmentTables += baseShapes.sizeOfExcludingThis(mallocSizeOf)
+                              + initialShapes.sizeOfExcludingThis(mallocSizeOf)
+                              + newTypeObjects.sizeOfExcludingThis(mallocSizeOf)
+                              + lazyTypeObjects.sizeOfExcludingThis(mallocSizeOf);
+    *crossCompartmentWrappersArg += crossCompartmentWrappers.sizeOfExcludingThis(mallocSizeOf);
+    *regexpCompartment += regExps.sizeOfExcludingThis(mallocSizeOf);
+    *debuggeesSet += debuggees.sizeOfExcludingThis(mallocSizeOf);
 #ifdef JS_ION
-    *baselineStubsOptimized = ionCompartment()
-        ? ionCompartment()->optimizedStubSpace()->sizeOfExcludingThis(mallocSizeOf)
-        : 0;
-#else
-    *baselineStubsOptimized = 0;
+    if (ionCompartment()) {
+        *baselineStubsOptimized +=
+            ionCompartment()->optimizedStubSpace()->sizeOfExcludingThis(mallocSizeOf);
+    }
 #endif
 }
 

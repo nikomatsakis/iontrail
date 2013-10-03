@@ -16,13 +16,13 @@
 #include "mozilla/CORSMode.h"
 #include "mozilla/Likely.h"
 #include "mozilla/MemoryReporting.h"
+#include "mozilla/MutationEvent.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/Util.h"
 #include "nsAsyncDOMEvent.h"
 #include "nsAttrValueOrString.h"
 #include "nsBindingManager.h"
 #include "nsCCUncollectableMarker.h"
-#include "nsClientRect.h"
 #include "nsContentCreatorFunctions.h"
 #include "nsContentList.h"
 #include "nsContentUtils.h"
@@ -76,7 +76,6 @@
 #include "nsIWebNavigation.h"
 #include "nsIWidget.h"
 #include "nsLayoutUtils.h"
-#include "nsMutationEvent.h"
 #include "nsNetUtil.h"
 #include "nsNodeInfoManager.h"
 #include "nsNodeUtils.h"
@@ -103,6 +102,7 @@
 #include <algorithm>
 #include "nsDOMEvent.h"
 #include "nsGlobalWindow.h"
+#include "nsDOMMutationObserver.h"
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -1047,7 +1047,7 @@ nsINode::AddEventListener(const nsAString& aType,
 
 void
 nsINode::AddEventListener(const nsAString& aType,
-                          nsIDOMEventListener* aListener,
+                          EventListener* aListener,
                           bool aUseCapture,
                           const Nullable<bool>& aWantsUntrusted,
                           ErrorResult& aRv)
@@ -1147,7 +1147,7 @@ nsINode::PostHandleEvent(nsEventChainPostVisitor& /*aVisitor*/)
 }
 
 nsresult
-nsINode::DispatchDOMEvent(nsEvent* aEvent,
+nsINode::DispatchDOMEvent(WidgetEvent* aEvent,
                           nsIDOMEvent* aDOMEvent,
                           nsPresContext* aPresContext,
                           nsEventStatus* aEventStatus)
@@ -1179,7 +1179,7 @@ nsINode::GetOwnerGlobal()
 bool
 nsINode::UnoptimizableCCNode() const
 {
-  const uintptr_t problematicFlags = (NODE_IS_ANONYMOUS |
+  const uintptr_t problematicFlags = (NODE_IS_ANONYMOUS_ROOT |
                                       NODE_IS_IN_ANONYMOUS_SUBTREE |
                                       NODE_IS_NATIVE_ANONYMOUS_ROOT |
                                       NODE_MAY_BE_IN_BINDING_MNGR);
@@ -1404,7 +1404,7 @@ nsINode::doInsertChildAt(nsIContent* aKid, uint32_t aIndex,
 
     if (nsContentUtils::HasMutationListeners(aKid,
           NS_EVENT_BITS_MUTATION_NODEINSERTED, this)) {
-      nsMutationEvent mutation(true, NS_MUTATION_NODEINSERTED);
+      InternalMutationEvent mutation(true, NS_MUTATION_NODEINSERTED);
       mutation.mRelatedNode = do_QueryInterface(this);
 
       mozAutoSubtreeModified subtree(OwnerDoc(), this);
@@ -2144,6 +2144,22 @@ nsINode::UnbindObject(nsISupports* aObject)
   }
 }
 
+void
+nsINode::GetBoundMutationObservers(nsTArray<nsRefPtr<nsDOMMutationObserver> >& aResult)
+{
+  nsCOMArray<nsISupports>* objects =
+    static_cast<nsCOMArray<nsISupports>*>(GetProperty(nsGkAtoms::keepobjectsalive));
+  if (objects) {
+    for (int32_t i = 0; i < objects->Count(); ++i) {
+      nsCOMPtr<nsDOMMutationObserver> mo = do_QueryInterface(objects->ObjectAt(i));
+      if (mo) {
+        MOZ_ASSERT(!aResult.Contains(mo));
+        aResult.AppendElement(mo.forget());
+      }
+    }
+  }
+}
+
 size_t
 nsINode::SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const
 {
@@ -2171,14 +2187,11 @@ nsINode::SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const
     return elm ? elm->GetEventHandler(nsGkAtoms::on##name_, EmptyString())   \
                : nullptr;                                                    \
   }                                                                          \
-  void nsINode::SetOn##name_(EventHandlerNonNull* handler,                   \
-                             ErrorResult& error) {                           \
+  void nsINode::SetOn##name_(EventHandlerNonNull* handler)                   \
+  {                                                                          \
     nsEventListenerManager *elm = GetListenerManager(true);                  \
     if (elm) {                                                               \
-      error = elm->SetEventHandler(nsGkAtoms::on##name_,                     \
-                                   EmptyString(), handler);                  \
-    } else {                                                                 \
-      error.Throw(NS_ERROR_OUT_OF_MEMORY);                                   \
+      elm->SetEventHandler(nsGkAtoms::on##name_, EmptyString(), handler);    \
     }                                                                        \
   }                                                                          \
   NS_IMETHODIMP nsINode::GetOn##name_(JSContext *cx, JS::Value *vp) {        \
@@ -2193,9 +2206,8 @@ nsINode::SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const
         JS_ObjectIsCallable(cx, callable = &v.toObject())) {                 \
       handler = new EventHandlerNonNull(callable);                           \
     }                                                                        \
-    ErrorResult rv;                                                          \
-    SetOn##name_(handler, rv);                                               \
-    return rv.ErrorCode();                                                   \
+    SetOn##name_(handler);                                                   \
+    return NS_OK;                                                            \
   }
 #define TOUCH_EVENT EVENT
 #define DOCUMENT_ONLY_EVENT EVENT
@@ -2473,7 +2485,7 @@ nsINode::WrapObject(JSContext *aCx, JS::Handle<JSObject*> aScope)
   if (!OwnerDoc()->GetScriptHandlingObject(hasHadScriptHandlingObject) &&
       !hasHadScriptHandlingObject &&
       !nsContentUtils::IsCallerChrome()) {
-    Throw<true>(aCx, NS_ERROR_UNEXPECTED);
+    Throw(aCx, NS_ERROR_UNEXPECTED);
     return nullptr;
   }
 

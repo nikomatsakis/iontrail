@@ -8,6 +8,7 @@
 #include "BluetoothReplyRunnable.h"
 #include "DOMRequest.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
+#include "nsServiceManagerUtils.h"
 
 USING_BLUETOOTH_NAMESPACE
 
@@ -73,7 +74,7 @@ BluetoothReplyRunnable::Run()
   }
 
   if (NS_FAILED(rv)) {
-    NS_WARNING("Could not fire DOMRequest!");
+    BT_WARNING("Could not fire DOMRequest!");
   }
 
   ReleaseMembers();

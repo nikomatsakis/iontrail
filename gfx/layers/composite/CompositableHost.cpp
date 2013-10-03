@@ -39,7 +39,7 @@ CompositableHost::~CompositableHost()
 
   RefPtr<TextureHost> it = mFirstTexture;
   while (it) {
-    if (it->GetFlags() & TEXTURE_DEALLOCATE_HOST) {
+    if (!(it->GetFlags() & TEXTURE_DEALLOCATE_CLIENT)) {
       it->DeallocateSharedData();
     }
     it = it->GetNextSibling();
@@ -55,16 +55,24 @@ CompositableHost::AddTextureHost(TextureHost* aTexture)
   RefPtr<TextureHost> second = mFirstTexture;
   mFirstTexture = aTexture;
   aTexture->SetNextSibling(second);
+  aTexture->SetCompositableBackendSpecificData(GetCompositableBackendSpecificData());
 }
 
 void
 CompositableHost::RemoveTextureHost(uint64_t aTextureID)
 {
+  if (mFirstTexture && mFirstTexture->GetID() == aTextureID) {
+    RefPtr<TextureHost> toRemove = mFirstTexture;
+    mFirstTexture = mFirstTexture->GetNextSibling();
+    toRemove->SetNextSibling(nullptr);
+  }
   RefPtr<TextureHost> it = mFirstTexture;
   while (it) {
     if (it->GetNextSibling() &&
         it->GetNextSibling()->GetID() == aTextureID) {
+      RefPtr<TextureHost> toRemove = it->GetNextSibling();
       it->SetNextSibling(it->GetNextSibling()->GetNextSibling());
+      toRemove->SetNextSibling(nullptr);
     }
     it = it->GetNextSibling();
   }
@@ -155,6 +163,9 @@ CompositableHost::RemoveMaskEffect()
   }
 }
 
+// implemented in TextureHostOGL.cpp
+TemporaryRef<CompositableBackendSpecificData> CreateCompositableBackendSpecificDataOGL();
+
 /* static */ TemporaryRef<CompositableHost>
 CompositableHost::Create(const TextureInfo& aTextureInfo)
 {
@@ -162,28 +173,33 @@ CompositableHost::Create(const TextureInfo& aTextureInfo)
   switch (aTextureInfo.mCompositableType) {
   case COMPOSITABLE_IMAGE:
     result = new ImageHost(aTextureInfo);
-    return result;
+    break;
   case BUFFER_IMAGE_BUFFERED:
     result = new DeprecatedImageHostBuffered(aTextureInfo);
-    return result;
+    break;
   case BUFFER_IMAGE_SINGLE:
     result = new DeprecatedImageHostSingle(aTextureInfo);
-    return result;
+    break;
   case BUFFER_TILED:
     result = new TiledContentHost(aTextureInfo);
-    return result;
+    break;
   case BUFFER_CONTENT:
     result = new ContentHostSingleBuffered(aTextureInfo);
-    return result;
+    break;
   case BUFFER_CONTENT_DIRECT:
     result = new ContentHostDoubleBuffered(aTextureInfo);
-    return result;
+    break;
   case BUFFER_CONTENT_INC:
     result = new ContentHostIncremental(aTextureInfo);
-    return result;
+    break;
   default:
     MOZ_CRASH("Unknown CompositableType");
   }
+  if (result) {
+    RefPtr<CompositableBackendSpecificData> data = CreateCompositableBackendSpecificDataOGL();
+    result->SetCompositableBackendSpecificData(data);
+  }
+  return result;
 }
 
 #ifdef MOZ_DUMP_PAINTING

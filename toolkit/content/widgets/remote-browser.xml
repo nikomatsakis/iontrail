@@ -38,7 +38,7 @@
           <![CDATA[
             if (!this._remoteWebNavigation) {
               let jsm = "resource://gre/modules/RemoteWebNavigation.jsm";
-              let RemoteWebNavigation = Components.utils.import(jsm, {}).RemoteWebNavigation;
+              let RemoteWebNavigation = Cu.import(jsm, {}).RemoteWebNavigation;
               this._remoteWebNavigation = new RemoteWebNavigation(this);
             }
             return this._remoteWebNavigation;
@@ -53,12 +53,26 @@
       	  <![CDATA[
             if (!this._remoteWebProgress) {
               let jsm = "resource://gre/modules/RemoteWebProgress.jsm";
-              let RemoteWebProgress = Components.utils.import(jsm, {}).RemoteWebProgress;
-              this._remoteWebProgress = new RemoteWebProgress(this);
+              let RemoteWebProgressManager = Cu.import(jsm, {}).RemoteWebProgressManager;
+              this._remoteWebProgress = new RemoteWebProgressManager(this)
+                                         .topLevelWebProgress;
             }
             return this._remoteWebProgress;
       	  ]]>
       	</getter>
+      </property>
+
+      <field name="_remoteFinder">null</field>
+
+      <property name="finder" readonly="true">
+        <getter><![CDATA[
+          if (!this._remoteFinder) {
+            let jsm = "resource://gre/modules/RemoteFinder.jsm";
+            let RemoteFinder = Cu.import(jsm, {}).RemoteFinder;
+            this._remoteFinder = new RemoteFinder(this);
+          }
+          return this._remoteFinder;
+        ]]></getter>
       </property>
 
       <field name="_documentURI">null</field>
@@ -107,8 +121,6 @@
             this.messageManager.loadFrameScript("chrome://global/content/select-child.js", true);
           }
 
-          this.webProgress._init();
-
           let jsm = "resource://gre/modules/RemoteController.jsm";
           let RemoteController = Components.utils.import(jsm, {}).RemoteController;
           this._controller = new RemoteController(this);
@@ -119,13 +131,6 @@
           RemoteAddonsParent.init();
         ]]>
       </constructor>
-
-      <destructor>
-        <![CDATA[
-          this.webProgress._destroy();
-          this.controllers.removeController(this._controller);
-        ]]>
-      </destructor>
 
       <method name="receiveMessage">
         <parameter name="aMessage"/>

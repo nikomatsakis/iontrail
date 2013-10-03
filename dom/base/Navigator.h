@@ -22,7 +22,6 @@ class nsPIDOMWindow;
 class nsIDOMMozConnection;
 class nsIDOMMozMobileMessageManager;
 class nsIDOMNavigatorSystemMessages;
-class nsIMediaStreamOptions;
 class nsDOMCameraManager;
 class nsDOMDeviceStorage;
 
@@ -30,6 +29,8 @@ namespace mozilla {
 namespace dom {
 class Geolocation;
 class systemMessageCallback;
+class MediaStreamConstraints;
+class MediaStreamConstraintsInternal;
 }
 }
 
@@ -55,6 +56,8 @@ class BatteryManager;
 class FMRadio;
 #endif
 
+class Promise;
+
 class DesktopNotificationCenter;
 class MobileMessageManager;
 class MozIdleObserver;
@@ -62,8 +65,8 @@ class MozIdleObserver;
 class Gamepad;
 #endif // MOZ_GAMEPAD
 #ifdef MOZ_MEDIA_NAVIGATOR
-class MozDOMGetUserMediaSuccessCallback;
-class MozDOMGetUserMediaErrorCallback;
+class NavigatorUserMediaSuccessCallback;
+class NavigatorUserMediaErrorCallback;
 class MozGetUserMediaDevicesSuccessCallback;
 #endif // MOZ_MEDIA_NAVIGATOR
 
@@ -80,13 +83,6 @@ class MobileConnection;
 #endif
 } // namespace Connection;
 
-#ifdef MOZ_B2G_RIL
-namespace telephony {
-class Telephony;
-} // namespace Telephony;
-class CellBroadcast;
-#endif
-
 #ifdef MOZ_B2G_BT
 namespace bluetooth {
 class BluetoothManager;
@@ -94,12 +90,12 @@ class BluetoothManager;
 #endif // MOZ_B2G_BT
 
 #ifdef MOZ_B2G_RIL
+class CellBroadcast;
+class Telephony;
 class Voicemail;
 #endif
 
-namespace power {
 class PowerManager;
-} // namespace power
 
 namespace time {
 class TimeManager;
@@ -181,8 +177,10 @@ public:
   // The XPCOM GetDoNotTrack is ok
   Geolocation* GetGeolocation(ErrorResult& aRv);
   battery::BatteryManager* GetBattery(ErrorResult& aRv);
-  void Vibrate(uint32_t aDuration, ErrorResult& aRv);
-  void Vibrate(const nsTArray<uint32_t>& aDuration, ErrorResult& aRv);
+  already_AddRefed<Promise> GetDataStores(const nsAString &aName,
+                                          ErrorResult& aRv);
+  bool Vibrate(uint32_t aDuration);
+  bool Vibrate(const nsTArray<uint32_t>& aDuration);
   void GetAppCodeName(nsString& aAppCodeName, ErrorResult& aRv)
   {
     aRv = GetAppCodeName(aAppCodeName);
@@ -199,7 +197,7 @@ public:
   {
     aRv = GetBuildID(aBuildID);
   }
-  nsIDOMMozPowerManager* GetMozPower(ErrorResult& aRv);
+  PowerManager* GetMozPower(ErrorResult& aRv);
   bool JavaEnabled(ErrorResult& aRv);
   bool TaintEnabled()
   {
@@ -225,7 +223,7 @@ public:
                             ErrorResult& aRv);
   bool MozHasPendingMessage(const nsAString& aType, ErrorResult& aRv);
 #ifdef MOZ_B2G_RIL
-  telephony::Telephony* GetMozTelephony(ErrorResult& aRv);
+  Telephony* GetMozTelephony(ErrorResult& aRv);
   nsIDOMMozMobileConnection* GetMozMobileConnection(ErrorResult& aRv);
   CellBroadcast* GetMozCellBroadcast(ErrorResult& aRv);
   Voicemail* GetMozVoicemail(ErrorResult& aRv);
@@ -247,12 +245,14 @@ public:
   system::AudioChannelManager* GetMozAudioChannelManager(ErrorResult& aRv);
 #endif // MOZ_AUDIO_CHANNEL_MANAGER
 #ifdef MOZ_MEDIA_NAVIGATOR
-  void MozGetUserMedia(nsIMediaStreamOptions* aParams,
-                       MozDOMGetUserMediaSuccessCallback* aOnSuccess,
-                       MozDOMGetUserMediaErrorCallback* aOnError,
+  void MozGetUserMedia(JSContext* aCx,
+                       const MediaStreamConstraints& aConstraints,
+                       NavigatorUserMediaSuccessCallback& aOnSuccess,
+                       NavigatorUserMediaErrorCallback& aOnError,
                        ErrorResult& aRv);
-  void MozGetUserMediaDevices(MozGetUserMediaDevicesSuccessCallback* aOnSuccess,
-                              MozDOMGetUserMediaErrorCallback* aOnError,
+  void MozGetUserMediaDevices(const MediaStreamConstraintsInternal& aConstraints,
+                              MozGetUserMediaDevicesSuccessCallback& aOnSuccess,
+                              NavigatorUserMediaErrorCallback& aOnError,
                               ErrorResult& aRv);
 #endif // MOZ_MEDIA_NAVIGATOR
   bool DoNewResolve(JSContext* aCx, JS::Handle<JSObject*> aObject,
@@ -304,6 +304,8 @@ public:
   static bool HasPushNotificationsSupport(JSContext* /* unused */,
                                           JSObject* aGlobal);
 
+  static bool HasInputMethodSupport(JSContext* /* unused */, JSObject* aGlobal);
+
   nsPIDOMWindow* GetParentObject() const
   {
     return GetWindow();
@@ -327,10 +329,10 @@ private:
 #ifdef MOZ_B2G_FM
   nsRefPtr<FMRadio> mFMRadio;
 #endif
-  nsRefPtr<power::PowerManager> mPowerManager;
+  nsRefPtr<PowerManager> mPowerManager;
   nsRefPtr<MobileMessageManager> mMobileMessageManager;
 #ifdef MOZ_B2G_RIL
-  nsRefPtr<telephony::Telephony> mTelephony;
+  nsRefPtr<Telephony> mTelephony;
   nsRefPtr<Voicemail> mVoicemail;
 #endif
   nsRefPtr<network::Connection> mConnection;

@@ -29,12 +29,12 @@
 #include "nsIDOMJSWindow.h"
 #include "nsIDOMChromeWindow.h"
 #include "nsIScriptGlobalObject.h"
+#include "nsIScriptObjectPrincipal.h"
 #include "nsITimer.h"
 #include "nsIDOMModalContentWindow.h"
 #include "nsEventListenerManager.h"
 #include "nsIPrincipal.h"
 #include "nsSize.h"
-#include "nsRect.h"
 #include "mozFlushType.h"
 #include "prclist.h"
 #include "nsIDOMStorageEvent.h"
@@ -49,6 +49,7 @@
 
 #include "mozilla/dom/EventTarget.h"
 #include "Units.h"
+#include "nsComponentManagerUtils.h"
 
 #ifdef MOZ_B2G
 #include "nsIDOMWindowB2G.h"
@@ -97,7 +98,8 @@ class nsGlobalWindow;
 class nsDOMEventTargetHelper;
 class nsDOMWindowUtils;
 class nsIIdleService;
-class nsIntSize;
+struct nsIntSize;
+struct nsRect;
 
 class nsWindowSizes;
 
@@ -286,6 +288,7 @@ private:
 class nsGlobalWindow : public mozilla::dom::EventTarget,
                        public nsPIDOMWindow,
                        public nsIScriptGlobalObject,
+                       public nsIScriptObjectPrincipal,
                        public nsIDOMJSWindow,
                        public nsSupportsWeakReference,
                        public nsIInterfaceRequestor,
@@ -370,7 +373,7 @@ public:
   NS_DECL_NSIDOMEVENTTARGET
   using mozilla::dom::EventTarget::RemoveEventListener;
   virtual void AddEventListener(const nsAString& aType,
-                                nsIDOMEventListener* aListener,
+                                mozilla::dom::EventListener* aListener,
                                 bool aUseCapture,
                                 const mozilla::dom::Nullable<bool>& aWantsUntrusted,
                                 mozilla::ErrorResult& aRv) MOZ_OVERRIDE;
@@ -651,7 +654,7 @@ public:
     return sWindowsById;
   }
 
-  void SizeOfIncludingThis(nsWindowSizes* aWindowSizes) const;
+  void AddSizeOfIncludingThis(nsWindowSizes* aWindowSizes) const;
 
   void UnmarkGrayTimers();
 
@@ -704,15 +707,11 @@ public:
     return elm ? elm->GetEventHandler(nsGkAtoms::on##name_, EmptyString())    \
                : nullptr;                                                     \
   }                                                                           \
-  void SetOn##name_(mozilla::dom::EventHandlerNonNull* handler,               \
-                    mozilla::ErrorResult& error)                              \
+  void SetOn##name_(mozilla::dom::EventHandlerNonNull* handler)               \
   {                                                                           \
     nsEventListenerManager *elm = GetListenerManager(true);                   \
     if (elm) {                                                                \
-      error = elm->SetEventHandler(nsGkAtoms::on##name_, EmptyString(),       \
-                                   handler);                                  \
-    } else {                                                                  \
-      error.Throw(NS_ERROR_OUT_OF_MEMORY);                                    \
+      elm->SetEventHandler(nsGkAtoms::on##name_, EmptyString(), handler);     \
     }                                                                         \
   }
 #define ERROR_EVENT(name_, id_, type_, struct_)                               \
@@ -721,14 +720,11 @@ public:
     nsEventListenerManager *elm = GetListenerManager(false);                  \
     return elm ? elm->GetOnErrorEventHandler() : nullptr;                     \
   }                                                                           \
-  void SetOn##name_(mozilla::dom::OnErrorEventHandlerNonNull* handler,        \
-                    mozilla::ErrorResult& error)                              \
+  void SetOn##name_(mozilla::dom::OnErrorEventHandlerNonNull* handler)        \
   {                                                                           \
     nsEventListenerManager *elm = GetListenerManager(true);                   \
     if (elm) {                                                                \
-      error = elm->SetEventHandler(handler);                                  \
-    } else {                                                                  \
-      error.Throw(NS_ERROR_OUT_OF_MEMORY);                                    \
+      elm->SetEventHandler(handler);                                          \
     }                                                                         \
   }
 #define BEFOREUNLOAD_EVENT(name_, id_, type_, struct_)                        \
@@ -737,14 +733,11 @@ public:
     nsEventListenerManager *elm = GetListenerManager(false);                  \
     return elm ? elm->GetOnBeforeUnloadEventHandler() : nullptr;              \
   }                                                                           \
-  void SetOn##name_(mozilla::dom::BeforeUnloadEventHandlerNonNull* handler,   \
-                    mozilla::ErrorResult& error)                              \
+  void SetOn##name_(mozilla::dom::BeforeUnloadEventHandlerNonNull* handler)   \
   {                                                                           \
     nsEventListenerManager *elm = GetListenerManager(true);                   \
     if (elm) {                                                                \
-      error = elm->SetEventHandler(handler);                                  \
-    } else {                                                                  \
-      error.Throw(NS_ERROR_OUT_OF_MEMORY);                                    \
+      elm->SetEventHandler(handler);                                          \
     }                                                                         \
   }
 #define WINDOW_ONLY_EVENT EVENT
@@ -1239,7 +1232,7 @@ protected:
 
   nsCOMPtr<nsIDOMOfflineResourceList> mApplicationCache;
 
-  nsJSThingHashtable<nsPtrHashKey<nsXBLPrototypeHandler>, JSObject*> mCachedXBLPrototypeHandlers;
+  nsAutoPtr<nsJSThingHashtable<nsPtrHashKey<nsXBLPrototypeHandler>, JSObject*> > mCachedXBLPrototypeHandlers;
 
   nsCOMPtr<nsIDocument> mSuspendedDoc;
 

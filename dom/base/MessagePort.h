@@ -52,7 +52,7 @@ public:
   GetOnmessage();
 
   void
-  SetOnmessage(EventHandlerNonNull* aCallback, ErrorResult& aRv);
+  SetOnmessage(EventHandlerNonNull* aCallback);
 
   // Non WebIDL methods
 
@@ -66,7 +66,7 @@ public:
   // Algorithm and makes the new MessagePort active with the entangled
   // MessagePort of this object.
   already_AddRefed<MessagePort>
-  Clone(nsPIDOMWindow* aWindow);
+  Clone();
 
 private:
   // Dispatch events from the Message Queue using a nsRunnable.

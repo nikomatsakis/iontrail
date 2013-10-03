@@ -9,7 +9,6 @@
 
 #include "mozilla/LinkedList.h"
 
-#include "jsapi.h"
 #include "jsclist.h"
 #include "jscntxt.h"
 #include "jscompartment.h"
@@ -110,7 +109,7 @@ class DebuggerWeakMap : private WeakMap<Key, Value, DefaultHasher<Key> >
             gc::Mark(tracer, &key, "Debugger WeakMap key");
             if (key != e.front().key)
                 e.rekeyFront(key);
-            key.unsafeSet(NULL);
+            key.unsafeSet(nullptr);
         }
     }
 
@@ -306,7 +305,7 @@ class Debugger : private mozilla::LinkedListElement<Debugger>
     static void finalize(FreeOp *fop, JSObject *obj);
     void markKeysInCompartment(JSTracer *tracer);
 
-    static Class jsclass;
+    static const Class jsclass;
 
     static Debugger *fromThisValue(JSContext *cx, const CallArgs &ca, const char *fnname);
     static bool getEnabled(JSContext *cx, unsigned argc, Value *vp);
@@ -335,6 +334,7 @@ class Debugger : private mozilla::LinkedListElement<Debugger>
     static bool clearAllBreakpoints(JSContext *cx, unsigned argc, Value *vp);
     static bool findScripts(JSContext *cx, unsigned argc, Value *vp);
     static bool findAllGlobals(JSContext *cx, unsigned argc, Value *vp);
+    static bool makeGlobalObjectReference(JSContext *cx, unsigned argc, Value *vp);
     static bool construct(JSContext *cx, unsigned argc, Value *vp);
     static const JSPropertySpec properties[];
     static const JSFunctionSpec methods[];
@@ -434,8 +434,8 @@ class Debugger : private mozilla::LinkedListElement<Debugger>
     bool observesScript(JSScript *script) const;
 
     /*
-     * If env is NULL, call vp->setNull() and return true. Otherwise, find or
-     * create a Debugger.Environment object for the given Env. On success,
+     * If env is nullptr, call vp->setNull() and return true. Otherwise, find
+     * or create a Debugger.Environment object for the given Env. On success,
      * store the Environment object in *vp and return true.
      */
     bool wrapEnvironment(JSContext *cx, Handle<Env*> env, MutableHandleValue vp);
@@ -562,7 +562,7 @@ class BreakpointSite {
     void inc(FreeOp *fop);
     void dec(FreeOp *fop);
     void setTrap(FreeOp *fop, JSTrapHandler handler, const Value &closure);
-    void clearTrap(FreeOp *fop, JSTrapHandler *handlerp = NULL, Value *closurep = NULL);
+    void clearTrap(FreeOp *fop, JSTrapHandler *handlerp = nullptr, Value *closurep = nullptr);
     void destroyIfEmpty(FreeOp *fop);
 };
 
@@ -612,7 +612,7 @@ Breakpoint *
 Debugger::firstBreakpoint() const
 {
     if (JS_CLIST_IS_EMPTY(&breakpoints))
-        return NULL;
+        return nullptr;
     return Breakpoint::fromDebuggerLinks(JS_NEXT_LINK(&breakpoints));
 }
 

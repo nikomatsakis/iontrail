@@ -11,13 +11,14 @@
 #include "nsRect.h"
 #include "nsStringGlue.h"
 
-#include "nsEvent.h"
 #include "nsCOMPtr.h"
 #include "nsWidgetInitData.h"
 #include "nsTArray.h"
 #include "nsXULAppAPI.h"
+#include "mozilla/EventForwards.h"
 #include "mozilla/layers/LayersTypes.h"
 #include "mozilla/RefPtr.h"
+#include "Units.h"
 
 // forward declarations
 class   nsFontMetrics;
@@ -25,7 +26,6 @@ class   nsRenderingContext;
 class   nsDeviceContext;
 struct  nsFont;
 class   nsIRollupListener;
-class   nsGUIEvent;
 class   imgIContainer;
 class   gfxASurface;
 class   nsIContent;
@@ -51,14 +51,14 @@ class DrawTarget;
 /**
  * Callback function that processes events.
  *
- * The argument is actually a subtype (subclass) of nsEvent which carries
+ * The argument is actually a subtype (subclass) of WidgetEvent which carries
  * platform specific information about the event. Platform specific code
  * knows how to deal with it.
  *
  * The return value determines whether or not the default action should take
  * place.
  */
-typedef nsEventStatus (* EVENT_CALLBACK)(nsGUIEvent *event);
+typedef nsEventStatus (* EVENT_CALLBACK)(mozilla::WidgetGUIEvent* aEvent);
 
 // Hide the native window system's real window type so as to avoid
 // including native window system types and APIs. This is necessary
@@ -434,6 +434,21 @@ struct SizeConstraints {
   nsIntSize mMaxSize;
 };
 
+// NotificationToIME is shared by nsIMEStateManager and TextComposition.
+enum NotificationToIME {
+  // XXX We should replace NOTIFY_IME_OF_CURSOR_POS_CHANGED with
+  //     NOTIFY_IME_OF_SELECTION_CHANGE later.
+  NOTIFY_IME_OF_CURSOR_POS_CHANGED,
+  // An editable content is getting focus
+  NOTIFY_IME_OF_FOCUS,
+  // An editable content is losing focus
+  NOTIFY_IME_OF_BLUR,
+  // Selection in the focused editable content is changed
+  NOTIFY_IME_OF_SELECTION_CHANGE,
+  REQUEST_TO_COMMIT_COMPOSITION,
+  REQUEST_TO_CANCEL_COMPOSITION
+};
+
 } // namespace widget
 } // namespace mozilla
 
@@ -636,7 +651,7 @@ class nsIWidget : public nsISupports {
      * or Windows' "font DPI". This will take into account Gecko preferences
      * overriding the system setting.
      */
-    double GetDefaultScale();
+    mozilla::CSSToLayoutDeviceScale GetDefaultScale();
 
     /**
      * Return the Gecko override of the system default scale, if any;
@@ -871,13 +886,13 @@ class nsIWidget : public nsISupports {
 
     /**
      * Minimize, maximize or normalize the window size.
-     * Takes a value from nsSizeMode (see nsGUIEvent.h)
+     * Takes a value from nsSizeMode (see nsIWidgetListener.h)
      */
     NS_IMETHOD SetSizeMode(int32_t aMode) = 0;
 
     /**
      * Return size mode (minimized, maximized, normalized).
-     * Returns a value from nsSizeMode (see nsGUIEvent.h)
+     * Returns a value from nsSizeMode (see nsIWidgetListener.h)
      */
     virtual int32_t SizeMode() = 0;
 
@@ -1318,7 +1333,8 @@ class nsIWidget : public nsISupports {
      * Dispatches an event to the widget
      *
      */
-    NS_IMETHOD DispatchEvent(nsGUIEvent* event, nsEventStatus & aStatus) = 0;
+    NS_IMETHOD DispatchEvent(mozilla::WidgetGUIEvent* event,
+                             nsEventStatus & aStatus) = 0;
 
     /**
      * Enables the dropping of files to a widget (XXX this is temporary)
@@ -1421,12 +1437,14 @@ class nsIWidget : public nsISupports {
     /**
      * Begin a window resizing drag, based on the event passed in.
      */
-    NS_IMETHOD BeginResizeDrag(nsGUIEvent* aEvent, int32_t aHorizontal, int32_t aVertical) = 0;
+    NS_IMETHOD BeginResizeDrag(mozilla::WidgetGUIEvent* aEvent,
+                               int32_t aHorizontal,
+                               int32_t aVertical) = 0;
 
     /**
      * Begin a window moving drag, based on the event passed in.
      */
-    NS_IMETHOD BeginMoveDrag(nsMouseEvent* aEvent) = 0;
+    NS_IMETHOD BeginMoveDrag(mozilla::WidgetMouseEvent* aEvent) = 0;
 
     enum Modifiers {
         CAPS_LOCK = 0x01, // when CapsLock is active

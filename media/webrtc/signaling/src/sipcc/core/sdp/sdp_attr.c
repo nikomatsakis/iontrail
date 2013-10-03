@@ -1693,50 +1693,6 @@ sdp_result_e sdp_parse_attr_fmtp (sdp_t *sdp_p, sdp_attr_t *attr_p,
     	    fmtp_p->cbr = (u16) strtoul_result;
     	    codec_info_found = TRUE;
 
-        } else if (cpr_strncasecmp(tmp,sdp_fmtp_codec_param[49].name,
-                        sdp_fmtp_codec_param[49].strlen) == 0) {
-            fmtp_ptr = sdp_getnextstrtok(fmtp_ptr, tmp, sizeof(tmp), "; \t", &result1);
-            if (result1 != SDP_SUCCESS) {
-                fmtp_ptr = sdp_getnextstrtok(fmtp_ptr, tmp, sizeof(tmp), " \t", &result1);
-                if (result1 != SDP_SUCCESS) {
-                    sdp_attr_fmtp_no_value(sdp_p, "streams");
-                    SDP_FREE(temp_ptr);
-                    return SDP_INVALID_PARAMETER;
-                }
-            }
-            tok = tmp;
-            tok++;
-            errno = 0;
-
-            strtoul_result = strtoul(tok, &strtoul_end, 10);
-
-            if (errno || tok == strtoul_end || strtoul_result > INT_MAX) {
-                sdp_attr_fmtp_invalid_value(sdp_p, "streams", tok);
-                SDP_FREE(temp_ptr);
-                return SDP_INVALID_PARAMETER;
-            }
-
-            fmtp_p->fmtp_format = SDP_FMTP_DATACHANNEL;
-            fmtp_p->streams = (int) strtoul_result;
-            codec_info_found = TRUE;
-
-        } else if (cpr_strncasecmp(tmp,sdp_fmtp_codec_param[50].name,
-                sdp_fmtp_codec_param[50].strlen) == 0) {
-            fmtp_ptr = sdp_getnextstrtok(fmtp_ptr, tmp, sizeof(tmp), "; \t", &result1);
-            if (result1 != SDP_SUCCESS) {
-                fmtp_ptr = sdp_getnextstrtok(fmtp_ptr, tmp, sizeof(tmp), " \t", &result1);
-                if (result1 != SDP_SUCCESS) {
-                    sdp_attr_fmtp_no_value(sdp_p, "protocol");
-                    SDP_FREE(temp_ptr);
-                    return SDP_INVALID_PARAMETER;
-                 }
-             }
-             tok = tmp;
-             tok++;
-             fmtp_p->fmtp_format = SDP_FMTP_DATACHANNEL;
-             sstrncpy(fmtp_p->protocol , tok, sizeof(fmtp_p->protocol));
-			 codec_info_found = TRUE;
-
         } else if (fmtp_ptr != NULL && *fmtp_ptr == '\n') {
             temp=PL_strtok_r(tmp, ";", &strtok_state);
             if (temp) {
@@ -2078,14 +2034,6 @@ sdp_result_e sdp_build_attr_fmtp (sdp_t *sdp_p, sdp_attr_t *attr_p, flex_string 
 
       break;
 
-    case SDP_FMTP_DATACHANNEL:
-      FMTP_BUILD_STRING(strlen(fmtp_p->protocol) > 0,
-        "protocol", fmtp_p->protocol)
-
-      FMTP_BUILD_UNSIGNED(fmtp_p->streams > 0, "streams", fmtp_p->streams)
-
-      break;
-
     case SDP_FMTP_NTE:
     default:
       break;
@@ -2139,6 +2087,60 @@ sdp_result_e sdp_build_attr_fmtp (sdp_t *sdp_p, sdp_attr_t *attr_p, flex_string 
     }
 
     flex_string_append(fs, "\r\n");
+
+    return SDP_SUCCESS;
+}
+
+sdp_result_e sdp_parse_attr_sctpmap(sdp_t *sdp_p, sdp_attr_t *attr_p,
+                                    const char *ptr)
+{
+    sdp_result_e result = SDP_SUCCESS;
+    char tmp[SDP_MAX_STRING_LEN];
+
+    /* Find the payload type number. */
+    attr_p->attr.sctpmap.port = (u16)sdp_getnextnumtok(ptr, &ptr,
+                                                      " \t", &result);
+    if (result != SDP_SUCCESS) {
+        sdp_parse_error(sdp_p->peerconnection,
+            "%s Warning: no sctpmap port number",
+            sdp_p->debug_str);
+        return SDP_INVALID_PARAMETER;
+    }
+
+    ptr = sdp_getnextstrtok(ptr, tmp, sizeof(tmp), " \t", &result);
+    if (result != SDP_SUCCESS) {
+        sdp_parse_error(sdp_p->peerconnection,
+            "%s Warning: No sctpmap protocol specified.",
+            sdp_p->debug_str);
+        sdp_p->conf_p->num_invalid_param++;
+        return SDP_INVALID_PARAMETER;
+    }
+    sstrncpy(attr_p->attr.sctpmap.protocol, tmp,
+        sizeof (attr_p->attr.sctpmap.protocol));
+
+    attr_p->attr.sctpmap.streams = (u16) sdp_getnextnumtok(ptr, &ptr, " \t",
+        &result);
+    if (result != SDP_SUCCESS) {
+        sdp_parse_error(sdp_p->peerconnection,
+            "%s Warning: No sctpmap streams specified.",
+            sdp_p->debug_str);
+        sdp_p->conf_p->num_invalid_param++;
+        return SDP_INVALID_PARAMETER;
+    }
+
+    return SDP_SUCCESS;
+}
+
+sdp_result_e sdp_build_attr_sctpmap(sdp_t *sdp_p, sdp_attr_t *attr_p,
+                                    flex_string *fs)
+{
+    MOZ_ASSERT(strlen(attr_p->attr.sctpmap.protocol) > 0);
+
+    flex_string_sprintf(fs, "a=%s:%u %s %u\r\n",
+        sdp_attr[attr_p->type].name,
+        attr_p->attr.sctpmap.port,
+        attr_p->attr.sctpmap.protocol,
+        attr_p->attr.sctpmap.streams);
 
     return SDP_SUCCESS;
 }
@@ -4983,6 +4985,130 @@ sdp_result_e sdp_parse_attr_rtcp_fb (sdp_t *sdp_p,
        a failure result if there is no more text, but that's fine. */
     ptr = sdp_getnextstrtok(ptr, rtcp_fb_p->extra,
                             sizeof(rtcp_fb_p->extra), "\r\n", &result);
+
+    return SDP_SUCCESS;
+}
+
+sdp_result_e sdp_build_attr_setup(sdp_t *sdp_p,
+                                  sdp_attr_t *attr_p,
+                                  flex_string *fs)
+{
+    switch (attr_p->attr.setup) {
+    case SDP_SETUP_ACTIVE:
+    case SDP_SETUP_PASSIVE:
+    case SDP_SETUP_ACTPASS:
+    case SDP_SETUP_HOLDCONN:
+        flex_string_sprintf(fs, "a=%s:%s\r\n",
+            sdp_attr[attr_p->type].name,
+            sdp_setup_type_val[attr_p->attr.setup].name);
+        break;
+    default:
+        CSFLogError(logTag, "%s Error: Invalid setup enum (%d)",
+                    sdp_p->debug_str, attr_p->attr.setup);
+        return SDP_FAILURE;
+    }
+
+    return SDP_SUCCESS;
+}
+
+sdp_result_e sdp_parse_attr_setup(sdp_t *sdp_p,
+                                   sdp_attr_t *attr_p,
+                                   const char *ptr)
+{
+    int i = find_token_enum("setup attribute", sdp_p, &ptr,
+        sdp_setup_type_val,
+        SDP_MAX_SETUP, SDP_SETUP_UNKNOWN);
+
+    if (i < 0) {
+        sdp_parse_error(sdp_p->peerconnection,
+          "%s Warning: could not parse setup attribute",
+          sdp_p->debug_str);
+        sdp_p->conf_p->num_invalid_param++;
+        return SDP_INVALID_PARAMETER;
+    }
+
+    attr_p->attr.setup = (sdp_setup_type_e) i;
+
+    switch (attr_p->attr.setup) {
+    case SDP_SETUP_ACTIVE:
+    case SDP_SETUP_PASSIVE:
+    case SDP_SETUP_ACTPASS:
+    case SDP_SETUP_HOLDCONN:
+        /* All these values are OK */
+        break;
+    case SDP_SETUP_UNKNOWN:
+        sdp_parse_error(sdp_p->peerconnection,
+            "%s Warning: Unknown setup attribute",
+            sdp_p->debug_str);
+        return SDP_INVALID_PARAMETER;
+        break;
+    default:
+        /* This is an internal error, not a parsing error */
+        CSFLogError(logTag, "%s Error: Invalid setup enum (%d)",
+                    sdp_p->debug_str, attr_p->attr.setup);
+        return SDP_FAILURE;
+        break;
+    }
+
+    return SDP_SUCCESS;
+}
+
+sdp_result_e sdp_build_attr_connection(sdp_t *sdp_p,
+                                       sdp_attr_t *attr_p,
+                                       flex_string *fs)
+{
+    switch (attr_p->attr.connection) {
+    case SDP_CONNECTION_NEW:
+    case SDP_CONNECTION_EXISTING:
+        flex_string_sprintf(fs, "a=%s:%s\r\n",
+            sdp_attr[attr_p->type].name,
+            sdp_connection_type_val[attr_p->attr.connection].name);
+        break;
+    default:
+        CSFLogError(logTag, "%s Error: Invalid connection enum (%d)",
+                    sdp_p->debug_str, attr_p->attr.connection);
+        return SDP_FAILURE;
+    }
+
+    return SDP_SUCCESS;
+}
+
+sdp_result_e sdp_parse_attr_connection(sdp_t *sdp_p,
+                                       sdp_attr_t *attr_p,
+                                       const char *ptr)
+{
+    int i = find_token_enum("connection attribute", sdp_p, &ptr,
+        sdp_connection_type_val,
+        SDP_MAX_CONNECTION, SDP_CONNECTION_UNKNOWN);
+
+    if (i < 0) {
+        sdp_parse_error(sdp_p->peerconnection,
+          "%s Warning: could not parse connection attribute",
+          sdp_p->debug_str);
+        sdp_p->conf_p->num_invalid_param++;
+        return SDP_INVALID_PARAMETER;
+    }
+
+    attr_p->attr.connection = (sdp_connection_type_e) i;
+
+    switch (attr_p->attr.connection) {
+    case SDP_CONNECTION_NEW:
+    case SDP_CONNECTION_EXISTING:
+        /* All these values are OK */
+        break;
+    case SDP_CONNECTION_UNKNOWN:
+        sdp_parse_error(sdp_p->peerconnection,
+            "%s Warning: Unknown connection attribute",
+            sdp_p->debug_str);
+        return SDP_INVALID_PARAMETER;
+        break;
+    default:
+        /* This is an internal error, not a parsing error */
+        CSFLogError(logTag, "%s Error: Invalid connection enum (%d)",
+                    sdp_p->debug_str, attr_p->attr.connection);
+        return SDP_FAILURE;
+        break;
+    }
 
     return SDP_SUCCESS;
 }

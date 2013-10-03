@@ -203,6 +203,7 @@
 @BINPATH@/components/mozfind.xpt
 @BINPATH@/components/necko_about.xpt
 @BINPATH@/components/necko_cache.xpt
+@BINPATH@/components/necko_cache2.xpt
 @BINPATH@/components/necko_cookie.xpt
 @BINPATH@/components/necko_dns.xpt
 @BINPATH@/components/necko_file.xpt
@@ -250,9 +251,7 @@
 @BINPATH@/components/txmgr.xpt
 @BINPATH@/components/uconv.xpt
 @BINPATH@/components/unicharutil.xpt
-#ifdef MOZ_UPDATER
 @BINPATH@/components/update.xpt
-#endif
 @BINPATH@/components/uriloader.xpt
 @BINPATH@/components/urlformatter.xpt
 @BINPATH@/components/webBrowser_core.xpt
@@ -333,6 +332,9 @@
 @BINPATH@/components/amContentHandler.js
 @BINPATH@/components/amWebInstallListener.js
 @BINPATH@/components/nsBlocklistService.js
+@BINPATH@/components/webvtt.xpt
+@BINPATH@/components/WebVTT.manifest
+@BINPATH@/components/WebVTTParserWrapper.js
 
 #ifdef MOZ_UPDATER
 @BINPATH@/components/nsUpdateService.manifest
@@ -403,6 +405,9 @@
 @BINPATH@/components/PeerConnection.js
 @BINPATH@/components/PeerConnection.manifest
 #endif
+
+@BINPATH@/components/HttpDataUsage.manifest
+@BINPATH@/components/HttpDataUsage.js
 
 #ifdef MOZ_SERVICES_HEALTHREPORT
 @BINPATH@/components/HealthReportComponents.manifest
@@ -586,3 +591,7 @@ bin/components/@DLL_PREFIX@nkgnomevfs@DLL_SUFFIX@
 @BINPATH@/components/MarionetteComponents.manifest
 @BINPATH@/components/marionettecomponent.js
 #endif
+
+@BINPATH@/components/DataStore.manifest
+@BINPATH@/components/DataStoreService.js
+@BINPATH@/components/dom_datastore.xpt

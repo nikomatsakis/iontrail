@@ -4084,6 +4084,163 @@ sdp_result_e sdp_attr_set_rtcp_mux_attribute(void *sdp_ptr, u16 level,
     return (SDP_SUCCESS);
 }
 
+
+/* Function:    sdp_attr_get_setup_attribute
+ * Description: Returns the value of a setup attribute at a given level
+ *
+ * Parameters:  sdp_ptr     The SDP handle returned by sdp_init_description.
+ *              level       The level to check for the attribute.
+ *              cap_num     The capability number associated with the
+ *                          attribute if any.  If none, should be zero.
+ *              inst_num    The attribute instance number to check.
+ *              setup_type  Returns sdp_setup_type_e enum
+ * Returns:
+ *              SDP_SUCCESS           Attribute param was set successfully.
+ *              SDP_INVALID_SDP_PTR   SDP pointer invalid
+ *              SDP_INVALID_PARAMETER Specified attribute is not defined.
+ */
+sdp_result_e sdp_attr_get_setup_attribute (void *sdp_ptr, u16 level,
+    u8 cap_num, u16 inst_num, sdp_setup_type_e *setup_type)
+{
+    sdp_t       *sdp_p = (sdp_t *)sdp_ptr;
+    sdp_attr_t  *attr_p;
+
+    if (!sdp_verify_sdp_ptr(sdp_p)) {
+        return SDP_INVALID_SDP_PTR;
+    }
+
+    attr_p = sdp_find_attr(sdp_p, level, cap_num, SDP_ATTR_SETUP, inst_num);
+    if (!attr_p) {
+        if (sdp_p->debug_flag[SDP_DEBUG_ERRORS]) {
+            CSFLogError(logTag,
+                "%s setup attribute, level %u instance %u not found.",
+                sdp_p->debug_str, level, inst_num);
+        }
+        sdp_p->conf_p->num_invalid_param++;
+        return SDP_INVALID_PARAMETER;
+    }
+
+    *setup_type = attr_p->attr.setup;
+    return SDP_SUCCESS;
+}
+
+/* Function:    sdp_attr_set_setup_attribute
+ * Description: Sets the value of a setup attribute parameter
+ *
+ * Parameters:  sdp_ptr        The SDP handle returned by sdp_init_description.
+ *              level          The level to set the attribute.
+ *              cap_num        The capability number associated with the
+ *                             attribute if any.  If none, should be zero.
+ *              inst_num       The attribute instance number to check.
+ *              setup_type     setup attribute value to set
+ * Returns:     SDP_SUCCESS            Attribute param was set successfully.
+ *              SDP_INVALID_SDP_PTR    SDP ptr invalid
+ *              SDP_INVALID_PARAMETER  Specified attribute is not defined.
+ */
+sdp_result_e
+sdp_attr_set_setup_attribute(void *sdp_ptr, u16 level,
+    u8 cap_num, u16 inst_num, sdp_setup_type_e setup_type)
+{
+    sdp_t       *sdp_p = (sdp_t *)sdp_ptr;
+    sdp_attr_t  *attr_p;
+
+    if (!sdp_verify_sdp_ptr(sdp_p)) {
+        return SDP_INVALID_SDP_PTR;
+    }
+
+    attr_p = sdp_find_attr(sdp_p, level, cap_num, SDP_ATTR_SETUP, inst_num);
+    if (!attr_p) {
+        if (sdp_p->debug_flag[SDP_DEBUG_ERRORS]) {
+            CSFLogError(logTag, "%s setup attribute, level %u instance %u "
+                      "not found.", sdp_p->debug_str, level, inst_num);
+        }
+        sdp_p->conf_p->num_invalid_param++;
+        return SDP_INVALID_PARAMETER;
+    }
+
+    attr_p->attr.setup = setup_type;
+    return SDP_SUCCESS;
+}
+
+/* Function:    sdp_attr_get_connection_attribute
+ * Description: Returns the value of a connection attribute at a given level
+ *
+ * Parameters:  sdp_ptr     The SDP handle returned by sdp_init_description.
+ *              level       The level to check for the attribute.
+ *              cap_num     The capability number associated with the
+ *                          attribute if any.  If none, should be zero.
+ *              inst_num    The attribute instance number to check.
+ *              connection_type  Returns sdp_connection_type_e enum
+ * Returns:
+ *              SDP_SUCCESS           Attribute param was set successfully.
+ *              SDP_INVALID_SDP_PTR   SDP pointer invalid
+ *              SDP_INVALID_PARAMETER Specified attribute is not defined.
+ */
+sdp_result_e sdp_attr_get_connection_attribute (void *sdp_ptr, u16 level,
+    u8 cap_num, u16 inst_num, sdp_connection_type_e *connection_type)
+{
+    sdp_t       *sdp_p = (sdp_t *)sdp_ptr;
+    sdp_attr_t  *attr_p;
+
+    if (!sdp_verify_sdp_ptr(sdp_p)) {
+        return SDP_INVALID_SDP_PTR;
+    }
+
+    attr_p = sdp_find_attr(sdp_p, level, cap_num, SDP_ATTR_CONNECTION,
+        inst_num);
+    if (!attr_p) {
+        if (sdp_p->debug_flag[SDP_DEBUG_ERRORS]) {
+            CSFLogError(logTag,
+                "%s setup attribute, level %u instance %u not found.",
+                sdp_p->debug_str, level, inst_num);
+        }
+        sdp_p->conf_p->num_invalid_param++;
+        return SDP_INVALID_PARAMETER;
+    }
+
+    *connection_type = attr_p->attr.connection;
+    return SDP_SUCCESS;
+}
+
+/* Function:    sdp_attr_set_connection_attribute
+ * Description: Sets the value of a connection attribute parameter
+ *
+ * Parameters:  sdp_ptr        The SDP handle returned by sdp_init_description.
+ *              level          The level to set the attribute.
+ *              cap_num        The capability number associated with the
+ *                             attribute if any.  If none, should be zero.
+ *              inst_num       The attribute instance number to check.
+ *              connection_type     connection attribute value to set
+ * Returns:     SDP_SUCCESS            Attribute param was set successfully.
+ *              SDP_INVALID_SDP_PTR    SDP ptr invalid
+ *              SDP_INVALID_PARAMETER  Specified attribute is not defined.
+ */
+sdp_result_e
+sdp_attr_set_connection_attribute(void *sdp_ptr, u16 level,
+    u8 cap_num, u16 inst_num, sdp_connection_type_e connection_type)
+{
+    sdp_t       *sdp_p = (sdp_t *)sdp_ptr;
+    sdp_attr_t  *attr_p;
+
+    if (!sdp_verify_sdp_ptr(sdp_p)) {
+        return SDP_INVALID_SDP_PTR;
+    }
+
+    attr_p = sdp_find_attr(sdp_p, level, cap_num, SDP_ATTR_CONNECTION,
+        inst_num);
+    if (!attr_p) {
+        if (sdp_p->debug_flag[SDP_DEBUG_ERRORS]) {
+            CSFLogError(logTag, "%s connection attribute, level %u instance %u "
+                      "not found.", sdp_p->debug_str, level, inst_num);
+        }
+        sdp_p->conf_p->num_invalid_param++;
+        return SDP_INVALID_PARAMETER;
+    }
+
+    attr_p->attr.connection = connection_type;
+    return SDP_SUCCESS;
+}
+
 /* Function:    sdp_attr_get_dtls_fingerprint_attribute
  * Description: Returns the value of dtls fingerprint attribute at a given level
  *
@@ -6647,7 +6804,55 @@ sdp_result_e sdp_attr_get_fmtp_cbr (void *sdp_ptr, u16 level,
     }
 }
 
-sdp_result_e sdp_attr_get_fmtp_streams (void *sdp_ptr, u16 level,
+u16 sdp_attr_get_sctpmap_port(void *sdp_ptr, u16 level,
+                              u8 cap_num, u16 inst_num)
+{
+    sdp_t       *sdp_p = (sdp_t *)sdp_ptr;
+    sdp_attr_t  *attr_p;
+
+    if (!sdp_verify_sdp_ptr(sdp_p)) {
+        return 0;
+    }
+
+    attr_p = sdp_find_attr(sdp_p, level, cap_num, SDP_ATTR_SCTPMAP, inst_num);
+    if (!attr_p) {
+        if (sdp_p->debug_flag[SDP_DEBUG_ERRORS]) {
+            CSFLogError(logTag, "%s sctpmap port, level %u instance %u "
+                      "not found.", sdp_p->debug_str, level, inst_num);
+        }
+        sdp_p->conf_p->num_invalid_param++;
+        return 0;
+    } else {
+        return attr_p->attr.sctpmap.port;
+    }
+}
+
+sdp_result_e sdp_attr_set_sctpmap_port(void *sdp_ptr, u16 level,
+                                       u8 cap_num, u16 inst_num,
+                                       u16 port)
+{
+    sdp_t       *sdp_p = (sdp_t *)sdp_ptr;
+    sdp_attr_t  *attr_p;
+
+    if (!sdp_verify_sdp_ptr(sdp_p)) {
+        return SDP_INVALID_SDP_PTR;
+    }
+
+    attr_p = sdp_find_attr(sdp_p, level, cap_num, SDP_ATTR_SCTPMAP, inst_num);
+    if (!attr_p) {
+        if (sdp_p->debug_flag[SDP_DEBUG_ERRORS]) {
+            CSFLogError(logTag, "%s sctpmap port, level %u instance %u "
+                      "not found.", sdp_p->debug_str, level, inst_num);
+        }
+        sdp_p->conf_p->num_invalid_param++;
+        return SDP_INVALID_PARAMETER;
+    } else {
+        attr_p->attr.sctpmap.port = port;
+        return SDP_SUCCESS;
+    }
+}
+
+sdp_result_e sdp_attr_get_sctpmap_streams (void *sdp_ptr, u16 level,
                              u8 cap_num, u16 inst_num, u32* val)
 {
     sdp_t       *sdp_p = (sdp_t *)sdp_ptr;
@@ -6657,22 +6862,22 @@ sdp_result_e sdp_attr_get_fmtp_streams (void *sdp_ptr, u16 level,
         return (SDP_INVALID_SDP_PTR);
     }
 
-    attr_p = sdp_find_attr(sdp_p, level, cap_num, SDP_ATTR_FMTP, inst_num);
+    attr_p = sdp_find_attr(sdp_p, level, cap_num, SDP_ATTR_SCTPMAP, inst_num);
     if (!attr_p) {
         if (sdp_p->debug_flag[SDP_DEBUG_ERRORS]) {
-            CSFLogError(logTag, "%s fmtp attribute, level %u instance %u "
+            CSFLogError(logTag, "%s sctpmap streams, level %u instance %u "
                       "not found.", sdp_p->debug_str, level, inst_num);
         }
         sdp_p->conf_p->num_invalid_param++;
         *val = WEBRTC_DATACHANNEL_STREAMS_DEFAULT;
         return (SDP_INVALID_PARAMETER);
     } else {
-        *val = attr_p->attr.fmtp.streams;
+        *val = attr_p->attr.sctpmap.streams;
         return (SDP_SUCCESS);
     }
 }
 
-sdp_result_e sdp_attr_set_fmtp_streams (void *sdp_ptr, u16 level,
+sdp_result_e sdp_attr_set_sctpmap_streams (void *sdp_ptr, u16 level,
                                        u8 cap_num, u16 inst_num,
                                        u32 streams)
 {
@@ -6684,10 +6889,10 @@ sdp_result_e sdp_attr_set_fmtp_streams (void *sdp_ptr, u16 level,
         return (SDP_INVALID_PARAMETER);
     }
 
-    attr_p = sdp_find_attr(sdp_p, level, cap_num, SDP_ATTR_FMTP, inst_num);
+    attr_p = sdp_find_attr(sdp_p, level, cap_num, SDP_ATTR_SCTPMAP, inst_num);
     if (!attr_p) {
         if (sdp_p->debug_flag[SDP_DEBUG_ERRORS]) {
-            CSFLogError(logTag, "%s fmtp attribute, level %u instance %u "
+            CSFLogError(logTag, "%s sctpmap streams, level %u instance %u "
                       "not found.", sdp_p->debug_str, level, inst_num);
         }
         sdp_p->conf_p->num_invalid_param++;
@@ -6698,16 +6903,16 @@ sdp_result_e sdp_attr_set_fmtp_streams (void *sdp_ptr, u16 level,
     fmtp_p->fmtp_format = SDP_FMTP_DATACHANNEL;
 
     if (streams > 0) {
-        fmtp_p->streams = streams;
+        attr_p->attr.sctpmap.streams = streams;
         return (SDP_SUCCESS);
     } else {
         return (SDP_FAILURE);
     }
 }
 
-sdp_result_e sdp_attr_set_fmtp_data_channel_protocol (void *sdp_ptr, u16 level,
-                                                u8 cap_num, u16 inst_num,
-                                                const char *protocol)
+sdp_result_e sdp_attr_set_sctpmap_protocol(void *sdp_ptr, u16 level,
+                                           u8 cap_num, u16 inst_num,
+                                           const char *protocol)
 {
     sdp_t       *sdp_p = (sdp_t *)sdp_ptr;
     sdp_attr_t  *attr_p;
@@ -6717,10 +6922,10 @@ sdp_result_e sdp_attr_set_fmtp_data_channel_protocol (void *sdp_ptr, u16 level,
         return (SDP_INVALID_PARAMETER);
     }
 
-    attr_p = sdp_find_attr(sdp_p, level, cap_num, SDP_ATTR_FMTP, inst_num);
+    attr_p = sdp_find_attr(sdp_p, level, cap_num, SDP_ATTR_SCTPMAP, inst_num);
     if (!attr_p) {
         if (sdp_p->debug_flag[SDP_DEBUG_ERRORS]) {
-            CSFLogError(logTag, "%s fmtp attribute, level %u instance %u "
+            CSFLogError(logTag, "%s sctpmap streams, level %u instance %u "
                       "not found.", sdp_p->debug_str, level, inst_num);
         }
         sdp_p->conf_p->num_invalid_param++;
@@ -6730,15 +6935,16 @@ sdp_result_e sdp_attr_set_fmtp_data_channel_protocol (void *sdp_ptr, u16 level,
     fmtp_p = &(attr_p->attr.fmtp);
     fmtp_p->fmtp_format = SDP_FMTP_DATACHANNEL;
     if (protocol) {
-        sstrncpy(fmtp_p->protocol, protocol,
-	   SDP_MAX_STRING_LEN+1);
+        sstrncpy(attr_p->attr.sctpmap.protocol, protocol,
+                 sizeof(attr_p->attr.sctpmap.protocol));
     }
 
     return (SDP_SUCCESS);
 }
 
-sdp_result_e sdp_attr_get_fmtp_data_channel_protocol (void *sdp_ptr, u16 level,
-                                          u8 cap_num, u16 inst_num, char* protocol)
+sdp_result_e sdp_attr_get_sctpmap_protocol (void *sdp_ptr, u16 level,
+                                            u8 cap_num, u16 inst_num,
+                                            char* protocol)
 {
 
     sdp_t       *sdp_p = (sdp_t *)sdp_ptr;
@@ -6748,17 +6954,17 @@ sdp_result_e sdp_attr_get_fmtp_data_channel_protocol (void *sdp_ptr, u16 level,
     	return (SDP_INVALID_PARAMETER);
     }
 
-    attr_p = sdp_find_attr(sdp_p, level, cap_num, SDP_ATTR_FMTP,
+    attr_p = sdp_find_attr(sdp_p, level, cap_num, SDP_ATTR_SCTPMAP,
                            inst_num);
     if (!attr_p) {
         if (sdp_p->debug_flag[SDP_DEBUG_ERRORS]) {
-            CSFLogError(logTag, "%s fmtp attribute, level %u instance %u "
+            CSFLogError(logTag, "%s sctpmap, level %u instance %u "
                       "not found.", sdp_p->debug_str, level, inst_num);
         }
         sdp_p->conf_p->num_invalid_param++;
         return (SDP_INVALID_PARAMETER);
     } else {
-    	sstrncpy(protocol, attr_p->attr.fmtp.protocol, SDP_MAX_STRING_LEN+1);
+        sstrncpy(protocol, attr_p->attr.sctpmap.protocol, SDP_MAX_STRING_LEN+1);
     }
     return (SDP_SUCCESS);
 }
@@ -6778,7 +6984,7 @@ sdp_result_e sdp_attr_set_fmtp_max_cpb (void *sdp_ptr, u16 level,
     attr_p = sdp_find_attr(sdp_p, level, cap_num, SDP_ATTR_FMTP, inst_num);
     if (attr_p == NULL) {
         if (sdp_p->debug_flag[SDP_DEBUG_ERRORS]) {
-            CSFLogError(logTag, "%s fmtp attribute, level %u instance %u "
+            CSFLogError(logTag, "%s sctpmap, level %u instance %u "
                       "not found.", sdp_p->debug_str, level, inst_num);
         }
         sdp_p->conf_p->num_invalid_param++;

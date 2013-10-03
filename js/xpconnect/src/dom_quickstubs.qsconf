@@ -83,7 +83,6 @@ members = [
     'nsIBoxObject.height',
 
     # dom/indexedDB
-    'nsIIDBKeyRange.*',
     'nsIIndexedDatabaseManager.*',
 
     # dom/file
@@ -110,8 +109,9 @@ irregularFilenames = {
     }
 
 customIncludes = [
-    'nsDOMQS.h',
     'nsPerformance.h',
+    'nsPIDOMWindow.h',
+    'mozilla/dom/BindingUtils.h',
     'mozilla/dom/EventTargetBinding.h',
     ]
 

@@ -107,7 +107,7 @@ RotatedBuffer::DrawBufferQuadrant(gfxContext* aTarget,
   nsRefPtr<gfxPattern> pattern = new gfxPattern(source);
 
 #ifdef MOZ_GFX_OPTIMIZE_MOBILE
-  gfxPattern::GraphicsFilter filter = gfxPattern::FILTER_NEAREST;
+  GraphicsFilter filter = GraphicsFilter::FILTER_NEAREST;
   pattern->SetFilter(filter);
 #endif
 
@@ -125,7 +125,7 @@ RotatedBuffer::DrawBufferQuadrant(gfxContext* aTarget,
       aTarget->SetMatrix(*aMaskTransform);
       aTarget->Mask(aMask);
     } else {
-      aTarget->PushGroup(gfxASurface::CONTENT_COLOR_ALPHA);
+      aTarget->PushGroup(GFX_CONTENT_COLOR_ALPHA);
       aTarget->Paint(aOpacity);
       aTarget->PopGroupToSource();
       aTarget->SetMatrix(*aMaskTransform);
@@ -161,6 +161,7 @@ RotatedBuffer::DrawBufferQuadrant(gfx::DrawTarget* aTarget,
                                   XSide aXSide, YSide aYSide,
                                   ContextSource aSource,
                                   float aOpacity,
+                                  gfx::CompositionOp aOperator,
                                   gfx::SourceSurface* aMask,
                                   const gfx::Matrix* aMaskTransform) const
 {
@@ -193,14 +194,27 @@ RotatedBuffer::DrawBufferQuadrant(gfx::DrawTarget* aTarget,
   SurfacePattern source(snapshot, EXTEND_CLAMP, transform);
 #endif
 
-  if (aMask) {
-    SurfacePattern mask(aMask, EXTEND_CLAMP, *aMaskTransform);
+  if (aOperator == OP_SOURCE) {
+    // OP_SOURCE is unbounded in Azure, and we really don't want that behaviour here.
+    // We also can't do a ClearRect+FillRect since we need the drawing to happen
+    // as an atomic operation (to prevent flickering).
+    aTarget->PushClipRect(gfx::Rect(fillRect.x, fillRect.y,
+                                    fillRect.width, fillRect.height));
+  }
 
-    aTarget->Mask(source, mask, DrawOptions(aOpacity));
+  if (aMask) {
+    Matrix oldTransform = aTarget->GetTransform();
+    aTarget->SetTransform(*aMaskTransform);
+    aTarget->MaskSurface(source, aMask, Point(0, 0), DrawOptions(aOpacity, aOperator));
+    aTarget->SetTransform(oldTransform);
   } else {
     aTarget->FillRect(gfx::Rect(fillRect.x, fillRect.y,
                                 fillRect.width, fillRect.height),
-                      source, DrawOptions(aOpacity));
+                      source, DrawOptions(aOpacity, aOperator));
+  }
+
+  if (aOperator == OP_SOURCE) {
+    aTarget->PopClip();
   }
 
   aTarget->Flush();
@@ -224,6 +238,7 @@ RotatedBuffer::DrawBufferWithRotation(gfxContext* aTarget, ContextSource aSource
 void
 RotatedBuffer::DrawBufferWithRotation(gfx::DrawTarget *aTarget, ContextSource aSource,
                                       float aOpacity,
+                                      gfx::CompositionOp aOperator,
                                       gfx::SourceSurface* aMask,
                                       const gfx::Matrix* aMaskTransform) const
 {
@@ -231,10 +246,10 @@ RotatedBuffer::DrawBufferWithRotation(gfx::DrawTarget *aTarget, ContextSource aS
   // See above, in Azure Repeat should always be a safe, even faster choice
   // though! Particularly on D2D Repeat should be a lot faster, need to look
   // into that. TODO[Bas]
-  DrawBufferQuadrant(aTarget, LEFT, TOP, aSource, aOpacity, aMask, aMaskTransform);
-  DrawBufferQuadrant(aTarget, RIGHT, TOP, aSource, aOpacity, aMask, aMaskTransform);
-  DrawBufferQuadrant(aTarget, LEFT, BOTTOM, aSource, aOpacity, aMask, aMaskTransform);
-  DrawBufferQuadrant(aTarget, RIGHT, BOTTOM, aSource, aOpacity, aMask, aMaskTransform);
+  DrawBufferQuadrant(aTarget, LEFT, TOP, aSource, aOpacity, aOperator, aMask, aMaskTransform);
+  DrawBufferQuadrant(aTarget, RIGHT, TOP, aSource, aOpacity, aOperator, aMask, aMaskTransform);
+  DrawBufferQuadrant(aTarget, LEFT, BOTTOM, aSource, aOpacity, aOperator, aMask, aMaskTransform);
+  DrawBufferQuadrant(aTarget, RIGHT, BOTTOM, aSource, aOpacity, aOperator,aMask, aMaskTransform);
 }
 
 /* static */ bool
@@ -306,7 +321,8 @@ ThebesLayerBuffer::DrawTo(ThebesLayer* aLayer,
       maskTransform = ToMatrix(*aMaskTransform);
     }
 
-    DrawBufferWithRotation(dt, BUFFER_BLACK, aOpacity, mask, &maskTransform);
+    CompositionOp op = CompositionOpForOp(aTarget->CurrentOperator());
+    DrawBufferWithRotation(dt, BUFFER_BLACK, aOpacity, op, mask, &maskTransform);
     if (clipped) {
       dt->PopClip();
     }
@@ -383,7 +399,7 @@ ThebesLayerBuffer::GetContextForQuadrantUpdate(const nsIntRect& aBounds, Context
   return ctx.forget();
 }
 
-gfxASurface::gfxContentType
+gfxContentType
 ThebesLayerBuffer::BufferContentType()
 {
   if (mBuffer) {
@@ -395,15 +411,15 @@ ThebesLayerBuffer::BufferContentType()
   if (mDTBuffer) {
     switch (mDTBuffer->GetFormat()) {
     case FORMAT_A8:
-      return gfxASurface::CONTENT_ALPHA;
+      return GFX_CONTENT_ALPHA;
     case FORMAT_B8G8R8A8:
     case FORMAT_R8G8B8A8:
-      return gfxASurface::CONTENT_COLOR_ALPHA;
+      return GFX_CONTENT_COLOR_ALPHA;
     default:
-      return gfxASurface::CONTENT_COLOR;
+      return GFX_CONTENT_COLOR;
     }
   }
-  return gfxASurface::CONTENT_SENTINEL;
+  return GFX_CONTENT_SENTINEL;
 }
 
 bool
@@ -423,6 +439,10 @@ ThebesLayerBuffer::IsAzureBuffer()
   }
   if (mBuffer) {
     return false;
+  }
+  if (mBufferProvider) {
+    return gfxPlatform::GetPlatform()->SupportsAzureContentForType(
+      mBufferProvider->BackendType());
   }
   return SupportsAzureContent();
 }
@@ -487,6 +507,20 @@ ComputeBufferRect(const nsIntRect& aRequestedRect)
   // rendering glitch, and guarantees image rows can be SIMD'd for
   // even r5g6b5 surfaces pretty much everywhere.
   rect.width = std::max(aRequestedRect.width, 64);
+#ifdef MOZ_WIDGET_GONK
+  // Set a minumum height to guarantee a minumum height of buffers we
+  // allocate. Some GL implementations fail to render gralloc textures
+  // with a height 9px-16px. It happens on Adreno 200. Adreno 320 does not
+  // have this problem. 32 is choosed as alignment of gralloc buffers.
+  // See Bug 873937.
+  // Increase the height only when the requested height is more than 0.
+  // See Bug 895976.
+  // XXX it might be better to disable it on the gpu that does not have
+  // the height problem.
+  if (rect.height > 0) {
+    rect.height = std::max(aRequestedRect.height, 32);
+  }
+#endif
   return rect;
 }
 
@@ -542,7 +576,7 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
           !gfxPlatform::ComponentAlphaEnabled()) {
         mode = Layer::SURFACE_SINGLE_CHANNEL_ALPHA;
       } else {
-        contentType = gfxASurface::CONTENT_COLOR;
+        contentType = GFX_CONTENT_COLOR;
       }
 #endif
     }
@@ -552,7 +586,7 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
          neededRegion.GetNumRects() > 1)) {
       // The area we add to neededRegion might not be painted opaquely
       if (mode == Layer::SURFACE_OPAQUE) {
-        contentType = gfxASurface::CONTENT_COLOR_ALPHA;
+        contentType = GFX_CONTENT_COLOR_ALPHA;
         mode = Layer::SURFACE_SINGLE_CHANNEL_ALPHA;
       }
 
@@ -565,7 +599,7 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
     // have transitioned into/out of component alpha, then we need to recreate it.
     if (HaveBuffer() &&
         (contentType != BufferContentType() ||
-         mode == Layer::SURFACE_COMPONENT_ALPHA) != (HaveBufferOnWhite())) {
+        (mode == Layer::SURFACE_COMPONENT_ALPHA) != HaveBufferOnWhite())) {
 
       // We're effectively clearing the valid region, so we need to draw
       // the entire needed region now.
@@ -651,13 +685,9 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
           // We can't do a real self-copy because the buffer is rotated.
           // So allocate a new buffer for the destination.
           destBufferRect = ComputeBufferRect(neededRegion.GetBounds());
-          if (IsAzureBuffer()) {
-            MOZ_ASSERT(!mBuffer);
-            destDTBuffer = CreateDTBuffer(contentType, destBufferRect, bufferFlags, &destDTBufferOnWhite);
-          } else {
-            MOZ_ASSERT(!mDTBuffer);
-            destBuffer = CreateBuffer(contentType, destBufferRect, bufferFlags, getter_AddRefs(destBufferOnWhite));
-          }
+          CreateBuffer(contentType, destBufferRect, bufferFlags,
+                       getter_AddRefs(destBuffer), getter_AddRefs(destBufferOnWhite),
+                       &destDTBuffer, &destDTBufferOnWhite);
           if (!destBuffer && !destDTBuffer)
             return result;
         }
@@ -674,13 +704,9 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
     }
   } else {
     // The buffer's not big enough, so allocate a new one
-    if (IsAzureBuffer()) {
-      MOZ_ASSERT(!mBuffer);
-      destDTBuffer = CreateDTBuffer(contentType, destBufferRect, bufferFlags, &destDTBufferOnWhite);
-    } else {
-      MOZ_ASSERT(!mDTBuffer);
-      destBuffer = CreateBuffer(contentType, destBufferRect, bufferFlags, getter_AddRefs(destBufferOnWhite));
-    }
+    CreateBuffer(contentType, destBufferRect, bufferFlags,
+                 getter_AddRefs(destBuffer), getter_AddRefs(destBufferOnWhite),
+                 &destDTBuffer, &destDTBufferOnWhite);
     if (!destBuffer && !destDTBuffer)
       return result;
   }
@@ -727,7 +753,7 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
       destDTBuffer->SetTransform(mat);
       EnsureBuffer();
       MOZ_ASSERT(mDTBuffer, "Have we got a Thebes buffer for some reason?");
-      DrawBufferWithRotation(destDTBuffer, BUFFER_BLACK);
+      DrawBufferWithRotation(destDTBuffer, BUFFER_BLACK, 1.0, OP_SOURCE);
       destDTBuffer->SetTransform(Matrix());
 
       if (mode == Layer::SURFACE_COMPONENT_ALPHA) {
@@ -735,7 +761,7 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
         destDTBufferOnWhite->SetTransform(mat);
         EnsureBufferOnWhite();
         MOZ_ASSERT(destDTBufferOnWhite, "Have we got a Thebes buffer for some reason?");
-        DrawBufferWithRotation(destDTBufferOnWhite, BUFFER_WHITE);
+        DrawBufferWithRotation(destDTBufferOnWhite, BUFFER_WHITE, 1.0, OP_SOURCE);
         destDTBufferOnWhite->SetTransform(Matrix());
       }
     }
@@ -774,7 +800,7 @@ ThebesLayerBuffer::BeginPaint(ThebesLayer* aLayer, ContentType aContentType,
       FillSurface(mBufferOnWhite, result.mRegionToDraw, topLeft, gfxRGBA(1.0, 1.0, 1.0, 1.0));
     }
     gfxUtils::ClipToRegionSnapped(result.mContext, result.mRegionToDraw);
-  } else if (contentType == gfxASurface::CONTENT_COLOR_ALPHA && !isClear) {
+  } else if (contentType == GFX_CONTENT_COLOR_ALPHA && !isClear) {
     if (IsAzureBuffer()) {
       nsIntRegionRectIterator iter(result.mRegionToDraw);
       const nsIntRect *iterRect;

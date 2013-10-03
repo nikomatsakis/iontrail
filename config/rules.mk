@@ -21,6 +21,7 @@ INCLUDED_RULES_MK = 1
 # present. If they are, this is a violation of the separation of
 # responsibility between Makefile.in and mozbuild files.
 _MOZBUILD_EXTERNAL_VARIABLES := \
+  CMMSRCS \
   CPP_UNIT_TESTS \
   DIRS \
   EXTRA_PP_COMPONENTS \
@@ -30,12 +31,15 @@ _MOZBUILD_EXTERNAL_VARIABLES := \
   GTEST_CSRCS \
   HOST_CSRCS \
   HOST_LIBRARY_NAME \
+  IS_COMPONENT \
+  JS_MODULES_PATH \
   LIBRARY_NAME \
   LIBXUL_LIBRARY \
   MODULE \
   MSVC_ENABLE_PGO \
   NO_DIST_INSTALL \
   PARALLEL_DIRS \
+  SDK_HEADERS \
   SIMPLE_PROGRAMS \
   TEST_DIRS \
   TIERS \
@@ -46,6 +50,8 @@ _MOZBUILD_EXTERNAL_VARIABLES := \
 
 _DEPRECATED_VARIABLES := \
   XPIDL_FLAGS \
+  MOCHITEST_FILES_PARTS \
+  MOCHITEST_BROWSER_FILES_PARTS \
   $(NULL)
 
 ifndef EXTERNALLY_MANAGED_MAKE_FILE
@@ -53,11 +59,11 @@ ifndef EXTERNALLY_MANAGED_MAKE_FILE
 # scenarios.
 _current_makefile = $(CURDIR)/$(firstword $(MAKEFILE_LIST))
 
-$(foreach var,$(_MOZBUILD_EXTERNAL_VARIABLES),$(if $($(var)),\
+$(foreach var,$(_MOZBUILD_EXTERNAL_VARIABLES),$(if $(filter file override,$(subst $(NULL) ,_,$(origin $(var)))),\
     $(error Variable $(var) is defined in $(_current_makefile). It should only be defined in moz.build files),\
     ))
 
-$(foreach var,$(_DEPRECATED_VARIABLES),$(if $($(var)),\
+$(foreach var,$(_DEPRECATED_VARIABLES),$(if $(filter file override,$(subst $(NULL) ,_,$(origin $(var)))),\
     $(error Variable $(var) is defined in $(_current_makefile). This variable has been deprecated. It does nothing. It must be removed in order to build)\
     ))
 
@@ -98,11 +104,6 @@ automatically use pymake or invoke pymake directly via \
 |python build/pymake/make.py|.)
 endif
 endif
-endif
-
-ifdef SDK_HEADERS
-_EXTRA_EXPORTS := $(filter-out $(EXPORTS),$(SDK_HEADERS))
-EXPORTS += $(_EXTRA_EXPORTS)
 endif
 
 ifdef REBUILD_CHECK
@@ -161,10 +162,6 @@ ifdef ENABLE_TESTS
 # that changes to tests may not be updated and code could assume to pass
 # locally against non-current test code.
 DIRS += $(TEST_DIRS)
-
-ifndef INCLUDED_TESTS_XPCSHELL_MK #{
-  include $(topsrcdir)/config/makefiles/xpcshell.mk
-endif #}
 
 ifndef INCLUDED_TESTS_MOCHITEST_MK #{
   include $(topsrcdir)/config/makefiles/mochitest.mk
@@ -366,7 +363,7 @@ SIMPLE_PROGRAMS :=
 endif
 
 ifndef TARGETS
-TARGETS			= $(LIBRARY) $(SHARED_LIBRARY) $(PROGRAM) $(SIMPLE_PROGRAMS) $(HOST_LIBRARY) $(HOST_PROGRAM) $(HOST_SIMPLE_PROGRAMS) $(JAVA_LIBRARY)
+TARGETS			= $(LIBRARY) $(SHARED_LIBRARY) $(PROGRAM) $(SIMPLE_PROGRAMS) $(HOST_LIBRARY) $(HOST_PROGRAM) $(HOST_SIMPLE_PROGRAMS)
 endif
 
 COBJS = $(notdir $(CSRCS:.c=.$(OBJ_SUFFIX)))
@@ -435,7 +432,10 @@ endif
 
 ifdef MACH
 ifndef NO_BUILDSTATUS_MESSAGES
-BUILDSTATUS=@echo "BUILDSTATUS $1"
+define BUILDSTATUS
+@echo "BUILDSTATUS $1"
+
+endef
 endif
 endif
 
@@ -456,7 +456,6 @@ $(call SUBMAKE,$(4),$(3),$(5))
 $(call BUILDSTATUS,TIERDIR_FINISH $(1) $(2) $(3))
 
 endef # Ths empty line is important.
-
 
 ifneq (,$(strip $(DIRS)))
 LOOP_OVER_DIRS = \
@@ -687,12 +686,13 @@ SUBMAKEFILES += $(addsuffix /Makefile, $(DIRS) $(TOOL_DIRS) $(PARALLEL_DIRS))
 # of something else. Makefiles which use this var *must* provide a sensible
 # default rule before including rules.mk
 ifndef SUPPRESS_DEFAULT_RULES
-ifndef TIERS
 default all::
 	$(MAKE) export
+ifdef MOZ_PSEUDO_DERECURSE
+	$(MAKE) compile
+endif
 	$(MAKE) libs
 	$(MAKE) tools
-endif # TIERS
 endif # SUPPRESS_DEFAULT_RULES
 
 ifeq ($(findstring s,$(filter-out --%, $(MAKEFLAGS))),)
@@ -716,35 +716,6 @@ ifneq (,$(DIRS)$(TOOL_DIRS)$(PARALLEL_DIRS))
 	$(LOOP_OVER_TOOL_DIRS)
 endif
 
-#########################
-# Tier traversal handling
-#########################
-define CREATE_SUBTIER_TRAVERSAL_RULE
-PARALLEL_DIRS_$(1) = $$(addsuffix _$(1),$$(PARALLEL_DIRS))
-
-.PHONY: $(1) $$(PARALLEL_DIRS_$(1))
-
-ifdef PARALLEL_DIRS
-$(1):: $$(PARALLEL_DIRS_$(1))
-
-$$(PARALLEL_DIRS_$(1)): %_$(1): %/Makefile
-	+@$$(call SUBMAKE,$(1),$$*)
-endif
-
-endef
-
-$(foreach subtier,export libs tools,$(eval $(call CREATE_SUBTIER_TRAVERSAL_RULE,$(subtier))))
-
-export:: $(SUBMAKEFILES)
-	$(LOOP_OVER_DIRS)
-	$(LOOP_OVER_TOOL_DIRS)
-
-
-tools:: $(SUBMAKEFILES)
-	$(LOOP_OVER_DIRS)
-	$(foreach dir,$(TOOL_DIRS),$(call SUBMAKE,libs,$(dir)))
-
-
 ifneq (,$(filter-out %.$(LIB_SUFFIX),$(SHARED_LIBRARY_LIBS)))
 $(error SHARED_LIBRARY_LIBS must contain .$(LIB_SUFFIX) files only)
 endif
@@ -758,7 +729,18 @@ GLOBAL_DEPS += Makefile.in
 endif
 
 ##############################################
+OBJ_TARGETS = $(OBJS) $(PROGOBJS) $(HOST_OBJS) $(HOST_PROGOBJS)
+
+compile:: $(OBJ_TARGETS)
+
 include $(topsrcdir)/config/makefiles/target_libs.mk
+
+ifdef IS_TOOL_DIR
+# One would think "tools:: libs" would work, but it turns out that combined with
+# bug 907365, this makes make forget to run some rules sometimes.
+tools::
+	@$(MAKE) libs
+endif
 
 ##############################################
 ifndef NO_PROFILE_GUIDED_OPTIMIZE
@@ -1238,7 +1220,7 @@ endif
 ###############################################################################
 # Java rules
 ###############################################################################
-ifneq (,$(value JAVAFILES)$(value RESFILES))
+ifneq (,$(value JAVAFILES)$(value ANDROID_RESFILES))
   include $(topsrcdir)/config/makefiles/java-build.mk
 endif
 
@@ -1274,35 +1256,12 @@ $(DEPTH)/config/autoconf.mk: $(topsrcdir)/config/autoconf.mk.in
 # Bunch of things that extend the 'export' rule (in order):
 ###############################################################################
 
-################################################################################
-# Copy each element of EXPORTS to $(DIST)/include
-
 ifneq ($(XPI_NAME),)
 $(FINAL_TARGET):
 	$(NSINSTALL) -D $@
 
 export:: $(FINAL_TARGET)
 endif
-
-ifndef NO_DIST_INSTALL
-ifneq (,$(EXPORTS))
-EXPORTS_FILES := $(EXPORTS)
-EXPORTS_DEST := $(DIST)/include
-EXPORTS_TARGET := export
-INSTALL_TARGETS += EXPORTS
-endif
-endif # NO_DIST_INSTALL
-
-define EXPORT_NAMESPACE_RULE
-ifndef NO_DIST_INSTALL
-EXPORTS_$(namespace)_FILES := $$(EXPORTS_$(namespace))
-EXPORTS_$(namespace)_DEST := $$(DIST)/include/$(namespace)
-EXPORTS_$(namespace)_TARGET := export
-INSTALL_TARGETS += EXPORTS_$(namespace)
-endif # NO_DIST_INSTALL
-endef
-
-$(foreach namespace,$(EXPORTS_NAMESPACES),$(eval $(EXPORT_NAMESPACE_RULE)))
 
 ################################################################################
 # Copy each element of PREF_JS_EXPORTS
@@ -1512,7 +1471,7 @@ PP_TARGETS += DIST_CHROME_FILES
 endif
 
 ifneq ($(XPI_PKGNAME),)
-libs realchrome::
+tools realchrome::
 ifdef STRIP_XPI
 ifndef MOZ_DEBUG
 	@echo "Stripping $(XPI_PKGNAME) package directory..."
@@ -1551,7 +1510,7 @@ ifndef XPI_NAME
 $(error XPI_NAME must be set for INSTALL_EXTENSION_ID)
 endif
 
-libs::
+tools::
 	$(RM) -r "$(DIST)/bin$(DIST_SUBDIR:%=/%)/extensions/$(INSTALL_EXTENSION_ID)"
 	$(NSINSTALL) -D "$(DIST)/bin$(DIST_SUBDIR:%=/%)/extensions/$(INSTALL_EXTENSION_ID)"
 	$(call copy_dir,$(FINAL_TARGET),$(DIST)/bin$(DIST_SUBDIR:%=/%)/extensions/$(INSTALL_EXTENSION_ID))
@@ -1764,10 +1723,8 @@ FREEZE_VARIABLES = \
   EXTRA_COMPONENTS \
   EXTRA_PP_COMPONENTS \
   MOCHITEST_FILES \
-  MOCHITEST_FILES_PARTS \
   MOCHITEST_CHROME_FILES \
   MOCHITEST_BROWSER_FILES \
-  MOCHITEST_BROWSER_FILES_PARTS \
   MOCHITEST_A11Y_FILES \
   MOCHITEST_METRO_FILES \
   MOCHITEST_ROBOCOP_FILES \

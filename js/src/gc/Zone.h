@@ -92,13 +92,11 @@ namespace JS {
  * zone.)
  */
 
-struct Zone : private JS::shadow::Zone,
+struct Zone : public JS::shadow::Zone,
               public js::gc::GraphNodeBase<JS::Zone>,
               public js::MallocProvider<JS::Zone>
 {
   private:
-    JSRuntime                    *runtime_;
-
     friend bool js::CurrentThreadCanAccessZone(Zone *zone);
 
   public:
@@ -113,21 +111,6 @@ struct Zone : private JS::shadow::Zone,
 
   public:
     bool                         active;  // GC flag, whether there are active frames
-
-    JSRuntime *runtimeFromMainThread() const {
-        JS_ASSERT(CurrentThreadCanAccessRuntime(runtime_));
-        return runtime_;
-    }
-
-    // Note: Unrestricted access to the zone's runtime from an arbitrary
-    // thread can easily lead to races. Use this method very carefully.
-    JSRuntime *runtimeFromAnyThread() const {
-        return runtime_;
-    }
-
-    bool needsBarrier() const {
-        return needsBarrier_;
-    }
 
     bool compileBarriers(bool needsBarrier) const {
         return needsBarrier || runtimeFromMainThread()->gcZeal() == js::gc::ZealVerifierPreValue;
@@ -144,13 +127,8 @@ struct Zone : private JS::shadow::Zone,
 
     void setNeedsBarrier(bool needs, ShouldUpdateIon updateIon);
 
-    static size_t OffsetOfNeedsBarrier() {
-        return offsetof(Zone, needsBarrier_);
-    }
-
-    js::GCMarker *barrierTracer() {
-        JS_ASSERT(needsBarrier_);
-        return &runtimeFromMainThread()->gcMarker;
+    const bool *AddressOfNeedsBarrier() const {
+        return &needsBarrier_;
     }
 
   public:
@@ -282,7 +260,7 @@ struct Zone : private JS::shadow::Zone,
 
     void discardJitCode(js::FreeOp *fop, bool discardConstraints);
 
-    void sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf, size_t *typePool);
+    void addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf, size_t *typePool);
 
     void setGCLastBytes(size_t lastBytes, js::JSGCInvocationKind gckind);
     void reduceGCTriggerBytes(size_t amount);
@@ -311,7 +289,7 @@ struct Zone : private JS::shadow::Zone,
         return runtimeFromMainThread()->onOutOfMemory(p, nbytes);
     }
     void reportAllocationOverflow() {
-        js_ReportAllocationOverflow(NULL);
+        js_ReportAllocationOverflow(nullptr);
     }
 
     void markTypes(JSTracer *trc);

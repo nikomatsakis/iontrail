@@ -7,11 +7,11 @@
 #include "nsStyleConsts.h"
 
 #include "nsIContent.h"
-#include "nsReadableUtils.h"
 #include "nsCSSProps.h"
 #include "nsRuleNode.h"
 #include "nsROCSSPrimitiveValue.h"
 #include "nsIContentSecurityPolicy.h"
+#include "nsIURI.h"
 
 using namespace mozilla;
 
@@ -386,6 +386,7 @@ nsStyleUtil::ComputeFunctionalAlternates(const nsCSSValueList* aList,
                                  nsCSSProps::kFontVariantAlternatesFuncsKTable,
                                  alternate)) {
       NS_NOTREACHED("keyword not a font-variant-alternates value");
+      continue;
     }
     v.alternate = alternate;
 
@@ -463,7 +464,7 @@ nsStyleUtil::CSPAllowsInlineStyle(nsIPrincipal* aPrincipal,
 
   if (csp) {
     bool inlineOK = true;
-    bool reportViolation = false;
+    bool reportViolation;
     rv = csp->GetAllowsInlineStyle(&reportViolation, &inlineOK);
     if (NS_FAILED(rv)) {
       if (aRv)
@@ -484,9 +485,9 @@ nsStyleUtil::CSPAllowsInlineStyle(nsIPrincipal* aPrincipal,
       }
 
       csp->LogViolationDetails(nsIContentSecurityPolicy::VIOLATION_TYPE_INLINE_STYLE,
-                              NS_ConvertUTF8toUTF16(asciiSpec),
-                              aStyleText,
-                              aLineNumber);
+                               NS_ConvertUTF8toUTF16(asciiSpec),
+                               aStyleText,
+                               aLineNumber);
     }
 
     if (!inlineOK) {

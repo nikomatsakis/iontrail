@@ -9,6 +9,8 @@
 #ifndef js_Class_h
 #define js_Class_h
 
+#include "mozilla/NullPtr.h"
+ 
 #include "jstypes.h"
 
 #include "js/CallArgs.h"
@@ -35,7 +37,7 @@ class SpecialId;
 
 // This is equal to JSFunction::class_.  Use it in places where you don't want
 // to #include jsfun.h.
-extern JS_FRIEND_DATA(js::Class* const) FunctionClassPtr;
+extern JS_FRIEND_DATA(const js::Class* const) FunctionClassPtr;
 
 static JS_ALWAYS_INLINE jsid
 SPECIALID_TO_JSID(const SpecialId &sid);
@@ -73,7 +75,7 @@ class SpecialId
     SpecialId(JSObject &obj)
       : bits_(uintptr_t(&obj) | TYPE_OBJECT)
     {
-        JS_ASSERT(&obj != NULL);
+        JS_ASSERT(&obj != nullptr);
         JS_ASSERT((uintptr_t(&obj) & TYPE_MASK) == 0);
     }
 
@@ -292,11 +294,6 @@ typedef bool
 typedef void
 (* JSTraceOp)(JSTracer *trc, JSObject *obj);
 
-// Callback that JSTraceOp implementation can provide to return a string
-// describing the reference traced with JS_CallTracer.
-typedef void
-(* JSTraceNamePrinter)(JSTracer *trc, char *buf, size_t bufsize);
-
 // A generic type for functions mapping an object to another object, or null
 // if an error or exception was thrown on cx.
 typedef JSObject *
@@ -373,10 +370,6 @@ typedef bool
 (* PropertyAttributesOp)(JSContext *cx, JS::HandleObject obj, JS::Handle<PropertyName*> name,
                          unsigned *attrsp);
 typedef bool
-(* ElementAttributesOp)(JSContext *cx, JS::HandleObject obj, uint32_t index, unsigned *attrsp);
-typedef bool
-(* SpecialAttributesOp)(JSContext *cx, JS::HandleObject obj, HandleSpecialId sid, unsigned *attrsp);
-typedef bool
 (* DeletePropertyOp)(JSContext *cx, JS::HandleObject obj, JS::Handle<PropertyName*> name,
                      bool *succeeded);
 typedef bool
@@ -446,7 +439,7 @@ struct ClassExtension
     JSWeakmapKeyDelegateOp weakmapKeyDelegateOp;
 };
 
-#define JS_NULL_CLASS_EXT   {NULL,NULL,NULL,false,NULL}
+#define JS_NULL_CLASS_EXT   {nullptr,nullptr,nullptr,false,nullptr}
 
 struct ObjectOps
 {
@@ -468,13 +461,7 @@ struct ObjectOps
     StrictElementIdOp   setElement;
     StrictSpecialIdOp   setSpecial;
     GenericAttributesOp getGenericAttributes;
-    PropertyAttributesOp getPropertyAttributes;
-    ElementAttributesOp getElementAttributes;
-    SpecialAttributesOp getSpecialAttributes;
     GenericAttributesOp setGenericAttributes;
-    PropertyAttributesOp setPropertyAttributes;
-    ElementAttributesOp setElementAttributes;
-    SpecialAttributesOp setSpecialAttributes;
     DeletePropertyOp    deleteProperty;
     DeleteElementOp     deleteElement;
     DeleteSpecialOp     deleteSpecial;
@@ -484,9 +471,9 @@ struct ObjectOps
 };
 
 #define JS_NULL_OBJECT_OPS                                                    \
-    {NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,   \
-     NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,        \
-     NULL,NULL,NULL}
+    {nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr, \
+     nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr, \
+     nullptr,nullptr,nullptr,nullptr,nullptr,nullptr}
 
 } // namespace js
 
@@ -645,22 +632,12 @@ JS_STATIC_ASSERT(offsetof(JSClass, hasInstance) == offsetof(Class, hasInstance))
 JS_STATIC_ASSERT(offsetof(JSClass, trace) == offsetof(Class, trace));
 JS_STATIC_ASSERT(sizeof(JSClass) == sizeof(Class));
 
-static JS_ALWAYS_INLINE JSClass *
-Jsvalify(Class *c)
-{
-    return (JSClass *)c;
-}
 static JS_ALWAYS_INLINE const JSClass *
 Jsvalify(const Class *c)
 {
     return (const JSClass *)c;
 }
 
-static JS_ALWAYS_INLINE Class *
-Valueify(JSClass *c)
-{
-    return (Class *)c;
-}
 static JS_ALWAYS_INLINE const Class *
 Valueify(const JSClass *c)
 {

@@ -7,8 +7,9 @@
 
 #include "jsapi.h"
 #include "jsfriendapi.h"
-#include "js/Vector.h"
 #include "js/GCAPI.h"
+#include "js/Tracer.h"
+#include "js/Vector.h"
 #include "mozilla/Util.h"
 #include "nsAutoJSValHolder.h"
 
@@ -386,7 +387,7 @@ EventListenerManager::DispatchEvent(JSContext* aCx, const EventTarget& aTarget,
     JS::Rooted<JS::Value> listenerVal(aCx, listeners[index]);
 
     JS::Rooted<JSObject*> listenerObj(aCx);
-    if (!JS_ValueToObject(aCx, listenerVal, listenerObj.address())) {
+    if (!JS_ValueToObject(aCx, listenerVal, &listenerObj)) {
       if (!JS_ReportPendingException(aCx)) {
         aRv.Throw(NS_ERROR_FAILURE);
         return false;

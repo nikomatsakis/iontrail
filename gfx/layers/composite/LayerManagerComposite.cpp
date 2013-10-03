@@ -51,6 +51,7 @@
 #ifdef MOZ_WIDGET_ANDROID
 #include <android/log.h>
 #endif
+#include "GeckoProfiler.h"
 
 class gfxASurface;
 class gfxContext;
@@ -147,7 +148,7 @@ LayerManagerComposite::BeginTransaction()
 }
 
 void
-LayerManagerComposite::BeginTransactionWithTarget(gfxContext *aTarget)
+LayerManagerComposite::BeginTransactionWithDrawTarget(DrawTarget* aTarget)
 {
   mInTransaction = true;
 
@@ -323,8 +324,10 @@ LayerManagerComposite::Render()
     return;
   }
 
-  
-  mCompositor->GetWidget()->PreRender(this);
+  {
+    PROFILER_LABEL("LayerManagerComposite", "PreRender");
+    mCompositor->GetWidget()->PreRender(this);
+  }
 
   nsIntRect clipRect;
   Rect bounds(mRenderBounds.x, mRenderBounds.y, mRenderBounds.width, mRenderBounds.height);
@@ -362,7 +365,10 @@ LayerManagerComposite::Render()
   // Debugging
   RenderDebugOverlay(actualBounds);
 
-  mCompositor->EndFrame();
+  {
+    PROFILER_LABEL("LayerManagerComposite", "EndFrame");
+    mCompositor->EndFrame();
+  }
 }
 
 void
@@ -753,7 +759,8 @@ LayerManagerComposite::NotifyShadowTreeTransaction()
 bool
 LayerManagerComposite::CanUseCanvasLayerForSize(const gfxIntSize &aSize)
 {
-  return mCompositor->CanUseCanvasLayerForSize(aSize);
+  return mCompositor->CanUseCanvasLayerForSize(gfx::IntSize(aSize.width,
+                                                            aSize.height));
 }
 
 TextureFactoryIdentifier

@@ -17,6 +17,7 @@
 #include "mozilla/gfx/Rect.h"           // for Rect, IntRect
 #include "mozilla/gfx/Types.h"          // for Float, etc
 #include "mozilla/layers/LayersTypes.h"
+#include "mozilla/Preferences.h"
 #include "nsAutoPtr.h"                  // for nsRefPtr
 #include "nsCOMPtr.h"                   // for already_AddRefed
 #include "nsISupportsImpl.h"            // for Layer::AddRef, etc
@@ -47,7 +48,7 @@ SetAntialiasingFlags(Layer* aLayer, gfxContext* aTarget)
                             dt->GetOpaqueRect().Contains(intTransformedBounds));
   } else {
     nsRefPtr<gfxASurface> surface = aTarget->CurrentSurface();
-    if (surface->GetContentType() != gfxASurface::CONTENT_COLOR_ALPHA) {
+    if (surface->GetContentType() != GFX_CONTENT_COLOR_ALPHA) {
       // Destination doesn't have alpha channel; no need to set any special flags
       return;
     }
@@ -74,8 +75,8 @@ ClientThebesLayer::PaintThebes()
 
   bool canUseOpaqueSurface = CanUseOpaqueSurface();
   ContentType contentType =
-    canUseOpaqueSurface ? gfxASurface::CONTENT_COLOR :
-                          gfxASurface::CONTENT_COLOR_ALPHA;
+    canUseOpaqueSurface ? GFX_CONTENT_COLOR :
+                          GFX_CONTENT_COLOR_ALPHA;
 
   {
     uint32_t flags = 0;
@@ -185,14 +186,12 @@ already_AddRefed<ThebesLayer>
 ClientLayerManager::CreateThebesLayer()
 {
   NS_ASSERTION(InConstruction(), "Only allowed in construction phase");
-#ifdef FORCE_BASICTILEDTHEBESLAYER
-  if (GetCompositorBackendType() == LAYERS_OPENGL) {
+  if (Preferences::GetBool("layers.force-tiles") && GetCompositorBackendType() == LAYERS_OPENGL) {
     nsRefPtr<ClientTiledThebesLayer> layer =
       new ClientTiledThebesLayer(this);
     CREATE_SHADOW(Thebes);
     return layer.forget();
   } else
-#endif
   {
     nsRefPtr<ClientThebesLayer> layer =
       new ClientThebesLayer(this);

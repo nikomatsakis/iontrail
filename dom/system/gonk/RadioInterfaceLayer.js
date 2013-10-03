@@ -19,6 +19,8 @@ const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
 
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://gre/modules/Services.jsm");
+Cu.import("resource://gre/modules/Sntp.jsm");
+Cu.import("resource://gre/modules/systemlibs.js");
 
 var RIL = {};
 Cu.import("resource://gre/modules/ril_consts.js", RIL);
@@ -46,9 +48,6 @@ const RADIOINTERFACE_CID =
 const RILNETWORKINTERFACE_CID =
   Components.ID("{3bdd52a9-3965-4130-b569-0ac5afed045e}");
 
-const nsIAudioManager = Ci.nsIAudioManager;
-const nsITelephonyProvider = Ci.nsITelephonyProvider;
-
 const kNetworkInterfaceStateChangedTopic = "network-interface-state-changed";
 const kSmsReceivedObserverTopic          = "sms-received";
 const kSilentSmsReceivedObserverTopic    = "silent-sms-received";
@@ -61,8 +60,10 @@ const kMozSettingsChangedObserverTopic   = "mozsettings-changed";
 const kSysMsgListenerReadyObserverTopic  = "system-message-listener-ready";
 const kSysClockChangeObserverTopic       = "system-clock-change";
 const kScreenStateChangedTopic           = "screen-state-changed";
-const kTimeNitzAutomaticUpdateEnabled    = "time.nitz.automatic-update.enabled";
-const kTimeNitzAvailable                 = "time.nitz.available";
+const kClockAutoUpdateEnabled            = "time.clock.automatic-update.enabled";
+const kClockAutoUpdateAvailable          = "time.clock.automatic-update.available";
+const kTimezoneAutoUpdateEnabled         = "time.timezone.automatic-update.enabled";
+const kTimezoneAutoUpdateAvailable       = "time.timezone.automatic-update.available";
 const kCellBroadcastSearchList           = "ril.cellbroadcast.searchlist";
 const kCellBroadcastDisabled             = "ril.cellbroadcast.disabled";
 const kPrefenceChangedObserverTopic      = "nsPref:changed";
@@ -73,30 +74,8 @@ const DOM_MOBILE_MESSAGE_DELIVERY_SENDING  = "sending";
 const DOM_MOBILE_MESSAGE_DELIVERY_SENT     = "sent";
 const DOM_MOBILE_MESSAGE_DELIVERY_ERROR    = "error";
 
-const CALL_WAKELOCK_TIMEOUT              = 5000;
-const RADIO_POWER_OFF_TIMEOUT            = 30000;
-
-const RIL_IPC_TELEPHONY_MSG_NAMES = [
-  "RIL:EnumerateCalls",
-  "RIL:GetMicrophoneMuted",
-  "RIL:SetMicrophoneMuted",
-  "RIL:GetSpeakerEnabled",
-  "RIL:SetSpeakerEnabled",
-  "RIL:StartTone",
-  "RIL:StopTone",
-  "RIL:Dial",
-  "RIL:DialEmergency",
-  "RIL:HangUp",
-  "RIL:AnswerCall",
-  "RIL:RejectCall",
-  "RIL:HoldCall",
-  "RIL:ResumeCall",
-  "RIL:RegisterTelephonyMsg",
-  "RIL:ConferenceCall",
-  "RIL:SeparateCall",
-  "RIL:HoldConference",
-  "RIL:ResumeConference"
-];
+const RADIO_POWER_OFF_TIMEOUT = 30000;
+const SMS_HANDLED_WAKELOCK_TIMEOUT = 5000;
 
 const RIL_IPC_MOBILECONNECTION_MSG_NAMES = [
   "RIL:GetRilContext",
@@ -188,6 +167,10 @@ XPCOMUtils.defineLazyServiceGetter(this, "gSystemWorkerManager",
                                    "@mozilla.org/telephony/system-worker-manager;1",
                                    "nsISystemWorkerManager");
 
+XPCOMUtils.defineLazyServiceGetter(this, "gTelephonyProvider",
+                                   "@mozilla.org/telephony/telephonyprovider;1",
+                                   "nsIGonkTelephonyProvider");
+
 XPCOMUtils.defineLazyGetter(this, "WAP", function () {
   let wap = {};
   Cu.import("resource://gre/modules/WapPushManager.js", wap);
@@ -198,64 +181,6 @@ XPCOMUtils.defineLazyGetter(this, "PhoneNumberUtils", function () {
   let ns = {};
   Cu.import("resource://gre/modules/PhoneNumberUtils.jsm", ns);
   return ns.PhoneNumberUtils;
-});
-
-function convertRILCallState(state) {
-  switch (state) {
-    case RIL.CALL_STATE_ACTIVE:
-      return nsITelephonyProvider.CALL_STATE_CONNECTED;
-    case RIL.CALL_STATE_HOLDING:
-      return nsITelephonyProvider.CALL_STATE_HELD;
-    case RIL.CALL_STATE_DIALING:
-      return nsITelephonyProvider.CALL_STATE_DIALING;
-    case RIL.CALL_STATE_ALERTING:
-      return nsITelephonyProvider.CALL_STATE_ALERTING;
-    case RIL.CALL_STATE_INCOMING:
-    case RIL.CALL_STATE_WAITING:
-      return nsITelephonyProvider.CALL_STATE_INCOMING;
-    default:
-      throw new Error("Unknown rilCallState: " + state);
-  }
-}
-
-function convertRILSuppSvcNotification(notification) {
-  switch (notification) {
-    case RIL.GECKO_SUPP_SVC_NOTIFICATION_REMOTE_HELD:
-      return nsITelephonyProvider.NOTIFICATION_REMOTE_HELD;
-    case RIL.GECKO_SUPP_SVC_NOTIFICATION_REMOTE_RESUMED:
-      return nsITelephonyProvider.NOTIFICATION_REMOTE_RESUMED;
-    default:
-      throw new Error("Unknown rilSuppSvcNotification: " + notification);
-  }
-}
-
-/**
- * Fake nsIAudioManager implementation so that we can run the telephony
- * code in a non-Gonk build.
- */
-let FakeAudioManager = {
-  microphoneMuted: false,
-  masterVolume: 1.0,
-  masterMuted: false,
-  phoneState: nsIAudioManager.PHONE_STATE_CURRENT,
-  _forceForUse: {},
-  setForceForUse: function setForceForUse(usage, force) {
-    this._forceForUse[usage] = force;
-  },
-  getForceForUse: function setForceForUse(usage) {
-    return this._forceForUse[usage] || nsIAudioManager.FORCE_NONE;
-  }
-};
-
-XPCOMUtils.defineLazyGetter(this, "gAudioManager", function getAudioManager() {
-  try {
-    return Cc["@mozilla.org/telephony/audiomanager;1"]
-             .getService(nsIAudioManager);
-  } catch (ex) {
-    //TODO on the phone this should not fall back as silently.
-    if (DEBUG) debug("Using fake audio manager.");
-    return FakeAudioManager;
-  }
 });
 
 XPCOMUtils.defineLazyGetter(this, "gMessageManager", function () {
@@ -290,9 +215,6 @@ XPCOMUtils.defineLazyGetter(this, "gMessageManager", function () {
 
     _registerMessageListeners: function _registerMessageListeners() {
       ppmm.addMessageListener("child-process-shutdown", this);
-      for (let msgname of RIL_IPC_TELEPHONY_MSG_NAMES) {
-        ppmm.addMessageListener(msgname, this);
-      }
       for (let msgname of RIL_IPC_MOBILECONNECTION_MSG_NAMES) {
         ppmm.addMessageListener(msgname, this);
       }
@@ -309,9 +231,6 @@ XPCOMUtils.defineLazyGetter(this, "gMessageManager", function () {
 
     _unregisterMessageListeners: function _unregisterMessageListeners() {
       ppmm.removeMessageListener("child-process-shutdown", this);
-      for (let msgname of RIL_IPC_TELEPHONY_MSG_NAMES) {
-        ppmm.removeMessageListener(msgname, this);
-      }
       for (let msgname of RIL_IPC_MOBILECONNECTION_MSG_NAMES) {
         ppmm.removeMessageListener(msgname, this);
       }
@@ -427,18 +346,10 @@ XPCOMUtils.defineLazyGetter(this, "gMessageManager", function () {
         // already forgotten its permissions so we need to unregister the target
         // for every permission.
         this._unregisterMessageTarget(null, msg.target);
-        return;
+        return null;
       }
 
-      if (RIL_IPC_TELEPHONY_MSG_NAMES.indexOf(msg.name) != -1) {
-        if (!msg.target.assertPermission("telephony")) {
-          if (DEBUG) {
-            debug("Telephony message " + msg.name +
-                  " from a content process with no 'telephony' privileges.");
-          }
-          return null;
-        }
-      } else if (RIL_IPC_MOBILECONNECTION_MSG_NAMES.indexOf(msg.name) != -1) {
+      if (RIL_IPC_MOBILECONNECTION_MSG_NAMES.indexOf(msg.name) != -1) {
         if (!msg.target.assertPermission("mobileconnection")) {
           if (DEBUG) {
             debug("MobileConnection message " + msg.name +
@@ -476,21 +387,18 @@ XPCOMUtils.defineLazyGetter(this, "gMessageManager", function () {
       }
 
       switch (msg.name) {
-        case "RIL:RegisterTelephonyMsg":
-          this._registerMessageTarget("telephony", msg.target);
-          return;
         case "RIL:RegisterMobileConnectionMsg":
           this._registerMessageTarget("mobileconnection", msg.target);
-          return;
+          return null;
         case "RIL:RegisterIccMsg":
           this._registerMessageTarget("icc", msg.target);
-          return;
+          return null;
         case "RIL:RegisterVoicemailMsg":
           this._registerMessageTarget("voicemail", msg.target);
-          return;
+          return null;
         case "RIL:RegisterCellBroadcastMsg":
           this._registerMessageTarget("cellbroadcast", msg.target);
-          return;
+          return null;
       }
 
       let clientId = msg.json.clientId || 0;
@@ -517,13 +425,6 @@ XPCOMUtils.defineLazyGetter(this, "gMessageManager", function () {
           this._shutdown();
           break;
       }
-    },
-
-    sendTelephonyMessage: function sendTelephonyMessage(message, clientId, data) {
-      this._sendTargetMessage("telephony", message, {
-        clientId: clientId,
-        data: data
-      });
     },
 
     sendMobileConnectionMessage: function sendMobileConnectionMessage(message, clientId, data) {
@@ -611,11 +512,18 @@ RadioInterfaceLayer.prototype = {
 
 XPCOMUtils.defineLazyGetter(RadioInterfaceLayer.prototype,
                             "numRadioInterfaces", function () {
+  // When Gonk property "ro.moz.ril.numclients" is not set, return 1; if
+  // explicitly set to any number larger-equal than 0, return num; else, return
+  // 1 for compatibility.
   try {
-    return Services.prefs.getIntPref("ril.numRadioInterfaces");
-  } catch (e) {
-    return 1;
-  }
+    let numString = libcutils.property_get("ro.moz.ril.numclients", "1");
+    let num = parseInt(numString, 10);
+    if (num >= 0) {
+      return num;
+    }
+  } catch (e) {}
+
+  return 1;
 });
 
 function WorkerMessenger(radioInterface, options) {
@@ -736,11 +644,14 @@ WorkerMessenger.prototype = {
    * @TODO: Bug 815526 - deprecate RILContentHelper.
    */
   sendWithIPCMessage: function sendWithIPCMessage(msg, rilMessageType, ipcType) {
-    this.send(rilMessageType, msg.json.data, function(reply) {
+    this.send(rilMessageType, msg.json.data, (function(reply) {
       ipcType = ipcType || msg.name;
-      msg.target.sendAsyncMessage(ipcType, reply);
+      msg.target.sendAsyncMessage(ipcType, {
+        clientId: this.radioInterface.clientId,
+        data: reply
+      });
       return false;
-    });
+    }).bind(this));
   }
 };
 
@@ -812,12 +723,19 @@ function RadioInterface(options) {
   lock.get("ril.data.enabled", this);
   lock.get("ril.data.apnSettings", this);
 
-  // Read the 'time.nitz.automatic-update.enabled' setting to see if
-  // we need to adjust the system clock time and time zone by NITZ.
-  lock.get(kTimeNitzAutomaticUpdateEnabled, this);
+  // Read the 'time.clock.automatic-update.enabled' setting to see if
+  // we need to adjust the system clock time by NITZ or SNTP.
+  lock.get(kClockAutoUpdateEnabled, this);
 
-  // Set "time.nitz.available" to false when starting up.
-  this.setNitzAvailable(false);
+  // Read the 'time.timezone.automatic-update.enabled' setting to see if
+  // we need to adjust the system timezone by NITZ.
+  lock.get(kTimezoneAutoUpdateEnabled, this);
+
+  // Set "time.clock.automatic-update.available" to false when starting up.
+  this.setClockAutoUpdateAvailable(false);
+
+  // Set "time.timezone.automatic-update.available" to false when starting up.
+  this.setTimezoneAutoUpdateAvailable(false);
 
   // Read the Cell Broadcast Search List setting, string of integers or integer
   // ranges separated by comma, to set listening channels.
@@ -829,11 +747,20 @@ function RadioInterface(options) {
   Services.obs.addObserver(this, kSysClockChangeObserverTopic, false);
   Services.obs.addObserver(this, kScreenStateChangedTopic, false);
 
+  Services.obs.addObserver(this, kNetworkInterfaceStateChangedTopic, false);
   Services.prefs.addObserver(kCellBroadcastDisabled, this, false);
 
   this.portAddressedSmsApps = {};
   this.portAddressedSmsApps[WAP.WDP_PORT_PUSH] = this.handleSmsWdpPortPush.bind(this);
+
+  this._sntp = new Sntp(this.setClockBySntp.bind(this),
+                        Services.prefs.getIntPref('network.sntp.maxRetryCount'),
+                        Services.prefs.getIntPref('network.sntp.refreshPeriod'),
+                        Services.prefs.getIntPref('network.sntp.timeout'),
+                        Services.prefs.getCharPref('network.sntp.pools').split(';'),
+                        Services.prefs.getIntPref('network.sntp.port'));
 }
+
 RadioInterface.prototype = {
 
   classID:   RADIOINTERFACE_CID,
@@ -894,61 +821,6 @@ RadioInterface.prototype = {
       case "RIL:GetRilContext":
         // This message is sync.
         return this.rilContext;
-      case "RIL:EnumerateCalls":
-        this.enumerateCalls(msg.target, msg.json.data);
-        break;
-      case "RIL:GetMicrophoneMuted":
-        // This message is sync.
-        return this.microphoneMuted;
-      case "RIL:SetMicrophoneMuted":
-        this.microphoneMuted = msg.json.data;
-        break;
-      case "RIL:GetSpeakerEnabled":
-        // This message is sync.
-        return this.speakerEnabled;
-      case "RIL:SetSpeakerEnabled":
-        this.speakerEnabled = msg.json.data;
-        break;
-      case "RIL:StartTone":
-        this.workerMessenger.send("startTone", { dtmfChar: msg.json.data });
-        break;
-      case "RIL:StopTone":
-        this.workerMessenger.send("stopTone");
-        break;
-      case "RIL:Dial":
-        this.dial(msg.json.data);
-        break;
-      case "RIL:DialEmergency":
-        this.dialEmergency(msg.json.data);
-        break;
-      case "RIL:HangUp":
-        this.workerMessenger.send("hangUp", { callIndex: msg.json.data });
-        break;
-      case "RIL:AnswerCall":
-        this.workerMessenger.send("answerCall", { callIndex: msg.json.data });
-        break;
-      case "RIL:RejectCall":
-        this.workerMessenger.send("rejectCall", { callIndex: msg.json.data });
-        break;
-      case "RIL:HoldCall":
-        this.workerMessenger.send("holdCall", { callIndex: msg.json.data });
-        break;
-      case "RIL:ResumeCall":
-        this.workerMessenger.send("resumeCall", { callIndex: msg.json.data });
-        break;
-      case "RIL:ConferenceCall":
-        this.workerMessenger.send("conferenceCall");
-        break;
-      case "RIL:SeparateCall":
-        this.workerMessenger.send("separateCall",
-                                  { callIndex: msg.json.data });
-        break;
-      case "RIL:HoldConference":
-        this.workerMessenger.send("holdConference");
-        break;
-      case "RIL:ResumeConference":
-        this.workerMessenger.send("resumeConference");
-        break;
       case "RIL:GetAvailableNetworks":
         this.workerMessenger.sendWithIPCMessage(msg, "getAvailableNetworks");
         break;
@@ -1053,33 +925,32 @@ RadioInterface.prototype = {
         this.workerMessenger.sendWithIPCMessage(msg, "queryVoicePrivacyMode");
         break;
     }
+    return null;
   },
 
   handleUnsolicitedWorkerMessage: function handleUnsolicitedWorkerMessage(message) {
     switch (message.rilMessageType) {
       case "callRing":
-        this.handleCallRing();
+        gTelephonyProvider.notifyCallRing();
         break;
       case "callStateChange":
-        // This one will handle its own notifications.
-        this.handleCallStateChange(message.call);
+        gTelephonyProvider.notifyCallStateChanged(message.call);
         break;
       case "callDisconnected":
-        // This one will handle its own notifications.
-        this.handleCallDisconnected(message.call);
+        gTelephonyProvider.notifyCallDisconnected(message.call);
         break;
       case "conferenceCallStateChanged":
-        this.handleConferenceCallStateChanged(message.state);
+        gTelephonyProvider.notifyConferenceCallStateChanged(message.state);
         break;
       case "cdmaCallWaiting":
-        gMessageManager.sendTelephonyMessage("RIL:CdmaCallWaiting",
-                                             this.clientId, message.number);
+        gTelephonyProvider.notifyCdmaCallWaiting(message.number);
         break;
       case "callError":
-        this.handleCallError(message);
+        gTelephonyProvider.notifyCallError(message.callIndex, message.errorMsg);
         break;
       case "suppSvcNotification":
-        this.handleSuppSvcNotification(message);
+        gTelephonyProvider.notifySupplementaryService(message.callIndex,
+                                                      message.notification);
         break;
       case "emergencyCbModeChange":
         this.handleEmergencyCbModeChange(message);
@@ -1161,6 +1032,10 @@ RadioInterface.prototype = {
         break;
       case "exitEmergencyCbMode":
         this.handleExitEmergencyCbMode(message);
+        break;
+      case "cdma-info-rec-received":
+        if (DEBUG) this.debug("cdma-info-rec-received: " + JSON.stringify(message));
+        gSystemMessenger.broadcastMessage("cdma-info-rec-received", message);
         break;
       default:
         throw new Error("Don't know about this message type: " +
@@ -1728,165 +1603,6 @@ RadioInterface.prototype = {
   },
 
   /**
-   * Track the active call and update the audio system as its state changes.
-   */
-  _activeCall: null,
-  updateCallAudioState: function updateCallAudioState(options) {
-    if (options.conferenceState === nsITelephonyProvider.CALL_STATE_CONNECTED) {
-      gAudioManager.phoneState = nsIAudioManager.PHONE_STATE_IN_CALL;
-      if (this.speakerEnabled) {
-        gAudioManager.setForceForUse(nsIAudioManager.USE_COMMUNICATION,
-                                     nsIAudioManager.FORCE_SPEAKER);
-      }
-      return;
-    }
-    if (options.conferenceState === nsITelephonyProvider.CALL_STATE_UNKNOWN ||
-        options.conferenceState === nsITelephonyProvider.CALL_STATE_HELD) {
-      if (!this._activeCall) {
-        gAudioManager.phoneState = nsIAudioManager.PHONE_STATE_NORMAL;
-      }
-      return;
-    }
-
-    if (!options.call) {
-      return;
-    }
-
-    if (options.call.isConference) {
-      if (this._activeCall && this._activeCall.callIndex == options.call.callIndex) {
-        this._activeCall = null;
-      }
-      return;
-    }
-
-    let call = options.call;
-    switch (call.state) {
-      case nsITelephonyProvider.CALL_STATE_DIALING: // Fall through...
-      case nsITelephonyProvider.CALL_STATE_ALERTING:
-      case nsITelephonyProvider.CALL_STATE_CONNECTED:
-        call.isActive = true;
-        this._activeCall = call;
-        gAudioManager.phoneState = nsIAudioManager.PHONE_STATE_IN_CALL;
-        if (this.speakerEnabled) {
-          gAudioManager.setForceForUse(nsIAudioManager.USE_COMMUNICATION,
-                                       nsIAudioManager.FORCE_SPEAKER);
-        }
-        if (DEBUG) {
-          this.debug("Active call, put audio system into PHONE_STATE_IN_CALL: "
-                     + gAudioManager.phoneState);
-        }
-        break;
-      case nsITelephonyProvider.CALL_STATE_INCOMING:
-        call.isActive = false;
-        if (!this._activeCall) {
-          // We can change the phone state into RINGTONE only when there's
-          // no active call.
-          gAudioManager.phoneState = nsIAudioManager.PHONE_STATE_RINGTONE;
-          if (DEBUG) {
-            this.debug("Incoming call, put audio system into " +
-                       "PHONE_STATE_RINGTONE: " + gAudioManager.phoneState);
-          }
-        }
-        break;
-      case nsITelephonyProvider.CALL_STATE_HELD: // Fall through...
-      case nsITelephonyProvider.CALL_STATE_DISCONNECTED:
-        call.isActive = false;
-        if (this._activeCall &&
-            this._activeCall.callIndex == call.callIndex) {
-          // Previously active call is not active now.
-          this._activeCall = null;
-        }
-
-        if (!this._activeCall) {
-          // No active call. Disable the audio.
-          gAudioManager.phoneState = nsIAudioManager.PHONE_STATE_NORMAL;
-          if (DEBUG) {
-            this.debug("No active call, put audio system into " +
-                       "PHONE_STATE_NORMAL: " + gAudioManager.phoneState);
-          }
-        }
-        break;
-    }
-  },
-
-  _callRingWakeLock: null,
-  _callRingWakeLockTimer: null,
-  _cancelCallRingWakeLockTimer: function _cancelCallRingWakeLockTimer() {
-    if (this._callRingWakeLockTimer) {
-      this._callRingWakeLockTimer.cancel();
-    }
-    if (this._callRingWakeLock) {
-      this._callRingWakeLock.unlock();
-      this._callRingWakeLock = null;
-    }
-  },
-
-  /**
-   * Handle an incoming call.
-   *
-   * Not much is known about this call at this point, but it's enough
-   * to start bringing up the Phone app already.
-   */
-  handleCallRing: function handleCallRing() {
-    if (!this._callRingWakeLock) {
-      this._callRingWakeLock = gPowerManagerService.newWakeLock("cpu");
-    }
-    if (!this._callRingWakeLockTimer) {
-      this._callRingWakeLockTimer =
-        Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
-    }
-    this._callRingWakeLockTimer
-        .initWithCallback(this._cancelCallRingWakeLockTimer.bind(this),
-                          CALL_WAKELOCK_TIMEOUT, Ci.nsITimer.TYPE_ONE_SHOT);
-
-    gSystemMessenger.broadcastMessage("telephony-new-call", {});
-  },
-
-  /**
-   * Handle call state changes by updating our current state and the audio
-   * system.
-   */
-  handleCallStateChange: function handleCallStateChange(call) {
-    if (DEBUG) this.debug("handleCallStateChange: " + JSON.stringify(call));
-    call.state = convertRILCallState(call.state);
-
-    if (call.state == nsITelephonyProvider.CALL_STATE_DIALING) {
-      gSystemMessenger.broadcastMessage("telephony-new-call", {});
-    }
-    this.updateCallAudioState({call: call});
-    gMessageManager.sendTelephonyMessage("RIL:CallStateChanged",
-                                         this.clientId, call);
-  },
-
-  /**
-   * Handle call disconnects by updating our current state and the audio system.
-   */
-  handleCallDisconnected: function handleCallDisconnected(call) {
-    if (DEBUG) this.debug("handleCallDisconnected: " + JSON.stringify(call));
-    call.state = nsITelephonyProvider.CALL_STATE_DISCONNECTED;
-    let duration = ("started" in call && typeof call.started == "number") ?
-      new Date().getTime() - call.started : 0;
-    let data = {
-      number: call.number,
-      duration: duration,
-      direction: call.isOutgoing ? "outgoing" : "incoming"
-    };
-    gSystemMessenger.broadcastMessage("telephony-call-ended", data);
-    this.updateCallAudioState({call: call});
-    gMessageManager.sendTelephonyMessage("RIL:CallStateChanged",
-                                         this.clientId, call);
-  },
-
-  handleConferenceCallStateChanged: function handleConferenceCallStateChanged(state) {
-    debug("handleConferenceCallStateChanged: " + state);
-    state = state != null ? convertRILCallState(state) :
-                            nsITelephonyProvider.CALL_STATE_UNKNOWN;
-    this.updateCallAudioState({conferenceState: state});
-    gMessageManager.sendTelephonyMessage("RIL:ConferenceCallStateChanged",
-                                         this.clientId, state);
-  },
-
-  /**
    * Update network selection mode
    */
   updateNetworkSelectionMode: function updateNetworkSelectionMode(message) {
@@ -1903,23 +1619,6 @@ RadioInterface.prototype = {
     if (DEBUG) this.debug("handleEmergencyCbModeChange: " + JSON.stringify(message));
     gMessageManager.sendMobileConnectionMessage("RIL:EmergencyCbModeChanged",
                                                 this.clientId, message);
-  },
-
-  /**
-   * Handle call error.
-   */
-  handleCallError: function handleCallError(message) {
-    gMessageManager.sendTelephonyMessage("RIL:CallError",
-                                         this.clientId, message);
-  },
-
-  /**
-   * Handle supplementary service notification.
-   */
-  handleSuppSvcNotification: function handleSuppSvcNotification(message) {
-    message.notification = convertRILSuppSvcNotification(message.notification);
-    gMessageManager.sendTelephonyMessage("RIL:SuppSvcNotification",
-                                         this.clientId, message);
   },
 
   /**
@@ -1979,9 +1678,42 @@ RadioInterface.prototype = {
     });
   },
 
+  // The following attributes/functions are used for acquiring the CPU wake
+  // lock when the RIL handles the received SMS. Note that we need a timer to
+  // bound the lock's life cycle to avoid exhausting the battery.
+  _smsHandledWakeLock: null,
+  _smsHandledWakeLockTimer: null,
+  _cancelSmsHandledWakeLockTimer: function _cancelSmsHandledWakeLockTimer() {
+    if (DEBUG) this.debug("Releasing the CPU wake lock for handling SMS.");
+    if (this._smsHandledWakeLockTimer) {
+      this._smsHandledWakeLockTimer.cancel();
+    }
+    if (this._smsHandledWakeLock) {
+      this._smsHandledWakeLock.unlock();
+      this._smsHandledWakeLock = null;
+    }
+  },
+
   portAddressedSmsApps: null,
   handleSmsReceived: function handleSmsReceived(message) {
     if (DEBUG) this.debug("handleSmsReceived: " + JSON.stringify(message));
+
+    // We need to acquire a CPU wake lock to avoid the system falling into
+    // the sleep mode when the RIL handles the received SMS.
+    if (!this._smsHandledWakeLock) {
+      if (DEBUG) this.debug("Acquiring a CPU wake lock for handling SMS.");
+      this._smsHandledWakeLock = gPowerManagerService.newWakeLock("cpu");
+    }
+    if (!this._smsHandledWakeLockTimer) {
+      if (DEBUG) this.debug("Creating a timer for releasing the CPU wake lock.");
+      this._smsHandledWakeLockTimer =
+        Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
+    }
+    if (DEBUG) this.debug("Setting the timer for releasing the CPU wake lock.");
+    this._smsHandledWakeLockTimer
+        .initWithCallback(this._cancelSmsHandledWakeLockTimer.bind(this),
+                          SMS_HANDLED_WAKELOCK_TIMEOUT,
+                          Ci.nsITimer.TYPE_ONE_SHOT);
 
     // FIXME: Bug 737202 - Typed arrays become normal arrays when sent to/from workers
     if (message.encoding == RIL.PDU_DCS_MSG_CODING_8BITS_ALPHABET) {
@@ -2159,22 +1891,35 @@ RadioInterface.prototype = {
   },
 
   /**
-   * Set the setting value of "time.nitz.available".
+   * Set the setting value of "time.clock.automatic-update.available".
    */
-  setNitzAvailable: function setNitzAvailable(value) {
-    gSettingsService.createLock().set(kTimeNitzAvailable, value, null,
+  setClockAutoUpdateAvailable: function setClockAutoUpdateAvailable(value) {
+    gSettingsService.createLock().set(kClockAutoUpdateAvailable, value, null,
                                       "fromInternalSetting");
   },
 
   /**
-   * Set the NITZ message in our system time.
+   * Set the setting value of "time.timezone.automatic-update.available".
    */
-  setNitzTime: function setNitzTime(message) {
+  setTimezoneAutoUpdateAvailable: function setTimezoneAutoUpdateAvailable(value) {
+    gSettingsService.createLock().set(kTimezoneAutoUpdateAvailable, value, null,
+                                      "fromInternalSetting");
+  },
+
+  /**
+   * Set the system clock by NITZ.
+   */
+  setClockByNitz: function setClockByNitz(message) {
     // To set the system clock time. Note that there could be a time diff
     // between when the NITZ was received and when the time is actually set.
     gTimeService.set(
       message.networkTimeInMS + (Date.now() - message.receiveTimeInMS));
+  },
 
+  /**
+   * Set the system time zone by NITZ.
+   */
+  setTimezoneByNitz: function setTimezoneByNitz(message) {
     // To set the sytem timezone. Note that we need to convert the time zone
     // value to a UTC repesentation string in the format of "UTC(+/-)hh:mm".
     // Ex, time zone -480 is "UTC-08:00"; time zone 630 is "UTC+10:30".
@@ -2197,15 +1942,36 @@ RadioInterface.prototype = {
    */
   handleNitzTime: function handleNitzTime(message) {
     // Got the NITZ info received from the ril_worker.
-    this.setNitzAvailable(true);
+    this.setClockAutoUpdateAvailable(true);
+    this.setTimezoneAutoUpdateAvailable(true);
 
     // Cache the latest NITZ message whenever receiving it.
     this._lastNitzMessage = message;
 
-    // Set the received NITZ time if the setting is enabled.
-    if (this._nitzAutomaticUpdateEnabled) {
-      this.setNitzTime(message);
+    // Set the received NITZ clock if the setting is enabled.
+    if (this._clockAutoUpdateEnabled) {
+      this.setClockByNitz(message);
     }
+    // Set the received NITZ timezone if the setting is enabled.
+    if (this._timezoneAutoUpdateEnabled) {
+      this.setTimezoneByNitz(message);
+    }
+  },
+
+  /**
+   * Set the system clock by SNTP.
+   */
+  setClockBySntp: function setClockBySntp(offset) {
+    // Got the SNTP info.
+    this.setClockAutoUpdateAvailable(true);
+    if (!this._clockAutoUpdateEnabled) {
+      return;
+    }
+    if (this._lastNitzMessage) {
+      debug("SNTP: NITZ available, discard SNTP");
+      return;
+    }
+    gTimeService.set(Date.now() + offset);
   },
 
   handleIccMbdn: function handleIccMbdn(message) {
@@ -2309,8 +2075,9 @@ RadioInterface.prototype = {
         }
         break;
       case "xpcom-shutdown":
-        // Cancel the timer for the call-ring wake lock.
-        this._cancelCallRingWakeLockTimer();
+        // Cancel the timer of the CPU wake lock for handling the received SMS.
+        this._cancelSmsHandledWakeLockTimer();
+
         // Shutdown all RIL network interfaces
         for each (let apnSetting in this.apnSettings.byAPN) {
           if (apnSetting.iface) {
@@ -2321,11 +2088,24 @@ RadioInterface.prototype = {
         Services.obs.removeObserver(this, kMozSettingsChangedObserverTopic);
         Services.obs.removeObserver(this, kSysClockChangeObserverTopic);
         Services.obs.removeObserver(this, kScreenStateChangedTopic);
+        Services.obs.removeObserver(this, kNetworkInterfaceStateChangedTopic);
         Services.prefs.removeObserver(kCellBroadcastDisabled, this);
         break;
       case kSysClockChangeObserverTopic:
+        let offset = parseInt(data, 10);
         if (this._lastNitzMessage) {
-          this._lastNitzMessage.receiveTimeInMS += parseInt(data, 10);
+          this._lastNitzMessage.receiveTimeInMS += offset;
+        }
+        this._sntp.updateOffset(offset);
+        break;
+      case kNetworkInterfaceStateChangedTopic:
+        let network = subject.QueryInterface(Ci.nsINetworkInterface);
+        if (network.state == Ci.nsINetworkInterface.NETWORK_STATE_CONNECTED) {
+          // Check SNTP when we have data connection, this may not take
+          // effect immediately before the setting get enabled.
+          if (this._sntp.isExpired()) {
+            this._sntp.request();
+          }
         }
         break;
       case kScreenStateChangedTopic:
@@ -2351,28 +2131,51 @@ RadioInterface.prototype = {
 
   apnSettings: null,
 
-  // Flag to determine whether to use NITZ. It corresponds to the
-  // 'time.nitz.automatic-update.enabled' setting from the UI.
-  _nitzAutomaticUpdateEnabled: null,
+  // Flag to determine whether to update system clock automatically. It
+  // corresponds to the 'time.clock.automatic-update.enabled' setting.
+  _clockAutoUpdateEnabled: null,
+
+  // Flag to determine whether to update system timezone automatically. It
+  // corresponds to the 'time.clock.automatic-update.enabled' setting.
+  _timezoneAutoUpdateEnabled: null,
 
   // Remember the last NITZ message so that we can set the time based on
   // the network immediately when users enable network-based time.
   _lastNitzMessage: null,
+
+  // Object that handles SNTP.
+  _sntp: null,
 
   // Cell Broadcast settings values.
   _cellBroadcastSearchListStr: null,
 
   handleSettingsChange: function handleSettingsChange(aName, aResult, aMessage) {
     // Don't allow any content processes to modify the setting
-    // "time.nitz.available" except for the chrome process.
-    let isNitzAvailable = (this._lastNitzMessage !== null);
-    if (aName === kTimeNitzAvailable && aMessage !== "fromInternalSetting" &&
-        aResult !== isNitzAvailable) {
-      if (DEBUG) {
-        this.debug("Content processes cannot modify 'time.nitz.available'. Restore!");
+    // "time.clock.automatic-update.available" except for the chrome process.
+    if (aName === kClockAutoUpdateAvailable &&
+        aMessage !== "fromInternalSetting") {
+      let isClockAutoUpdateAvailable = this._lastNitzMessage !== null ||
+                                       this._sntp.isAvailable();
+      if (aResult !== isClockAutoUpdateAvailable) {
+        debug("Content processes cannot modify 'time.clock.automatic-update.available'. Restore!");
+        // Restore the setting to the current value.
+        this.setClockAutoUpdateAvailable(isClockAutoUpdateAvailable);
       }
-      // Restore the setting to the current value.
-      this.setNitzAvailable(isNitzAvailable);
+    }
+
+    // Don't allow any content processes to modify the setting
+    // "time.timezone.automatic-update.available" except for the chrome
+    // process.
+    if (aName === kTimezoneAutoUpdateAvailable &&
+        aMessage !== "fromInternalSetting") {
+      let isTimezoneAutoUpdateAvailable = this._lastNitzMessage !== null;
+      if (aResult !== isTimezoneAutoUpdateAvailable) {
+        if (DEBUG) {
+          this.debug("Content processes cannot modify 'time.timezone.automatic-update.available'. Restore!");
+        }
+        // Restore the setting to the current value.
+        this.setTimezoneAutoUpdateAvailable(isTimezoneAutoUpdateAvailable);
+      }
     }
 
     this.handle(aName, aResult);
@@ -2415,12 +2218,34 @@ RadioInterface.prototype = {
           this.updateRILNetworkInterface();
         }
         break;
-      case kTimeNitzAutomaticUpdateEnabled:
-        this._nitzAutomaticUpdateEnabled = aResult;
+      case kClockAutoUpdateEnabled:
+        this._clockAutoUpdateEnabled = aResult;
+        if (!this._clockAutoUpdateEnabled) {
+          break;
+        }
 
-        // Set the latest cached NITZ time if the setting is enabled.
-        if (this._nitzAutomaticUpdateEnabled && this._lastNitzMessage) {
-          this.setNitzTime(this._lastNitzMessage);
+        // Set the latest cached NITZ time if it's available.
+        if (this._lastNitzMessage) {
+          this.setClockByNitz(this._lastNitzMessage);
+        } else if (gNetworkManager.active && gNetworkManager.active.state ==
+                 Ci.nsINetworkInterface.NETWORK_STATE_CONNECTED) {
+          // Set the latest cached SNTP time if it's available.
+          if (!this._sntp.isExpired()) {
+            this.setClockBySntp(this._sntp.getOffset());
+          } else {
+            // Or refresh the SNTP.
+            this._sntp.request();
+          }
+        }
+        break;
+      case kTimezoneAutoUpdateEnabled:
+        this._timezoneAutoUpdateEnabled = aResult;
+
+        if (this._timezoneAutoUpdateEnabled) {
+          // Apply the latest cached NITZ for timezone if it's available.
+          if (this._timezoneAutoUpdateEnabled && this._lastNitzMessage) {
+            this.setTimezoneByNitz(this._lastNitzMessage);
+          }
         }
         break;
       case kCellBroadcastSearchList:
@@ -2460,56 +2285,6 @@ RadioInterface.prototype = {
 
   // Handle phone functions of nsIRILContentHelper
 
-  enumerateCalls: function enumerateCalls(target, message) {
-    if (DEBUG) this.debug("Requesting enumeration of calls for callback");
-    this.workerMessenger.send("enumerateCalls", message, (function(response) {
-      for (let call of response.calls) {
-        call.state = convertRILCallState(call.state);
-        call.isActive = this._activeCall ?
-          call.callIndex == this._activeCall.callIndex : false;
-      }
-      target.sendAsyncMessage("RIL:EnumerateCalls", response);
-      return false;
-    }).bind(this));
-  },
-
-  _validateNumber: function _validateNumber(number) {
-    // note: isPlainPhoneNumber also accepts USSD and SS numbers
-    if (PhoneNumberUtils.isPlainPhoneNumber(number)) {
-      return true;
-    }
-
-    this.handleCallError({
-      callIndex: -1,
-      errorMsg: RIL.RIL_CALL_FAILCAUSE_TO_GECKO_CALL_ERROR[RIL.CALL_FAIL_UNOBTAINABLE_NUMBER]
-    });
-    if (DEBUG) {
-      this.debug("Number '" + number + "' doesn't seem to be a viable number." +
-                 " Drop.");
-    }
-
-    return false;
-  },
-
-  dial: function dial(number) {
-    if (DEBUG) this.debug("Dialing " + number);
-    number = PhoneNumberUtils.normalize(number);
-    if (this._validateNumber(number)) {
-      this.workerMessenger.send("dial", { number: number,
-                                          isDialEmergency: false });
-    }
-  },
-
-  dialEmergency: function dialEmergency(number) {
-    if (DEBUG) this.debug("Dialing emergency " + number);
-    // we don't try to be too clever here, as the phone is probably in the
-    // locked state. Let's just check if it's a number without normalizing
-    if (this._validateNumber(number)) {
-      this.workerMessenger.send("dial", { number: number,
-                                          isDialEmergency: true });
-    }
-  },
-
   _sendCfStateChanged: function _sendCfStateChanged(message) {
     gMessageManager.sendMobileConnectionMessage("RIL:CfStateChanged",
                                                 this.clientId, message);
@@ -2535,7 +2310,10 @@ RadioInterface.prototype = {
         this._updateCallingLineIdRestrictionPref(response.clirMode);
       }
 
-      target.sendAsyncMessage("RIL:SendMMI", response);
+      target.sendAsyncMessage("RIL:SendMMI", {
+        clientId: this.clientId,
+        data: response
+      });
       return false;
     }).bind(this));
   },
@@ -2545,7 +2323,10 @@ RadioInterface.prototype = {
     message.serviceClass = RIL.ICC_SERVICE_CLASS_VOICE;
     this.workerMessenger.send("setCallForward", message, (function(response) {
       this._sendCfStateChanged(response);
-      target.sendAsyncMessage("RIL:SetCallForwardingOption", response);
+      target.sendAsyncMessage("RIL:SetCallForwardingOption", {
+        clientId: this.clientId,
+        data: response
+      });
       return false;
     }).bind(this));
   },
@@ -2559,40 +2340,12 @@ RadioInterface.prototype = {
       if (response.success) {
         this._updateCallingLineIdRestrictionPref(response.clirMode);
       }
-      target.sendAsyncMessage("RIL:SetCallingLineIdRestriction", response);
+      target.sendAsyncMessage("RIL:SetCallingLineIdRestriction", {
+        clientId: this.clientId,
+        data: response
+      });
       return false;
     }).bind(this));
-  },
-
-  get microphoneMuted() {
-    return gAudioManager.microphoneMuted;
-  },
-  set microphoneMuted(value) {
-    if (value == this.microphoneMuted) {
-      return;
-    }
-    gAudioManager.microphoneMuted = value;
-
-    if (!this._activeCall) {
-      gAudioManager.phoneState = nsIAudioManager.PHONE_STATE_NORMAL;
-    }
-  },
-
-  get speakerEnabled() {
-    return (gAudioManager.getForceForUse(nsIAudioManager.USE_COMMUNICATION) ==
-            nsIAudioManager.FORCE_SPEAKER);
-  },
-  set speakerEnabled(value) {
-    if (value == this.speakerEnabled) {
-      return;
-    }
-    let force = value ? nsIAudioManager.FORCE_SPEAKER :
-                        nsIAudioManager.FORCE_NONE;
-    gAudioManager.setForceForUse(nsIAudioManager.USE_COMMUNICATION, force);
-
-    if (!this._activeCall) {
-      gAudioManager.phoneState = nsIAudioManager.PHONE_STATE_NORMAL;
-    }
   },
 
   /**
@@ -3092,9 +2845,12 @@ RadioInterface.prototype = {
         if (response.errorMsg) {
           // Failed to send SMS out.
           let error = Ci.nsIMobileMessageCallback.UNKNOWN_ERROR;
-          switch (message.errorMsg) {
+          switch (response.errorMsg) {
             case RIL.ERROR_RADIO_NOT_AVAILABLE:
               error = Ci.nsIMobileMessageCallback.NO_SIGNAL_ERROR;
+              break;
+            case RIL.ERROR_FDN_CHECK_FAILURE:
+              error = Ci.nsIMobileMessageCallback.FDN_CHECK_ERROR;
               break;
           }
 
@@ -3362,6 +3118,13 @@ RadioInterface.prototype = {
     this.workerMessenger.send("deactivateDataCall", { cid: cid,
                                                       reason: reason });
   },
+
+  sendWorkerMessage: function sendWorkerMessage(rilMessageType, message,
+                                                callback) {
+    this.workerMessenger.send(rilMessageType, message, function (response) {
+      return callback.handleResponse(response);
+    });
+  }
 };
 
 function RILNetworkInterface(radioInterface, apnSetting) {
@@ -3499,7 +3262,30 @@ RILNetworkInterface.prototype = {
     if (this.cid == null) {
       return;
     }
+
     if (this.state == datacall.state) {
+      if (datacall.state != GECKO_NETWORK_STATE_CONNECTED) {
+        return;
+      }
+      // State remains connected, check for minor changes.
+      let changed = false;
+      if (this.gateway != datacall.gw) {
+        this.gateway = datacall.gw;
+        changed = true;
+      }
+      if (datacall.dns &&
+          (this.dns1 != datacall.dns[0] ||
+           this.dns2 != datacall.dns[1])) {
+        this.dns1 = datacall.dns[0];
+        this.dns2 = datacall.dns[1];
+        changed = true;
+      }
+      if (changed) {
+        if (DEBUG) this.debug("Notify for data call minor changes.");
+        Services.obs.notifyObservers(this,
+                                     kNetworkInterfaceStateChangedTopic,
+                                     null);
+      }
       return;
     }
 

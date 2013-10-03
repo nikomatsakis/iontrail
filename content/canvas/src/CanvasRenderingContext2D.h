@@ -32,7 +32,7 @@ namespace dom {
 class HTMLImageElementOrHTMLCanvasElementOrHTMLVideoElement;
 class ImageData;
 class StringOrCanvasGradientOrCanvasPattern;
-class StringOrCanvasGradientOrCanvasPatternReturnValue;
+class OwningStringOrCanvasGradientOrCanvasPattern;
 class TextMetrics;
 
 extern const mozilla::gfx::Float SIGMA_MAX;
@@ -94,7 +94,7 @@ public:
   void SetGlobalCompositeOperation(const nsAString& op,
                                    mozilla::ErrorResult& error);
 
-  void GetStrokeStyle(StringOrCanvasGradientOrCanvasPatternReturnValue& value)
+  void GetStrokeStyle(OwningStringOrCanvasGradientOrCanvasPattern& value)
   {
     GetStyleAsUnion(value, STYLE_STROKE);
   }
@@ -104,7 +104,7 @@ public:
     SetStyleFromUnion(value, STYLE_STROKE);
   }
 
-  void GetFillStyle(StringOrCanvasGradientOrCanvasPatternReturnValue& value)
+  void GetFillStyle(OwningStringOrCanvasGradientOrCanvasPattern& value)
   {
     GetStyleAsUnion(value, STYLE_FILL);
   }
@@ -371,12 +371,16 @@ public:
 
   nsresult Redraw();
 
+#ifdef DEBUG
+    virtual int32_t GetWidth() const MOZ_OVERRIDE;
+    virtual int32_t GetHeight() const MOZ_OVERRIDE;
+#endif
   // nsICanvasRenderingContextInternal
   NS_IMETHOD SetDimensions(int32_t width, int32_t height) MOZ_OVERRIDE;
   NS_IMETHOD InitializeWithSurface(nsIDocShell *shell, gfxASurface *surface, int32_t width, int32_t height) MOZ_OVERRIDE;
 
   NS_IMETHOD Render(gfxContext *ctx,
-                    gfxPattern::GraphicsFilter aFilter,
+                    GraphicsFilter aFilter,
                     uint32_t aFlags = RenderFlagPremultAlpha) MOZ_OVERRIDE;
   NS_IMETHOD GetInputStream(const char* aMimeType,
                             const PRUnichar* aEncoderOptions,
@@ -499,7 +503,7 @@ protected:
     CurrentState().SetPatternStyle(whichStyle, &pattern);
   }
 
-  void GetStyleAsUnion(StringOrCanvasGradientOrCanvasPatternReturnValue& aValue,
+  void GetStyleAsUnion(OwningStringOrCanvasGradientOrCanvasPattern& aValue,
                        Style aWhichStyle);
 
   // Returns whether a color was successfully parsed.

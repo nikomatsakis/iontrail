@@ -744,11 +744,6 @@
                       oncommand="SocialUI.showLearnMore();"/>
           </menupopup>
         </toolbarbutton>
-        <toolbarbutton id="social-mark-button"
-                       class="toolbarbutton-1"
-                       hidden="true"
-                       disabled="true"
-                       command="Social:TogglePageMark"/>
       </toolbaritem>
 
       <hbox id="window-controls" hidden="true" pack="end">
@@ -900,6 +895,12 @@
 #endif
     </toolbar>
 
+    <hbox id="downloads-animation-container" mousethrough="always">
+      <vbox id="downloads-notification-anchor">
+        <vbox id="downloads-indicator-notification"/>
+      </vbox>
+    </hbox>
+
     <toolbarpalette id="BrowserToolbarPalette">
 
 # Update primaryToolbarButtons in browser/themes/shared/browser.inc when adding
@@ -1031,7 +1032,6 @@
                   autocompletepopup="PopupAutoComplete"
                   selectpopup="ContentSelectDropdown"/>
       <chatbar id="pinnedchats" layer="true" mousethrough="always" hidden="true"/>
-      <statuspanel id="statusbar-display" inactive="true"/>
     </vbox>
     <splitter id="social-sidebar-splitter"
               class="chromeclass-extrachrome sidebar-splitter"

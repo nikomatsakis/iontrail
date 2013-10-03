@@ -72,7 +72,7 @@ class CompileInfo
     }
 
     CompileInfo(unsigned nlocals, ExecutionMode executionMode)
-      : script_(NULL), fun_(NULL), osrPc_(NULL), constructing_(false),
+      : script_(nullptr), fun_(nullptr), osrPc_(nullptr), constructing_(false),
         executionMode_(executionMode)
     {
         nimplicit_ = 0;
@@ -114,7 +114,7 @@ class CompileInfo
     unsigned lineno() const {
         return script_->lineno;
     }
-    unsigned lineno(JSContext *cx, jsbytecode *pc) const {
+    unsigned lineno(jsbytecode *pc) const {
         return PCToLineNumber(script_, pc);
     }
 
@@ -140,8 +140,8 @@ class CompileInfo
         return script_->getConst(GET_UINT32_INDEX(pc));
     }
 
-    jssrcnote *getNote(JSContext *cx, jsbytecode *pc) const {
-        return js_GetSrcNote(cx, script(), pc);
+    jssrcnote *getNote(GSNCache &gsn, jsbytecode *pc) const {
+        return GetSrcNote(gsn, script(), pc);
     }
 
     // Total number of slots: args, locals, and stack.
@@ -213,8 +213,33 @@ class CompileInfo
         return 2 + (hasArguments() ? 1 : 0) + nargs() + nlocals();
     }
 
+    bool isSlotAliased(uint32_t index) const {
+        if (fun() && index == thisSlot())
+            return false;
+
+        uint32_t arg = index - firstArgSlot();
+        if (arg < nargs()) {
+            if (script()->formalIsAliased(arg))
+                return true;
+            return false;
+        }
+
+        uint32_t var = index - firstLocalSlot();
+        if (var < nlocals()) {
+            if (script()->varIsAliased(var))
+                return true;
+            return false;
+        }
+
+        JS_ASSERT(index >= firstStackSlot());
+        return false;
+    }
+
     bool hasArguments() const {
         return script()->argumentsHasVarBinding();
+    }
+    bool argumentsAliasesFormals() const {
+        return script()->argumentsAliasesFormals();
     }
     bool needsArgsObj() const {
         return script()->needsArgsObj();

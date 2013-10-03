@@ -14,7 +14,7 @@ namespace js {
 typedef Rooted<Module*> RootedModule;
 }
 
-Class Module::class_ = {
+const Class Module::class_ = {
     "Module",
     JSCLASS_HAS_RESERVED_SLOTS(2) | JSCLASS_IS_ANONYMOUS,
     JS_PropertyStub,        /* addProperty */
@@ -43,9 +43,9 @@ Module::create(ExclusiveContext *cx, HandleAtom atom)
 {
     RootedObject object(cx, NewBuiltinClassInstance(cx, &class_));
     if (!object)
-        return NULL;
+        return nullptr;
     RootedModule module(cx, &object->as<Module>());
     module->setAtom(atom);
-    module->setScript(NULL);
+    module->setScript(nullptr);
     return module;
 }

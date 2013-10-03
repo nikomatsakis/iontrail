@@ -40,6 +40,7 @@ class SetElemICInspector : public ICInspector
     bool sawOOBDenseWrite() const;
     bool sawOOBTypedArrayWrite() const;
     bool sawDenseWrite() const;
+    bool sawTypedArrayWrite() const;
 };
 
 class BaselineInspector
@@ -50,7 +51,7 @@ class BaselineInspector
 
   public:
     BaselineInspector(JSContext *cx, JSScript *rawScript)
-      : script(cx, rawScript), prevLookedUpEntry(NULL)
+      : script(cx, rawScript), prevLookedUpEntry(nullptr)
     {
         JS_ASSERT(script);
     }
@@ -81,7 +82,7 @@ class BaselineInspector
 
     template <typename ICInspectorType>
     ICInspectorType makeICInspector(jsbytecode *pc, ICStub::Kind expectedFallbackKind) {
-        ICEntry *ent = NULL;
+        ICEntry *ent = nullptr;
         if (hasBaselineScript()) {
             ent = &icEntryFromPC(pc);
             JS_ASSERT(ent->fallbackStub()->kind() == expectedFallbackKind);
@@ -93,7 +94,8 @@ class BaselineInspector
     bool dimorphicStub(jsbytecode *pc, ICStub **pfirst, ICStub **psecond);
 
   public:
-    bool maybeShapesForPropertyOp(jsbytecode *pc, Vector<Shape *> &shapes);
+    typedef Vector<Shape *, 4, IonAllocPolicy> ShapeVector;
+    bool maybeShapesForPropertyOp(jsbytecode *pc, ShapeVector &shapes);
 
     SetElemICInspector setElemICInspector(jsbytecode *pc) {
         return makeICInspector<SetElemICInspector>(pc, ICStub::SetElem_Fallback);
@@ -107,6 +109,7 @@ class BaselineInspector
     bool hasSeenNegativeIndexGetElement(jsbytecode *pc);
     bool hasSeenAccessedGetter(jsbytecode *pc);
     bool hasSeenDoubleResult(jsbytecode *pc);
+    bool hasSeenNonStringIterNext(jsbytecode *pc);
 };
 
 } // namespace jit

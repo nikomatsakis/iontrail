@@ -58,7 +58,7 @@ SaveProfileTask::Run() {
 
   {
     JSAutoRequest ar(cx);
-    static JSClass c = {
+    static const JSClass c = {
       "global", JSCLASS_GLOBAL_FLAGS,
       JS_PropertyStub, JS_DeletePropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
       JS_EnumerateStub, JS_ResolveStub, JS_ConvertStub
@@ -71,7 +71,7 @@ SaveProfileTask::Run() {
       JSAutoCompartment autoComp(cx, obj);
       JSObject* profileObj = profiler_get_profile_jsobject(cx);
       JS::Rooted<JS::Value> val(cx, OBJECT_TO_JSVAL(profileObj));
-      JS_Stringify(cx, val.address(), nullptr, JSVAL_NULL, WriteCallback, &stream);
+      JS_Stringify(cx, &val, JS::NullPtr(), JS::NullHandleValue, WriteCallback, &stream);
       stream.close();
       LOGF("Saved to %s", tmpPath.get());
     } else {

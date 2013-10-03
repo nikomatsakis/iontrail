@@ -48,7 +48,10 @@ function testTopLeft()
     ok (!view.element.classList.contains("show-pseudo-elements"), "Pseudo Elements are collapsed by twisty");
     expander.click();
     ok (view.element.classList.contains("show-pseudo-elements"), "Pseudo Elements are expanded again");
-    expander.click();
+
+    // Make sure that dblclicking on the header container also toggles the pseudo elements
+    EventUtils.synthesizeMouseAtCenter(gutters[0], {clickCount: 2}, inspector.sidebar.getWindowForTab("ruleview"));
+    ok (!view.element.classList.contains("show-pseudo-elements"), "Pseudo Elements are collapsed by dblclicking");
 
     let defaultView = element.ownerDocument.defaultView;
     let elementRule = elementRules[0];
@@ -64,7 +67,7 @@ function testTopLeft()
     is
     (
       convertTextPropsToString(elementAfterRule.textProps),
-      "background: none repeat scroll 0% 0% red; content: \" \"; position: absolute; " +
+      "background: none repeat scroll 0% 0% #F00; content: \" \"; position: absolute; " +
       "border-radius: 50%; height: 32px; width: 32px; top: 50%; left: 50%; margin-top: -16px; margin-left: -16px",
       "TopLeft after properties are correct"
     );
@@ -239,7 +242,7 @@ function testParagraph()
     is
     (
       convertTextPropsToString(elementFirstLineRule.textProps),
-      "background: none repeat scroll 0% 0% blue",
+      "background: none repeat scroll 0% 0% #00F",
       "Paragraph first-line properties are correct"
     );
 
@@ -251,7 +254,7 @@ function testParagraph()
     is
     (
       convertTextPropsToString(elementFirstLetterRule.textProps),
-      "color: red; font-size: 130%",
+      "color: #F00; font-size: 130%",
       "Paragraph first-letter properties are correct"
     );
 
@@ -263,7 +266,7 @@ function testParagraph()
     is
     (
       convertTextPropsToString(elementSelectionRule.textProps),
-      "color: white; background: none repeat scroll 0% 0% black",
+      "color: #FFF; background: none repeat scroll 0% 0% #000",
       "Paragraph first-letter properties are correct"
     );
 

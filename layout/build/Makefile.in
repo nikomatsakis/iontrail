@@ -8,7 +8,6 @@ ifeq ($(OS_ARCH),SunOS)
 SHELL := ksh
 endif
 
-EXPORT_LIBRARY = 1
 SHARED_LIBRARY_LIBS = \
 	../base/$(LIB_PREFIX)gkbase_s.$(LIB_SUFFIX) \
 	../forms/$(LIB_PREFIX)gkforms_s.$(LIB_SUFFIX) \
@@ -38,6 +37,7 @@ SHARED_LIBRARY_LIBS = \
 	$(DEPTH)/content/xul/document/src/$(LIB_PREFIX)gkconxuldoc_s.$(LIB_SUFFIX) \
 	$(DEPTH)/view/src/$(LIB_PREFIX)gkview_s.$(LIB_SUFFIX) \
 	$(DEPTH)/dom/activities/src/$(LIB_PREFIX)dom_activities_s.$(LIB_SUFFIX) \
+	$(DEPTH)/dom/apps/src/$(LIB_PREFIX)dom_apps_s.$(LIB_SUFFIX) \
 	$(DEPTH)/dom/base/$(LIB_PREFIX)jsdombase_s.$(LIB_SUFFIX) \
 	$(DEPTH)/dom/battery/$(LIB_PREFIX)dom_battery_s.$(LIB_SUFFIX) \
 	$(DEPTH)/dom/alarm/$(LIB_PREFIX)domalarm_s.$(LIB_SUFFIX) \
@@ -59,6 +59,7 @@ SHARED_LIBRARY_LIBS = \
 	$(DEPTH)/dom/promise/$(LIB_PREFIX)dompromise_s.$(LIB_SUFFIX) \
 	$(DEPTH)/dom/src/notification/$(LIB_PREFIX)jsdomnotification_s.$(LIB_SUFFIX) \
 	$(DEPTH)/dom/system/$(LIB_PREFIX)domsystem_s.$(LIB_SUFFIX) \
+	$(DEPTH)/dom/telephony/$(LIB_PREFIX)domtelephony_s.$(LIB_SUFFIX) \
 	$(DEPTH)/dom/workers/$(LIB_PREFIX)domworkers_s.$(LIB_SUFFIX) \
 	$(DEPTH)/dom/indexedDB/$(LIB_PREFIX)dom_indexeddb_s.$(LIB_SUFFIX) \
 	$(DEPTH)/dom/indexedDB/ipc/$(LIB_PREFIX)dom_indexeddb_ipc_s.$(LIB_SUFFIX) \
@@ -129,7 +130,6 @@ SHARED_LIBRARY_LIBS	+= $(DEPTH)/dom/camera/$(LIB_PREFIX)domcamera_s.$(LIB_SUFFIX
 ifdef MOZ_B2G_RIL #{
 SHARED_LIBRARY_LIBS	+= \
   $(DEPTH)/dom/system/gonk/$(LIB_PREFIX)domsystemgonk_s.$(LIB_SUFFIX) \
-  $(DEPTH)/dom/telephony/$(LIB_PREFIX)domtelephony_s.$(LIB_SUFFIX) \
   $(DEPTH)/dom/icc/src/$(LIB_PREFIX)dom_icc_s.$(LIB_SUFFIX) \
   $(DEPTH)/dom/cellbroadcast/src/$(LIB_PREFIX)dom_cellbroadcast_s.$(LIB_SUFFIX) \
   $(DEPTH)/dom/voicemail/$(LIB_PREFIX)domvoicemail_s.$(LIB_SUFFIX) \
@@ -166,6 +166,12 @@ SHARED_LIBRARY_LIBS 	+= \
 	$(NULL)
 endif
 
+ifdef MOZ_APPLEMEDIA
+SHARED_LIBRARY_LIBS 	+= \
+	$(DEPTH)/content/media/apple/$(LIB_PREFIX)gkconapplemedia_s.$(LIB_SUFFIX) \
+	$(NULL)
+endif
+
 ifdef MOZ_WAVE
 SHARED_LIBRARY_LIBS 	+= \
 	$(DEPTH)/content/media/wave/$(LIB_PREFIX)gkconwave_s.$(LIB_SUFFIX) \
@@ -198,6 +204,12 @@ ifdef MOZ_WEBSPEECH
 SHARED_LIBRARY_LIBS += \
   $(DEPTH)/content/media/webspeech/recognition/$(LIB_PREFIX)gkconwebspeechrecognition_s.$(LIB_SUFFIX) \
   $(DEPTH)/content/media/webspeech/synth/$(LIB_PREFIX)gkconwebspeechsynth_s.$(LIB_SUFFIX) \
+  $(NULL)
+endif
+
+ifdef MOZ_SYNTH_PICO
+SHARED_LIBRARY_LIBS += \
+  $(DEPTH)/content/media/webspeech/synth/pico/$(LIB_PREFIX)synthpico.$(LIB_SUFFIX) \
   $(NULL)
 endif
 

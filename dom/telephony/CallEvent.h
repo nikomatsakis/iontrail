@@ -7,17 +7,14 @@
 #ifndef mozilla_dom_telephony_callevent_h
 #define mozilla_dom_telephony_callevent_h
 
-#include "TelephonyCommon.h"
+#include "mozilla/dom/telephony/TelephonyCommon.h"
 
 #include "nsDOMEvent.h"
 
 namespace mozilla {
 namespace dom {
-struct CallEventInit;
-}
-}
 
-BEGIN_TELEPHONY_NAMESPACE
+struct CallEventInit;
 
 class CallEvent MOZ_FINAL : public nsDOMEvent
 {
@@ -46,7 +43,7 @@ public:
 private:
   CallEvent(EventTarget* aOwner,
             nsPresContext* aPresContext,
-            nsEvent* aEvent)
+            WidgetEvent* aEvent)
   : nsDOMEvent(aOwner, aPresContext, aEvent)
   {
     SetIsDOMBinding();
@@ -56,6 +53,7 @@ private:
   { }
 };
 
-END_TELEPHONY_NAMESPACE
+} // namespace dom
+} // namespace mozilla
 
 #endif // mozilla_dom_telephony_callevent_h

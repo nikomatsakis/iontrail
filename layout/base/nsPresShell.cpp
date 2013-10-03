@@ -21,6 +21,9 @@
 #include "mozilla/MemoryReporting.h"
 #include "mozilla/dom/TabChild.h"
 #include "mozilla/Likely.h"
+#include "mozilla/MouseEvents.h"
+#include "mozilla/TextEvents.h"
+#include "mozilla/TouchEvents.h"
 #include "mozilla/Util.h"
 #include <algorithm>
 
@@ -155,6 +158,11 @@
 #include "RestyleManager.h"
 #include "nsIDOMHTMLElement.h"
 #include "nsIDragSession.h"
+#include "nsIFrameInlines.h"
+
+#ifdef ANDROID
+#include "nsIDocShellTreeOwner.h"
+#endif
 
 #define ANCHOR_SCROLL_FLAGS \
   (nsIPresShell::SCROLL_OVERFLOW_HIDDEN | nsIPresShell::SCROLL_NO_PARENT_FRAMES)
@@ -168,7 +176,7 @@ CapturingContentInfo nsIPresShell::gCaptureInfo =
   { false /* mAllowed */, false /* mPointerLock */, false /* mRetargetToElement */,
     false /* mPreventDrag */, nullptr /* mContent */ };
 nsIContent* nsIPresShell::gKeyDownTarget;
-nsRefPtrHashtable<nsUint32HashKey, dom::Touch> nsIPresShell::gCaptureTouchList;
+nsRefPtrHashtable<nsUint32HashKey, dom::Touch>* nsIPresShell::gCaptureTouchList;
 bool nsIPresShell::gPreventMouseEvents = false;
 
 // convert a color value to a string, in the CSS format #RRGGBB
@@ -453,7 +461,7 @@ public:
           nsRefPtr<nsEventStateManager> esm =
             aVisitor.mPresContext->EventStateManager();
           esm->DispatchLegacyMouseScrollEvents(frame,
-                 static_cast<widget::WheelEvent*>(aVisitor.mEvent),
+                 static_cast<WheelEvent*>(aVisitor.mEvent),
                  &aVisitor.mEventStatus);
         }
       }
@@ -467,7 +475,7 @@ public:
       }
       if (frame) {
         frame->HandleEvent(aVisitor.mPresContext,
-                           (nsGUIEvent*) aVisitor.mEvent,
+                           static_cast<WidgetGUIEvent*>(aVisitor.mEvent),
                            &aVisitor.mEventStatus);
       }
     }
@@ -763,8 +771,6 @@ PresShell::Init(nsIDocument* aDocument,
   if (!aDocument || !aPresContext || !aViewManager || mDocument) {
     return;
   }
-
-  mFramesToDirty.Init();
 
   mDocument = aDocument;
   NS_ADDREF(mDocument);
@@ -1895,7 +1901,7 @@ PresShell::FireBeforeResizeEvent()
     return;
 
   // Send beforeresize event from here.
-  nsEvent event(true, NS_BEFORERESIZE_EVENT);
+  WidgetEvent event(true, NS_BEFORERESIZE_EVENT);
 
   nsPIDOMWindow *window = mDocument->GetWindow();
   if (window) {
@@ -1917,7 +1923,7 @@ PresShell::FireResizeEvent()
     return;
 
   //Send resize event from here.
-  nsEvent event(true, NS_RESIZE_EVENT);
+  WidgetEvent event(true, NS_RESIZE_EVENT);
   nsEventStatus status = nsEventStatus_eIgnore;
 
   nsPIDOMWindow *window = mDocument->GetWindow();
@@ -3395,7 +3401,7 @@ PresShell::ScheduleViewManagerFlush()
 }
 
 void
-PresShell::DispatchSynthMouseMove(nsGUIEvent *aEvent,
+PresShell::DispatchSynthMouseMove(WidgetGUIEvent* aEvent,
                                   bool aFlushOnHoverChange)
 {
   RestyleManager* restyleManager = mPresContext->RestyleManager();
@@ -3968,10 +3974,6 @@ PresShell::DocumentStatesChanged(nsIDocument* aDocument,
   if (aStateMask.HasState(NS_DOCUMENT_STATE_WINDOW_INACTIVE)) {
     nsIFrame* root = mFrameConstructor->GetRootFrame();
     if (root) {
-      FrameLayerBuilder::InvalidateAllLayersForFrame(root);
-      if (root->HasView()) {
-        root->GetView()->SetForcedRepaint(true);
-      }
       root->SchedulePaint();
     }
   }
@@ -4369,15 +4371,12 @@ PresShell::RenderDocument(const nsRect& aRect, uint32_t aFlags,
   // either already the case, or overrides the operator in a group.
   // the original operator will be present when we PopGroup.
   // we can avoid using a temporary surface if we're using OPERATOR_OVER
-  // and our background color has no alpha (so we'll be compositing on top
-  // of a fully opaque solid color region)
-  bool needsGroup = NS_GET_A(aBackgroundColor) < 0xff ||
-    oldOperator != gfxContext::OPERATOR_OVER;
+  bool needsGroup = oldOperator != gfxContext::OPERATOR_OVER;
 
   if (needsGroup) {
     aThebesContext->PushGroup(NS_GET_A(aBackgroundColor) == 0xff ?
-                              gfxASurface::CONTENT_COLOR :
-                              gfxASurface::CONTENT_COLOR_ALPHA);
+                              GFX_CONTENT_COLOR :
+                              GFX_CONTENT_COLOR_ALPHA);
     aThebesContext->Save();
 
     if (oldOperator != gfxContext::OPERATOR_OVER) {
@@ -4708,7 +4707,7 @@ PresShell::PaintRangePaintInfo(nsTArray<nsAutoPtr<RangePaintInfo> >* aItems,
 
   nsRefPtr<gfxImageSurface> surface =
     new gfxImageSurface(gfxIntSize(pixelArea.width, pixelArea.height),
-                        gfxImageSurface::ImageFormatARGB32);
+                        gfxImageFormatARGB32);
   if (surface->CairoStatus()) {
     return nullptr;
   }
@@ -4980,7 +4979,7 @@ void PresShell::UpdateCanvasBackground()
     mCanvasBackgroundColor = GetDefaultBackgroundColorToDraw();
   }
   if (XRE_GetProcessType() == GeckoProcessType_Content) {
-    if (TabChild* tabChild = GetTabChildFrom(this)) {
+    if (TabChild* tabChild = TabChild::GetFrom(this)) {
       tabChild->SetBackgroundColor(mCanvasBackgroundColor);
     }
   }
@@ -5244,8 +5243,8 @@ PresShell::ProcessSynthMouseMoveEvent(bool aFromScroll)
     refpoint += view->ViewToWidgetOffset();
   }
   NS_ASSERTION(view->GetWidget(), "view should have a widget here");
-  nsMouseEvent event(true, NS_MOUSE_MOVE, view->GetWidget(),
-                     nsMouseEvent::eSynthesized);
+  WidgetMouseEvent event(true, NS_MOUSE_MOVE, view->GetWidget(),
+                         WidgetMouseEvent::eSynthesized);
   event.refPoint = LayoutDeviceIntPoint::FromAppUnitsToNearest(refpoint, viewAPD);
   event.time = PR_IntervalNow();
   // XXX set event.modifiers ?
@@ -5278,12 +5277,23 @@ PresShell::MarkImagesInListVisible(const nsDisplayList& aList)
     if (content) {
       // use the presshell containing the image
       PresShell* presShell = static_cast<PresShell*>(f->PresContext()->PresShell());
-      if (presShell) {
+      uint32_t count = presShell->mVisibleImages.Count();
+      presShell->mVisibleImages.PutEntry(content);
+      if (presShell->mVisibleImages.Count() > count) {
+        // content was added to mVisibleImages, so we need to increment its visible count
         content->IncrementVisibleCount();
-        presShell->mVisibleImages.AppendElement(content);
       }
     }
   }
+}
+
+static PLDHashOperator
+RemoveAndStore(nsRefPtrHashKey<nsIImageLoadingContent>* aEntry, void* userArg)
+{
+  nsTArray< nsRefPtr<nsIImageLoadingContent> >* array =
+    static_cast< nsTArray< nsRefPtr<nsIImageLoadingContent> >* >(userArg);
+  array->AppendElement(aEntry->GetKey());
+  return PL_DHASH_REMOVE;
 }
 
 void
@@ -5291,11 +5301,14 @@ PresShell::RebuildImageVisibility(const nsDisplayList& aList)
 {
   MOZ_ASSERT(!mImageVisibilityVisited, "already visited?");
   mImageVisibilityVisited = true;
-  nsTArray< nsCOMPtr<nsIImageLoadingContent > > beforeimagelist;
-  beforeimagelist.SwapElements(mVisibleImages);
+  // Remove the entries of the mVisibleImages hashtable and put them in the
+  // beforeImageList array.
+  nsTArray< nsRefPtr<nsIImageLoadingContent> > beforeImageList;
+  beforeImageList.SetCapacity(mVisibleImages.Count());
+  mVisibleImages.EnumerateEntries(RemoveAndStore, &beforeImageList);
   MarkImagesInListVisible(aList);
-  for (uint32_t i = 0; i < beforeimagelist.Length(); ++i) {
-    beforeimagelist[i]->DecrementVisibleCount();
+  for (uint32_t i = 0; i < beforeImageList.Length(); ++i) {
+    beforeImageList[i]->DecrementVisibleCount();
   }
 }
 
@@ -5315,12 +5328,17 @@ PresShell::ClearImageVisibilityVisited(nsView* aView, bool aClear)
   }
 }
 
+static PLDHashOperator
+DecrementVisibleCount(nsRefPtrHashKey<nsIImageLoadingContent>* aEntry, void* userArg)
+{
+  aEntry->GetKey()->DecrementVisibleCount();
+  return PL_DHASH_NEXT;
+}
+
 void
 PresShell::ClearVisibleImagesList()
 {
-  for (uint32_t i = 0; i < mVisibleImages.Length(); ++i) {
-    mVisibleImages[i]->DecrementVisibleCount();
-  }
+  mVisibleImages.EnumerateEntries(DecrementVisibleCount, nullptr);
   mVisibleImages.Clear();
 }
 
@@ -5360,8 +5378,8 @@ PresShell::UpdateImageVisibility()
   list.DeleteAll();
 }
 
-static bool
-AssumeAllImagesVisible(nsPresContext* aPresContext, nsIDocument* aDocument)
+bool
+PresShell::AssumeAllImagesVisible()
 {
   static bool sImageVisibilityEnabled = true;
   static bool sImageVisibilityPrefCached = false;
@@ -5372,17 +5390,16 @@ AssumeAllImagesVisible(nsPresContext* aPresContext, nsIDocument* aDocument)
     sImageVisibilityPrefCached = true;
   }
 
-
-  if (!sImageVisibilityEnabled || !aPresContext || !aDocument)
+  if (!sImageVisibilityEnabled || !mPresContext || !mDocument)
     return true;
 
   // We assume all images are visible in print, print preview, chrome, xul, and
   // resource docs and don't keep track of them.
-  if (aPresContext->Type() == nsPresContext::eContext_PrintPreview ||
-      aPresContext->Type() == nsPresContext::eContext_Print ||
-      aPresContext->IsChrome() ||
-      aDocument->IsResourceDoc() ||
-      aDocument->IsXUL()) {
+  if (mPresContext->Type() == nsPresContext::eContext_PrintPreview ||
+      mPresContext->Type() == nsPresContext::eContext_Print ||
+      mPresContext->IsChrome() ||
+      mDocument->IsResourceDoc() ||
+      mDocument->IsXUL()) {
     return true;
   }
 
@@ -5392,7 +5409,7 @@ AssumeAllImagesVisible(nsPresContext* aPresContext, nsIDocument* aDocument)
 void
 PresShell::ScheduleImageVisibilityUpdate()
 {
-  if (AssumeAllImagesVisible(mPresContext, mDocument))
+  if (AssumeAllImagesVisible())
     return;
 
   if (!mPresContext->IsRootContentDocument()) {
@@ -5421,7 +5438,7 @@ PresShell::ScheduleImageVisibilityUpdate()
 void
 PresShell::EnsureImageInVisibleList(nsIImageLoadingContent* aImage)
 {
-  if (AssumeAllImagesVisible(mPresContext, mDocument)) {
+  if (AssumeAllImagesVisible()) {
     aImage->IncrementVisibleCount();
     return;
   }
@@ -5435,12 +5452,35 @@ PresShell::EnsureImageInVisibleList(nsIImageLoadingContent* aImage)
   }
 #endif
 
-  // nsImageLoadingContent doesn't call this function if it has a positive
-  // visible count so the image shouldn't be in mVisibleImages. Either way it
-  // doesn't hurt to put it in multiple times.
-  MOZ_ASSERT(!mVisibleImages.Contains(aImage), "image already in the array");
-  mVisibleImages.AppendElement(aImage);
-  aImage->IncrementVisibleCount();
+  if (!mVisibleImages.Contains(aImage)) {
+    mVisibleImages.PutEntry(aImage);
+    aImage->IncrementVisibleCount();
+  }
+}
+
+void
+PresShell::RemoveImageFromVisibleList(nsIImageLoadingContent* aImage)
+{
+#ifdef DEBUG
+  // if it has a frame make sure its in this presshell
+  nsCOMPtr<nsIContent> content = do_QueryInterface(aImage);
+  if (content) {
+    PresShell* shell = static_cast<PresShell*>(content->OwnerDoc()->GetShell());
+    MOZ_ASSERT(!shell || shell == this, "wrong shell");
+  }
+#endif
+
+  if (AssumeAllImagesVisible()) {
+    MOZ_ASSERT(mVisibleImages.Count() == 0, "shouldn't have any images in the table");
+    return;
+  }
+
+  uint32_t count = mVisibleImages.Count();
+  mVisibleImages.RemoveEntry(aImage);
+  if (mVisibleImages.Count() < count) {
+    // aImage was in the hashtable, so we need to decrement its visible count
+    aImage->DecrementVisibleCount();
+  }
 }
 
 class nsAutoNotifyDidPaint
@@ -5473,7 +5513,7 @@ public:
         !mFrame || !mShell) {
       return;
     }
-    TabChild* tabChild = GetTabChildFrom(mShell);
+    TabChild* tabChild = TabChild::GetFrom(mShell);
     if (!tabChild || !tabChild->GetUpdateHitRegion()) {
       return;
     }
@@ -5699,7 +5739,7 @@ PresShell::GetEventTargetFrame()
 }
 
 already_AddRefed<nsIContent>
-PresShell::GetEventTargetContent(nsEvent* aEvent)
+PresShell::GetEventTargetContent(WidgetEvent* aEvent)
 {
   nsCOMPtr<nsIContent> content = GetCurrentEventContent();
   if (!content) {
@@ -5799,8 +5839,8 @@ PresShell::GetParentPresShell()
 }
 
 nsresult
-PresShell::RetargetEventToParent(nsGUIEvent*     aEvent,
-                                 nsEventStatus*  aEventStatus)
+PresShell::RetargetEventToParent(WidgetGUIEvent* aEvent,
+                                 nsEventStatus* aEventStatus)
 {
   // Send this events straight up to the parent pres shell.
   // We do this for keystroke events in zombie documents or if either a frame
@@ -5833,7 +5873,7 @@ PresShell::GetFocusedDOMWindowInOurWindow()
 }
 
 void
-PresShell::RecordMouseLocation(nsGUIEvent* aEvent)
+PresShell::RecordMouseLocation(WidgetGUIEvent* aEvent)
 {
   if (!mPresContext)
     return;
@@ -5847,7 +5887,8 @@ PresShell::RecordMouseLocation(nsGUIEvent* aEvent)
   }
 
   if ((aEvent->message == NS_MOUSE_MOVE &&
-       static_cast<nsMouseEvent*>(aEvent)->reason == nsMouseEvent::eReal) ||
+       static_cast<WidgetMouseEvent*>(aEvent)->reason ==
+         WidgetMouseEvent::eReal) ||
       aEvent->message == NS_MOUSE_ENTER ||
       aEvent->message == NS_MOUSE_BUTTON_DOWN ||
       aEvent->message == NS_MOUSE_BUTTON_UP) {
@@ -5914,7 +5955,7 @@ EvictTouchPoint(nsRefPtr<dom::Touch>& aTouch)
     return;
   }
   
-  nsTouchEvent event(true, NS_TOUCH_END, widget);
+  WidgetTouchEvent event(true, NS_TOUCH_END, widget);
   event.widget = widget;
   event.time = PR_IntervalNow();
   event.touches.AppendElement(aTouch);
@@ -5965,16 +6006,16 @@ nsIFrame* GetNearestFrameContainingPresShell(nsIPresShell* aPresShell)
 }
 
 nsresult
-PresShell::HandleEvent(nsIFrame        *aFrame,
-                       nsGUIEvent*     aEvent,
-                       bool            aDontRetargetEvents,
-                       nsEventStatus*  aEventStatus)
+PresShell::HandleEvent(nsIFrame* aFrame,
+                       WidgetGUIEvent* aEvent,
+                       bool aDontRetargetEvents,
+                       nsEventStatus* aEventStatus)
 {
   NS_ASSERTION(aFrame, "null frame");
 
   if (mIsDestroying ||
       (sDisableNonTestMouseEvents && !aEvent->mFlags.mIsSynthesizedForTests &&
-       NS_IS_MOUSE_EVENT(aEvent))) {
+       aEvent->HasMouseEventMessage())) {
     return NS_OK;
   }
 
@@ -5984,8 +6025,9 @@ PresShell::HandleEvent(nsIFrame        *aFrame,
     return NS_OK;
 
   nsIContent* capturingContent =
-    NS_IS_MOUSE_EVENT(aEvent) || aEvent->eventStructType == NS_WHEEL_EVENT ?
-      GetCapturingContent() : nullptr;
+    (aEvent->HasMouseEventMessage() ||
+     aEvent->eventStructType == NS_WHEEL_EVENT ? GetCapturingContent() :
+                                                 nullptr);
 
   nsCOMPtr<nsIDocument> retargetEventDoc;
   if (!aDontRetargetEvents) {
@@ -5998,7 +6040,7 @@ PresShell::HandleEvent(nsIFrame        *aFrame,
     // active window.  So, the events should be handled on the last focused
     // content in the last focused DOM window in same top level window.
     // Note, if no DOM window has been focused yet, we can discard the events.
-    if (NS_IsEventTargetedAtFocusedWindow(aEvent)) {
+    if (aEvent->IsTargetedAtFocusedWindow()) {
       nsCOMPtr<nsPIDOMWindow> window = GetFocusedDOMWindowInOurWindow();
       // No DOM window in same top level window has not been focused yet,
       // discard the events.
@@ -6028,7 +6070,7 @@ PresShell::HandleEvent(nsIFrame        *aFrame,
         nsIFrame* frame = presShell->GetRootFrame();
         if (!frame) {
           if (aEvent->message == NS_QUERY_TEXT_CONTENT ||
-              NS_IS_CONTENT_COMMAND_EVENT(aEvent)) {
+              aEvent->IsContentCommandEvent()) {
             return NS_OK;
           }
 
@@ -6050,7 +6092,7 @@ PresShell::HandleEvent(nsIFrame        *aFrame,
       mNoDelayedKeyEvents = true;
     } else if (!mNoDelayedKeyEvents) {
       nsDelayedEvent* event =
-        new nsDelayedKeyEvent(static_cast<nsKeyEvent*>(aEvent));
+        new nsDelayedKeyEvent(static_cast<WidgetKeyboardEvent*>(aEvent));
       if (!mDelayedEvents.AppendElement(event)) {
         delete event;
       }
@@ -6066,7 +6108,7 @@ PresShell::HandleEvent(nsIFrame        *aFrame,
     frame = GetNearestFrameContainingPresShell(this);
   }
 
-  bool dispatchUsingCoordinates = NS_IsEventUsingCoordinates(aEvent);
+  bool dispatchUsingCoordinates = aEvent->IsUsingCoordinates();
   if (dispatchUsingCoordinates) {
     NS_WARN_IF_FALSE(frame, "Nothing to handle this event!");
     if (!frame)
@@ -6143,7 +6185,8 @@ PresShell::HandleEvent(nsIFrame        *aFrame,
     }
 
     bool isWindowLevelMouseExit = (aEvent->message == NS_MOUSE_EXIT) &&
-      (static_cast<nsMouseEvent*>(aEvent)->exit == nsMouseEvent::eTopLevel);
+      (static_cast<WidgetMouseEvent*>(aEvent)->exit ==
+         WidgetMouseEvent::eTopLevel);
 
     // Get the frame at the event point. However, don't do this if we're
     // capturing and retargeting the event because the captured frame will
@@ -6155,13 +6198,13 @@ PresShell::HandleEvent(nsIFrame        *aFrame,
       uint32_t flags = 0;
       if (aEvent->message == NS_TOUCH_START) {
         flags |= INPUT_IGNORE_ROOT_SCROLL_FRAME;
-        nsTouchEvent* touchEvent = static_cast<nsTouchEvent*>(aEvent);
+        WidgetTouchEvent* touchEvent = static_cast<WidgetTouchEvent*>(aEvent);
         // if this is a continuing session, ensure that all these events are
         // in the same document by taking the target of the events already in
         // the capture list
         nsCOMPtr<nsIContent> anyTarget;
-        if (gCaptureTouchList.Count() > 0) {
-          gCaptureTouchList.Enumerate(&FindAnyTarget, &anyTarget);
+        if (gCaptureTouchList->Count() > 0) {
+          gCaptureTouchList->Enumerate(&FindAnyTarget, &anyTarget);
         } else {
           gPreventMouseEvents = false;
         }
@@ -6171,7 +6214,7 @@ PresShell::HandleEvent(nsIFrame        *aFrame,
           dom::Touch* touch = touchEvent->touches[i];
 
           int32_t id = touch->Identifier();
-          if (!gCaptureTouchList.Get(id, nullptr)) {
+          if (!gCaptureTouchList->Get(id, nullptr)) {
             // find the target for this touch
             eventPoint = nsLayoutUtils::GetEventCoordinatesRelativeTo(aEvent,
                                                               touch->mRefPoint,
@@ -6225,7 +6268,7 @@ PresShell::HandleEvent(nsIFrame        *aFrame,
             touch->mChanged = false;
             int32_t id = touch->Identifier();
 
-            nsRefPtr<dom::Touch> oldTouch = gCaptureTouchList.GetWeak(id);
+            nsRefPtr<dom::Touch> oldTouch = gCaptureTouchList->GetWeak(id);
             if (oldTouch) {
               touch->SetTarget(oldTouch->mTarget);
             }
@@ -6235,7 +6278,7 @@ PresShell::HandleEvent(nsIFrame        *aFrame,
         eventPoint = nsLayoutUtils::GetEventCoordinatesRelativeTo(aEvent, frame);
       }
       if (aEvent->eventStructType == NS_MOUSE_EVENT &&
-          static_cast<nsMouseEvent*>(aEvent)->ignoreRootScrollFrame) {
+          static_cast<WidgetMouseEvent*>(aEvent)->ignoreRootScrollFrame) {
         flags |= INPUT_IGNORE_ROOT_SCROLL_FRAME;
       }
       nsIFrame* target =
@@ -6271,7 +6314,7 @@ PresShell::HandleEvent(nsIFrame        *aFrame,
         mNoDelayedMouseEvents = true;
       } else if (!mNoDelayedMouseEvents && aEvent->message == NS_MOUSE_BUTTON_UP) {
         nsDelayedEvent* event =
-          new nsDelayedMouseEvent(static_cast<nsMouseEvent*>(aEvent));
+          new nsDelayedMouseEvent(static_cast<WidgetMouseEvent*>(aEvent));
         if (!mDelayedEvents.AppendElement(event)) {
           delete event;
         }
@@ -6287,7 +6330,7 @@ PresShell::HandleEvent(nsIFrame        *aFrame,
       case NS_TOUCH_CANCEL:
       case NS_TOUCH_END: {
         // get the correct shell to dispatch to
-        nsTouchEvent* touchEvent = static_cast<nsTouchEvent*>(aEvent);
+        WidgetTouchEvent* touchEvent = static_cast<WidgetTouchEvent*>(aEvent);
         nsTArray< nsRefPtr<dom::Touch> >& touches = touchEvent->touches;
         for (uint32_t i = 0; i < touches.Length(); ++i) {
           dom::Touch* touch = touches[i];
@@ -6296,7 +6339,7 @@ PresShell::HandleEvent(nsIFrame        *aFrame,
           }
   
           nsRefPtr<dom::Touch> oldTouch =
-            gCaptureTouchList.GetWeak(touch->Identifier());
+            gCaptureTouchList->GetWeak(touch->Identifier());
           if (!oldTouch) {
             break;
           }
@@ -6333,7 +6376,7 @@ PresShell::HandleEvent(nsIFrame        *aFrame,
     // to the active document when mouse is over some subdocument.
     nsEventStateManager* activeESM =
       nsEventStateManager::GetActiveEventStateManager();
-    if (activeESM && NS_IS_MOUSE_EVENT(aEvent) &&
+    if (activeESM && aEvent->HasMouseEventMessage() &&
         activeESM != shell->GetPresContext()->EventStateManager() &&
         static_cast<nsEventStateManager*>(activeESM)->GetPresContext()) {
       nsIPresShell* activeShell =
@@ -6366,7 +6409,7 @@ PresShell::HandleEvent(nsIFrame        *aFrame,
     PushCurrentEventInfo(nullptr, nullptr);
 
     // key and IME related events go to the focused frame in this DOM window.
-    if (NS_IsEventTargetedAtFocusedContent(aEvent)) {
+    if (aEvent->IsTargetedAtFocusedContent()) {
       mCurrentEventContent = nullptr;
 
       nsCOMPtr<nsPIDOMWindow> window =
@@ -6456,7 +6499,7 @@ PresShell::HandleEvent(nsIFrame        *aFrame,
       mCurrentEventFrame = nullptr;
       return HandleEventInternal(aEvent, aEventStatus);
     }
-    else if (NS_IS_KEY_EVENT(aEvent)) {
+    else if (aEvent->HasKeyEventMessage()) {
       // Keypress events in new blank tabs should not be completely thrown away.
       // Retarget them -- the parent chrome shell might make use of them.
       return RetargetEventToParent(aEvent, aEventStatus);
@@ -6513,8 +6556,8 @@ PresShell::ShowEventTargetDebug()
 #endif
 
 nsresult
-PresShell::HandlePositionedEvent(nsIFrame*      aTargetFrame,
-                                 nsGUIEvent*    aEvent,
+PresShell::HandlePositionedEvent(nsIFrame* aTargetFrame,
+                                 WidgetGUIEvent* aEvent,
                                  nsEventStatus* aEventStatus)
 {
   nsresult rv = NS_OK;
@@ -6566,7 +6609,7 @@ PresShell::HandlePositionedEvent(nsIFrame*      aTargetFrame,
 }
 
 nsresult
-PresShell::HandleEventWithTarget(nsEvent* aEvent, nsIFrame* aFrame,
+PresShell::HandleEventWithTarget(WidgetEvent* aEvent, nsIFrame* aFrame,
                                  nsIContent* aContent, nsEventStatus* aStatus)
 {
 #if DEBUG
@@ -6586,8 +6629,8 @@ PresShell::HandleEventWithTarget(nsEvent* aEvent, nsIFrame* aFrame,
   return rv;
 }
 
-static bool CanHandleContextMenuEvent(nsMouseEvent* aMouseEvent,
-                                        nsIFrame* aFrame)
+static bool CanHandleContextMenuEvent(WidgetMouseEvent* aMouseEvent,
+                                      nsIFrame* aFrame)
 {
 #if defined(XP_MACOSX) && defined(MOZ_XUL)
   nsXULPopupManager* pm = nsXULPopupManager::GetInstance();
@@ -6596,7 +6639,7 @@ static bool CanHandleContextMenuEvent(nsMouseEvent* aMouseEvent,
     if (popupFrame) {
       // context menus should not be opened while another menu is open on Mac,
       // so return false so that the event is not fired.
-      if (aMouseEvent->context == nsMouseEvent::eContextMenuKey) {
+      if (aMouseEvent->context == WidgetMouseEvent::eContextMenuKey) {
         return false;
       } else if (aMouseEvent->widget) {
          nsWindowType windowType;
@@ -6617,7 +6660,7 @@ static bool CanHandleContextMenuEvent(nsMouseEvent* aMouseEvent,
 }
 
 nsresult
-PresShell::HandleEventInternal(nsEvent* aEvent, nsEventStatus* aStatus)
+PresShell::HandleEventInternal(WidgetEvent* aEvent, nsEventStatus* aStatus)
 {
   nsRefPtr<nsEventStateManager> manager = mPresContext->EventStateManager();
   nsresult rv = NS_OK;
@@ -6635,7 +6678,8 @@ PresShell::HandleEventInternal(nsEvent* aEvent, nsEventStatus* aStatus)
         nsIDocument* doc = GetCurrentEventContent() ?
                            mCurrentEventContent->OwnerDoc() : nullptr;
         nsIDocument* fullscreenAncestor = nullptr;
-        if (static_cast<const nsKeyEvent*>(aEvent)->keyCode == NS_VK_ESCAPE) {
+        if (static_cast<const WidgetKeyboardEvent*>(aEvent)->keyCode ==
+              NS_VK_ESCAPE) {
           if ((fullscreenAncestor = nsContentUtils::GetFullscreenAncestor(doc))) {
             // Prevent default action on ESC key press when exiting
             // DOM fullscreen mode. This prevents the browser ESC key
@@ -6676,13 +6720,13 @@ PresShell::HandleEventInternal(nsEvent* aEvent, nsEventStatus* aStatus)
         isHandlingUserInput = true;
         break;
       case NS_TOUCH_START: {
-        nsTouchEvent* touchEvent = static_cast<nsTouchEvent*>(aEvent);
+        WidgetTouchEvent* touchEvent = static_cast<WidgetTouchEvent*>(aEvent);
         // if there is only one touch in this touchstart event, assume that it is
         // the start of a new touch session and evict any old touches in the
         // queue
         if (touchEvent->touches.Length() == 1) {
           nsTArray< nsRefPtr<dom::Touch> > touches;
-          gCaptureTouchList.Enumerate(&AppendToTouchList, (void *)&touches);
+          gCaptureTouchList->Enumerate(&AppendToTouchList, (void *)&touches);
           for (uint32_t i = 0; i < touches.Length(); ++i) {
             EvictTouchPoint(touches[i]);
           }
@@ -6691,12 +6735,12 @@ PresShell::HandleEventInternal(nsEvent* aEvent, nsEventStatus* aStatus)
         for (uint32_t i = 0; i < touchEvent->touches.Length(); ++i) {
           dom::Touch* touch = touchEvent->touches[i];
           int32_t id = touch->Identifier();
-          if (!gCaptureTouchList.Get(id, nullptr)) {
+          if (!gCaptureTouchList->Get(id, nullptr)) {
             // If it is not already in the queue, it is a new touch
             touch->mChanged = true;
           }
           touch->mMessage = aEvent->message;
-          gCaptureTouchList.Put(id, touch);
+          gCaptureTouchList->Put(id, touch);
         }
         break;
       }
@@ -6704,7 +6748,7 @@ PresShell::HandleEventInternal(nsEvent* aEvent, nsEventStatus* aStatus)
       case NS_TOUCH_END: {
         // Remove the changed touches
         // need to make sure we only remove touches that are ending here
-        nsTouchEvent* touchEvent = static_cast<nsTouchEvent*>(aEvent);
+        WidgetTouchEvent* touchEvent = static_cast<WidgetTouchEvent*>(aEvent);
         nsTArray< nsRefPtr<dom::Touch> >& touches = touchEvent->touches;
         for (uint32_t i = 0; i < touches.Length(); ++i) {
           dom::Touch* touch = touches[i];
@@ -6715,7 +6759,7 @@ PresShell::HandleEventInternal(nsEvent* aEvent, nsEventStatus* aStatus)
           touch->mChanged = true;
 
           int32_t id = touch->Identifier();
-          nsRefPtr<dom::Touch> oldTouch = gCaptureTouchList.GetWeak(id);
+          nsRefPtr<dom::Touch> oldTouch = gCaptureTouchList->GetWeak(id);
           if (!oldTouch) {
             continue;
           }
@@ -6723,15 +6767,15 @@ PresShell::HandleEventInternal(nsEvent* aEvent, nsEventStatus* aStatus)
 
           mCurrentEventContent = do_QueryInterface(targetPtr);
           touch->SetTarget(targetPtr);
-          gCaptureTouchList.Remove(id);
+          gCaptureTouchList->Remove(id);
         }
         // add any touches left in the touch list, but ensure changed=false
-        gCaptureTouchList.Enumerate(&AppendToTouchList, (void *)&touches);
+        gCaptureTouchList->Enumerate(&AppendToTouchList, (void *)&touches);
         break;
       }
       case NS_TOUCH_MOVE: {
         // Check for touches that changed. Mark them add to queue
-        nsTouchEvent* touchEvent = static_cast<nsTouchEvent*>(aEvent);
+        WidgetTouchEvent* touchEvent = static_cast<WidgetTouchEvent*>(aEvent);
         nsTArray< nsRefPtr<dom::Touch> >& touches = touchEvent->touches;
         bool haveChanged = false;
         for (int32_t i = touches.Length(); i; ) {
@@ -6743,7 +6787,7 @@ PresShell::HandleEventInternal(nsEvent* aEvent, nsEventStatus* aStatus)
           int32_t id = touch->Identifier();
           touch->mMessage = aEvent->message;
 
-          nsRefPtr<dom::Touch> oldTouch = gCaptureTouchList.GetWeak(id);
+          nsRefPtr<dom::Touch> oldTouch = gCaptureTouchList->GetWeak(id);
           if (!oldTouch) {
             touches.RemoveElementAt(i);
             continue;
@@ -6760,7 +6804,7 @@ PresShell::HandleEventInternal(nsEvent* aEvent, nsEventStatus* aStatus)
           }
           touch->SetTarget(targetPtr);
 
-          gCaptureTouchList.Put(id, touch);
+          gCaptureTouchList->Put(id, touch);
           // if we're moving from touchstart to touchmove for this touch
           // we allow preventDefault to prevent mouse events
           if (oldTouch->mMessage != touch->mMessage) {
@@ -6790,11 +6834,11 @@ PresShell::HandleEventInternal(nsEvent* aEvent, nsEventStatus* aStatus)
     }
 
     if (aEvent->message == NS_CONTEXTMENU) {
-      nsMouseEvent* me = static_cast<nsMouseEvent*>(aEvent);
+      WidgetMouseEvent* me = static_cast<WidgetMouseEvent*>(aEvent);
       if (!CanHandleContextMenuEvent(me, GetCurrentEventFrame())) {
         return NS_OK;
       }
-      if (me->context == nsMouseEvent::eContextMenuKey &&
+      if (me->context == WidgetMouseEvent::eContextMenuKey &&
           !AdjustContextMenuKeyEvent(me)) {
         return NS_OK;
       }
@@ -6829,7 +6873,7 @@ PresShell::HandleEventInternal(nsEvent* aEvent, nsEventStatus* aStatus)
       if (aEvent->eventStructType == NS_KEY_EVENT) {
         nsContentUtils::SetIsHandlingKeyBoardEvent(true);
       }
-      if (NS_IsAllowedToDispatchDOMEvent(aEvent)) {
+      if (aEvent->IsAllowedToDispatchDOMEvent()) {
         nsPresShellEventCB eventCB(this);
         if (aEvent->eventStructType == NS_TOUCH_EVENT) {
           DispatchTouchEvent(aEvent, aStatus, &eventCB, touchIsNew);
@@ -6885,7 +6929,7 @@ PresShell::HandleEventInternal(nsEvent* aEvent, nsEventStatus* aStatus)
 }
 
 void
-PresShell::DispatchTouchEvent(nsEvent *aEvent,
+PresShell::DispatchTouchEvent(WidgetEvent* aEvent,
                               nsEventStatus* aStatus,
                               nsPresShellEventCB* aEventCB,
                               bool aTouchIsNew)
@@ -6896,7 +6940,7 @@ PresShell::DispatchTouchEvent(nsEvent *aEvent,
               (aEvent->message == NS_TOUCH_MOVE && aTouchIsNew);
   bool preventDefault = false;
   nsEventStatus tmpStatus = nsEventStatus_eIgnore;
-  nsTouchEvent* touchEvent = static_cast<nsTouchEvent*>(aEvent);
+  WidgetTouchEvent* touchEvent = static_cast<WidgetTouchEvent*>(aEvent);
 
   // loop over all touches and dispatch events on any that have changed
   for (uint32_t i = 0; i < touchEvent->touches.Length(); ++i) {
@@ -6921,7 +6965,7 @@ PresShell::DispatchTouchEvent(nsEvent *aEvent,
       content = capturingContent;
     }
     // copy the event
-    nsTouchEvent newEvent(touchEvent->mFlags.mIsTrusted, touchEvent);
+    WidgetTouchEvent newEvent(touchEvent->mFlags.mIsTrusted, touchEvent);
     newEvent.target = targetPtr;
 
     nsRefPtr<PresShell> contentPresShell;
@@ -6976,7 +7020,8 @@ PresShell::DispatchTouchEvent(nsEvent *aEvent,
 // Dispatch event to content only (NOT full processing)
 // See also HandleEventWithTarget which does full event processing.
 nsresult
-PresShell::HandleDOMEventWithTarget(nsIContent* aTargetContent, nsEvent* aEvent,
+PresShell::HandleDOMEventWithTarget(nsIContent* aTargetContent,
+                                    WidgetEvent* aEvent,
                                     nsEventStatus* aStatus)
 {
   nsresult rv = NS_OK;
@@ -7020,7 +7065,7 @@ PresShell::HandleDOMEventWithTarget(nsIContent* aTargetContent,
 }
 
 bool
-PresShell::AdjustContextMenuKeyEvent(nsMouseEvent* aEvent)
+PresShell::AdjustContextMenuKeyEvent(WidgetMouseEvent* aEvent)
 {
 #ifdef MOZ_XUL
   // if a menu is open, open the context menu relative to the active item on the menu. 
@@ -8223,8 +8268,8 @@ nsIPresShell::AddRefreshObserverInternal(nsARefreshObserver* aObserver,
                                          mozFlushType aFlushType)
 {
   nsPresContext* presContext = GetPresContext();
-  return presContext ? presContext->RefreshDriver()->
-    AddRefreshObserver(aObserver, aFlushType) : false;
+  return presContext &&
+      presContext->RefreshDriver()->AddRefreshObserver(aObserver, aFlushType);
 }
 
 /* virtual */ bool
@@ -8239,8 +8284,8 @@ nsIPresShell::RemoveRefreshObserverInternal(nsARefreshObserver* aObserver,
                                             mozFlushType aFlushType)
 {
   nsPresContext* presContext = GetPresContext();
-  return presContext ? presContext->RefreshDriver()->
-    RemoveRefreshObserver(aObserver, aFlushType) : false;
+  return presContext &&
+      presContext->RefreshDriver()->RemoveRefreshObserver(aObserver, aFlushType);
 }
 
 /* virtual */ bool
@@ -8248,6 +8293,28 @@ nsIPresShell::RemoveRefreshObserverExternal(nsARefreshObserver* aObserver,
                                             mozFlushType aFlushType)
 {
   return RemoveRefreshObserverInternal(aObserver, aFlushType);
+}
+
+/* virtual */ bool
+nsIPresShell::AddPostRefreshObserver(nsAPostRefreshObserver* aObserver)
+{
+  nsPresContext* presContext = GetPresContext();
+  if (!presContext) {
+    return false;
+  }
+  presContext->RefreshDriver()->AddPostRefreshObserver(aObserver);
+  return true;
+}
+
+/* virtual */ bool
+nsIPresShell::RemovePostRefreshObserver(nsAPostRefreshObserver* aObserver)
+{
+  nsPresContext* presContext = GetPresContext();
+  if (!presContext) {
+    return false;
+  }
+  presContext->RefreshDriver()->RemovePostRefreshObserver(aObserver);
+  return true;
 }
 
 //------------------------------------------------------
@@ -8521,14 +8588,14 @@ DumpToPNG(nsIPresShell* shell, nsAString& name) {
 
   nsRefPtr<gfxImageSurface> imgSurface =
      new gfxImageSurface(gfxIntSize(width, height),
-                         gfxImageSurface::ImageFormatARGB32);
+                         gfxImageFormatARGB32);
 
   nsRefPtr<gfxContext> imgContext = new gfxContext(imgSurface);
 
   nsRefPtr<gfxASurface> surface = 
     gfxPlatform::GetPlatform()->
     CreateOffscreenSurface(gfxIntSize(width, height),
-      gfxASurface::ContentFromFormat(gfxASurface::ImageFormatARGB32));
+      gfxASurface::ContentFromFormat(gfxImageFormatARGB32));
   NS_ENSURE_TRUE(surface, NS_ERROR_OUT_OF_MEMORY);
 
   nsRefPtr<gfxContext> context = new gfxContext(surface);
@@ -9313,18 +9380,17 @@ nsIPresShell::AccService()
 }
 #endif
 
-static bool inited = false;
-
 void nsIPresShell::InitializeStatics()
 {
-  NS_ASSERTION(!inited, "InitializeStatics called multiple times!");
-  gCaptureTouchList.Init();
-  inited = true;
+  NS_ASSERTION(!gCaptureTouchList, "InitializeStatics called multiple times!");
+  gCaptureTouchList = new nsRefPtrHashtable<nsUint32HashKey, dom::Touch>;
 }
 
 void nsIPresShell::ReleaseStatics()
 {
-  NS_ASSERTION(inited, "ReleaseStatics called without Initialize!");
+  NS_ASSERTION(gCaptureTouchList, "ReleaseStatics called without Initialize!");
+  delete gCaptureTouchList;
+  gCaptureTouchList = nullptr;
 }
 
 // Asks our docshell whether we're active.
@@ -9423,7 +9489,7 @@ PresShell::SetIsActive(bool aIsActive)
   // and (ii) has easy access to the TabChild.  So we use this
   // notification to signal the TabChild to drop its layer tree and
   // stop trying to repaint.
-  if (TabChild* tab = GetTabChildFrom(this)) {
+  if (TabChild* tab = TabChild::GetFrom(this)) {
     if (aIsActive) {
       tab->MakeVisible();
       if (!mIsZombie) {
@@ -9465,22 +9531,22 @@ PresShell::GetRootPresShell()
 }
 
 void
-PresShell::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf,
-                               nsArenaMemoryStats *aArenaObjectsSize,
-                               size_t *aPresShellSize,
-                               size_t *aStyleSetsSize,
-                               size_t *aTextRunsSize,
-                               size_t *aPresContextSize)
+PresShell::AddSizeOfIncludingThis(MallocSizeOf aMallocSizeOf,
+                                  nsArenaMemoryStats *aArenaObjectsSize,
+                                  size_t *aPresShellSize,
+                                  size_t *aStyleSetsSize,
+                                  size_t *aTextRunsSize,
+                                  size_t *aPresContextSize)
 {
-  mFrameArena.SizeOfExcludingThis(aMallocSizeOf, aArenaObjectsSize);
-  *aPresShellSize = aMallocSizeOf(this);
+  mFrameArena.AddSizeOfExcludingThis(aMallocSizeOf, aArenaObjectsSize);
+  *aPresShellSize += aMallocSizeOf(this);
   *aPresShellSize += aArenaObjectsSize->mOther;
 
-  *aStyleSetsSize = StyleSet()->SizeOfIncludingThis(aMallocSizeOf);
+  *aStyleSetsSize += StyleSet()->SizeOfIncludingThis(aMallocSizeOf);
 
-  *aTextRunsSize = SizeOfTextRuns(aMallocSizeOf);
+  *aTextRunsSize += SizeOfTextRuns(aMallocSizeOf);
 
-  *aPresContextSize = mPresContext->SizeOfIncludingThis(aMallocSizeOf);
+  *aPresContextSize += mPresContext->SizeOfIncludingThis(aMallocSizeOf);
 }
 
 size_t
@@ -9564,7 +9630,7 @@ nsIPresShell::RecomputeFontSizeInflationEnabled()
 
   // Force-enabling font inflation always trumps the heuristics here.
   if (!FontSizeInflationForceEnabled()) {
-    if (TabChild* tab = GetTabChildFrom(this)) {
+    if (TabChild* tab = TabChild::GetFrom(this)) {
       // We're in a child process.  Cancel inflation if we're not
       // async-pan zoomed.
       if (!tab->IsAsyncPanZoomEnabled()) {

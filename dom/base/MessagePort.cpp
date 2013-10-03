@@ -110,7 +110,8 @@ PostMessageReadStructuredClone(JSContext* cx,
                                uint32_t data,
                                void* closure)
 {
-  NS_ASSERTION(closure, "Must have closure!");
+  StructuredCloneInfo* scInfo = static_cast<StructuredCloneInfo*>(closure);
+  NS_ASSERTION(scInfo, "Must have scInfo!");
 
   if (tag == SCTAG_DOM_BLOB || tag == SCTAG_DOM_FILELIST) {
     NS_ASSERTION(!data, "Data should be empty");
@@ -139,6 +140,7 @@ PostMessageReadStructuredClone(JSContext* cx,
       if (global) {
         JS::Rooted<JSObject*> obj(cx, port->WrapObject(cx, global));
         if (JS_WrapObject(cx, obj.address())) {
+          port->BindToOwner(scInfo->mPort->GetOwner());
           return obj;
         }
       }
@@ -191,7 +193,7 @@ PostMessageWriteStructuredClone(JSContext* cx,
   MessagePort* port = nullptr;
   nsresult rv = UNWRAP_OBJECT(MessagePort, cx, obj, port);
   if (NS_SUCCEEDED(rv)) {
-    nsRefPtr<MessagePort> newPort = port->Clone(scInfo->mPort->GetOwner());
+    nsRefPtr<MessagePort> newPort = port->Clone();
 
     return JS_WriteUint32Pair(writer, SCTAG_DOM_MESSAGEPORT, 0) &&
            JS_WriteBytes(writer, &newPort, sizeof(newPort)) &&
@@ -430,12 +432,12 @@ MessagePort::GetOnmessage()
 }
 
 void
-MessagePort::SetOnmessage(EventHandlerNonNull* aCallback, ErrorResult& aRv)
+MessagePort::SetOnmessage(EventHandlerNonNull* aCallback)
 {
   if (NS_IsMainThread()) {
-    SetEventHandler(nsGkAtoms::onmessage, EmptyString(), aCallback, aRv);
+    SetEventHandler(nsGkAtoms::onmessage, EmptyString(), aCallback);
   } else {
-    SetEventHandler(nullptr, NS_LITERAL_STRING("message"), aCallback, aRv);
+    SetEventHandler(nullptr, NS_LITERAL_STRING("message"), aCallback);
   }
 
   // When using onmessage, the call to start() is implied.
@@ -454,9 +456,9 @@ MessagePort::Entangle(MessagePort* aMessagePort)
 }
 
 already_AddRefed<MessagePort>
-MessagePort::Clone(nsPIDOMWindow* aWindow)
+MessagePort::Clone()
 {
-  nsRefPtr<MessagePort> newPort = new MessagePort(aWindow->GetCurrentInnerWindow());
+  nsRefPtr<MessagePort> newPort = new MessagePort(nullptr);
 
   // Move all the events in the port message queue of original port.
   newPort->mMessageQueue.SwapElements(mMessageQueue);

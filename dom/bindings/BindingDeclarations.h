@@ -22,6 +22,7 @@
 #include "nsStringBuffer.h"
 #include "nsTArray.h"
 #include "nsAutoPtr.h" // for nsRefPtr member variables
+#include "mozilla/dom/OwningNonNull.h"
 
 class nsWrapperCache;
 
@@ -207,7 +208,7 @@ public:
 
 private:
   // We need to be able to act like a string as needed
-  Maybe<nsString> mString;
+  Maybe<nsAutoString> mString;
 
   // For callees that know we exist, we can be a stringbuffer/length/null-flag
   // triple.
@@ -255,6 +256,13 @@ public:
   void Construct(const T1 &t1, const T2 &t2)
   {
     mImpl.construct(t1, t2);
+  }
+
+  void Reset()
+  {
+    if (WasPassed()) {
+      mImpl.destroy();
+    }
   }
 
   const T& Value() const
@@ -417,7 +425,6 @@ public:
 
 // A specialization of Optional for OwningNonNull that lets us get a
 // T& from Value()
-template<typename U> class OwningNonNull;
 template<typename T>
 class Optional<OwningNonNull<T> > : public Optional_base<T, OwningNonNull<T> >
 {

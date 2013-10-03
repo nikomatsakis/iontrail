@@ -71,7 +71,7 @@ typedef enum JSType {
 typedef enum JSProtoKey {
 #define PROTOKEY_AND_INITIALIZER(name,code,init) JSProto_##name = code,
     JS_FOR_EACH_PROTOTYPE(PROTOKEY_AND_INITIALIZER)
-#undef JS_PROTO
+#undef PROTOKEY_AND_INITIALIZER
     JSProto_LIMIT
 } JSProtoKey;
 
@@ -172,6 +172,12 @@ typedef bool                    (*JSInitCallback)(void);
 typedef void
 (* JSTraceDataOp)(JSTracer *trc, void *data);
 
+namespace js {
+namespace gc {
+class StoreBuffer;
+}
+}
+
 namespace JS {
 
 typedef void (*OffThreadCompileCallback)(void *token, void *callbackData);
@@ -187,15 +193,36 @@ struct Runtime
     /* Allow inlining of Nursery::isInside. */
     uintptr_t gcNurseryStart_;
     uintptr_t gcNurseryEnd_;
+
+  private:
+    js::gc::StoreBuffer *gcStoreBufferPtr_;
 #endif
 
-    Runtime()
+  public:
+    Runtime(
+#ifdef JSGC_GENERATIONAL
+        js::gc::StoreBuffer *storeBuffer
+#endif
+    )
       : needsBarrier_(false)
 #ifdef JSGC_GENERATIONAL
       , gcNurseryStart_(0)
       , gcNurseryEnd_(0)
+      , gcStoreBufferPtr_(storeBuffer)
 #endif
     {}
+
+    bool needsBarrier() const {
+        return needsBarrier_;
+    }
+
+#ifdef JSGC_GENERATIONAL
+    js::gc::StoreBuffer *gcStoreBufferPtr() { return gcStoreBufferPtr_; }
+#endif
+
+    static JS::shadow::Runtime *asShadowRuntime(JSRuntime *rt) {
+        return reinterpret_cast<JS::shadow::Runtime*>(rt);
+    }
 };
 
 } /* namespace shadow */

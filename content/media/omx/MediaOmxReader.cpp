@@ -69,7 +69,7 @@ void MediaOmxReader::ReleaseMediaResources()
   }
 }
 
-nsresult MediaOmxReader::ReadMetadata(VideoInfo* aInfo,
+nsresult MediaOmxReader::ReadMetadata(MediaInfo* aInfo,
                                       MetadataTags** aTags)
 {
   NS_ASSERTION(mDecoder->OnDecodeThread(), "Should be on decode thread.");
@@ -113,8 +113,8 @@ nsresult MediaOmxReader::ReadMetadata(VideoInfo* aInfo,
     }
 
     // Video track's frame sizes will not overflow. Activate the video track.
-    mHasVideo = mInfo.mHasVideo = true;
-    mInfo.mDisplay = displaySize;
+    mHasVideo = mInfo.mVideo.mHasVideo = true;
+    mInfo.mVideo.mDisplay = displaySize;
     mPicture = pictureRect;
     mInitialFrame = frameSize;
     VideoFrameContainer* container = mDecoder->GetVideoFrameContainer();
@@ -128,9 +128,9 @@ nsresult MediaOmxReader::ReadMetadata(VideoInfo* aInfo,
   if (mOmxDecoder->HasAudio()) {
     int32_t numChannels, sampleRate;
     mOmxDecoder->GetAudioParameters(&numChannels, &sampleRate);
-    mHasAudio = mInfo.mHasAudio = true;
-    mInfo.mAudioChannels = numChannels;
-    mInfo.mAudioRate = sampleRate;
+    mHasAudio = mInfo.mAudio.mHasAudio = true;
+    mInfo.mAudio.mChannels = numChannels;
+    mInfo.mAudio.mRate = sampleRate;
   }
 
  *aInfo = mInfo;
@@ -171,7 +171,6 @@ bool MediaOmxReader::DecodeVideoFrame(bool &aKeyframeSkip,
     frame.mGraphicBuffer = nullptr;
     frame.mShouldSkip = false;
     if (!mOmxDecoder->ReadVideo(&frame, aTimeThreshold, aKeyframeSkip, doSeek)) {
-      mVideoQueue.Finish();
       return false;
     }
     doSeek = false;
@@ -233,7 +232,7 @@ bool MediaOmxReader::DecodeVideoFrame(bool &aKeyframeSkip,
       b.mPlanes[2].mOffset = frame.Cr.mOffset;
       b.mPlanes[2].mSkip = frame.Cr.mSkip;
 
-      v = VideoData::Create(mInfo,
+      v = VideoData::Create(mInfo.mVideo,
                             mDecoder->GetImageContainer(),
                             pos,
                             frame.mTimeUs,
@@ -243,7 +242,7 @@ bool MediaOmxReader::DecodeVideoFrame(bool &aKeyframeSkip,
                             -1,
                             picture);
     } else {
-      v = VideoData::Create(mInfo,
+      v = VideoData::Create(mInfo.mVideo,
                             mDecoder->GetImageContainer(),
                             pos,
                             frame.mTimeUs,
@@ -289,7 +288,6 @@ bool MediaOmxReader::DecodeAudioData()
   // Read next frame
   MPAPI::AudioFrame frame;
   if (!mOmxDecoder->ReadAudio(&frame, mAudioSeekTimeUs)) {
-    mAudioQueue.Finish();
     return false;
   }
   mAudioSeekTimeUs = -1;

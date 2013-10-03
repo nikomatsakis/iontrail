@@ -216,7 +216,7 @@ protected:
     nsIFrame* nextCont = aFrame->GetNextContinuation();
     if (!nextCont && (aFrame->GetStateBits() & NS_FRAME_IS_SPECIAL)) {
       // The {ib} properties are only stored on first continuations
-      aFrame = aFrame->GetFirstContinuation();
+      aFrame = aFrame->FirstContinuation();
       nsIFrame* block = static_cast<nsIFrame*>
         (aFrame->Properties().Get(nsIFrame::IBSplitSpecialSibling()));
       if (block) {
@@ -400,7 +400,6 @@ class GradientCache MOZ_FINAL : public nsExpirationTracker<GradientCacheData,4>
     GradientCache()
       : nsExpirationTracker<GradientCacheData, 4>(MAX_GENERATION_MS)
     {
-      mHashEntries.Init();
       srand(time(nullptr));
       mTimerPeriod = rand() % MAX_GENERATION_MS + 1;
       Telemetry::Accumulate(Telemetry::GRADIENT_RETENTION_TIME, mTimerPeriod);
@@ -2355,6 +2354,8 @@ nsCSSRendering::PaintGradient(nsPresContext* aPresContext,
     // stops have been normalized.
     gfxPoint gradientStart = lineStart + (lineEnd - lineStart)*stopOrigin;
     gfxPoint gradientEnd = lineStart + (lineEnd - lineStart)*stopEnd;
+    gfxPoint gradientStopStart = lineStart + (lineEnd - lineStart)*firstStop;
+    gfxPoint gradientStopEnd = lineStart + (lineEnd - lineStart)*lastStop;
 
     if (stopDelta == 0.0) {
       // Stops are all at the same place. For repeating gradients, this will
@@ -2364,6 +2365,7 @@ nsCSSRendering::PaintGradient(nsPresContext* aPresContext,
       // our stops will be at 0.0; we just need to set the direction vector
       // correctly.
       gradientEnd = gradientStart + (lineEnd - lineStart);
+      gradientStopEnd = gradientStopStart + (lineEnd - lineStart);
     }
 
     gradientPattern = new gfxPattern(gradientStart.x, gradientStart.y,
@@ -2373,10 +2375,10 @@ nsCSSRendering::PaintGradient(nsPresContext* aPresContext,
     // to the right edge of a tile, then we can repeat by just repeating the
     // gradient.
     if (!cellContainsFill &&
-        ((gradientStart.y == gradientEnd.y && gradientStart.x == 0 &&
-          gradientEnd.x == oneCellArea.width) ||
-          (gradientStart.x == gradientEnd.x && gradientStart.y == 0 &&
-          gradientEnd.y == oneCellArea.height))) {
+        ((gradientStopStart.y == gradientStopEnd.y && gradientStopStart.x == 0 &&
+          gradientStopEnd.x == oneCellArea.width) ||
+          (gradientStopStart.x == gradientStopEnd.x && gradientStopStart.y == 0 &&
+          gradientStopEnd.y == oneCellArea.height))) {
       forceRepeatToCoverTiles = true;
     }
   } else {
@@ -3489,7 +3491,7 @@ DrawBorderImageComponent(nsRenderingContext&  aRenderingContext,
     aStyleBorder.SetSubImage(aIndex, subImage);
   }
 
-  gfxPattern::GraphicsFilter graphicsFilter =
+  GraphicsFilter graphicsFilter =
     nsLayoutUtils::GetGraphicsFilterForFrame(aForFrame);
 
   // If we have no tiling in either direction, we can skip the intermediate
@@ -4471,7 +4473,7 @@ nsImageRenderer::PrepareImage()
       nsContentUtils::NewURIWithDocumentCharset(getter_AddRefs(targetURI), elementId,
                                                 mForFrame->GetContent()->GetCurrentDoc(), base);
       nsSVGPaintingProperty* property = nsSVGEffects::GetPaintingPropertyForURI(
-          targetURI, mForFrame->GetFirstContinuation(),
+          targetURI, mForFrame->FirstContinuation(),
           nsSVGEffects::BackgroundImageProperty());
       if (!property)
         return false;
@@ -4728,7 +4730,7 @@ nsImageRenderer::Draw(nsPresContext*       aPresContext,
     return;
   }
 
-  gfxPattern::GraphicsFilter graphicsFilter =
+  GraphicsFilter graphicsFilter =
     nsLayoutUtils::GetGraphicsFilterForFrame(mForFrame);
 
   switch (mType) {
@@ -4789,7 +4791,7 @@ nsImageRenderer::DrawBackground(nsPresContext*       aPresContext,
   }
 
   if (mType == eStyleImageType_Image) {
-    gfxPattern::GraphicsFilter graphicsFilter =
+    GraphicsFilter graphicsFilter =
       nsLayoutUtils::GetGraphicsFilterForFrame(mForFrame);
 
     nsLayoutUtils::DrawBackgroundImage(&aRenderingContext, mImageContainer,

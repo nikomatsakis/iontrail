@@ -364,11 +364,6 @@
         <getter><![CDATA[
             // return the rect that represents our bounding box
             let containerNode = this.hasAttribute("flex") ? this : this.parentNode;
-            // Autocomplete is a binding within a binding, so we have to step
-            // up an additional parentNode.
-            if (containerNode.id == "results-vbox" ||
-                containerNode.id == "searches-vbox")
-                containerNode = containerNode.parentNode;
             let rect = containerNode.getBoundingClientRect();
             // return falsy if the container has no height
             return rect.height ? {
@@ -529,9 +524,6 @@
             this._xslideHandler = new CrossSlide.Handler(this, {
                   REARRANGESTART: this.crossSlideBoundary
             });
-            this.addEventListener("touchstart", this._xslideHandler, false);
-            this.addEventListener("touchmove", this._xslideHandler, false);
-            this.addEventListener("touchend", this._xslideHandler, false);
           }
 
           // XXX This event was never actually implemented (bug 223411).

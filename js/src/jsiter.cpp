@@ -35,7 +35,6 @@
 #include "jsinferinlines.h"
 #include "jsobjinlines.h"
 
-#include "builtin/Iterator-inl.h"
 #include "vm/Stack-inl.h"
 #include "vm/String-inl.h"
 
@@ -197,7 +196,7 @@ Snapshot(JSContext *cx, JSObject *pobj_, unsigned flags, AutoIdVector *props)
     RootedObject pobj(cx, pobj_);
 
     do {
-        Class *clasp = pobj->getClass();
+        const Class *clasp = pobj->getClass();
         if (pobj->isNative() &&
             !pobj->getOps()->enumerate &&
             !(clasp->flags & JSCLASS_NEW_ENUMERATE)) {
@@ -383,7 +382,7 @@ NewPropertyIteratorObject(JSContext *cx, unsigned flags)
         if (!NewObjectMetadata(cx, &metadata))
             return NULL;
 
-        Class *clasp = &PropertyIteratorObject::class_;
+        const Class *clasp = &PropertyIteratorObject::class_;
         RootedShape shape(cx, EmptyShape::getInitialShape(cx, clasp, NULL, NULL, metadata,
                                                           ITERATOR_FINALIZE_KIND));
         if (!shape)
@@ -605,7 +604,6 @@ js::GetIterator(JSContext *cx, HandleObject obj, unsigned flags, MutableHandleVa
             if (!iterobj)
                 return false;
             vp.setObject(*iterobj);
-            types::MarkIteratorUnknown(cx);
             return true;
         }
 
@@ -682,16 +680,13 @@ js::GetIterator(JSContext *cx, HandleObject obj, unsigned flags, MutableHandleVa
         }
 
       miss:
-        if (obj->is<ProxyObject>()) {
-            types::MarkIteratorUnknown(cx);
+        if (obj->is<ProxyObject>())
             return Proxy::iterate(cx, obj, flags, vp);
-        }
+
         if (!GetCustomIterator(cx, obj, flags, vp))
             return false;
-        if (!vp.isUndefined()) {
-            types::MarkIteratorUnknown(cx);
+        if (!vp.isUndefined())
             return true;
-        }
     }
 
     /* NB: for (var p in null) succeeds by iterating over no properties. */
@@ -833,7 +828,7 @@ PropertyIteratorObject::finalize(FreeOp *fop, JSObject *obj)
         fop->free_(ni);
 }
 
-Class PropertyIteratorObject::class_ = {
+const Class PropertyIteratorObject::class_ = {
     "Iterator",
     JSCLASS_IMPLEMENTS_BARRIERS |
     JSCLASS_HAS_CACHED_PROTO(JSProto_Iterator) |
@@ -938,7 +933,7 @@ ElementIteratorObject::next_impl(JSContext *cx, CallArgs args)
     return false;
 }
 
-Class ElementIteratorObject::class_ = {
+const Class ElementIteratorObject::class_ = {
     "Array Iterator",
     JSCLASS_IMPLEMENTS_BARRIERS |
     JSCLASS_HAS_RESERVED_SLOTS(ElementIteratorObject::NumSlots),
@@ -1203,12 +1198,6 @@ js_SuppressDeletedElements(JSContext *cx, HandleObject obj, uint32_t begin, uint
     return SuppressDeletedPropertyHelper(cx, obj, IndexRangePredicate(begin, end));
 }
 
-static inline bool
-IsStopIteration(const js::Value &v)
-{
-    return v.isObject() && v.toObject().is<StopIterationObject>();
-}
-
 bool
 js_IteratorMore(JSContext *cx, HandleObject iterobj, MutableHandleValue rval)
 {
@@ -1252,7 +1241,7 @@ js_IteratorMore(JSContext *cx, HandleObject iterobj, MutableHandleValue rval)
             return false;
         if (!Invoke(cx, ObjectValue(*iterobj), rval, 0, NULL, rval)) {
             /* Check for StopIteration. */
-            if (!cx->isExceptionPending() || !IsStopIteration(cx->getPendingException()))
+            if (!cx->isExceptionPending() || !JS_IsStopIteration(cx->getPendingException()))
                 return false;
 
             cx->clearPendingException();
@@ -1297,11 +1286,11 @@ js_IteratorNext(JSContext *cx, HandleObject iterobj, MutableHandleValue rval)
 static bool
 stopiter_hasInstance(JSContext *cx, HandleObject obj, MutableHandleValue v, bool *bp)
 {
-    *bp = IsStopIteration(v);
+    *bp = JS_IsStopIteration(v);
     return true;
 }
 
-Class StopIterationObject::class_ = {
+const Class StopIterationObject::class_ = {
     "StopIteration",
     JSCLASS_HAS_CACHED_PROTO(JSProto_StopIteration) |
     JSCLASS_FREEZE_PROTO,
@@ -1454,7 +1443,7 @@ GeneratorState::pushInterpreterFrame(JSContext *cx, FrameGuard *)
     return gen_->fp;
 }
 
-Class LegacyGeneratorObject::class_ = {
+const Class LegacyGeneratorObject::class_ = {
     "Generator",
     JSCLASS_HAS_PRIVATE | JSCLASS_IMPLEMENTS_BARRIERS,
     JS_PropertyStub,         /* addProperty */
@@ -1477,7 +1466,7 @@ Class LegacyGeneratorObject::class_ = {
     }
 };
 
-Class StarGeneratorObject::class_ = {
+const Class StarGeneratorObject::class_ = {
     "Generator",
     JSCLASS_HAS_PRIVATE | JSCLASS_IMPLEMENTS_BARRIERS,
     JS_PropertyStub,         /* addProperty */
@@ -1804,12 +1793,12 @@ NativeMethod(JSContext *cx, unsigned argc, Value *vp)
 }
 
 #define JSPROP_ROPERM   (JSPROP_READONLY | JSPROP_PERMANENT)
-#define JS_METHOD(name, T, impl, len, perms) JS_FN(name, (NativeMethod<T,impl>), len, perms)
+#define JS_METHOD(name, T, impl, len, attrs) JS_FN(name, (NativeMethod<T,impl>), len, attrs)
 
 static const JSFunctionSpec star_generator_methods[] = {
     JS_FN("iterator", iterator_iterator, 0, 0),
-    JS_METHOD("next", StarGeneratorObject, star_generator_next, 1, JSPROP_ROPERM),
-    JS_METHOD("throw", StarGeneratorObject, star_generator_throw, 1, JSPROP_ROPERM),
+    JS_METHOD("next", StarGeneratorObject, star_generator_next, 1, 0),
+    JS_METHOD("throw", StarGeneratorObject, star_generator_throw, 1, 0),
     JS_FS_END
 };
 
@@ -1875,7 +1864,7 @@ GlobalObject::initIteratorClasses(JSContext *cx, Handle<GlobalObject *> global)
 
     RootedObject proto(cx);
     if (global->getSlot(ELEMENT_ITERATOR_PROTO).isUndefined()) {
-        Class *cls = &ElementIteratorObject::class_;
+        const Class *cls = &ElementIteratorObject::class_;
         proto = global->createBlankPrototypeInheriting(cx, cls, *iteratorProto);
         if (!proto || !DefinePropertiesAndBrand(cx, proto, NULL, ElementIteratorObject::methods))
             return false;

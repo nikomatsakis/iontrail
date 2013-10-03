@@ -8,7 +8,6 @@
 
 #include <stdint.h>                     // for uint64_t
 #include <stdio.h>                      // for FILE
-#include "mozilla-config.h"             // for MOZ_DUMP_PAINTING
 #include "gfxPoint.h"                   // for gfxSize
 #include "gfxRect.h"                    // for gfxRect
 #include "mozilla/Assertions.h"         // for MOZ_ASSERT, etc
@@ -59,6 +58,23 @@ class TiledLayerComposer;
 struct EffectChain;
 
 /**
+ * A base class for doing CompositableHost and platform dependent task on TextureHost.
+ */
+class CompositableBackendSpecificData : public RefCounted<CompositableBackendSpecificData>
+{
+public:
+  CompositableBackendSpecificData()
+  {
+    MOZ_COUNT_CTOR(CompositableBackendSpecificData);
+  }
+  virtual ~CompositableBackendSpecificData()
+  {
+    MOZ_COUNT_DTOR(CompositableBackendSpecificData);
+  }
+  virtual void SetCompositor(Compositor* aCompositor) {}
+};
+
+/**
  * The compositor-side counterpart to CompositableClient. Responsible for
  * updating textures and data about textures from IPC and how textures are
  * composited (tiling, double buffering, etc.).
@@ -82,6 +98,16 @@ public:
   static TemporaryRef<CompositableHost> Create(const TextureInfo& aTextureInfo);
 
   virtual CompositableType GetType() = 0;
+
+  virtual CompositableBackendSpecificData* GetCompositableBackendSpecificData()
+  {
+    return mBackendData;
+  }
+
+  virtual void SetCompositableBackendSpecificData(CompositableBackendSpecificData* aBackendData)
+  {
+    mBackendData = aBackendData;
+  }
 
   // If base class overrides, it should still call the parent implementation
   virtual void SetCompositor(Compositor* aCompositor);
@@ -262,13 +288,14 @@ public:
 
   void AddTextureHost(TextureHost* aTexture);
   virtual void UseTextureHost(TextureHost* aTexture) {}
-  void RemoveTextureHost(uint64_t aTextureID);
+  virtual void RemoveTextureHost(uint64_t aTextureID);
   TextureHost* GetTextureHost(uint64_t aTextureID);
 
 protected:
   TextureInfo mTextureInfo;
   Compositor* mCompositor;
   Layer* mLayer;
+  RefPtr<CompositableBackendSpecificData> mBackendData;
   RefPtr<TextureHost> mFirstTexture;
   bool mAttached;
   bool mKeepAttached;
@@ -276,6 +303,14 @@ protected:
 
 class CompositableParentManager;
 
+/**
+ * IPDL actor used by CompositableHost to match with its corresponding
+ * CompositableClient on the content side.
+ *
+ * CompositableParent is owned by the IPDL system. It's deletion is triggered
+ * by either the CompositableChild's deletion, or by the IPDL communication
+ * goind down.
+ */
 class CompositableParent : public PCompositableParent
 {
 public:

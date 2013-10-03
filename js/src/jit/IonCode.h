@@ -37,7 +37,7 @@ class MacroAssembler;
 class CodeOffsetLabel;
 class PatchableBackedge;
 
-class IonCode : public gc::Cell
+class IonCode : public gc::BarrieredCell<IonCode>
 {
   protected:
     uint8_t *code_;
@@ -57,8 +57,8 @@ class IonCode : public gc::Cell
 #endif
 
     IonCode()
-      : code_(NULL),
-        pool_(NULL)
+      : code_(nullptr),
+        pool_(nullptr)
     { }
     IonCode(uint8_t *code, uint32_t bufferSize, JSC::ExecutablePool *pool)
       : code_(code),
@@ -128,15 +128,11 @@ class IonCode : public gc::Cell
     }
 
     // Allocates a new IonCode object which will be managed by the GC. If no
-    // object can be allocated, NULL is returned. On failure, |pool| is
+    // object can be allocated, nullptr is returned. On failure, |pool| is
     // automatically released, so the code may be freed.
     static IonCode *New(JSContext *cx, uint8_t *code, uint32_t bufferSize, JSC::ExecutablePool *pool);
 
   public:
-    JS::Zone *zone() const { return tenuredZone(); }
-    static void readBarrier(IonCode *code);
-    static void writeBarrierPre(IonCode *code);
-    static void writeBarrierPost(IonCode *code, void *addr) {}
     static inline ThingRootKind rootKind() { return THING_ROOT_ION_CODE; }
 };
 
@@ -171,7 +167,7 @@ struct IonScript
     // Deoptimization table used by this method.
     EncapsulatedPtr<IonCode> deoptTable_;
 
-    // Entrypoint for OSR, or NULL.
+    // Entrypoint for OSR, or nullptr.
     jsbytecode *osrPc_;
 
     // Offset to OSR entrypoint from method_->raw(), or 0.
@@ -250,7 +246,7 @@ struct IonScript
 
     // List of scripts that we call.
     //
-    // Currently this is only non-NULL for parallel IonScripts.
+    // Currently this is only non-nullptr for parallel IonScripts.
     uint32_t callTargetList_;
     uint32_t callTargetEntries_;
 
@@ -576,7 +572,7 @@ struct IonBlockCounts
         offset_ = offset;
         numSuccessors_ = numSuccessors;
         if (numSuccessors) {
-            successors_ = (uint32_t *) js_calloc(numSuccessors * sizeof(uint32_t));
+            successors_ = js_pod_calloc<uint32_t>(numSuccessors);
             if (!successors_)
                 return false;
         }
@@ -674,8 +670,8 @@ struct IonScriptCounts
 
     bool init(size_t numBlocks) {
         numBlocks_ = numBlocks;
-        blocks_ = (IonBlockCounts *) js_calloc(numBlocks * sizeof(IonBlockCounts));
-        return blocks_ != NULL;
+        blocks_ = js_pod_calloc<IonBlockCounts>(numBlocks);
+        return blocks_ != nullptr;
     }
 
     size_t numBlocks() const {
@@ -714,7 +710,7 @@ struct AutoFlushCache
     void update(uintptr_t p, size_t len);
     static void updateTop(uintptr_t p, size_t len);
     ~AutoFlushCache();
-    AutoFlushCache(const char *nonce, IonRuntime *rt = NULL);
+    AutoFlushCache(const char *nonce, IonRuntime *rt);
     void flushAnyway();
 };
 
@@ -726,12 +722,13 @@ struct AutoFlushCache
 //   2) the called function can re-enter a compilation/modification path which
 //       will use your AFC, and thus not flush when his compilation is done
 
-struct AutoFlushInhibitor {
+struct AutoFlushInhibitor
+{
   private:
-    IonCompartment *ic_;
+    IonRuntime *runtime_;
     AutoFlushCache *afc;
   public:
-    AutoFlushInhibitor(IonCompartment *ic);
+    AutoFlushInhibitor(IonRuntime *rt);
     ~AutoFlushInhibitor();
 };
 } // namespace jit

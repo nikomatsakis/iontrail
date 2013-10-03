@@ -8,8 +8,10 @@
 #include "DOMStorageManager.h"
 
 #include "mozilla/dom/ContentChild.h"
+#include "mozilla/dom/ContentParent.h"
 #include "mozilla/unused.h"
 #include "nsIDiskSpaceWatcher.h"
+#include "nsThreadUtils.h"
 
 namespace mozilla {
 namespace dom {
@@ -58,7 +60,6 @@ DOMStorageDBChild::DOMStorageDBChild(DOMLocalStorageManager* aManager)
   , mStatus(NS_OK)
   , mIPCOpen(false)
 {
-  mLoadingCaches.Init();
 }
 
 DOMStorageDBChild::~DOMStorageDBChild()
@@ -68,11 +69,11 @@ DOMStorageDBChild::~DOMStorageDBChild()
 nsTHashtable<nsCStringHashKey>&
 DOMStorageDBChild::ScopesHavingData()
 {
-  if (!mScopesHavingData.IsInitialized()) {
-    mScopesHavingData.Init();
+  if (!mScopesHavingData) {
+    mScopesHavingData = new nsTHashtable<nsCStringHashKey>;
   }
 
-  return mScopesHavingData;
+  return *mScopesHavingData;
 }
 
 nsresult
@@ -201,8 +202,7 @@ DOMStorageDBChild::ShouldPreloadScope(const nsACString& aScope)
   // Return true if we didn't receive the aScope list yet.
   // I tend to rather preserve a bit of early-after-start performance
   // then a bit of memory here.
-  return !mScopesHavingData.IsInitialized() ||
-         mScopesHavingData.Contains(aScope);
+  return !mScopesHavingData || mScopesHavingData->Contains(aScope);
 }
 
 bool
@@ -363,6 +363,18 @@ DOMStorageDBParent::~DOMStorageDBParent()
   if (observer) {
     observer->RemoveSink(this);
   }
+}
+
+mozilla::ipc::IProtocol*
+DOMStorageDBParent::CloneProtocol(Channel* aChannel,
+                                  mozilla::ipc::ProtocolCloneContext* aCtx)
+{
+  ContentParent* contentParent = aCtx->GetContentParent();
+  nsAutoPtr<PStorageParent> actor(contentParent->AllocPStorageParent());
+  if (!actor || !contentParent->RecvPStorageConstructor(actor)) {
+    return nullptr;
+  }
+  return actor.forget();
 }
 
 DOMStorageDBParent::CacheParentBridge*

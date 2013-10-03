@@ -108,55 +108,41 @@ public:
  *   the tab.
  *
  */
-class nsWindowMemoryReporter MOZ_FINAL : public nsIMemoryMultiReporter,
+class nsWindowMemoryReporter MOZ_FINAL : public nsIMemoryReporter,
                                          public nsIObserver,
                                          public nsSupportsWeakReference
 {
 public:
   NS_DECL_ISUPPORTS
-  NS_DECL_NSIMEMORYMULTIREPORTER
+  NS_DECL_NSIMEMORYREPORTER
   NS_DECL_NSIOBSERVER
 
   static void Init();
 
 private:
   /**
-   * GhostURLsReporter generates the "ghost-windows" multi-report, which
-   * includes a list of all ghost windows' URLs.  If you're only interested in
-   * this list, running this report is faster than running
-   * nsWindowMemoryReporter.
+   * nsGhostWindowReporter generates the "ghost-windows" report, which counts
+   * the number of ghost windows present.
    */
-  class GhostURLsReporter MOZ_FINAL : public nsIMemoryMultiReporter
+  class GhostWindowsReporter MOZ_FINAL : public mozilla::MemoryUniReporter
   {
   public:
-    GhostURLsReporter(nsWindowMemoryReporter* aWindowReporter);
-
-    NS_DECL_ISUPPORTS
-    NS_DECL_NSIMEMORYMULTIREPORTER
-
-  private:
-    nsRefPtr<nsWindowMemoryReporter> mWindowReporter;
-  };
-
-  /**
-   * nsGhostWindowReporter generates the "ghost-windows" single-report, which
-   * counts the number of ghost windows present.
-   */
-  class NumGhostsReporter MOZ_FINAL : public mozilla::MemoryReporterBase
-  {
-  public:
-    NumGhostsReporter(nsWindowMemoryReporter* aWindowReporter)
-        // Description is "???" because we define GetDescription below.
-      : MemoryReporterBase("ghost-windows", KIND_OTHER, UNITS_COUNT, "???")
-      , mWindowReporter(aWindowReporter)
+    GhostWindowsReporter()
+      : MemoryUniReporter("ghost-windows", KIND_OTHER, UNITS_COUNT,
+"The number of ghost windows present (the number of nodes underneath "
+"explicit/window-objects/top(none)/ghost, modulo race conditions).  A ghost "
+"window is not shown in any tab, does not share a domain with any non-detached "
+"windows, and has met these criteria for at least "
+"memory.ghost_window_timeout_seconds, or has survived a round of "
+"about:memory's minimize memory usage button.\n\n"
+"Ghost windows can happen legitimately, but they are often indicative of "
+"leaks in the browser or add-ons.")
     {}
 
-    NS_IMETHOD GetDescription(nsACString& aDesc);
+    static int64_t DistinguishedAmount();
 
   private:
-    int64_t Amount() MOZ_OVERRIDE;
-
-    nsRefPtr<nsWindowMemoryReporter> mWindowReporter;
+    int64_t Amount() MOZ_OVERRIDE { return DistinguishedAmount(); }
   };
 
   // Protect ctor, use Init() instead.

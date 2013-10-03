@@ -97,6 +97,28 @@ TextureInfo ImageClientSingle::GetTextureInfo() const
   return TextureInfo(COMPOSITABLE_IMAGE);
 }
 
+void
+ImageClientSingle::FlushImage()
+{
+  if (mFrontBuffer) {
+    RemoveTextureClient(mFrontBuffer);
+    mFrontBuffer = nullptr;
+  }
+}
+
+void
+ImageClientBuffered::FlushImage()
+{
+  if (mFrontBuffer) {
+    RemoveTextureClient(mFrontBuffer);
+    mFrontBuffer = nullptr;
+  }
+  if (mBackBuffer) {
+    RemoveTextureClient(mBackBuffer);
+    mBackBuffer = nullptr;
+  }
+}
+
 bool
 ImageClientSingle::UpdateImage(ImageContainer* aContainer,
                                uint32_t aContentFlags)
@@ -116,6 +138,12 @@ ImageClientSingle::UpdateImage(ImageContainer* aContainer,
     // fast path: no need to allocate and/or copy image data
     RefPtr<TextureClient> texture = image->AsSharedImage()->GetTextureClient();
 
+    if (texture->IsSharedWithCompositor()) {
+      // XXX - temporary fix for bug 911941
+      // This will be changed with bug 912907
+      return false;
+    }
+
     if (mFrontBuffer) {
       RemoveTextureClient(mFrontBuffer);
     }
@@ -125,7 +153,7 @@ ImageClientSingle::UpdateImage(ImageContainer* aContainer,
     GetForwarder()->UseTexture(this, texture);
   } else if (image->GetFormat() == PLANAR_YCBCR) {
     PlanarYCbCrImage* ycbcr = static_cast<PlanarYCbCrImage*>(image);
-    const PlanarYCbCrImage::Data* data = ycbcr->GetData();
+    const PlanarYCbCrData* data = ycbcr->GetData();
     if (!data) {
       return false;
     }
@@ -137,7 +165,7 @@ ImageClientSingle::UpdateImage(ImageContainer* aContainer,
 
     bool bufferCreated = false;
     if (!mFrontBuffer) {
-      mFrontBuffer = CreateBufferTextureClient(gfx::FORMAT_YUV, TEXTURE_DEALLOCATE_HOST);
+      mFrontBuffer = CreateBufferTextureClient(gfx::FORMAT_YUV, TEXTURE_FLAGS_DEFAULT);
       gfx::IntSize ySize(data->mYSize.width, data->mYSize.height);
       gfx::IntSize cbCrSize(data->mCbCrSize.width, data->mCbCrSize.height);
       if (!mFrontBuffer->AsTextureClientYCbCr()->AllocateForYCbCr(ySize, cbCrSize, data->mStereoMode)) {
@@ -195,10 +223,10 @@ ImageClientSingle::UpdateImage(ImageContainer* aContainer,
 
     bool bufferCreated = false;
     if (!mFrontBuffer) {
-      gfxASurface::gfxImageFormat format
+      gfxImageFormat format
         = gfxPlatform::GetPlatform()->OptimalFormatForContent(surface->GetContentType());
       mFrontBuffer = CreateBufferTextureClient(gfx::ImageFormatToSurfaceFormat(format),
-                                               TEXTURE_DEALLOCATE_HOST);
+                                               TEXTURE_FLAGS_DEFAULT);
       MOZ_ASSERT(mFrontBuffer->AsTextureClientSurface());
       mFrontBuffer->AsTextureClientSurface()->AllocateForSurface(size);
 
@@ -421,7 +449,7 @@ DeprecatedImageClientSingle::UpdateImage(ImageContainer* aContainer,
 void
 DeprecatedImageClientSingle::Updated()
 {
-  mForwarder->UpdateTexture(this, 1, mDeprecatedTextureClient->GetDescriptor());
+  mForwarder->UpdateTexture(this, 1, mDeprecatedTextureClient->LockSurfaceDescriptor());
 }
 
 ImageClientBridge::ImageClientBridge(CompositableForwarder* aFwd,

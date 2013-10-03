@@ -76,6 +76,7 @@ class TimeStamp;
 // only recorded if a sample is collected while it is active, marker will always
 // be collected.
 #define PROFILER_MARKER(info) do {} while (0)
+#define PROFILER_MARKER_PAYLOAD(info, payload) do {} while (0)
 
 // Main thread specilization to avoid TLS lookup for performance critical use.
 #define PROFILER_MAIN_THREAD_LABEL(name_space, info) do {} while (0)
@@ -106,6 +107,14 @@ static inline void profiler_start(int aProfileEntries, double aInterval,
 // Stop the profiler and discard the profile. Call 'profiler_save' before this
 // to retrieve the profile.
 static inline void profiler_stop() {}
+
+class ProfilerBacktrace;
+
+// Immediately capture the current thread's call stack and return it
+static inline ProfilerBacktrace* profiler_get_backtrace() { return nullptr; }
+
+// Free a ProfilerBacktrace returned by profiler_get_backtrace()
+static inline void profiler_free_backtrace(ProfilerBacktrace* aBacktrace) {}
 
 static inline bool profiler_is_active() { return false; }
 
@@ -149,6 +158,7 @@ static inline void profiler_unregister_thread() {}
 static inline void profiler_js_operation_callback() {}
 
 static inline double profiler_time() { return 0; }
+static inline double profiler_time(const mozilla::TimeStamp& aTime) { return 0; }
 
 static inline bool profiler_in_privacy_mode() { return false; }
 

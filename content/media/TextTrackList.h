@@ -14,8 +14,6 @@
 namespace mozilla {
 namespace dom {
 
-class TextTrack;
-
 class TextTrackList MOZ_FINAL : public nsDOMEventTargetHelper
 {
 public:
@@ -42,7 +40,8 @@ public:
 
   TextTrack* IndexedGetter(uint32_t aIndex, bool& aFound);
 
-  already_AddRefed<TextTrack> AddTextTrack(TextTrackKind aKind,
+  already_AddRefed<TextTrack> AddTextTrack(HTMLMediaElement* aMediaElement,
+                                           TextTrackKind aKind,
                                            const nsAString& aLabel,
                                            const nsAString& aLanguage);
   TextTrack* GetTrackById(const nsAString& aId);
@@ -52,6 +51,7 @@ public:
   }
 
   void RemoveTextTrack(const TextTrack& aTrack);
+  void DidSeek();
 
   IMPL_EVENT_HANDLER(addtrack)
   IMPL_EVENT_HANDLER(removetrack)

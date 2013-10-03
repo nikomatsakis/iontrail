@@ -120,6 +120,8 @@ endef
 MOZCONFIG_CONTENT := $(subst ||,$(CR),$(subst || ,$(CR),$(shell _PYMAKE=$(.PYMAKE) $(TOPSRCDIR)/$(MOZCONFIG_LOADER) $(TOPSRCDIR) | sed 's/$$/||/')))
 $(eval $(MOZCONFIG_CONTENT))
 
+export FOUND_MOZCONFIG
+
 # As '||' was used as a newline separator, it means it's not occurring in
 # lines themselves. It can thus safely be used to replaces normal spaces,
 # to then replace newlines with normal spaces. This allows to get a list
@@ -323,8 +325,8 @@ CONFIG_STATUS_DEPS := \
   $(TOPSRCDIR)/config/milestone.txt \
   $(TOPSRCDIR)/js/src/config/milestone.txt \
   $(TOPSRCDIR)/browser/config/version.txt \
-  $(TOPSRCDIR)/build/virtualenv/packages.txt \
-  $(TOPSRCDIR)/build/virtualenv/populate_virtualenv.py \
+  $(TOPSRCDIR)/build/virtualenv_packages.txt \
+  $(TOPSRCDIR)/python/mozbuild/mozbuild/virtualenv.py \
   $(TOPSRCDIR)/testing/mozbase/packages.txt \
   $(NULL)
 

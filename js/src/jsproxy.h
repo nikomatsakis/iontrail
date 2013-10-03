@@ -67,7 +67,7 @@ class JS_FRIEND_API(Wrapper);
  */
 class JS_FRIEND_API(BaseProxyHandler)
 {
-    void *mFamily;
+    const void *mFamily;
     bool mHasPrototype;
     bool mHasPolicy;
   protected:
@@ -76,7 +76,7 @@ class JS_FRIEND_API(BaseProxyHandler)
     void setHasPolicy(bool aHasPolicy) { mHasPolicy = aHasPolicy; }
 
   public:
-    explicit BaseProxyHandler(void *family);
+    explicit BaseProxyHandler(const void *family);
     virtual ~BaseProxyHandler();
 
     bool hasPrototype() {
@@ -87,7 +87,7 @@ class JS_FRIEND_API(BaseProxyHandler)
         return mHasPolicy;
     }
 
-    inline void *family() {
+    inline const void *family() {
         return mFamily;
     }
     static size_t offsetOfFamily() {
@@ -179,7 +179,7 @@ class JS_FRIEND_API(BaseProxyHandler)
 class JS_PUBLIC_API(DirectProxyHandler) : public BaseProxyHandler
 {
   public:
-    explicit DirectProxyHandler(void *family);
+    explicit DirectProxyHandler(const void *family);
 
     /* ES5 Harmony fundamental proxy traps. */
     virtual bool preventExtensions(JSContext *cx, HandleObject proxy) MOZ_OVERRIDE;
@@ -280,9 +280,9 @@ class Proxy
 
 // These are equal to |&{Function,Object,OuterWindow}ProxyObject::class_|.  Use
 // them in places where you don't want to #include vm/ProxyObject.h.
-extern JS_FRIEND_DATA(js::Class* const) FunctionProxyClassPtr;
-extern JS_FRIEND_DATA(js::Class* const) ObjectProxyClassPtr;
-extern JS_FRIEND_DATA(js::Class* const) OuterWindowProxyClassPtr;
+extern JS_FRIEND_DATA(const js::Class* const) FunctionProxyClassPtr;
+extern JS_FRIEND_DATA(const js::Class* const) ObjectProxyClassPtr;
+extern JS_FRIEND_DATA(const js::Class* const) OuterWindowProxyClassPtr;
 
 inline bool IsObjectProxyClass(const Class *clasp)
 {
@@ -376,7 +376,8 @@ enum ProxyCallable {
 
 JS_FRIEND_API(JSObject *)
 NewProxyObject(JSContext *cx, BaseProxyHandler *handler, HandleValue priv,
-               JSObject *proto, JSObject *parent, ProxyCallable callable = ProxyNotCallable);
+               JSObject *proto, JSObject *parent,
+               ProxyCallable callable = ProxyNotCallable, bool singleton = false);
 
 JSObject *
 RenewProxyObject(JSContext *cx, JSObject *obj, BaseProxyHandler *handler, Value priv);

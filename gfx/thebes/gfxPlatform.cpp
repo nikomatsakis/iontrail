@@ -150,6 +150,9 @@ SRGBOverrideObserver::Observe(nsISupports *aSubject,
 
 #define GFX_PREF_OPENTYPE_SVG "gfx.font_rendering.opentype_svg.enabled"
 
+#define GFX_PREF_WORD_CACHE_CHARLIMIT "gfx.font_rendering.wordcache.charlimit"
+#define GFX_PREF_WORD_CACHE_MAXENTRIES "gfx.font_rendering.wordcache.maxentries"
+
 #define GFX_PREF_GRAPHITE_SHAPING "gfx.font_rendering.graphite.enabled"
 
 #define BIDI_NUMERAL_PREF "bidi.numeral"
@@ -257,6 +260,8 @@ gfxPlatform::gfxPlatform()
     mAllowDownloadableFonts = UNINITIALIZED_VALUE;
     mFallbackUsesCmaps = UNINITIALIZED_VALUE;
 
+    mWordCacheCharLimit = UNINITIALIZED_VALUE;
+    mWordCacheMaxEntries = UNINITIALIZED_VALUE;
     mGraphiteShapingEnabled = UNINITIALIZED_VALUE;
     mOpenTypeSVGEnabled = UNINITIALIZED_VALUE;
     mBidiNumeralOption = UNINITIALIZED_VALUE;
@@ -279,7 +284,7 @@ gfxPlatform::gfxPlatform()
                                  false);
 
     uint32_t canvasMask = (1 << BACKEND_CAIRO) | (1 << BACKEND_SKIA);
-    uint32_t contentMask = 0;
+    uint32_t contentMask = 1 << BACKEND_CAIRO;
     InitBackendPrefs(canvasMask, contentMask);
 }
 
@@ -387,7 +392,7 @@ gfxPlatform::Init()
 
     gPlatform->mScreenReferenceSurface =
         gPlatform->CreateOffscreenSurface(gfxIntSize(1,1),
-                                          gfxASurface::CONTENT_COLOR_ALPHA);
+                                          GFX_CONTENT_COLOR_ALPHA);
     if (!gPlatform->mScreenReferenceSurface) {
         NS_RUNTIMEABORT("Could not initialize mScreenReferenceSurface");
     }
@@ -535,7 +540,7 @@ gfxPlatform::PreferMemoryOverShmem() const {
 
 already_AddRefed<gfxASurface>
 gfxPlatform::CreateOffscreenImageSurface(const gfxIntSize& aSize,
-                                         gfxASurface::gfxContentType aContentType)
+                                         gfxContentType aContentType)
 {
   nsRefPtr<gfxASurface> newSurface;
   newSurface = new gfxImageSurface(aSize, OptimalFormatForContent(aContentType));
@@ -545,7 +550,7 @@ gfxPlatform::CreateOffscreenImageSurface(const gfxIntSize& aSize,
 
 already_AddRefed<gfxASurface>
 gfxPlatform::OptimizeImage(gfxImageSurface *aSurface,
-                           gfxASurface::gfxImageFormat format)
+                           gfxImageFormat format)
 {
     const gfxIntSize& surfaceSize = aSurface->GetSize();
 
@@ -586,7 +591,7 @@ gfxPlatform::CreateDrawTargetForUpdateSurface(gfxASurface *aSurface, const IntSi
 #ifdef XP_MACOSX
   // this is a bit of a hack that assumes that the buffer associated with the CGContext
   // will live around long enough that nothing bad will happen.
-  if (aSurface->GetType() == gfxASurface::SurfaceTypeQuartz) {
+  if (aSurface->GetType() == gfxSurfaceTypeQuartz) {
     return Factory::CreateDrawTargetForCairoCGContext(static_cast<gfxQuartzSurface*>(aSurface)->GetCGContext(), aSize);
   }
 #endif
@@ -653,9 +658,9 @@ gfxPlatform::GetSourceSurfaceForSurface(DrawTarget *aTarget, gfxASurface *aSurfa
   }
 
   SurfaceFormat format;
-  if (aSurface->GetContentType() == gfxASurface::CONTENT_ALPHA) {
+  if (aSurface->GetContentType() == GFX_CONTENT_ALPHA) {
     format = FORMAT_A8;
-  } else if (aSurface->GetContentType() == gfxASurface::CONTENT_COLOR) {
+  } else if (aSurface->GetContentType() == GFX_CONTENT_COLOR) {
     format = FORMAT_B8G8R8X8;
   } else {
     format = FORMAT_B8G8R8A8;
@@ -664,7 +669,7 @@ gfxPlatform::GetSourceSurfaceForSurface(DrawTarget *aTarget, gfxASurface *aSurfa
   RefPtr<SourceSurface> srcBuffer;
 
 #ifdef XP_WIN
-  if (aSurface->GetType() == gfxASurface::SurfaceTypeD2D &&
+  if (aSurface->GetType() == gfxSurfaceTypeD2D &&
       format != FORMAT_A8) {
     NativeSurface surf;
     surf.mFormat = format;
@@ -697,7 +702,7 @@ gfxPlatform::GetSourceSurfaceForSurface(DrawTarget *aTarget, gfxASurface *aSurfa
     nsRefPtr<gfxImageSurface> imgSurface = aSurface->GetAsImageSurface();
 
     bool isWin32ImageSurf = imgSurface &&
-                            aSurface->GetType() == gfxASurface::SurfaceTypeWin32;
+                            aSurface->GetType() == gfxSurfaceTypeWin32;
 
     if (!imgSurface) {
       imgSurface = new gfxImageSurface(aSurface->GetSize(), OptimalFormatForContent(aSurface->GetContentType()));
@@ -709,16 +714,16 @@ gfxPlatform::GetSourceSurfaceForSurface(DrawTarget *aTarget, gfxASurface *aSurfa
 
     gfxImageFormat cairoFormat = imgSurface->Format();
     switch(cairoFormat) {
-      case gfxASurface::ImageFormatARGB32:
+      case gfxImageFormatARGB32:
         format = FORMAT_B8G8R8A8;
         break;
-      case gfxASurface::ImageFormatRGB24:
+      case gfxImageFormatRGB24:
         format = FORMAT_B8G8R8X8;
         break;
-      case gfxASurface::ImageFormatA8:
+      case gfxImageFormatA8:
         format = FORMAT_A8;
         break;
-      case gfxASurface::ImageFormatRGB16_565:
+      case gfxImageFormatRGB16_565:
         format = FORMAT_R5G6B5;
         break;
       default:
@@ -836,7 +841,7 @@ gfxPlatform::GetThebesSurfaceForDrawTarget(DrawTarget *aTarget)
   }
 
   IntSize size = data->GetSize();
-  gfxASurface::gfxImageFormat format = OptimalFormatForContent(ContentForFormat(data->GetFormat()));
+  gfxImageFormat format = OptimalFormatForContent(ContentForFormat(data->GetFormat()));
 
 
   nsRefPtr<gfxASurface> surf =
@@ -898,8 +903,12 @@ gfxPlatform::CreateOffscreenContentDrawTarget(const IntSize& aSize, SurfaceForma
 RefPtr<DrawTarget>
 gfxPlatform::CreateDrawTargetForData(unsigned char* aData, const IntSize& aSize, int32_t aStride, SurfaceFormat aFormat)
 {
-  NS_ASSERTION(mPreferredCanvasBackend, "No backend.");
-  return Factory::CreateDrawTargetForData(mPreferredCanvasBackend, aData, aSize, aStride, aFormat);
+  NS_ASSERTION(mContentBackend, "No backend.");
+  if (mContentBackend == BACKEND_CAIRO) {
+    nsRefPtr<gfxImageSurface> image = new gfxImageSurface(aData, gfxIntSize(aSize.width, aSize.height), aStride, SurfaceFormatToImageFormat(aFormat)); 
+    return Factory::CreateDrawTargetForCairoSurface(image->CairoSurface(), aSize);
+  }
+  return Factory::CreateDrawTargetForData(mContentBackend, aData, aSize, aStride, aFormat);
 }
 
 /* static */ BackendType
@@ -961,6 +970,34 @@ gfxPlatform::OpenTypeSVGEnabled()
     }
 
     return mOpenTypeSVGEnabled > 0;
+}
+
+uint32_t
+gfxPlatform::WordCacheCharLimit()
+{
+    if (mWordCacheCharLimit == UNINITIALIZED_VALUE) {
+        mWordCacheCharLimit =
+            Preferences::GetInt(GFX_PREF_WORD_CACHE_CHARLIMIT, 32);
+        if (mWordCacheCharLimit < 0) {
+            mWordCacheCharLimit = 32;
+        }
+    }
+
+    return uint32_t(mWordCacheCharLimit);
+}
+
+uint32_t
+gfxPlatform::WordCacheMaxEntries()
+{
+    if (mWordCacheMaxEntries == UNINITIALIZED_VALUE) {
+        mWordCacheMaxEntries =
+            Preferences::GetInt(GFX_PREF_WORD_CACHE_MAXENTRIES, 10000);
+        if (mWordCacheMaxEntries < 0) {
+            mWordCacheMaxEntries = 10000;
+        }
+    }
+
+    return uint32_t(mWordCacheMaxEntries);
 }
 
 bool
@@ -1762,6 +1799,16 @@ gfxPlatform::GetBidiNumeralOption()
     return mBidiNumeralOption;
 }
 
+static void
+FlushFontAndWordCaches()
+{
+    gfxFontCache *fontCache = gfxFontCache::GetCache();
+    if (fontCache) {
+        fontCache->AgeAllGenerations();
+        fontCache->FlushShapedWordCaches();
+    }
+}
+
 void
 gfxPlatform::FontsPrefsChanged(const char *aPref)
 {
@@ -1770,20 +1817,18 @@ gfxPlatform::FontsPrefsChanged(const char *aPref)
         mAllowDownloadableFonts = UNINITIALIZED_VALUE;
     } else if (!strcmp(GFX_PREF_FALLBACK_USE_CMAPS, aPref)) {
         mFallbackUsesCmaps = UNINITIALIZED_VALUE;
+    } else if (!strcmp(GFX_PREF_WORD_CACHE_CHARLIMIT, aPref)) {
+        mWordCacheCharLimit = UNINITIALIZED_VALUE;
+        FlushFontAndWordCaches();
+    } else if (!strcmp(GFX_PREF_WORD_CACHE_MAXENTRIES, aPref)) {
+        mWordCacheMaxEntries = UNINITIALIZED_VALUE;
+        FlushFontAndWordCaches();
     } else if (!strcmp(GFX_PREF_GRAPHITE_SHAPING, aPref)) {
         mGraphiteShapingEnabled = UNINITIALIZED_VALUE;
-        gfxFontCache *fontCache = gfxFontCache::GetCache();
-        if (fontCache) {
-            fontCache->AgeAllGenerations();
-            fontCache->FlushShapedWordCaches();
-        }
+        FlushFontAndWordCaches();
     } else if (!strcmp(GFX_PREF_HARFBUZZ_SCRIPTS, aPref)) {
         mUseHarfBuzzScripts = UNINITIALIZED_VALUE;
-        gfxFontCache *fontCache = gfxFontCache::GetCache();
-        if (fontCache) {
-            fontCache->AgeAllGenerations();
-            fontCache->FlushShapedWordCaches();
-        }
+        FlushFontAndWordCaches();
     } else if (!strcmp(BIDI_NUMERAL_PREF, aPref)) {
         mBidiNumeralOption = UNINITIALIZED_VALUE;
     } else if (!strcmp(GFX_PREF_OPENTYPE_SVG, aPref)) {
@@ -1831,24 +1876,24 @@ gfxPlatform::GetScreenDepth() const
 }
 
 mozilla::gfx::SurfaceFormat
-gfxPlatform::Optimal2DFormatForContent(gfxASurface::gfxContentType aContent)
+gfxPlatform::Optimal2DFormatForContent(gfxContentType aContent)
 {
   switch (aContent) {
-  case gfxASurface::CONTENT_COLOR:
+  case GFX_CONTENT_COLOR:
     switch (GetOffscreenFormat()) {
-    case gfxASurface::ImageFormatARGB32:
+    case gfxImageFormatARGB32:
       return mozilla::gfx::FORMAT_B8G8R8A8;
-    case gfxASurface::ImageFormatRGB24:
+    case gfxImageFormatRGB24:
       return mozilla::gfx::FORMAT_B8G8R8X8;
-    case gfxASurface::ImageFormatRGB16_565:
+    case gfxImageFormatRGB16_565:
       return mozilla::gfx::FORMAT_R5G6B5;
     default:
-      NS_NOTREACHED("unknown gfxImageFormat for CONTENT_COLOR");
+      NS_NOTREACHED("unknown gfxImageFormat for GFX_CONTENT_COLOR");
       return mozilla::gfx::FORMAT_B8G8R8A8;
     }
-  case gfxASurface::CONTENT_ALPHA:
+  case GFX_CONTENT_ALPHA:
     return mozilla::gfx::FORMAT_A8;
-  case gfxASurface::CONTENT_COLOR_ALPHA:
+  case GFX_CONTENT_COLOR_ALPHA:
     return mozilla::gfx::FORMAT_B8G8R8A8;
   default:
     NS_NOTREACHED("unknown gfxContentType");
@@ -1857,18 +1902,18 @@ gfxPlatform::Optimal2DFormatForContent(gfxASurface::gfxContentType aContent)
 }
 
 gfxImageFormat
-gfxPlatform::OptimalFormatForContent(gfxASurface::gfxContentType aContent)
+gfxPlatform::OptimalFormatForContent(gfxContentType aContent)
 {
   switch (aContent) {
-  case gfxASurface::CONTENT_COLOR:
+  case GFX_CONTENT_COLOR:
     return GetOffscreenFormat();
-  case gfxASurface::CONTENT_ALPHA:
-    return gfxASurface::ImageFormatA8;
-  case gfxASurface::CONTENT_COLOR_ALPHA:
-    return gfxASurface::ImageFormatARGB32;
+  case GFX_CONTENT_ALPHA:
+    return gfxImageFormatA8;
+  case GFX_CONTENT_COLOR_ALPHA:
+    return gfxImageFormatARGB32;
   default:
     NS_NOTREACHED("unknown gfxContentType");
-    return gfxASurface::ImageFormatARGB32;
+    return gfxImageFormatARGB32;
   }
 }
 

@@ -12,7 +12,9 @@
 #include "jit/FixedList.h"
 #include "jit/IonLinker.h"
 #include "jit/IonSpewer.h"
-#include "jit/PerfSpewer.h"
+#ifdef JS_ION_PERF
+# include "jit/PerfSpewer.h"
+#endif
 #include "jit/VMFunctions.h"
 
 #include "jsscriptinlines.h"
@@ -68,6 +70,9 @@ BaselineCompiler::compile()
 {
     IonSpew(IonSpew_BaselineScripts, "Baseline compiling script %s:%d (%p)",
             script->filename(), script->lineno, script.get());
+
+    IonSpew(IonSpew_Codegen, "# Emitting baseline code for script %s:%d",
+            script->filename(), script->lineno);
 
     if (cx->typeInferenceEnabled() && !script->ensureHasBytecodeTypeMap(cx))
         return Method_Error;
@@ -190,8 +195,8 @@ BaselineCompiler::compile()
         size_t icEntry = icLoadLabels_[i].icEntry;
         ICEntry *entryAddr = &(baselineScript->icEntry(icEntry));
         Assembler::patchDataWithValueCheck(CodeLocationLabel(code, label),
-                                           ImmWord(uintptr_t(entryAddr)),
-                                           ImmWord(uintptr_t(-1)));
+                                           ImmPtr(entryAddr),
+                                           ImmPtr((void*)-1));
     }
 
     if (modifiesArguments_)
@@ -230,11 +235,47 @@ BaselineCompiler::emitPrologue()
     if (script->isForEval())
         masm.storePtr(ImmGCPtr(script), frame.addressOfEvalScript());
 
+    // Handle scope chain pre-initialization (in case GC gets run
+    // during stack check).  For global and eval scripts, the scope
+    // chain is in R1.  For function scripts, the scope chain is in
+    // the callee, nullptr is stored for now so that GC doesn't choke
+    // on a bogus ScopeChain value in the frame.
+    if (function())
+        masm.storePtr(ImmPtr(nullptr), frame.addressOfScopeChain());
+    else
+        masm.storePtr(R1.scratchReg(), frame.addressOfScopeChain());
+
+    if (!emitStackCheck())
+        return false;
+
     // Initialize locals to |undefined|. Use R0 to minimize code size.
+    // If the number of locals to push is < LOOP_UNROLL_FACTOR, then the
+    // initialization pushes are emitted directly and inline.  Otherwise,
+    // they're emitted in a partially unrolled loop.
     if (frame.nlocals() > 0) {
+        size_t LOOP_UNROLL_FACTOR = 4;
+        size_t toPushExtra = frame.nlocals() % LOOP_UNROLL_FACTOR;
+
         masm.moveValue(UndefinedValue(), R0);
-        for (size_t i = 0; i < frame.nlocals(); i++)
+
+        // Handle any extra pushes left over by the optional unrolled loop below.
+        for (size_t i = 0; i < toPushExtra; i++)
             masm.pushValue(R0);
+
+        // Partially unrolled loop of pushes.
+        if (frame.nlocals() >= LOOP_UNROLL_FACTOR) {
+            size_t toPush = frame.nlocals() - toPushExtra;
+            JS_ASSERT(toPush % LOOP_UNROLL_FACTOR == 0);
+            JS_ASSERT(toPush >= LOOP_UNROLL_FACTOR);
+            masm.move32(Imm32(toPush), R1.scratchReg());
+            // Emit unrolled loop with 4 pushes per iteration.
+            Label pushLoop;
+            masm.bind(&pushLoop);
+            for (size_t i = 0; i < LOOP_UNROLL_FACTOR; i++)
+                masm.pushValue(R0);
+            masm.sub32(Imm32(LOOP_UNROLL_FACTOR), R1.scratchReg());
+            masm.j(Assembler::NonZero, &pushLoop);
+        }
     }
 
 #if JS_TRACE_LOGGING
@@ -249,9 +290,6 @@ BaselineCompiler::emitPrologue()
     // Initialize the scope chain before any operation that may
     // call into the VM and trigger a GC.
     if (!initScopeChain())
-        return false;
-
-    if (!emitStackCheck())
         return false;
 
     if (!emitDebugPrologue())
@@ -312,7 +350,7 @@ BaselineCompiler::emitOutOfLinePostBarrierSlot()
 #endif
 
     masm.setupUnalignedABICall(2, scratch);
-    masm.movePtr(ImmWord(cx->runtime()), scratch);
+    masm.movePtr(ImmPtr(cx->runtime()), scratch);
     masm.passABIArg(scratch);
     masm.passABIArg(objReg);
     masm.callWithABI(JS_FUNC_TO_DATA_PTR(void *, PostWriteBarrier));
@@ -335,6 +373,30 @@ BaselineCompiler::emitIC(ICStub *stub, bool isForOp)
     if (!addICLoadLabel(patchOffset))
         return false;
 
+    return true;
+}
+
+typedef bool (*CheckOverRecursedWithExtraFn)(JSContext *, uint32_t);
+static const VMFunction CheckOverRecursedWithExtraInfo =
+    FunctionInfo<CheckOverRecursedWithExtraFn>(CheckOverRecursedWithExtra);
+
+bool
+BaselineCompiler::emitStackCheck()
+{
+    Label skipCall;
+    uintptr_t *limitAddr = &cx->runtime()->mainThread.ionStackLimit;
+    uint32_t tolerance = script->nslots * sizeof(Value);
+    masm.movePtr(BaselineStackReg, R1.scratchReg());
+    masm.subPtr(Imm32(tolerance), R1.scratchReg());
+    masm.branchPtr(Assembler::BelowOrEqual, AbsoluteAddress(limitAddr), R1.scratchReg(),
+                   &skipCall);
+
+    prepareVMCall();
+    pushArg(Imm32(tolerance));
+    if (!callVM(CheckOverRecursedWithExtraInfo, /*preInitialize=*/true))
+        return false;
+
+    masm.bind(&skipCall);
     return true;
 }
 
@@ -400,8 +462,8 @@ BaselineCompiler::initScopeChain()
                 return false;
         }
     } else {
-        // For global and eval scripts, the scope chain is in R1.
-        masm.storePtr(R1.scratchReg(), frame.addressOfScopeChain());
+        // ScopeChain pointer in BaselineFrame has already been initialized
+        // in prologue.
 
         if (script->isForEval() && script->strict) {
             // Strict eval needs its own call object.
@@ -415,26 +477,6 @@ BaselineCompiler::initScopeChain()
         }
     }
 
-    return true;
-}
-
-typedef bool (*ReportOverRecursedFn)(JSContext *);
-static const VMFunction CheckOverRecursedInfo =
-    FunctionInfo<ReportOverRecursedFn>(CheckOverRecursed);
-
-bool
-BaselineCompiler::emitStackCheck()
-{
-    Label skipCall;
-    uintptr_t *limitAddr = &cx->runtime()->mainThread.ionStackLimit;
-    masm.branchPtr(Assembler::BelowOrEqual, AbsoluteAddress(limitAddr), BaselineStackReg,
-                   &skipCall);
-
-    prepareVMCall();
-    if (!callVM(CheckOverRecursedInfo))
-        return false;
-
-    masm.bind(&skipCall);
     return true;
 }
 
@@ -490,7 +532,7 @@ BaselineCompiler::emitUseCountIncrement()
 
     masm.branchPtr(Assembler::Equal,
                    Address(scriptReg, JSScript::offsetOfIonScript()),
-                   ImmWord(ION_COMPILING_SCRIPT), &skipCall);
+                   ImmPtr(ION_COMPILING_SCRIPT), &skipCall);
 
     // Call IC.
     ICUseCount_Fallback::Compiler stubCompiler(cx);
@@ -931,8 +973,8 @@ BaselineCompiler::emit_JSOP_THIS()
     // Keep this value in R0
     frame.pushThis();
 
-    // In strict mode function or self-hosted function, |this| is left alone.
-    if (!function() || function()->strict() || function()->isSelfHostedBuiltin())
+    // In strict mode code or self-hosted functions, |this| is left alone.
+    if (script->strict || (function() && function()->isSelfHostedBuiltin()))
         return true;
 
     Label skipIC;
@@ -1341,7 +1383,7 @@ BaselineCompiler::emit_JSOP_NEWARRAY()
 
     uint32_t length = GET_UINT24(pc);
     RootedTypeObject type(cx);
-    if (!types::UseNewTypeForInitializer(cx, script, pc, JSProto_Array)) {
+    if (!types::UseNewTypeForInitializer(script, pc, JSProto_Array)) {
         type = types::TypeScript::InitObject(cx, script, pc, JSProto_Array);
         if (!type)
             return false;
@@ -1385,7 +1427,7 @@ BaselineCompiler::emit_JSOP_NEWOBJECT()
     frame.syncStack(0);
 
     RootedTypeObject type(cx);
-    if (!types::UseNewTypeForInitializer(cx, script, pc, JSProto_Object)) {
+    if (!types::UseNewTypeForInitializer(script, pc, JSProto_Object)) {
         type = types::TypeScript::InitObject(cx, script, pc, JSProto_Object);
         if (!type)
             return false;
@@ -1421,7 +1463,7 @@ BaselineCompiler::emit_JSOP_NEWINIT()
     JSProtoKey key = JSProtoKey(GET_UINT8(pc));
 
     RootedTypeObject type(cx);
-    if (!types::UseNewTypeForInitializer(cx, script, pc, key)) {
+    if (!types::UseNewTypeForInitializer(script, pc, key)) {
         type = types::TypeScript::InitObject(cx, script, pc, key);
         if (!type)
             return false;
@@ -1783,7 +1825,7 @@ BaselineCompiler::emit_JSOP_GETALIASEDVAR()
     Address address = getScopeCoordinateAddress(R0.scratchReg());
     masm.loadValue(address, R0);
 
-    ICTypeMonitor_Fallback::Compiler compiler(cx, (ICMonitoredFallbackStub *) NULL);
+    ICTypeMonitor_Fallback::Compiler compiler(cx, (ICMonitoredFallbackStub *) nullptr);
     if (!emitOpIC(compiler.getStub(&stubSpace_)))
         return false;
 
@@ -2030,7 +2072,7 @@ BaselineCompiler::emitInitPropGetterSetter()
     pushArg(R0.scratchReg());
     pushArg(ImmGCPtr(script->getName(pc)));
     pushArg(R1.scratchReg());
-    pushArg(ImmWord(pc));
+    pushArg(ImmPtr(pc));
 
     if (!callVM(InitPropGetterSetterInfo))
         return false;
@@ -2074,7 +2116,7 @@ BaselineCompiler::emitInitElemGetterSetter()
     pushArg(R0);
     masm.extractObject(frame.addressOfStackValue(frame.peek(-3)), R0.scratchReg());
     pushArg(R0.scratchReg());
-    pushArg(ImmWord(pc));
+    pushArg(ImmPtr(pc));
 
     if (!callVM(InitElemGetterSetterInfo))
         return false;
@@ -2215,7 +2257,7 @@ BaselineCompiler::emitCall()
     uint32_t argc = GET_ARGC(pc);
 
     frame.syncStack(0);
-    masm.mov(Imm32(argc), R0.scratchReg());
+    masm.mov(ImmWord(argc), R0.scratchReg());
 
     // Call IC
     ICCall_Fallback::Compiler stubCompiler(cx, /* isConstructing = */ JSOp(*pc) == JSOP_NEW);
@@ -2501,7 +2543,7 @@ bool
 BaselineCompiler::emit_JSOP_DEBUGGER()
 {
     prepareVMCall();
-    pushArg(ImmWord(pc));
+    pushArg(ImmPtr(pc));
 
     masm.loadBaselineFramePtr(BaselineFrameReg, R0.scratchReg());
     pushArg(R0.scratchReg());
@@ -2608,7 +2650,7 @@ BaselineCompiler::emit_JSOP_TOID()
 
     pushArg(R0);
     pushArg(R1);
-    pushArg(ImmWord(pc));
+    pushArg(ImmPtr(pc));
     pushArg(ImmGCPtr(script));
 
     if (!callVM(ToIdInfo))
@@ -2772,7 +2814,7 @@ DoCreateRestParameter(JSContext *cx, BaselineFrame *frame, MutableHandleValue re
     unsigned numRest = numActuals > numFormals ? numActuals - numFormals : 0;
     Value *rest = frame->argv() + numFormals;
 
-    JSObject *obj = NewDenseCopiedArray(cx, numRest, rest, NULL);
+    JSObject *obj = NewDenseCopiedArray(cx, numRest, rest, nullptr);
     if (!obj)
         return false;
     types::FixRestArgumentsType(cx, obj);

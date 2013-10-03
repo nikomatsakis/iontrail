@@ -4,7 +4,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
-Cu.import("resource://gre/modules/PageThumbs.jsm");
 Cu.import("resource://gre/modules/devtools/dbg-server.jsm")
 
 /**
@@ -86,6 +85,8 @@ var BrowserUI = {
     Services.prefs.addObserver(debugServerStateChanged, this, false);
     Services.prefs.addObserver(debugServerPortChanged, this, false);
 
+    Services.obs.addObserver(this, "handle-xul-text-link", false);
+
     // listen content messages
     messageManager.addMessageListener("DOMTitleChanged", this);
     messageManager.addMessageListener("DOMWillOpenModalDialog", this);
@@ -102,18 +103,15 @@ var BrowserUI = {
     window.addEventListener("MozImprecisePointer", this, true);
 
     Services.prefs.addObserver("browser.cache.disk_cache_ssl", this, false);
-    Services.obs.addObserver(this, "metro_viewstate_changed", false);
 
     // Init core UI modules
     ContextUI.init();
     PanelUI.init();
     FlyoutPanelsUI.init();
     PageThumbs.init();
+    NewTabUtils.init();
     SettingsCharm.init();
     NavButtonSlider.init();
-
-    // show the right toolbars, awesomescreen, etc for the os viewstate
-    BrowserUI._adjustDOMforViewState();
 
     // We can delay some initialization until after startup.  We wait until
     // the first page is shown, then dispatch a UIReadyDelayed event.
@@ -146,11 +144,10 @@ var BrowserUI = {
       messageManager.addMessageListener("Browser:MozApplicationManifest", OfflineApps);
 
       try {
-        Downloads.init();
+        MetroDownloadsView.init();
         DialogUI.init();
         FormHelperUI.init();
         FindHelperUI.init();
-        PdfJs.init();
       } catch(ex) {
         Util.dumpLn("Exception in delay load module:", ex.message);
       }
@@ -176,9 +173,11 @@ var BrowserUI = {
 
   uninit: function() {
     messageManager.removeMessageListener("Browser:MozApplicationManifest", OfflineApps);
+    Services.obs.removeObserver(this, "handle-xul-text-link");
 
     PanelUI.uninit();
-    Downloads.uninit();
+    FlyoutPanelsUI.uninit();
+    MetroDownloadsView.uninit();
     SettingsCharm.uninit();
     messageManager.removeMessageListener("Content:StateChange", this);
     PageThumbs.uninit();
@@ -423,23 +422,16 @@ var BrowserUI = {
     });
   },
 
-  onAboutPolicyClick: function() {
-    FlyoutPanelsUI.hide();
-    let linkStr = Services.urlFormatter.formatURLPref("app.privacyURL");
-    BrowserUI.newTab(linkStr, Browser.selectedTab, true);
-  },
-
   /*********************************
    * Tab management
    */
 
-  newTab: function newTab(aURI, aOwner, aPeekTabs) {
-    aURI = aURI || kStartURI;
-    if (aPeekTabs) {
-      ContextUI.peekTabs(kNewTabAnimationDelayMsec);
-    }
-    let tab = Browser.addTab(aURI, true, aOwner);
-    return tab;
+  /**
+   * Open a new tab in the foreground in response to a user action.
+   */
+  addAndShowTab: function (aURI, aOwner) {
+    ContextUI.peekTabs(kNewTabAnimationDelayMsec);
+    return Browser.addTab(aURI || kStartURI, true, aOwner);
   },
 
   setOnTabAnimationEnd: function setOnTabAnimationEnd(aCallback) {
@@ -571,6 +563,11 @@ var BrowserUI = {
   blurNavBar: function blurNavBar() {
     if (this._edit.focused) {
       this._edit.blur();
+
+      // Advanced notice to CAO, so we can shuffle the nav bar in advance
+      // of the keyboard transition.
+      ContentAreaObserver.navBarWillBlur();
+
       return true;
     }
     return false;
@@ -578,6 +575,13 @@ var BrowserUI = {
 
   observe: function BrowserUI_observe(aSubject, aTopic, aData) {
     switch (aTopic) {
+      case "handle-xul-text-link":
+        let handled = aSubject.QueryInterface(Ci.nsISupportsPRBool);
+        if (!handled.data) {
+          this.addAndShowTab(aData, Browser.selectedTab);
+          handled.data = true;
+        }
+        break;
       case "nsPref:changed":
         switch (aData) {
           case "browser.cache.disk_cache_ssl":
@@ -594,17 +598,6 @@ var BrowserUI = {
             this.changeDebugPort(Services.prefs.getIntPref(aData));
             break;
         }
-        break;
-      case "metro_viewstate_changed":
-        this._adjustDOMforViewState(aData);
-        if (aData == "snapped") {
-          FlyoutPanelsUI.hide();
-          Elements.autocomplete.setAttribute("orient", "vertical");
-        }
-        else {
-          Elements.autocomplete.setAttribute("orient", "horizontal");
-        }
-
         break;
     }
   },
@@ -642,28 +635,6 @@ var BrowserUI = {
     pullDesktopControlledPrefType(Ci.nsIPrefBranch.PREF_INT, "setIntPref");
     pullDesktopControlledPrefType(Ci.nsIPrefBranch.PREF_BOOL, "setBoolPref");
     pullDesktopControlledPrefType(Ci.nsIPrefBranch.PREF_STRING, "setCharPref");
-  },
-
-  _adjustDOMforViewState: function(aState) {
-    let currViewState = aState;
-    if (!currViewState && Services.metro.immersive) {
-      switch (Services.metro.snappedState) {
-        case Ci.nsIWinMetroUtils.fullScreenLandscape:
-          currViewState = "landscape";
-          break;
-        case Ci.nsIWinMetroUtils.fullScreenPortrait:
-          currViewState = "portrait";
-          break;
-        case Ci.nsIWinMetroUtils.filled:
-          currViewState = "filled";
-          break;
-        case Ci.nsIWinMetroUtils.snapped:
-          currViewState = "snapped";
-          break;
-      }
-    }
-
-    Elements.windowState.setAttribute("viewstate", currViewState);
   },
 
   _titleChanged: function(aBrowser) {
@@ -1077,7 +1048,7 @@ var BrowserUI = {
         this._closeOrQuit();
         break;
       case "cmd_newTab":
-        this.newTab(null, null, true);
+        this.addAndShowTab();
         // Make sure navbar is displayed before setting focus on url bar. Bug 907244
         ContextUI.displayNavbar();
         this._edit.beginEditing(false);
@@ -1315,7 +1286,7 @@ var SettingsCharm = {
         label: Strings.browser.GetStringFromName("helpOnlineCharm"),
         onselected: function() {
           let url = Services.urlFormatter.formatURLPref("app.support.baseURL");
-          BrowserUI.newTab(url, Browser.selectedTab, true);
+          BrowserUI.addAndShowTab(url, Browser.selectedTab);
         }
     });
   },

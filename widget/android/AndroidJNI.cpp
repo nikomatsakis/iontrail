@@ -22,6 +22,7 @@
 #include <android/log.h>
 #include "nsIObserverService.h"
 #include "mozilla/Services.h"
+#include "nsThreadUtils.h"
 
 #ifdef MOZ_CRASHREPORTER
 #include "nsICrashReporter.h"
@@ -58,7 +59,7 @@ extern "C" {
 NS_EXPORT void JNICALL
 Java_org_mozilla_gecko_GeckoAppShell_nativeInit(JNIEnv *jenv, jclass jc)
 {
-    AndroidBridge::ConstructBridge(jenv, jc);
+    AndroidBridge::ConstructBridge(jenv);
 }
 
 NS_EXPORT void JNICALL

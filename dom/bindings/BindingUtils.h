@@ -7,8 +7,6 @@
 #ifndef mozilla_dom_BindingUtils_h__
 #define mozilla_dom_BindingUtils_h__
 
-#include <algorithm>
-
 #include "jsfriendapi.h"
 #include "jswrapper.h"
 #include "mozilla/Alignment.h"
@@ -16,18 +14,21 @@
 #include "mozilla/dom/CallbackObject.h"
 #include "mozilla/dom/DOMJSClass.h"
 #include "mozilla/dom/DOMJSProxyHandler.h"
+#include "mozilla/dom/Exceptions.h"
 #include "mozilla/dom/NonRefcountedDOMObject.h"
 #include "mozilla/dom/Nullable.h"
+#include "mozilla/dom/RootedDictionary.h"
 #include "mozilla/dom/workers/Workers.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/Likely.h"
 #include "mozilla/Util.h"
 #include "nsCycleCollector.h"
 #include "nsIXPConnect.h"
-#include "nsThreadUtils.h" // Hacky work around for some bindings needing NS_IsMainThread.
+#include "MainThreadUtils.h"
 #include "nsTraceRefcnt.h"
 #include "qsObjectHelper.h"
 #include "xpcpublic.h"
+#include "nsIVariant.h"
 
 #include "nsWrapperCacheInlines.h"
 
@@ -68,41 +69,28 @@ ThrowInvalidThis(JSContext* aCx, const JS::CallArgs& aArgs,
                  const ErrNum aErrorNumber,
                  const char* aInterfaceName);
 
-template<bool mainThread>
-inline bool
-Throw(JSContext* cx, nsresult rv)
-{
-  using mozilla::dom::workers::exceptions::ThrowDOMExceptionForNSResult;
-
-  // XXX Introduce exception machinery.
-  if (mainThread) {
-    xpc::Throw(cx, rv);
-  } else {
-    if (!JS_IsExceptionPending(cx)) {
-      ThrowDOMExceptionForNSResult(cx, rv);
-    }
-  }
-  return false;
-}
-
-template<bool mainThread>
 inline bool
 ThrowMethodFailedWithDetails(JSContext* cx, ErrorResult& rv,
                              const char* ifaceName,
-                             const char* memberName)
+                             const char* memberName,
+                             bool reportJSContentExceptions = false)
 {
   if (rv.IsTypeError()) {
     rv.ReportTypeError(cx);
     return false;
   }
   if (rv.IsJSException()) {
-    rv.ReportJSException(cx);
+    if (reportJSContentExceptions) {
+      rv.ReportJSExceptionFromJSImplementation(cx);
+    } else {
+      rv.ReportJSException(cx);
+    }
     return false;
   }
   if (rv.IsNotEnoughArgsError()) {
     rv.ReportNotEnoughArgsError(cx, ifaceName, memberName);
   }
-  return Throw<mainThread>(cx, rv.ErrorCode());
+  return Throw(cx, rv.ErrorCode());
 }
 
 // Returns true if the JSClass is used for DOM objects.
@@ -149,7 +137,7 @@ UnwrapDOMObject(JSObject* obj)
 inline const DOMClass*
 GetDOMClass(JSObject* obj)
 {
-  js::Class* clasp = js::GetObjectClass(obj);
+  const js::Class* clasp = js::GetObjectClass(obj);
   if (IsDOMClass(clasp)) {
     return &DOMJSClass::FromJSClass(clasp)->mClass;
   }
@@ -178,13 +166,13 @@ UnwrapDOMObjectToISupports(JSObject* aObject)
 inline bool
 IsDOMObject(JSObject* obj)
 {
-  js::Class* clasp = js::GetObjectClass(obj);
+  const js::Class* clasp = js::GetObjectClass(obj);
   return IsDOMClass(clasp) || IsDOMProxy(obj, clasp);
 }
 
 #define UNWRAP_OBJECT(Interface, cx, obj, value)                             \
-  UnwrapObject<prototypes::id::Interface,                                    \
-               mozilla::dom::Interface##Binding::NativeType>(cx, obj, value)
+  mozilla::dom::UnwrapObject<mozilla::dom::prototypes::id::Interface,        \
+    mozilla::dom::Interface##Binding::NativeType>(cx, obj, value)
 
 // Some callers don't want to set an exception when unwrapping fails
 // (for example, overload resolution uses unwrapping to tell what sort
@@ -375,9 +363,9 @@ struct NamedConstructor
 void
 CreateInterfaceObjects(JSContext* cx, JS::Handle<JSObject*> global,
                        JS::Handle<JSObject*> protoProto,
-                       JSClass* protoClass, JS::Heap<JSObject*>* protoCache,
+                       const JSClass* protoClass, JS::Heap<JSObject*>* protoCache,
                        JS::Handle<JSObject*> interfaceProto,
-                       JSClass* constructorClass, const JSNativeHolder* constructor,
+                       const JSClass* constructorClass, const JSNativeHolder* constructor,
                        unsigned ctorNargs, const NamedConstructor* namedConstructors,
                        JS::Heap<JSObject*>* constructorCache, const DOMClass* domClass,
                        const NativeProperties* regularProperties,
@@ -494,7 +482,7 @@ SetSystemOnlyWrapperSlot(JSObject* obj, const JS::Value& v)
 inline bool
 GetSameCompartmentWrapperForDOMBinding(JSObject*& obj)
 {
-  js::Class* clasp = js::GetObjectClass(obj);
+  const js::Class* clasp = js::GetObjectClass(obj);
   if (dom::IsDOMClass(clasp)) {
     if (!(clasp->flags & JSCLASS_DOM_GLOBAL)) {
       JS::Value v = GetSystemOnlyWrapperSlot(obj);
@@ -646,7 +634,7 @@ WrapNewBindingObject(JSContext* cx, JS::Handle<JSObject*> scope, T* value,
   JSObject* obj = value->GetWrapperPreserveColor();
   bool couldBeDOMBinding = CouldBeDOMBinding(value);
   if (obj) {
-    xpc_UnmarkNonNullGrayObject(obj);
+    JS::ExposeObjectToActiveJS(obj);
   } else {
     // Inline this here while we have non-dom objects in wrapper caches.
     if (!couldBeDOMBinding) {
@@ -1391,22 +1379,15 @@ InitIds(JSContext* cx, const Prefable<Spec>* prefableSpecs, jsid* ids)
 bool
 QueryInterface(JSContext* cx, unsigned argc, JS::Value* vp);
 
-template <class T, bool isISupports=IsBaseOf<nsISupports, T>::value>
+template <class T>
 struct
 WantsQueryInterface
 {
+  static_assert(IsBaseOf<nsISupports, T>::value,
+                "QueryInterface can't work without an nsISupports.");
   static bool Enabled(JSContext* aCx, JSObject* aGlobal)
   {
-    return false;
-  }
-};
-template <class T>
-struct
-WantsQueryInterface<T, true>
-{
-  static bool Enabled(JSContext* aCx, JSObject* aGlobal)
-  {
-    return IsChromeOrXBL(aCx, aGlobal);
+    return NS_IsMainThread() && IsChromeOrXBL(aCx, aGlobal);
   }
 };
 
@@ -1433,60 +1414,6 @@ bool
 AppendNamedPropertyIds(JSContext* cx, JS::Handle<JSObject*> proxy,
                        nsTArray<nsString>& names,
                        bool shadowPrototypeProperties, JS::AutoIdVector& props);
-
-template<class T>
-class OwningNonNull
-{
-public:
-  OwningNonNull()
-#ifdef DEBUG
-    : inited(false)
-#endif
-  {}
-
-  operator T&() {
-    MOZ_ASSERT(inited);
-    MOZ_ASSERT(ptr, "OwningNonNull<T> was set to null");
-    return *ptr;
-  }
-
-  void operator=(T* t) {
-    init(t);
-  }
-
-  void operator=(const already_AddRefed<T>& t) {
-    init(t);
-  }
-
-  already_AddRefed<T> forget() {
-#ifdef DEBUG
-    inited = false;
-#endif
-    return ptr.forget();
-  }
-
-  // Make us work with smart-ptr helpers that expect a get()
-  T* get() const {
-    MOZ_ASSERT(inited);
-    MOZ_ASSERT(ptr);
-    return ptr;
-  }
-
-protected:
-  template<typename U>
-  void init(U t) {
-    ptr = t;
-    MOZ_ASSERT(ptr);
-#ifdef DEBUG
-    inited = true;
-#endif
-  }
-
-  nsRefPtr<T> ptr;
-#ifdef DEBUG
-  bool inited;
-#endif
-};
 
 // A struct that has the same layout as an nsDependentString but much
 // faster constructor and destructor behavior
@@ -1622,37 +1549,6 @@ bool
 ConvertJSValueToByteString(JSContext* cx, JS::Handle<JS::Value> v,
                            JS::MutableHandle<JS::Value> pval, bool nullable,
                            nsACString& result);
-
-// Class for holding the type of members of a union. The union type has an enum
-// to keep track of which of its UnionMembers has been constructed.
-template<class T>
-class UnionMember {
-    AlignedStorage2<T> storage;
-
-public:
-    T& SetValue() {
-      new (storage.addr()) T();
-      return *storage.addr();
-    }
-    template <typename T1>
-    T& SetValue(const T1 &t1)
-    {
-      new (storage.addr()) T(t1);
-      return *storage.addr();
-    }
-    template <typename T1, typename T2>
-    T& SetValue(const T1 &t1, const T2 &t2)
-    {
-      new (storage.addr()) T(t1, t2);
-      return *storage.addr();
-    }
-    const T& Value() const {
-      return *storage.addr();
-    }
-    void Destroy() {
-      storage.addr()->~T();
-    }
-};
 
 template<typename T>
 void DoTraceSequence(JSTracer* trc, FallibleTArray<T>& seq);
@@ -1862,11 +1758,11 @@ public:
 };
 
 template<typename T>
-class MOZ_STACK_CLASS RootedDictionary : public T,
-                                         private JS::CustomAutoRooter
+class MOZ_STACK_CLASS RootedUnion : public T,
+                                    private JS::CustomAutoRooter
 {
 public:
-  RootedDictionary(JSContext* cx MOZ_GUARD_OBJECT_NOTIFIER_PARAM) :
+  RootedUnion(JSContext* cx MOZ_GUARD_OBJECT_NOTIFIER_PARAM) :
     T(),
     JS::CustomAutoRooter(cx MOZ_GUARD_OBJECT_NOTIFIER_PARAM_TO_PARENT)
   {
@@ -1874,16 +1770,16 @@ public:
 
   virtual void trace(JSTracer *trc) MOZ_OVERRIDE
   {
-    this->TraceDictionary(trc);
+    this->TraceUnion(trc);
   }
 };
 
 template<typename T>
-class MOZ_STACK_CLASS NullableRootedDictionary : public Nullable<T>,
-                                                 private JS::CustomAutoRooter
+class MOZ_STACK_CLASS NullableRootedUnion : public Nullable<T>,
+                                            private JS::CustomAutoRooter
 {
 public:
-  NullableRootedDictionary(JSContext* cx MOZ_GUARD_OBJECT_NOTIFIER_PARAM) :
+  NullableRootedUnion(JSContext* cx MOZ_GUARD_OBJECT_NOTIFIER_PARAM) :
     Nullable<T>(),
     JS::CustomAutoRooter(cx MOZ_GUARD_OBJECT_NOTIFIER_PARAM_TO_PARENT)
   {
@@ -1892,7 +1788,7 @@ public:
   virtual void trace(JSTracer *trc) MOZ_OVERRIDE
   {
     if (!this->IsNull()) {
-      this->Value().TraceDictionary(trc);
+      this->Value().TraceUnion(trc);
     }
   }
 };
@@ -2131,7 +2027,7 @@ InterfaceHasInstance(JSContext* cx, int prototypeID, int depth,
 // Helper for lenient getters/setters to report to console.  If this
 // returns false, we couldn't even get a global.
 bool
-ReportLenientThisUnwrappingFailure(JSContext* cx, JS::Handle<JSObject*> obj);
+ReportLenientThisUnwrappingFailure(JSContext* cx, JSObject* obj);
 
 inline JSObject*
 GetUnforgeableHolder(JSObject* aGlobal, prototypes::ID aId)
@@ -2265,7 +2161,9 @@ class DeferredFinalizer
     MOZ_ASSERT(aSlice > 0, "nonsensical/useless call with aSlice == 0");
     SmartPtrArray* pointers = static_cast<SmartPtrArray*>(aData);
     uint32_t oldLen = pointers->Length();
-    aSlice = std::min(oldLen, aSlice);
+    if (oldLen < aSlice) {
+      aSlice = oldLen;
+    }
     uint32_t newLen = oldLen - aSlice;
     pointers->RemoveElementsAt(newLen, aSlice);
     if (newLen == 0) {
@@ -2345,6 +2243,9 @@ public:
     return nullptr;
   }
 };
+
+bool
+ThreadsafeCheckIsChrome(JSContext* aCx, JSObject* aObj);
 
 } // namespace dom
 } // namespace mozilla

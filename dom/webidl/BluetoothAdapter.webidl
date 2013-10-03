@@ -48,27 +48,21 @@ interface BluetoothAdapter : EventTarget {
   [GetterThrows]
   readonly attribute any            uuids;
 
-  [SetterThrows]
            attribute EventHandler   ondevicefound;
 
   // Fired when pairing process is completed
-  [SetterThrows]
            attribute EventHandler   onpairedstatuschanged;
 
   // Fired when a2dp connection status changed
-  [SetterThrows]
            attribute EventHandler   ona2dpstatuschanged;
 
   // Fired when handsfree connection status changed
-  [SetterThrows]
            attribute EventHandler   onhfpstatuschanged;
 
   // Fired when sco connection status changed
-  [SetterThrows]
            attribute EventHandler   onscostatuschanged;
 
   // Fired when remote devices query current media play status
-  [SetterThrows]
            attribute EventHandler   onrequestmediaplaystatus;
 
   [Creator, Throws]
@@ -88,7 +82,7 @@ interface BluetoothAdapter : EventTarget {
   [Creator, Throws]
   DOMRequest getPairedDevices();
   [Creator, Throws]
-  DOMRequest getConnectedDevices(unsigned short profile);
+  DOMRequest getConnectedDevices(unsigned short serviceUuid);
   [Creator, Throws]
   DOMRequest setPinCode(DOMString deviceAddress, DOMString pinCode);
   [Creator, Throws]
@@ -101,13 +95,23 @@ interface BluetoothAdapter : EventTarget {
    * To check the value of service UUIDs, please check "Bluetooth Assigned
    * Numbers" / "Service Discovery Protocol" for more information.
    *
-   * @param deviceAddress Remote device address
-   * @param profile 2-octets service UUID
+   * Note that service UUID is optional. If it isn't passed when calling
+   * Connect, multiple profiles are tried sequentially based on the class of
+   * device (CoD). If it isn't passed when calling Disconnect, all connected
+   * profiles are going to be closed.
+   *
+   * Reply success if the connection of any profile is successfully
+   * established/released; reply error if we failed to connect/disconnect all
+   * of the planned profiles.
+   *
+   * @param device Remote device
+   * @param profile 2-octets service UUID. This is optional.
    */
   [Creator, Throws]
-  DOMRequest connect(DOMString deviceAddress, unsigned short profile);
+  DOMRequest connect(BluetoothDevice device, optional unsigned short serviceUuid);
+
   [Creator, Throws]
-  DOMRequest disconnect(unsigned short profile);
+  DOMRequest disconnect(BluetoothDevice device, optional unsigned short serviceUuid);
 
   // One device can only send one file at a time
   [Creator, Throws]

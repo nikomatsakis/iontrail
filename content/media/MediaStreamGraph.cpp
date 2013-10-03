@@ -13,9 +13,7 @@
 #include "nsIObserver.h"
 #include "nsServiceManagerUtils.h"
 #include "nsWidgetsCID.h"
-#include "nsXPCOMCIDInternal.h"
 #include "prlog.h"
-#include "VideoUtils.h"
 #include "mozilla/Attributes.h"
 #include "TrackUnionStream.h"
 #include "ImageContainer.h"
@@ -349,6 +347,7 @@ MediaStreamGraphImpl::UpdateCurrentTime()
     // listeners that streams have ended still needs to run.
   }
 
+  nsTArray<MediaStream*> streamsReadyToFinish;
   for (uint32_t i = 0; i < mStreams.Length(); ++i) {
     MediaStream* stream = mStreams[i];
 
@@ -384,8 +383,20 @@ MediaStreamGraphImpl::UpdateCurrentTime()
       }
     }
 
-    if (stream->mFinished && !stream->mNotifiedFinished &&
-        stream->mBufferStartTime + stream->GetBufferEnd() <= nextCurrentTime) {
+    if (stream->mFinished && !stream->mNotifiedFinished) {
+      streamsReadyToFinish.AppendElement(stream);
+    }
+    LOG(PR_LOG_DEBUG+1, ("MediaStream %p bufferStartTime=%f blockedTime=%f",
+                         stream, MediaTimeToSeconds(stream->mBufferStartTime),
+                         MediaTimeToSeconds(blockedTime)));
+  }
+
+  mCurrentTime = nextCurrentTime;
+
+  // Do this after setting mCurrentTime so that StreamTimeToGraphTime works properly.
+  for (uint32_t i = 0; i < streamsReadyToFinish.Length(); ++i) {
+    MediaStream* stream = streamsReadyToFinish[i];
+    if (StreamTimeToGraphTime(stream, stream->GetBufferEnd()) <= mCurrentTime) {
       stream->mNotifiedFinished = true;
       stream->mLastPlayedVideoFrame.SetNull();
       for (uint32_t j = 0; j < stream->mListeners.Length(); ++j) {
@@ -393,13 +404,7 @@ MediaStreamGraphImpl::UpdateCurrentTime()
         l->NotifyFinished(this);
       }
     }
-
-    LOG(PR_LOG_DEBUG+1, ("MediaStream %p bufferStartTime=%f blockedTime=%f",
-                         stream, MediaTimeToSeconds(stream->mBufferStartTime),
-                         MediaTimeToSeconds(blockedTime)));
   }
-
-  mCurrentTime = nextCurrentTime;
 }
 
 bool
@@ -474,11 +479,38 @@ MediaStreamGraphImpl::UpdateStreamOrderForStream(mozilla::LinkedList<MediaStream
   NS_ASSERTION(!stream->mHasBeenOrdered, "stream should not have already been ordered");
   if (stream->mIsOnOrderingStack) {
     MediaStream* iter = aStack->getLast();
+    AudioNodeStream* ns = stream->AsAudioNodeStream();
+    bool delayNodePresent = ns ? ns->Engine()->AsDelayNodeEngine() != nullptr : false;
+    bool cycleFound = false;
     if (iter) {
       do {
+        cycleFound = true;
         iter->AsProcessedStream()->mInCycle = true;
+        AudioNodeStream* ns = iter->AsAudioNodeStream();
+        if (ns && ns->Engine()->AsDelayNodeEngine()) {
+          delayNodePresent = true;
+        }
         iter = iter->getPrevious();
       } while (iter && iter != stream);
+    }
+    if (cycleFound && !delayNodePresent) {
+      // If we have detected a cycle, the previous loop should exit with stream
+      // == iter, or the node is connected to itself. Go back in the cycle and
+      // mute all nodes we find, or just mute the node itself.
+      if (!iter) {
+        // The node is connected to itself.
+        iter = aStack->getLast();
+        iter->AsAudioNodeStream()->Mute();
+      } else {
+        MOZ_ASSERT(iter);
+        do {
+          // There can't be non-AudioNodeStream here, MediaStreamAudio{Source,
+          // Destination}Node are connected to regular MediaStreams, but they can't be
+          // in a cycle (there is no content API to do so).
+          MOZ_ASSERT(iter->AsAudioNodeStream());
+          iter->AsAudioNodeStream()->Mute();
+        } while((iter = iter->getNext()));
+      }
     }
     return;
   }
@@ -515,6 +547,10 @@ MediaStreamGraphImpl::UpdateStreamOrder()
     ProcessedMediaStream* ps = stream->AsProcessedStream();
     if (ps) {
       ps->mInCycle = false;
+      AudioNodeStream* ns = ps->AsAudioNodeStream();
+      if (ns) {
+        ns->Unmute();
+      }
     }
   }
 
@@ -816,7 +852,8 @@ MediaStreamGraphImpl::PlayAudio(MediaStream* aStream,
                              aStream, MediaTimeToSeconds(t), MediaTimeToSeconds(end),
                              startTicks, endTicks));
       }
-      output.WriteTo(audioOutput.mStream);
+      // XXX need unique id for stream & track
+      output.WriteTo((((uint64_t)i) << 32) | track->GetID(), audioOutput.mStream);
       t = end;
     }
   }
@@ -827,7 +864,7 @@ SetImageToBlackPixel(PlanarYCbCrImage* aImage)
 {
   uint8_t blackPixel[] = { 0x10, 0x80, 0x80 };
 
-  PlanarYCbCrImage::Data data;
+  PlanarYCbCrData data;
   data.mYChannel = blackPixel;
   data.mCbChannel = blackPixel + 1;
   data.mCrChannel = blackPixel + 2;
@@ -2294,6 +2331,8 @@ MediaStreamGraphImpl::MediaStreamGraphImpl(bool aRealtime)
   , mPostedRunInStableState(false)
   , mRealtime(aRealtime)
   , mNonRealtimeProcessing(false)
+  , mStreamOrderDirty(false)
+  , mLatencyLog(AsyncLatencyLogger::Get())
 {
 #ifdef PR_LOGGING
   if (!gMediaStreamGraphLog) {
@@ -2354,9 +2393,12 @@ void
 MediaStreamGraph::DestroyNonRealtimeInstance(MediaStreamGraph* aGraph)
 {
   NS_ASSERTION(NS_IsMainThread(), "Main thread only");
-  MOZ_ASSERT(aGraph != gGraph, "Should not destroy the global graph here");
+  MOZ_ASSERT(aGraph->IsNonRealtime(), "Should not destroy the global graph here");
 
   MediaStreamGraphImpl* graph = static_cast<MediaStreamGraphImpl*>(aGraph);
+  if (graph->mForceShutDown)
+    return; // already done
+
   if (!graph->mNonRealtimeProcessing) {
     // Start the graph, but don't produce anything
     graph->StartNonRealtimeProcessing(0);
@@ -2423,6 +2465,12 @@ MediaStreamGraph::CreateAudioNodeStream(AudioNodeEngine* aEngine,
   return stream;
 }
 
+bool
+MediaStreamGraph::IsNonRealtime() const
+{
+  return this != gGraph;
+}
+
 void
 MediaStreamGraph::StartNonRealtimeProcessing(uint32_t aTicksToProcess)
 {
@@ -2436,6 +2484,13 @@ MediaStreamGraph::StartNonRealtimeProcessing(uint32_t aTicksToProcess)
   graph->mNonRealtimeTicksToProcess = aTicksToProcess;
   graph->mNonRealtimeProcessing = true;
   graph->EnsureRunInStableState();
+}
+
+void
+ProcessedMediaStream::AddInput(MediaInputPort* aPort)
+{
+  mInputs.AppendElement(aPort);
+  GraphImpl()->SetStreamOrderDirty();
 }
 
 }

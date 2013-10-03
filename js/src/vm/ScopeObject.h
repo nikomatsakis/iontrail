@@ -112,7 +112,7 @@ ScopeCoordinateToStaticScopeShape(JSContext *cx, JSScript *script, jsbytecode *p
 extern PropertyName *
 ScopeCoordinateName(JSContext *cx, JSScript *script, jsbytecode *pc);
 
-/* Return the function script accessed by the given ALIASEDVAR op, or NULL. */
+/* Return the function script accessed by the given ALIASEDVAR op, or nullptr. */
 extern JSScript *
 ScopeCoordinateFunctionScript(JSContext *cx, JSScript *script, jsbytecode *pc);
 
@@ -170,7 +170,8 @@ class ScopeObject : public JSObject
     inline JSObject &enclosingScope() const {
         return getReservedSlot(SCOPE_CHAIN_SLOT).toObject();
     }
-    void setEnclosingScope(HandleObject obj);
+
+    inline void setEnclosingScope(HandleObject obj);
 
     /*
      * Get or set an aliased variable contained in this scope. Unaliased
@@ -200,7 +201,7 @@ class CallObject : public ScopeObject
     create(JSContext *cx, HandleScript script, HandleObject enclosing, HandleFunction callee);
 
   public:
-    static Class class_;
+    static const Class class_;
 
     /* These functions are internal and are exposed only for JITs. */
     static CallObject *
@@ -258,7 +259,7 @@ class DeclEnvObject : public ScopeObject
     static const uint32_t RESERVED_SLOTS = 2;
     static const gc::AllocKind FINALIZE_KIND = gc::FINALIZE_OBJECT2_BACKGROUND;
 
-    static Class class_;
+    static const Class class_;
 
     static DeclEnvObject *
     createTemplateObject(JSContext *cx, HandleFunction fun, gc::InitialHeap heap);
@@ -293,7 +294,7 @@ class WithObject : public NestedScopeObject
     static const unsigned RESERVED_SLOTS = 3;
     static const gc::AllocKind FINALIZE_KIND = gc::FINALIZE_OBJECT4_BACKGROUND;
 
-    static Class class_;
+    static const Class class_;
 
     static WithObject *
     create(JSContext *cx, HandleObject proto, HandleObject enclosing, uint32_t depth);
@@ -315,7 +316,7 @@ class BlockObject : public NestedScopeObject
     static const unsigned RESERVED_SLOTS = 2;
     static const gc::AllocKind FINALIZE_KIND = gc::FINALIZE_OBJECT4_BACKGROUND;
 
-    static Class class_;
+    static const Class class_;
 
     /* Return the number of variables associated with this block. */
     uint32_t slotCount() const {
@@ -342,7 +343,9 @@ class BlockObject : public NestedScopeObject
         return getSlotRef(RESERVED_SLOTS + i);
     }
 
-    inline void setSlotValue(unsigned i, const Value &v);
+    void setSlotValue(unsigned i, const Value &v) {
+        setSlot(RESERVED_SLOTS + i, v);
+    }
 };
 
 class StaticBlockObject : public BlockObject
@@ -356,7 +359,7 @@ class StaticBlockObject : public BlockObject
     }
 
     /*
-     * A refinement of enclosingStaticScope that returns NULL if the enclosing
+     * A refinement of enclosingStaticScope that returns nullptr if the enclosing
      * static scope is a JSFunction.
      */
     inline StaticBlockObject *enclosingBlock() const;
@@ -388,18 +391,38 @@ class StaticBlockObject : public BlockObject
     /* Frontend-only functions ***********************************************/
 
     /* Initialization functions for above fields. */
-    void setAliased(unsigned i, bool aliased);
-    void setStackDepth(uint32_t depth);
-    void initEnclosingStaticScope(JSObject *obj);
+    void setAliased(unsigned i, bool aliased) {
+        JS_ASSERT_IF(i > 0, slotValue(i-1).isBoolean());
+        setSlotValue(i, BooleanValue(aliased));
+        if (aliased && !needsClone()) {
+            setSlotValue(0, MagicValue(JS_BLOCK_NEEDS_CLONE));
+            JS_ASSERT(needsClone());
+        }
+    }
+
+    void setStackDepth(uint32_t depth) {
+        JS_ASSERT(getReservedSlot(DEPTH_SLOT).isUndefined());
+        initReservedSlot(DEPTH_SLOT, PrivateUint32Value(depth));
+    }
+
+    void initEnclosingStaticScope(JSObject *obj) {
+        JS_ASSERT(getReservedSlot(SCOPE_CHAIN_SLOT).isUndefined());
+        setReservedSlot(SCOPE_CHAIN_SLOT, ObjectOrNullValue(obj));
+    }
 
     /*
      * Frontend compilation temporarily uses the object's slots to link
      * a let var to its associated Definition parse node.
      */
-    void setDefinitionParseNode(unsigned i, frontend::Definition *def);
+    void setDefinitionParseNode(unsigned i, frontend::Definition *def) {
+        JS_ASSERT(slotValue(i).isUndefined());
+        setSlotValue(i, PrivateValue(def));
+    }
+
     frontend::Definition *maybeDefinitionParseNode(unsigned i) {
         Value v = slotValue(i);
-        return v.isUndefined() ? NULL : reinterpret_cast<frontend::Definition *>(v.toPrivate());
+        return v.isUndefined() ? nullptr
+                               : reinterpret_cast<frontend::Definition *>(v.toPrivate());
     }
 
     /*
@@ -408,8 +431,13 @@ class StaticBlockObject : public BlockObject
      * be the same as enclosingBlock, initEnclosingStaticScope must be called
      * separately in the emitter. 'reset' is just for asserting stackiness.
      */
-    void initPrevBlockChainFromParser(StaticBlockObject *prev);
-    void resetPrevBlockChainFromParser();
+    void initPrevBlockChainFromParser(StaticBlockObject *prev) {
+        setReservedSlot(SCOPE_CHAIN_SLOT, ObjectOrNullValue(prev));
+    }
+
+    void resetPrevBlockChainFromParser() {
+        setReservedSlot(SCOPE_CHAIN_SLOT, UndefinedValue());
+    }
 
     static Shape *addVar(ExclusiveContext *cx, Handle<StaticBlockObject*> block, HandleId id,
                          int index, bool *redeclared);
@@ -432,7 +460,10 @@ class ClonedBlockObject : public BlockObject
         return slotValue(i);
     }
 
-    void setVar(unsigned i, const Value &v, MaybeCheckAliasing checkAliasing = CHECK_ALIASING);
+    void setVar(unsigned i, const Value &v, MaybeCheckAliasing checkAliasing = CHECK_ALIASING) {
+        JS_ASSERT_IF(checkAliasing, staticBlock().isAliased(i));
+        setSlotValue(i, v);
+    }
 
     /* Copy in all the unaliased formals and locals. */
     void copyUnaliasedValues(AbstractFramePtr frame);
@@ -440,7 +471,7 @@ class ClonedBlockObject : public BlockObject
 
 template<XDRMode mode>
 bool
-XDRStaticBlockObject(XDRState<mode> *xdr, HandleObject enclosingScope, HandleScript script,
+XDRStaticBlockObject(XDRState<mode> *xdr, HandleObject enclosingScope,
                      StaticBlockObject **objp);
 
 extern JSObject *
@@ -541,7 +572,7 @@ class ScopeIterKey
     ScopeIter::Type type_;
 
   public:
-    ScopeIterKey() : frame_(NullFramePtr()), cur_(NULL), block_(NULL), type_() {}
+    ScopeIterKey() : frame_(NullFramePtr()), cur_(nullptr), block_(nullptr), type_() {}
     ScopeIterKey(const ScopeIter &si)
       : frame_(si.frame_), cur_(si.cur_), block_(si.block_), type_(si.type_)
     {}
@@ -745,7 +776,7 @@ inline StaticBlockObject *
 StaticBlockObject::enclosingBlock() const
 {
     JSObject *obj = getReservedSlot(SCOPE_CHAIN_SLOT).toObjectOrNull();
-    return obj && obj->is<StaticBlockObject>() ? &obj->as<StaticBlockObject>() : NULL;
+    return obj && obj->is<StaticBlockObject>() ? &obj->as<StaticBlockObject>() : nullptr;
 }
 
 #ifdef DEBUG

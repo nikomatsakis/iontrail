@@ -1,5 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set sw=4 ts=8 et tw=80 : */
+/* vim: set sw=2 ts=8 et tw=80 : */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -9,13 +9,13 @@
 
 #include "GeckoContentController.h"
 #include "mozilla/Attributes.h"
+#include "mozilla/EventForwards.h"
 #include "mozilla/Monitor.h"
 #include "mozilla/ReentrantMonitor.h"
 #include "mozilla/RefPtr.h"
 #include "InputData.h"
 #include "Axis.h"
 #include "TaskThrottler.h"
-#include "mozilla/layers/APZCTreeManager.h"
 #include "gfx3DMatrix.h"
 
 #include "base/message_loop.h"
@@ -28,13 +28,14 @@ class CompositorParent;
 class GestureEventListener;
 class ContainerLayer;
 class ViewTransform;
+class APZCTreeManager;
 
 /**
  * Controller for all panning and zooming logic. Any time a user input is
  * detected and it must be processed in some way to affect what the user sees,
  * it goes through here. Listens for any input event from InputData and can
- * optionally handle nsGUIEvent-derived touch events, but this must be done on
- * the main thread. Note that this class completely cross-platform.
+ * optionally handle WidgetGUIEvent-derived touch events, but this must be done
+ * on the main thread. Note that this class completely cross-platform.
  *
  * Input events originate on the UI thread of the platform that this runs on,
  * and are then sent to this class. This class processes the event in some way;
@@ -73,6 +74,7 @@ public:
   static float GetTouchStartTolerance();
 
   AsyncPanZoomController(uint64_t aLayersId,
+                         APZCTreeManager* aTreeManager,
                          GeckoContentController* aController,
                          GestureBehavior aGestures = DEFAULT_GESTURES);
   ~AsyncPanZoomController();
@@ -259,6 +261,17 @@ public:
    */
   void CancelAnimation();
 
+  /**
+   * Attempt to scroll in response to a touch-move from |aStartPoint| to
+   * |aEndPoint|, which are in our (transformed) screen coordinates.
+   * Due to overscroll handling, there may not actually have been a touch-move
+   * at these points, but this function will scroll as if there had been.
+   * If this attempt causes overscroll (i.e. the layer cannot be scrolled
+   * by the entire amount requested), the overscroll is passed back to the
+   * tree manager via APZCTreeManager::HandleOverscroll().
+   */
+  void AttemptScroll(const ScreenPoint& aStartPoint, const ScreenPoint& aEndPoint);
+
 protected:
   /**
    * Helper method for touches beginning. Sets everything up for panning and any
@@ -378,17 +391,17 @@ protected:
   const gfx::Point GetAccelerationVector();
 
   /**
-   * Gets a reference to the first SingleTouchData from a MultiTouchInput.  This
+   * Gets a reference to the first touch point from a MultiTouchInput.  This
    * gets only the first one and assumes the rest are either missing or not
    * relevant.
    */
-  SingleTouchData& GetFirstSingleTouch(const MultiTouchInput& aEvent);
+  ScreenIntPoint& GetFirstTouchScreenPoint(const MultiTouchInput& aEvent);
 
   /**
    * Sets up anything needed for panning. This takes us out of the "TOUCHING"
    * state and starts actually panning us.
    */
-  void StartPanning(const MultiTouchInput& aStartPoint);
+  nsEventStatus StartPanning(const MultiTouchInput& aStartPoint);
 
   /**
    * Wrapper for Axis::UpdateWithTouchAtDevicePoint(). Calls this function for
@@ -471,7 +484,16 @@ private:
     NOTHING,        /* no touch-start events received */
     FLING,          /* all touches removed, but we're still scrolling page */
     TOUCHING,       /* one touch-start event received */
-    PANNING,        /* panning the frame */
+
+    PANNING,           /* panning the frame */
+    PANNING_LOCKED_X,  /* touch-start followed by move (i.e. panning with axis lock) X axis */
+    PANNING_LOCKED_Y,  /* as above for Y axis */
+
+    CROSS_SLIDING_X,   /* Panning disabled while user does a horizontal gesture
+                          on a vertically-scrollable view. This used for the
+                          Windows Metro "cross-slide" gesture. */
+    CROSS_SLIDING_Y,   /* as above for Y axis */
+
     PINCHING,       /* nth touch-start, where n > 1. this mode allows pan and zoom */
     ANIMATING_ZOOM, /* animated zoom to a new rect */
     WAITING_LISTENERS, /* a state halfway between NOTHING and TOUCHING - the user has
@@ -479,12 +501,22 @@ private:
                     prevented the default actions yet. we still need to abort animations. */
   };
 
+  enum AxisLockMode {
+    FREE,     /* No locking at all */
+    STANDARD, /* Default axis locking mode that remains locked until pan ends*/
+    STICKY,   /* Allow lock to be broken, with hysteresis */
+  };
+
+  static AxisLockMode GetAxisLockMode();
+
   /**
    * Helper to set the current state. Holds the monitor before actually setting
    * it. If the monitor is already held by the current thread, it is safe to
    * instead use: |mState = NEWSTATE;|
    */
   void SetState(PanZoomState aState);
+
+  bool IsPanningState(PanZoomState mState);
 
   uint64_t mLayersId;
   nsRefPtr<CompositorParent> mCompositorParent;
@@ -630,6 +662,13 @@ public:
   }
 
 private:
+  // This is a raw pointer to avoid introducing a reference cycle between
+  // AsyncPanZoomController and APZCTreeManager. Since these objects don't
+  // live on the main thread, we can't use the cycle collector with them.
+  // The APZCTreeManager owns the lifetime of the APZCs, so nulling this
+  // pointer out in Destroy() will prevent accessing deleted memory.
+  APZCTreeManager* mTreeManager;
+
   nsRefPtr<AsyncPanZoomController> mLastChild;
   nsRefPtr<AsyncPanZoomController> mPrevSibling;
   nsRefPtr<AsyncPanZoomController> mParent;

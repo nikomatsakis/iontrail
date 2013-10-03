@@ -26,6 +26,7 @@
 #include "nsDOMClassInfo.h"
 #include "nsCRT.h"
 #include "nsIObserverService.h"
+#include "nsISimpleEnumerator.h"
 
 #include "mozilla/MemoryReporting.h"
 #include "mozilla/Preferences.h"
@@ -116,11 +117,11 @@ GlobalNameHashInitEntry(PLDHashTable *table, PLDHashEntryHdr *entry,
   return true;
 }
 
-class ScriptNameSpaceManagerReporter MOZ_FINAL : public MemoryReporterBase
+class ScriptNameSpaceManagerReporter MOZ_FINAL : public MemoryUniReporter
 {
 public:
   ScriptNameSpaceManagerReporter(nsScriptNameSpaceManager* aManager)
-    : MemoryReporterBase(
+    : MemoryUniReporter(
         "explicit/script-namespace-manager",
         KIND_HEAP,
         nsIMemoryReporter::UNITS_BYTES,

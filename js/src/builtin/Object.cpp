@@ -15,6 +15,8 @@
 
 #include "jsobjinlines.h"
 
+#include "vm/ObjectImpl-inl.h"
+
 using namespace js;
 using namespace js::types;
 
@@ -27,7 +29,7 @@ js::obj_construct(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
 
-    RootedObject obj(cx, NULL);
+    RootedObject obj(cx, nullptr);
     if (args.length() > 0) {
         /* If argv[0] is null or undefined, obj comes back null. */
         if (!js_ValueToObjectOrNull(cx, args[0], &obj))
@@ -87,8 +89,8 @@ obj_propertyIsEnumerable(JSContext *cx, unsigned argc, Value *vp)
 }
 
 #if JS_HAS_TOSOURCE
-bool
-js::obj_toSource(JSContext *cx, unsigned argc, Value *vp)
+static bool
+obj_toSource(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
     JS_CHECK_RECURSION(cx, return false);
@@ -97,25 +99,31 @@ js::obj_toSource(JSContext *cx, unsigned argc, Value *vp)
     if (!obj)
         return false;
 
+    JSString *str = ObjectToSource(cx, obj);
+    if (!str)
+        return false;
+
+    args.rval().setString(str);
+    return true;
+}
+
+JSString *
+js::ObjectToSource(JSContext *cx, HandleObject obj)
+{
     /* If outermost, we need parentheses to be an expression, not a block. */
     bool outermost = (cx->cycleDetectorSet.count() == 0);
 
     AutoCycleDetector detector(cx, obj);
     if (!detector.init())
-        return false;
-    if (detector.foundCycle()) {
-        JSString *str = js_NewStringCopyZ<CanGC>(cx, "{}");
-        if (!str)
-            return false;
-        args.rval().setString(str);
-        return true;
-    }
+        return nullptr;
+    if (detector.foundCycle())
+        return js_NewStringCopyZ<CanGC>(cx, "{}");
 
     StringBuffer buf(cx);
     if (outermost && !buf.append('('))
-        return false;
+        return nullptr;
     if (!buf.append('{'))
-        return false;
+        return nullptr;
 
     RootedValue v0(cx), v1(cx);
     MutableHandleValue val[2] = {&v0, &v1};
@@ -125,7 +133,7 @@ js::obj_toSource(JSContext *cx, unsigned argc, Value *vp)
 
     AutoIdVector idv(cx);
     if (!GetPropertyNames(cx, obj, JSITER_OWNONLY, &idv))
-        return false;
+        return nullptr;
 
     bool comma = false;
     for (size_t i = 0; i < idv.length(); ++i) {
@@ -133,7 +141,7 @@ js::obj_toSource(JSContext *cx, unsigned argc, Value *vp)
         RootedObject obj2(cx);
         RootedShape shape(cx);
         if (!JSObject::lookupGeneric(cx, obj, id, &obj2, &shape))
-            return false;
+            return nullptr;
 
         /*  Decide early whether we prefer get/set or old getter/setter syntax. */
         int valcnt = 0;
@@ -156,9 +164,9 @@ js::obj_toSource(JSContext *cx, unsigned argc, Value *vp)
             }
             if (doGet) {
                 valcnt = 1;
-                gsop[0].set(NULL);
+                gsop[0].set(nullptr);
                 if (!JSObject::getGeneric(cx, obj, obj, id, val[0]))
-                    return false;
+                    return nullptr;
             }
         }
 
@@ -166,10 +174,10 @@ js::obj_toSource(JSContext *cx, unsigned argc, Value *vp)
         RootedValue idv(cx, IdToValue(id));
         JSString *s = ToString<CanGC>(cx, idv);
         if (!s)
-            return false;
+            return nullptr;
         Rooted<JSLinearString*> idstr(cx, s->ensureLinear(cx));
         if (!idstr)
-            return false;
+            return nullptr;
 
         /*
          * If id is a string that's not an identifier, or if it's a negative
@@ -181,7 +189,7 @@ js::obj_toSource(JSContext *cx, unsigned argc, Value *vp)
         {
             s = js_QuoteString(cx, idstr, jschar('\''));
             if (!s || !(idstr = s->ensureLinear(cx)))
-                return false;
+                return nullptr;
         }
 
         for (int j = 0; j < valcnt; j++) {
@@ -195,10 +203,10 @@ js::obj_toSource(JSContext *cx, unsigned argc, Value *vp)
             /* Convert val[j] to its canonical source form. */
             RootedString valstr(cx, ValueToSource(cx, val[j]));
             if (!valstr)
-                return false;
+                return nullptr;
             const jschar *vchars = valstr->getChars(cx);
             if (!vchars)
-                return false;
+                return nullptr;
             size_t vlength = valstr->length();
 
             /*
@@ -231,39 +239,35 @@ js::obj_toSource(JSContext *cx, unsigned argc, Value *vp)
                         vchars++;
                     vlength = end - vchars - parenChomp;
                 } else {
-                    gsop[j].set(NULL);
+                    gsop[j].set(nullptr);
                     vchars = start;
                 }
             }
 
             if (comma && !buf.append(", "))
-                return false;
+                return nullptr;
             comma = true;
 
             if (gsop[j])
                 if (!buf.append(gsop[j]) || !buf.append(' '))
-                    return false;
+                    return nullptr;
 
             if (!buf.append(idstr))
-                return false;
+                return nullptr;
             if (!buf.append(gsop[j] ? ' ' : ':'))
-                return false;
+                return nullptr;
 
             if (!buf.append(vchars, vlength))
-                return false;
+                return nullptr;
         }
     }
 
     if (!buf.append('}'))
-        return false;
+        return nullptr;
     if (outermost && !buf.append(')'))
-        return false;
+        return nullptr;
 
-    JSString *str = buf.finishString();
-    if (!str)
-        return false;
-    args.rval().setString(str);
-    return true;
+    return buf.finishString();
 }
 #endif /* JS_HAS_TOSOURCE */
 
@@ -276,7 +280,7 @@ JS_BasicObjectToString(JSContext *cx, HandleObject obj)
     if (!sb.append("[object ") || !sb.appendInflated(className, strlen(className)) ||
         !sb.append("]"))
     {
-        return NULL;
+        return nullptr;
     }
     return sb.finishString();
 }
@@ -327,7 +331,7 @@ obj_toLocaleString(JSContext *cx, unsigned argc, Value *vp)
 
     /* Steps 2-4. */
     RootedId id(cx, NameToId(cx->names().toString));
-    return obj->callMethod(cx, id, 0, NULL, args.rval());
+    return obj->callMethod(cx, id, 0, nullptr, args.rval());
 }
 
 static bool
@@ -354,7 +358,7 @@ DefineAccessor(JSContext *cx, unsigned argc, Value *vp)
         return false;
 
     if (args.length() < 2 || !js_IsCallable(args[1])) {
-        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                              JSMSG_BAD_GETTER_OR_SETTER,
                              Type == Getter ? js_getter_str : js_setter_str);
         return false;
@@ -498,7 +502,7 @@ obj_getPrototypeOf(JSContext *cx, unsigned argc, Value *vp)
         char *bytes = DecompileValueGenerator(cx, JSDVG_SEARCH_STACK, val, NullPtr());
         if (!bytes)
             return false;
-        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                              JSMSG_UNEXPECTED_TYPE, bytes, "not an object");
         js_free(bytes);
         return false;
@@ -593,7 +597,7 @@ obj_unwatch(JSContext *cx, unsigned argc, Value *vp)
     } else {
         id = JSID_VOID;
     }
-    return JS_ClearWatchPoint(cx, obj, id, NULL, NULL);
+    return JS_ClearWatchPoint(cx, obj, id, nullptr, nullptr);
 }
 
 #endif /* JS_HAS_OBJ_WATCHPOINT */
@@ -678,7 +682,7 @@ static bool
 obj_create(JSContext *cx, unsigned argc, Value *vp)
 {
     if (argc == 0) {
-        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_MORE_ARGS_NEEDED,
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MORE_ARGS_NEEDED,
                              "Object.create", "0", "s");
         return false;
     }
@@ -689,7 +693,7 @@ obj_create(JSContext *cx, unsigned argc, Value *vp)
         char *bytes = DecompileValueGenerator(cx, JSDVG_SEARCH_STACK, v, NullPtr());
         if (!bytes)
             return false;
-        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_UNEXPECTED_TYPE,
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_UNEXPECTED_TYPE,
                              bytes, "not an object or null");
         js_free(bytes);
         return false;
@@ -708,7 +712,7 @@ obj_create(JSContext *cx, unsigned argc, Value *vp)
     /* 15.2.3.5 step 4. */
     if (args.hasDefined(1)) {
         if (args[1].isPrimitive()) {
-            JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_NOT_NONNULL_OBJECT);
+            JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_NOT_NONNULL_OBJECT);
             return false;
         }
 
@@ -860,7 +864,7 @@ obj_defineProperties(JSContext *cx, unsigned argc, Value *vp)
 
     /* Step 2. */
     if (args.length() < 2) {
-        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_MORE_ARGS_NEEDED,
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MORE_ARGS_NEEDED,
                              "Object.defineProperties", "0", "s");
         return false;
     }

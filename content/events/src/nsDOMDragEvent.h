@@ -9,13 +9,15 @@
 #include "nsIDOMDragEvent.h"
 #include "nsDOMMouseEvent.h"
 #include "mozilla/dom/DragEventBinding.h"
+#include "mozilla/EventForwards.h"
 
 class nsDOMDragEvent : public nsDOMMouseEvent,
                        public nsIDOMDragEvent
 {
 public:
   nsDOMDragEvent(mozilla::dom::EventTarget* aOwner,
-                 nsPresContext* aPresContext, nsInputEvent* aEvent);
+                 nsPresContext* aPresContext,
+                 mozilla::WidgetInputEvent* aEvent);
   virtual ~nsDOMDragEvent();
 
   NS_DECL_ISUPPORTS_INHERITED
@@ -53,6 +55,6 @@ public:
 nsresult NS_NewDOMDragEvent(nsIDOMEvent** aInstancePtrResult,
                             mozilla::dom::EventTarget* aOwner,
                             nsPresContext* aPresContext,
-                            nsDragEvent* aEvent);
+                            mozilla::WidgetDragEvent* aEvent);
 
 #endif // nsDOMDragEvent_h__

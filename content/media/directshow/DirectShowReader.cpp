@@ -11,6 +11,8 @@
 #include "SourceFilter.h"
 #include "DirectShowUtils.h"
 #include "SampleSink.h"
+#include "MediaResource.h"
+#include "VideoUtils.h"
 
 namespace mozilla {
 
@@ -34,12 +36,14 @@ GetDirectShowLog() {
 
 DirectShowReader::DirectShowReader(AbstractMediaDecoder* aDecoder)
   : MediaDecoderReader(aDecoder),
+    mMP3FrameParser(aDecoder->GetResource()->GetLength()),
 #ifdef DEBUG
     mRotRegister(0),
 #endif
     mNumChannels(0),
     mAudioRate(0),
-    mBytesPerSample(0)
+    mBytesPerSample(0),
+    mDuration(0)
 {
   MOZ_ASSERT(NS_IsMainThread(), "Must be on main thread.");
   MOZ_COUNT_CTOR(DirectShowReader);
@@ -69,7 +73,7 @@ static const GUID CLSID_MPEG_LAYER_3_DECODER_FILTER =
 { 0x38BE3000, 0xDBF4, 0x11D0, 0x86, 0x0E, 0x00, 0xA0, 0x24, 0xCF, 0xEF, 0x6D };
 
 nsresult
-DirectShowReader::ReadMetadata(VideoInfo* aInfo,
+DirectShowReader::ReadMetadata(MediaInfo* aInfo,
                                MetadataTags** aTags)
 {
   MOZ_ASSERT(mDecoder->OnDecodeThread(), "Should be on decode thread.");
@@ -160,11 +164,10 @@ DirectShowReader::ReadMetadata(VideoInfo* aInfo,
   mAudioSinkFilter->GetSampleSink()->GetAudioFormat(&format);
   NS_ENSURE_TRUE(format.wFormatTag == WAVE_FORMAT_PCM, NS_ERROR_FAILURE);
 
-  mInfo.mAudioChannels = mNumChannels = format.nChannels;
-  mInfo.mAudioRate = mAudioRate = format.nSamplesPerSec;
+  mInfo.mAudio.mChannels = mNumChannels = format.nChannels;
+  mInfo.mAudio.mRate = mAudioRate = format.nSamplesPerSec;
   mBytesPerSample = format.wBitsPerSample / 8;
-  mInfo.mHasAudio = true;
-  mInfo.mHasVideo = false;
+  mInfo.mAudio.mHasAudio = true;
 
   *aInfo = mInfo;
   // Note: The SourceFilter strips ID3v2 tags out of the stream.
@@ -190,8 +193,8 @@ DirectShowReader::ReadMetadata(VideoInfo* aInfo,
 
   LOG("Successfully initialized DirectShow MP3 decoder.");
   LOG("Channels=%u Hz=%u duration=%lld bytesPerSample=%d",
-      mInfo.mAudioChannels,
-      mInfo.mAudioRate,
+      mInfo.mAudio.mChannels,
+      mInfo.mAudio.mRate,
       RefTimeToUsecs(duration),
       mBytesPerSample);
 
@@ -210,7 +213,6 @@ DirectShowReader::Finish(HRESULT aStatus)
   MOZ_ASSERT(mDecoder->OnDecodeThread(), "Should be on decode thread.");
 
   LOG("DirectShowReader::Finish(0x%x)", aStatus);
-  mAudioQueue.Finish();
   // Notify the filter graph of end of stream.
   RefPtr<IMediaEventSink> eventSink;
   HRESULT hr = mGraph->QueryInterface(static_cast<IMediaEventSink**>(byRef(eventSink)));
@@ -274,12 +276,6 @@ DirectShowReader::DecodeAudioData()
                                  numFrames,
                                  buffer.forget(),
                                  mNumChannels));
-
-  uint32_t bytesConsumed = mSourceFilter->GetAndResetBytesConsumedCount();
-  if (bytesConsumed > 0) {
-    mDecoder->NotifyBytesConsumed(bytesConsumed);
-  }
-
   return true;
 }
 
@@ -362,6 +358,23 @@ DirectShowReader::OnDecodeThreadFinish()
 {
   NS_ASSERTION(mDecoder->OnDecodeThread(), "Should be on decode thread.");
   CoUninitialize();
+}
+
+void
+DirectShowReader::NotifyDataArrived(const char* aBuffer, uint32_t aLength, int64_t aOffset)
+{
+  MOZ_ASSERT(NS_IsMainThread());
+  if (!mMP3FrameParser.IsMP3()) {
+    return;
+  }
+  mMP3FrameParser.Parse(aBuffer, aLength, aOffset);
+  int64_t duration = mMP3FrameParser.GetDuration();
+  if (duration != mDuration) {
+    mDuration = duration;
+    MOZ_ASSERT(mDecoder);
+    ReentrantMonitorAutoEnter mon(mDecoder->GetReentrantMonitor());
+    mDecoder->UpdateEstimatedMediaDuration(mDuration);
+  }
 }
 
 } // namespace mozilla

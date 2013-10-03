@@ -120,6 +120,7 @@ cubeb_stream_get_position
 cubeb_stream_init
 cubeb_stream_start
 cubeb_stream_stop
+cubeb_stream_get_latency
 #endif
 #ifdef MOZ_OGG
 th_comment_clear
@@ -473,7 +474,9 @@ _moz_cairo_translate
 _moz_cairo_user_to_device
 _moz_cairo_user_to_device_distance
 _moz_cairo_win32_font_face_create_for_logfontw_hfont
+#ifdef NS_PRINTING
 _moz_cairo_win32_printing_surface_create
+#endif
 _moz_cairo_win32_scaled_font_select_font
 _moz_cairo_win32_surface_create
 _moz_cairo_win32_surface_create_with_d3dsurface9

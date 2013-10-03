@@ -8,6 +8,9 @@ XPIDL_SOURCES += [
     'nsIDOMCameraManager.idl',
 ]
 
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
+    TEST_DIRS += ['test']
+
 XPIDL_MODULE = 'dom_camera'
 
 MODULE = 'dom'
@@ -36,7 +39,6 @@ if CONFIG['MOZ_B2G_CAMERA']:
         'GonkCameraHwMgr.cpp',
         'GonkRecorder.cpp',
         'GonkCameraSource.cpp',
-        'AudioParameter.cpp',
         'GonkRecorderProfiles.cpp',
     ]
 else:

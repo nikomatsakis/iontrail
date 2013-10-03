@@ -9,8 +9,10 @@
 #include "nsGlobalWindow.h"
 #include "nsIDocument.h"
 #include "nsIEffectiveTLDService.h"
-#include "mozilla/Services.h"
+#include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/Services.h"
+#include "mozilla/StaticPtr.h"
 #include "nsNetCID.h"
 #include "nsPrintfCString.h"
 #include "XPCJSMemoryReporter.h"
@@ -19,40 +21,37 @@
 
 using namespace mozilla;
 
+StaticRefPtr<nsWindowMemoryReporter> sWindowReporter;
+
 nsWindowMemoryReporter::nsWindowMemoryReporter()
   : mCheckForGhostWindowsCallbackPending(false)
 {
-  mDetachedWindows.Init();
 }
 
-NS_IMPL_ISUPPORTS3(nsWindowMemoryReporter, nsIMemoryMultiReporter, nsIObserver,
+NS_IMPL_ISUPPORTS3(nsWindowMemoryReporter, nsIMemoryReporter, nsIObserver,
                    nsSupportsWeakReference)
 
 /* static */
 void
 nsWindowMemoryReporter::Init()
 {
-  // The memory reporter manager will own this object.
-  nsRefPtr<nsWindowMemoryReporter> windowReporter = new nsWindowMemoryReporter();
-  NS_RegisterMemoryMultiReporter(windowReporter);
+  MOZ_ASSERT(!sWindowReporter);
+  sWindowReporter = new nsWindowMemoryReporter();
+  ClearOnShutdown(&sWindowReporter);
+  NS_RegisterMemoryReporter(sWindowReporter);
 
   nsCOMPtr<nsIObserverService> os = services::GetObserverService();
   if (os) {
     // DOM_WINDOW_DESTROYED_TOPIC announces what we call window "detachment",
     // when a window's docshell is set to NULL.
-    os->AddObserver(windowReporter, DOM_WINDOW_DESTROYED_TOPIC,
+    os->AddObserver(sWindowReporter, DOM_WINDOW_DESTROYED_TOPIC,
                     /* weakRef = */ true);
-    os->AddObserver(windowReporter, "after-minimize-memory-usage",
+    os->AddObserver(sWindowReporter, "after-minimize-memory-usage",
                     /* weakRef = */ true);
   }
 
-  nsRefPtr<GhostURLsReporter> ghostMultiReporter =
-    new GhostURLsReporter(windowReporter);
-  NS_RegisterMemoryMultiReporter(ghostMultiReporter);
-
-  nsRefPtr<NumGhostsReporter> ghostReporter =
-    new NumGhostsReporter(windowReporter);
-  NS_RegisterMemoryReporter(ghostReporter);
+  NS_RegisterMemoryReporter(new GhostWindowsReporter());
+  RegisterGhostWindowsDistinguishedAmount(GhostWindowsReporter::DistinguishedAmount);
 }
 
 static already_AddRefed<nsIURI>
@@ -122,7 +121,7 @@ CollectWindowReports(nsGlobalWindow *aWindow,
                      nsTHashtable<nsUint64HashKey> *aGhostWindowIDs,
                      WindowPaths *aWindowPaths,
                      WindowPaths *aTopWindowPaths,
-                     nsIMemoryMultiReporterCallback *aCb,
+                     nsIMemoryReporterCallback *aCb,
                      nsISupports *aClosure)
 {
   nsAutoCString windowPath("explicit/");
@@ -194,7 +193,7 @@ CollectWindowReports(nsGlobalWindow *aWindow,
   } while (0)
 
   nsWindowSizes windowSizes(WindowsMallocSizeOf);
-  aWindow->SizeOfIncludingThis(&windowSizes);
+  aWindow->AddSizeOfIncludingThis(&windowSizes);
 
   REPORT("/dom/element-nodes", windowSizes.mDOMElementNodes,
          "Memory used by the element nodes in a window's DOM.");
@@ -312,6 +311,52 @@ GetWindows(const uint64_t& aId, nsGlobalWindow*& aWindow, void* aClosure)
   return PL_DHASH_NEXT;
 }
 
+struct ReportGhostWindowsEnumeratorData
+{
+  nsIMemoryReporterCallback* callback;
+  nsISupports* closure;
+  nsresult rv;
+};
+
+static PLDHashOperator
+ReportGhostWindowsEnumerator(nsUint64HashKey* aIDHashKey, void* aClosure)
+{
+  ReportGhostWindowsEnumeratorData *data =
+    static_cast<ReportGhostWindowsEnumeratorData*>(aClosure);
+
+  nsGlobalWindow::WindowByIdTable* windowsById =
+    nsGlobalWindow::GetWindowsTable();
+  if (!windowsById) {
+    NS_WARNING("Couldn't get window-by-id hashtable?");
+    return PL_DHASH_NEXT;
+  }
+
+  nsGlobalWindow* window = windowsById->Get(aIDHashKey->GetKey());
+  if (!window) {
+    NS_WARNING("Could not look up window?");
+    return PL_DHASH_NEXT;
+  }
+
+  nsAutoCString path;
+  path.AppendLiteral("ghost-windows/");
+  AppendWindowURI(window, path);
+
+  nsresult rv = data->callback->Callback(
+    /* process = */ EmptyCString(),
+    path,
+    nsIMemoryReporter::KIND_OTHER,
+    nsIMemoryReporter::UNITS_COUNT,
+    /* amount = */ 1,
+    /* description = */ NS_LITERAL_CSTRING("A ghost window."),
+    data->closure);
+
+  if (NS_FAILED(rv) && NS_SUCCEEDED(data->rv)) {
+    data->rv = rv;
+  }
+
+  return PL_DHASH_NEXT;
+}
+
 NS_IMETHODIMP
 nsWindowMemoryReporter::GetName(nsACString &aName)
 {
@@ -320,7 +365,7 @@ nsWindowMemoryReporter::GetName(nsACString &aName)
 }
 
 NS_IMETHODIMP
-nsWindowMemoryReporter::CollectReports(nsIMemoryMultiReporterCallback* aCb,
+nsWindowMemoryReporter::CollectReports(nsIMemoryReporterCallback* aCb,
                                        nsISupports* aClosure)
 {
   nsGlobalWindow::WindowByIdTable* windowsById =
@@ -332,33 +377,36 @@ nsWindowMemoryReporter::CollectReports(nsIMemoryMultiReporterCallback* aCb,
   WindowArray windows;
   windowsById->Enumerate(GetWindows, &windows);
 
-  // Get the IDs of all the "ghost" windows.
+  // Get the IDs of all the "ghost" windows, and call aCb->Callback() for each
+  // one.
   nsTHashtable<nsUint64HashKey> ghostWindows;
-  ghostWindows.Init();
   CheckForGhostWindows(&ghostWindows);
+  ReportGhostWindowsEnumeratorData reportGhostWindowsEnumData =
+    { aCb, aClosure, NS_OK };
+  ghostWindows.EnumerateEntries(ReportGhostWindowsEnumerator,
+                                &reportGhostWindowsEnumData);
+  nsresult rv = reportGhostWindowsEnumData.rv;
+  NS_ENSURE_SUCCESS(rv, rv);
 
   WindowPaths windowPaths;
-  windowPaths.Init();
-
   WindowPaths topWindowPaths;
-  topWindowPaths.Init();
 
   // Collect window memory usage.
   nsWindowSizes windowTotalSizes(NULL);
   nsCOMPtr<amIAddonManager> addonManager =
     do_GetService("@mozilla.org/addons/integration;1");
   for (uint32_t i = 0; i < windows.Length(); i++) {
-    nsresult rv = CollectWindowReports(windows[i], addonManager,
-                                       &windowTotalSizes, &ghostWindows,
-                                       &windowPaths, &topWindowPaths, aCb,
-                                       aClosure);
+    rv = CollectWindowReports(windows[i], addonManager,
+                              &windowTotalSizes, &ghostWindows,
+                              &windowPaths, &topWindowPaths, aCb,
+                              aClosure);
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
   // Report JS memory usage.  We do this from here because the JS memory
-  // multi-reporter needs to be passed |windowPaths|.
-  nsresult rv = xpc::JSMemoryMultiReporter::CollectReports(&windowPaths, &topWindowPaths,
-                                                           aCb, aClosure);
+  // reporter needs to be passed |windowPaths|.
+  rv = xpc::JSReporter::CollectReports(&windowPaths, &topWindowPaths,
+                                       aCb, aClosure);
   NS_ENSURE_SUCCESS(rv, rv);
 
 #define REPORT(_path, _amount, _desc)                                         \
@@ -650,7 +698,6 @@ nsWindowMemoryReporter::CheckForGhostWindows(
   }
 
   nsTHashtable<nsCStringHashKey> nonDetachedWindowDomains;
-  nonDetachedWindowDomains.Init();
 
   // Populate nonDetachedWindowDomains.
   GetNonDetachedWindowDomainsEnumeratorData nonDetachedEnumData =
@@ -667,115 +714,11 @@ nsWindowMemoryReporter::CheckForGhostWindows(
                              &ghostEnumData);
 }
 
-NS_IMPL_ISUPPORTS1(nsWindowMemoryReporter::GhostURLsReporter,
-                   nsIMemoryMultiReporter)
-
-nsWindowMemoryReporter::
-GhostURLsReporter::GhostURLsReporter(
-  nsWindowMemoryReporter* aWindowReporter)
-  : mWindowReporter(aWindowReporter)
-{
-}
-
-NS_IMETHODIMP
-nsWindowMemoryReporter::
-GhostURLsReporter::GetName(nsACString& aName)
-{
-  aName.AssignLiteral("ghost-windows");
-  return NS_OK;
-}
-
-struct ReportGhostWindowsEnumeratorData
-{
-  nsIMemoryMultiReporterCallback* callback;
-  nsISupports* closure;
-  nsresult rv;
-};
-
-static PLDHashOperator
-ReportGhostWindowsEnumerator(nsUint64HashKey* aIDHashKey, void* aClosure)
-{
-  ReportGhostWindowsEnumeratorData *data =
-    static_cast<ReportGhostWindowsEnumeratorData*>(aClosure);
-
-  nsGlobalWindow::WindowByIdTable* windowsById =
-    nsGlobalWindow::GetWindowsTable();
-  if (!windowsById) {
-    NS_WARNING("Couldn't get window-by-id hashtable?");
-    return PL_DHASH_NEXT;
-  }
-
-  nsGlobalWindow* window = windowsById->Get(aIDHashKey->GetKey());
-  if (!window) {
-    NS_WARNING("Could not look up window?");
-    return PL_DHASH_NEXT;
-  }
-
-  nsAutoCString path;
-  path.AppendLiteral("ghost-windows/");
-  AppendWindowURI(window, path);
-
-  nsresult rv = data->callback->Callback(
-    /* process = */ EmptyCString(),
-    path,
-    nsIMemoryReporter::KIND_OTHER,
-    nsIMemoryReporter::UNITS_COUNT,
-    /* amount = */ 1,
-    /* desc = */ EmptyCString(),
-    data->closure);
-
-  if (NS_FAILED(rv) && NS_SUCCEEDED(data->rv)) {
-    data->rv = rv;
-  }
-
-  return PL_DHASH_NEXT;
-}
-
-NS_IMETHODIMP
-nsWindowMemoryReporter::
-GhostURLsReporter::CollectReports(
-  nsIMemoryMultiReporterCallback* aCb,
-  nsISupports* aClosure)
-{
-  // Get the IDs of all the ghost windows in existance.
-  nsTHashtable<nsUint64HashKey> ghostWindows;
-  ghostWindows.Init();
-  mWindowReporter->CheckForGhostWindows(&ghostWindows);
-
-  ReportGhostWindowsEnumeratorData reportGhostWindowsEnumData =
-    { aCb, aClosure, NS_OK };
-
-  // Call aCb->Callback() for each ghost window.
-  ghostWindows.EnumerateEntries(ReportGhostWindowsEnumerator,
-                                &reportGhostWindowsEnumData);
-
-  return reportGhostWindowsEnumData.rv;
-}
-
-NS_IMETHODIMP
-nsWindowMemoryReporter::
-NumGhostsReporter::GetDescription(nsACString& aDesc)
-{
-  nsPrintfCString str(
-"The number of ghost windows present (the number of nodes underneath \
-explicit/window-objects/top(none)/ghost, modulo race conditions).  A ghost \
-window is not shown in any tab, does not share a domain with any non-detached \
-windows, and has met these criteria for at least %ds \
-(memory.ghost_window_timeout_seconds) or has survived a round of about:memory's \
-minimize memory usage button.\n\n\
-Ghost windows can happen legitimately, but they are often indicative of leaks \
-in the browser or add-ons.",
-  mWindowReporter->GetGhostTimeout());
-
-  aDesc.Assign(str);
-  return NS_OK;
-}
-
-int64_t
-nsWindowMemoryReporter::NumGhostsReporter::Amount()
+/* static */ int64_t
+nsWindowMemoryReporter::GhostWindowsReporter::DistinguishedAmount()
 {
   nsTHashtable<nsUint64HashKey> ghostWindows;
-  ghostWindows.Init();
-  mWindowReporter->CheckForGhostWindows(&ghostWindows);
+  sWindowReporter->CheckForGhostWindows(&ghostWindows);
   return ghostWindows.Count();
 }
+

@@ -17,7 +17,6 @@
  * and create derivative works of this document.
  */
 
-interface MozPowerManager;
 interface MozWakeLock;
 
 // http://www.whatwg.org/specs/web-apps/current-work/#the-navigator-object
@@ -109,16 +108,20 @@ interface NavigatorBattery {
 };
 Navigator implements NavigatorBattery;
 
+// https://wiki.mozilla.org/WebAPI/DataStore
+[NoInterfaceObject]
+interface NavigatorDataStore {
+    [Throws, Creator, Pref="dom.datastore.enabled"]
+    Promise getDataStores(DOMString name);
+};
+Navigator implements NavigatorDataStore;
+
 // http://www.w3.org/TR/vibration/#vibration-interface
 partial interface Navigator {
     // We don't support sequences in unions yet
     //boolean vibrate ((unsigned long or sequence<unsigned long>) pattern);
-    // XXXbz also, per spec we should be returning a boolean, and we just don't.
-    // See bug 884935.
-    [Throws]
-    void vibrate(unsigned long duration);
-    [Throws]
-    void vibrate(sequence<unsigned long> pattern);
+    boolean vibrate(unsigned long duration);
+    boolean vibrate(sequence<unsigned long> pattern);
 };
 
 // Mozilla-specific extensions
@@ -321,22 +324,22 @@ partial interface Navigator {
 #endif // MOZ_AUDIO_CHANNEL_MANAGER
 
 #ifdef MOZ_MEDIA_NAVIGATOR
-// nsIDOMNavigatorUserMedia
-callback MozDOMGetUserMediaSuccessCallback = void (nsISupports? value);
-callback MozDOMGetUserMediaErrorCallback = void (DOMString error);
-interface MozMediaStreamOptions;
+callback NavigatorUserMediaSuccessCallback = void (MediaStream stream);
+callback NavigatorUserMediaErrorCallback = void (DOMString error);
+
 partial interface Navigator {
   [Throws, Func="Navigator::HasUserMediaSupport"]
-  void mozGetUserMedia(MozMediaStreamOptions? params,
-                       MozDOMGetUserMediaSuccessCallback? onsuccess,
-                       MozDOMGetUserMediaErrorCallback? onerror);
+  void mozGetUserMedia(MediaStreamConstraints constraints,
+                       NavigatorUserMediaSuccessCallback successCallback,
+                       NavigatorUserMediaErrorCallback errorCallback);
 };
 
 // nsINavigatorUserMedia
 callback MozGetUserMediaDevicesSuccessCallback = void (nsIVariant? devices);
 partial interface Navigator {
   [Throws, ChromeOnly]
-  void mozGetUserMediaDevices(MozGetUserMediaDevicesSuccessCallback? onsuccess,
-                              MozDOMGetUserMediaErrorCallback? onerror);
+  void mozGetUserMediaDevices(MediaStreamConstraintsInternal constraints,
+                              MozGetUserMediaDevicesSuccessCallback onsuccess,
+                              NavigatorUserMediaErrorCallback onerror);
 };
 #endif // MOZ_MEDIA_NAVIGATOR

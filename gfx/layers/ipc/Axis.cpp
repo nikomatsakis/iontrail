@@ -1,5 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set sw=4 ts=8 et tw=80 : */
+/* vim: set sw=2 ts=8 et tw=80 : */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -103,13 +103,14 @@ Axis::Axis(AsyncPanZoomController* aAsyncPanZoomController)
   : mPos(0),
     mVelocity(0.0f),
     mAcceleration(0),
+    mScrollingDisabled(false),
     mAsyncPanZoomController(aAsyncPanZoomController)
 {
   InitAxisPrefs();
 }
 
 void Axis::UpdateWithTouchAtDevicePoint(int32_t aPos, const TimeDuration& aTimeDelta) {
-  float newVelocity = (mPos - aPos) / aTimeDelta.ToMilliseconds();
+  float newVelocity = mScrollingDisabled ? 0 : (mPos - aPos) / aTimeDelta.ToMilliseconds();
 
   bool curVelocityBelowThreshold = fabsf(newVelocity) < gVelocityThreshold;
   bool directionChange = (mVelocity > 0) != (newVelocity > 0);
@@ -133,15 +134,21 @@ void Axis::UpdateWithTouchAtDevicePoint(int32_t aPos, const TimeDuration& aTimeD
 void Axis::StartTouch(int32_t aPos) {
   mStartPos = aPos;
   mPos = aPos;
+  mScrollingDisabled = false;
 }
 
-float Axis::GetDisplacementForDuration(float aScale, const TimeDuration& aDelta) {
+float Axis::AdjustDisplacement(float aDisplacement, float& aOverscrollAmountOut) {
+  if (mScrollingDisabled) {
+    aOverscrollAmountOut = 0;
+    return 0;
+  }
+
   if (fabsf(mVelocity) < gVelocityThreshold) {
     mAcceleration = 0;
   }
 
   float accelerationFactor = GetAccelerationFactor();
-  float displacement = mVelocity * aScale * aDelta.ToMilliseconds() * accelerationFactor;
+  float displacement = aDisplacement * accelerationFactor;
   // If this displacement will cause an overscroll, throttle it. Can potentially
   // bring it to 0 even if the velocity is high.
   if (DisplacementWillOverscroll(displacement) != OVERSCROLL_NONE) {
@@ -149,13 +156,18 @@ float Axis::GetDisplacementForDuration(float aScale, const TimeDuration& aDelta)
     // anywhere, so we're just spinning needlessly.
     mVelocity = 0.0f;
     mAcceleration = 0;
-    displacement -= DisplacementWillOverscrollAmount(displacement);
+    aOverscrollAmountOut = DisplacementWillOverscrollAmount(displacement);
+    displacement -= aOverscrollAmountOut;
   }
   return displacement;
 }
 
 float Axis::PanDistance() {
   return fabsf(mPos - mStartPos);
+}
+
+float Axis::PanDistance(float aPos) {
+  return fabsf(aPos - mStartPos);
 }
 
 void Axis::EndTouch() {
@@ -179,6 +191,13 @@ void Axis::CancelTouch() {
   while (!mVelocityQueue.IsEmpty()) {
     mVelocityQueue.RemoveElementAt(0);
   }
+}
+
+bool Axis::Scrollable() {
+    if (mScrollingDisabled) {
+        return false;
+    }
+    return GetCompositionLength() < GetPageLength();
 }
 
 bool Axis::FlingApplyFrictionOrCancel(const TimeDuration& aDelta) {
@@ -283,7 +302,7 @@ float Axis::ScaleWillOverscrollAmount(ScreenToScreenScale aScale, float aFocus) 
 }
 
 float Axis::GetVelocity() {
-  return mVelocity;
+  return mScrollingDisabled ? 0 : mVelocity;
 }
 
 float Axis::GetAccelerationFactor() {

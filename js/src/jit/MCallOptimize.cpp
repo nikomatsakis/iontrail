@@ -175,6 +175,9 @@ MIRType
 IonBuilder::getInlineReturnType()
 {
     types::StackTypeSet *returnTypes = getInlineReturnTypeSet();
+    Class *clasp = returnTypes ? returnTypes->getKnownClass() : NULL;
+    if (clasp == &(Float32x4::class_))
+    	return MIRType_Float32x4;
     return MIRTypeFromValueType(returnTypes->getKnownTypeTag());
 }
 

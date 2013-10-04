@@ -225,13 +225,8 @@ IonBuilder::inlineSIMDaddFunction(CallInfo &callInfo)
     if (getInlineReturnType() != MIRType_Float32x4)
         return InliningStatus_NotInlined;
 
-    if (callInfo.getArg(0)->type() != MIRType_Float32x4 && callInfo.getArg(1)->type() != MIRType_Float32x4)
+    if (callInfo.getArg(0)->resultTypeSet()->getKnownClass() != &(Float32x4::class_) && callInfo.getArg(1)->resultTypeSet()->getKnownClass() != &(Float32x4::class_))
         return InliningStatus_NotInlined;
-
-	 types::TemporaryTypeSet *thisTypes = callInfo.thisArg()->resultTypeSet();
-	 const Class *clasp = thisTypes ? thisTypes->getKnownClass() : NULL;
-	 if(clasp != &Float32x4::class_)
-		 return InliningStatus_NotInlined;
 
     callInfo.unwrapArgs();
 
@@ -251,13 +246,8 @@ IonBuilder::inlineSIMDmulFunction(CallInfo &callInfo)
     if (getInlineReturnType() != MIRType_Float32x4)
         return InliningStatus_NotInlined;
 
-    if (callInfo.getArg(0)->type() != MIRType_Float32x4 && callInfo.getArg(1)->type() != MIRType_Float32x4)
+    if (callInfo.getArg(0)->resultTypeSet()->getKnownClass() != &(Float32x4::class_) && callInfo.getArg(1)->resultTypeSet()->getKnownClass() != &(Float32x4::class_))
         return InliningStatus_NotInlined;
-
-	 types::TemporaryTypeSet *thisTypes = callInfo.thisArg()->resultTypeSet();
-	 const Class *clasp = thisTypes ? thisTypes->getKnownClass() : NULL;
-	 if(clasp != &Float32x4::class_)
-		 return InliningStatus_NotInlined;
 
     callInfo.unwrapArgs();
 

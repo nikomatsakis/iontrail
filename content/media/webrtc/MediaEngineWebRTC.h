@@ -111,7 +111,7 @@ public:
     , mSnapshotPath(nullptr)
   {
     mState = kReleased;
-    NS_NewNamedThread("CameraThread", getter_AddRefs(mCameraThread), nullptr);
+    NS_NewNamedThread("CameraThread", getter_AddRefs(mCameraThread));
     Init();
   }
 #else
@@ -247,9 +247,8 @@ private:
   bool mInSnapshotMode;
   nsString* mSnapshotPath;
 
-  // These are in UTF-8 but webrtc api uses char arrays
-  char mDeviceName[KMaxDeviceNameLength];
-  char mUniqueId[KMaxUniqueIdLength];
+  nsString mDeviceName;
+  nsString mUniqueId;
 
   void ChooseCapability(const MediaEnginePrefs &aPrefs);
 };
@@ -355,8 +354,7 @@ public:
     , mCameraManager(aCameraManager)
     , mWindowId(aWindowId)
   {
-	mVideoSources.Init();
-	mAudioSources.Init();
+    AsyncLatencyLogger::Get(true)->AddRef();
   }
 #else
   MediaEngineWebRTC()
@@ -366,11 +364,14 @@ public:
     , mVideoEngineInit(false)
     , mAudioEngineInit(false)
   {
-    mVideoSources.Init();
-    mAudioSources.Init();
   }
 #endif
-  ~MediaEngineWebRTC() { Shutdown(); }
+  ~MediaEngineWebRTC() {
+    Shutdown();
+#ifdef MOZ_B2G_CAMERA
+    AsyncLatencyLogger::Get()->Release();
+#endif
+  }
 
   // Clients should ensure to clean-up sources video/audio sources
   // before invoking Shutdown on this class.

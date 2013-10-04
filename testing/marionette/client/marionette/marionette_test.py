@@ -84,7 +84,7 @@ class CommonTestCase(unittest.TestCase):
 
     def __init__(self, methodName):
         unittest.TestCase.__init__(self, methodName)
-        self.loglines = None
+        self.loglines = []
         self.duration = 0
 
     def _addSkip(self, result, reason):
@@ -253,7 +253,7 @@ permissions.forEach(function (perm) {
         if hasattr(self.marionette, 'session'):
             if self.marionette.session is not None:
                 try:
-                    self.loglines = self.marionette.get_logs()
+                    self.loglines.extend(self.marionette.get_logs())
                 except Exception, inst:
                     self.loglines = [['Error getting log: %s' % inst]]
                 try:
@@ -300,12 +300,12 @@ class MarionetteTestCase(CommonTestCase):
     def setUp(self):
         CommonTestCase.setUp(self)
         self.marionette.test_name = self.test_name
-        self.marionette.execute_script("log('TEST-START: %s:%s')" % 
+        self.marionette.execute_script("log('TEST-START: %s:%s')" %
                                        (self.filepath.replace('\\', '\\\\'), self.methodName))
 
     def tearDown(self):
         self.marionette.set_context("content")
-        self.marionette.execute_script("log('TEST-END: %s:%s')" % 
+        self.marionette.execute_script("log('TEST-END: %s:%s')" %
                                        (self.filepath.replace('\\', '\\\\'), self.methodName))
         self.marionette.test_name = None
         CommonTestCase.tearDown(self)
@@ -337,6 +337,7 @@ class MarionetteTestCase(CommonTestCase):
 
 class MarionetteJSTestCase(CommonTestCase):
 
+    head_js_re = re.compile(r"MARIONETTE_HEAD_JS(\s*)=(\s*)['|\"](.*?)['|\"];")
     context_re = re.compile(r"MARIONETTE_CONTEXT(\s*)=(\s*)['|\"](.*?)['|\"];")
     timeout_re = re.compile(r"MARIONETTE_TIMEOUT(\s*)=(\s*)(\d+);")
     inactivity_timeout_re = re.compile(r"MARIONETTE_INACTIVITY_TIMEOUT(\s*)=(\s*)(\d+);")
@@ -375,6 +376,13 @@ class MarionetteJSTestCase(CommonTestCase):
                     js += 'const kDefaultWait = 45000;\n'
                 else:
                     js += line
+
+        if os.path.basename(self.jsFile).startswith('test_'):
+            head_js = self.head_js_re.search(js);
+            if head_js:
+                head_js = head_js.group(3)
+                head = open(os.path.join(os.path.dirname(self.jsFile), head_js), 'r')
+                js = head.read() + js;
 
         context = self.context_re.search(js)
         if context:

@@ -77,7 +77,7 @@ BufferDecoder::GetResource() const
 }
 
 void
-BufferDecoder::NotifyBytesConsumed(int64_t aBytes)
+BufferDecoder::NotifyBytesConsumed(int64_t aBytes, int64_t aOffset)
 {
   // ignore
 }
@@ -109,7 +109,7 @@ BufferDecoder::SetMediaDuration(int64_t aDuration)
 }
 
 void
-BufferDecoder::UpdateMediaDuration(int64_t aDuration)
+BufferDecoder::UpdateEstimatedMediaDuration(int64_t aDuration)
 {
   // ignore
 }

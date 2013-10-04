@@ -84,8 +84,8 @@ DebugExceptionUnwind(JSContext *cx, AbstractFramePtr frame, jsbytecode *pc);
 extern bool
 BoxNonStrictThis(JSContext *cx, const CallReceiver &call);
 
-extern bool
-BoxNonStrictThis(JSContext *cx, MutableHandleValue thisv, bool *modified);
+extern JSObject *
+BoxNonStrictThis(JSContext *cx, HandleValue thisv);
 
 /*
  * Ensure that fp->thisValue() is the correct value of |this| for the scripted
@@ -308,7 +308,10 @@ extern bool
 SameValue(JSContext *cx, const Value &v1, const Value &v2, bool *same);
 
 extern JSType
-TypeOfValue(JSContext *cx, const Value &v);
+TypeOfObject(JSObject *obj);
+
+extern JSType
+TypeOfValue(const Value &v);
 
 extern bool
 HasInstance(JSContext *cx, HandleObject obj, HandleValue v, bool *bp);
@@ -379,34 +382,22 @@ InitElementArray(JSContext *cx, jsbytecode *pc,
                  HandleObject obj, uint32_t index, HandleValue value);
 
 bool
-AddValues(JSContext *cx, HandleScript script, jsbytecode *pc,
-          MutableHandleValue lhs, MutableHandleValue rhs,
-          Value *res);
+AddValues(JSContext *cx, MutableHandleValue lhs, MutableHandleValue rhs, Value *res);
 
 bool
-SubValues(JSContext *cx, HandleScript script, jsbytecode *pc,
-          MutableHandleValue lhs, MutableHandleValue rhs,
-          Value *res);
+SubValues(JSContext *cx, MutableHandleValue lhs, MutableHandleValue rhs, Value *res);
 
 bool
-MulValues(JSContext *cx, HandleScript script, jsbytecode *pc,
-          MutableHandleValue lhs, MutableHandleValue rhs,
-          Value *res);
+MulValues(JSContext *cx, MutableHandleValue lhs, MutableHandleValue rhs, Value *res);
 
 bool
-DivValues(JSContext *cx, HandleScript script, jsbytecode *pc,
-          MutableHandleValue lhs, MutableHandleValue rhs,
-          Value *res);
+DivValues(JSContext *cx, MutableHandleValue lhs, MutableHandleValue rhs, Value *res);
 
 bool
-ModValues(JSContext *cx, HandleScript script, jsbytecode *pc,
-          MutableHandleValue lhs, MutableHandleValue rhs,
-          Value *res);
+ModValues(JSContext *cx, MutableHandleValue lhs, MutableHandleValue rhs, Value *res);
 
 bool
-UrshValues(JSContext *cx, HandleScript script, jsbytecode *pc,
-           MutableHandleValue lhs, MutableHandleValue rhs,
-           Value *res);
+UrshValues(JSContext *cx, MutableHandleValue lhs, MutableHandleValue rhs, Value *res);
 
 template <bool strict>
 bool

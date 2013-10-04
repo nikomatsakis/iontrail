@@ -13,7 +13,7 @@
 #include "nsAutoPtr.h"
 #include "nsCOMPtr.h"
 #include "nsDebug.h"
-#include "nsStringGlue.h"
+#include "nsString.h"
 
 #define BEGIN_WORKERS_NAMESPACE \
   namespace mozilla { namespace dom { namespace workers {
@@ -168,13 +168,13 @@ ResolveWorkerClasses(JSContext* aCx, JS::Handle<JSObject*> aObj, JS::Handle<jsid
                      unsigned aFlags, JS::MutableHandle<JSObject*> aObjp);
 
 void
-CancelWorkersForWindow(JSContext* aCx, nsPIDOMWindow* aWindow);
+CancelWorkersForWindow(nsPIDOMWindow* aWindow);
 
 void
-SuspendWorkersForWindow(JSContext* aCx, nsPIDOMWindow* aWindow);
+SuspendWorkersForWindow(nsPIDOMWindow* aWindow);
 
 void
-ResumeWorkersForWindow(nsIScriptContext* aCx, nsPIDOMWindow* aWindow);
+ResumeWorkersForWindow(nsPIDOMWindow* aWindow);
 
 class WorkerTask {
 public:
@@ -224,6 +224,14 @@ void
 ThrowDOMExceptionForNSResult(JSContext* aCx, nsresult aNSResult);
 
 } // namespace exceptions
+
+// Throws the JSMSG_GETTER_ONLY exception.  This shouldn't be used going
+// forward -- getter-only properties should just use JS_PSG for the setter
+// (implying no setter at all), which will not throw when set in non-strict
+// code but will in strict code.  Old code should use this only for temporary
+// compatibility reasons.
+extern bool
+GetterOnlyJSNative(JSContext* aCx, unsigned aArgc, JS::Value* aVp);
 
 END_WORKERS_NAMESPACE
 

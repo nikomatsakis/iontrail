@@ -12,18 +12,17 @@
 #include "ipc/IPCMessageUtils.h"
 
 #include "mozilla/Util.h"
-#include "mozilla/gfx/2D.h"
 #include <stdint.h>
 
 #include "gfx3DMatrix.h"
 #include "gfxColor.h"
 #include "gfxMatrix.h"
-#include "gfxPattern.h"
+#include "GraphicsFilter.h"
 #include "gfxPoint.h"
 #include "gfxRect.h"
 #include "nsRect.h"
 #include "nsRegion.h"
-#include "gfxASurface.h"
+#include "gfxTypes.h"
 #include "mozilla/layers/LayersTypes.h"
 #include "mozilla/layers/CompositorTypes.h"
 #include "FrameMetrics.h"
@@ -34,10 +33,14 @@
 
 namespace mozilla {
 
-typedef gfxASurface::gfxContentType gfxContentType;
-typedef gfxASurface::gfxImageFormat PixelFormat;
-typedef gfxASurface::gfxSurfaceType gfxSurfaceType;
-typedef gfxPattern::GraphicsFilter GraphicsFilterType;
+typedef gfxImageFormat PixelFormat;
+#if defined(MOZ_HAVE_CXX11_STRONG_ENUMS)
+typedef ::GraphicsFilter GraphicsFilterType;
+#else
+// If we don't have support for enum classes, then we need to use the actual
+// enum type here instead of the simulated enum class.
+typedef GraphicsFilter::Enum GraphicsFilterType;
+#endif
 
 } // namespace mozilla
 
@@ -186,24 +189,24 @@ struct ParamTraits<gfx3DMatrix>
 };
 
 template <>
-struct ParamTraits<mozilla::gfxContentType>
-  : public EnumSerializer<mozilla::gfxContentType,
-                          gfxASurface::CONTENT_COLOR,
-                          gfxASurface::CONTENT_SENTINEL>
+struct ParamTraits<gfxContentType>
+  : public EnumSerializer<gfxContentType,
+                          GFX_CONTENT_COLOR,
+                          GFX_CONTENT_SENTINEL>
 {};
 
 template <>
-struct ParamTraits<mozilla::gfxSurfaceType>
-  : public EnumSerializer<gfxASurface::gfxSurfaceType,
-                          gfxASurface::SurfaceTypeImage,
-                          gfxASurface::SurfaceTypeMax>
+struct ParamTraits<gfxSurfaceType>
+  : public EnumSerializer<gfxSurfaceType,
+                          gfxSurfaceTypeImage,
+                          gfxSurfaceTypeMax>
 {};
 
 template <>
 struct ParamTraits<mozilla::GraphicsFilterType>
   : public EnumSerializer<mozilla::GraphicsFilterType,
-                          gfxPattern::FILTER_FAST,
-                          gfxPattern::FILTER_SENTINEL>
+                          GraphicsFilter::FILTER_FAST,
+                          GraphicsFilter::FILTER_SENTINEL>
 {};
 
 template <>
@@ -223,8 +226,8 @@ struct ParamTraits<mozilla::layers::ScaleMode>
 template <>
 struct ParamTraits<mozilla::PixelFormat>
   : public EnumSerializer<mozilla::PixelFormat,
-                          gfxASurface::ImageFormatARGB32,
-                          gfxASurface::ImageFormatUnknown>
+                          gfxImageFormatARGB32,
+                          gfxImageFormatUnknown>
 {};
 
 
@@ -576,6 +579,7 @@ struct ParamTraits<mozilla::layers::FrameMetrics>
     WriteParam(aMsg, aParam.mCompositionBounds);
     WriteParam(aMsg, aParam.mScrollId);
     WriteParam(aMsg, aParam.mResolution);
+    WriteParam(aMsg, aParam.mCumulativeResolution);
     WriteParam(aMsg, aParam.mZoom);
     WriteParam(aMsg, aParam.mDevPixelsPerCSSPixel);
     WriteParam(aMsg, aParam.mMayHaveTouchListeners);
@@ -592,6 +596,7 @@ struct ParamTraits<mozilla::layers::FrameMetrics>
             ReadParam(aMsg, aIter, &aResult->mCompositionBounds) &&
             ReadParam(aMsg, aIter, &aResult->mScrollId) &&
             ReadParam(aMsg, aIter, &aResult->mResolution) &&
+            ReadParam(aMsg, aIter, &aResult->mCumulativeResolution) &&
             ReadParam(aMsg, aIter, &aResult->mZoom) &&
             ReadParam(aMsg, aIter, &aResult->mDevPixelsPerCSSPixel) &&
             ReadParam(aMsg, aIter, &aResult->mMayHaveTouchListeners) &&

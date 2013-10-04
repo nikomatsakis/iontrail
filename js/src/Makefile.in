@@ -156,11 +156,9 @@ EXTRA_DSO_LDOPTS += $(NSPR_LIBS)
 
 # Define keyword generator before rules.mk, see bug 323979 comment 50
 
-HOST_CPPSRCS += jskwgen.cpp
 HOST_SIMPLE_PROGRAMS += host_jskwgen$(HOST_BIN_SUFFIX)
 GARBAGE += jsautokw.h host_jskwgen$(HOST_BIN_SUFFIX)
 
-HOST_CPPSRCS += jsoplengen.cpp
 HOST_SIMPLE_PROGRAMS += host_jsoplengen$(HOST_BIN_SUFFIX)
 GARBAGE += jsautooplen.h host_jsoplengen$(HOST_BIN_SUFFIX)
 
@@ -209,15 +207,17 @@ endif
 INSTALL_TARGETS += jsconfig
 jsconfig_FILES = $(export_files)
 jsconfig_DEST = $(DIST)/include
-jsconfig_TARGETS := export
+jsconfig_TARGET := export
 
 include $(topsrcdir)/config/rules.mk
 
+.PHONY: buildffi buildicu
+buildffi buildicu:
+$(if $(MOZ_PSEUDO_DERECURSE),compile,export):: buildffi buildicu
+
 ifdef JS_HAS_CTYPES
 ifndef MOZ_NATIVE_FFI
-# Build libffi proper as part of the 'exports' target, so things get built
-# in the right order.
-export::
+buildffi:
 		$(call SUBMAKE,,ctypes/libffi)
 
 distclean clean::
@@ -257,14 +257,12 @@ ifeq ($(OS_ARCH),WINNT)
                      cp -p intl/icu/lib/s$(libname)$(ICU_LIB_SUFFIX).lib intl/icu/lib/$(libname).lib;)
 endif
 
-# - Build ICU as part of the "export" target, so things get built
-#   in the right order.
 # - ICU requires GNU make according to its readme.html. pymake can't be used
 #   because it doesn't support order only dependencies.
 # - Force ICU to use the standard suffix for object files because expandlibs
 #   will discard all files with a non-standard suffix (bug 857450).
 # - Options for genrb: -k strict parsing; -R omit collation tailoring rules.
-export::
+buildicu:
 	$(GMAKE) $(ICU_GMAKE_OPTIONS) -C intl/icu STATIC_O=$(OBJ_SUFFIX) GENRBOPTS='-k -R'
 	$(ICU_LIB_RENAME)
 
@@ -305,11 +303,18 @@ JITTEST_VALGRIND_FLAG = --valgrind
 endif
 endif
 
+ifdef MOZ_ASAN
+ifneq ($(LLVM_SYMBOLIZER),)
+# Use the LLVM symbolizer when running jit-tests under ASan, if available
+JITTEST_ASAN_ENV=ASAN_SYMBOLIZER_PATH='$(LLVM_SYMBOLIZER)'
+endif
+endif
+
 check-style::
 	(cd $(srcdir) && $(PYTHON) config/check_spidermonkey_style.py);
 
 check-jit-test::
-	$(wildcard $(RUN_TEST_PROGRAM)) $(PYTHON) -u $(srcdir)/jit-test/jit_test.py \
+	$(JITTEST_ASAN_ENV) $(wildcard $(RUN_TEST_PROGRAM)) $(PYTHON) -u $(srcdir)/jit-test/jit_test.py \
 	        --no-slow --no-progress --tinderbox --tbpl $(JITTEST_VALGRIND_FLAG) \
 	        $(DIST)/bin/$(JS_SHELL_NAME)$(BIN_SUFFIX)
 
@@ -397,6 +402,10 @@ EXTRA_LIBS += $(MOZ_ZLIB_LIBS)
 # also enable zlib if mozglue is present.
 ifneq (,$(MOZ_ZLIB_LIBS)$(MOZ_GLUE_LDFLAGS))
 DEFINES += -DUSE_ZLIB
+endif
+
+ifdef MOZ_LINKER
+DEFINES += -DMOZ_LINKER
 endif
 
 ifdef MOZ_NATIVE_ICU
@@ -558,11 +567,8 @@ install:: $(LIBRARY_NAME).pc
 #          mfbt headers
 #
 
-install:: $(EXPORTS)
-	$(SYSINSTALL) $^ $(DESTDIR)$(includedir)/$(LIBRARY_NAME)
-
-install:: $(EXPORTS_js)
-	$(SYSINSTALL) $^ $(DESTDIR)$(includedir)/$(LIBRARY_NAME)/js
+install::
+	$(call py_action,process_install_manifest,--no-remove $(DESTDIR)$(includedir)/$(LIBRARY_NAME) _build_manifests/install/dist_include)
 
 install:: $(EXPORTS_mozilla)
 	$(SYSINSTALL) $^ $(DESTDIR)$(includedir)/$(LIBRARY_NAME)/mozilla
@@ -603,7 +609,7 @@ $(CURDIR)/jsautooplen.h: host_jsoplengen$(HOST_BIN_SUFFIX)
 	./host_jsoplengen$(HOST_BIN_SUFFIX) $@
 
 # Force auto-header generation before compiling any source that may use them
-$(patsubst %.cc,%.$(OBJ_SUFFIX),$(CPPSRCS:%.cpp=%.$(OBJ_SUFFIX))): $(CURDIR)/jsautokw.h $(CURDIR)/jsautooplen.h
+$(OBJS): $(CURDIR)/jsautokw.h $(CURDIR)/jsautooplen.h
 
 ifdef MOZ_ETW
 ETWProvider.h ETWProvider.rc ETWProvider.mof: ETWProvider.man

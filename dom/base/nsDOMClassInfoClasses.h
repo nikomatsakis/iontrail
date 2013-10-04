@@ -9,9 +9,6 @@ DOMCI_CLASS(Location)
 DOMCI_CLASS(DOMPrototype)
 DOMCI_CLASS(DOMConstructor)
 
-// Core classes
-DOMCI_CLASS(DOMException)
-
 DOMCI_CLASS(DeviceAcceleration)
 DOMCI_CLASS(DeviceRotationRate)
 
@@ -22,7 +19,6 @@ DOMCI_CLASS(CSSImportRule)
 DOMCI_CLASS(CSSMediaRule)
 DOMCI_CLASS(CSSNameSpaceRule)
 DOMCI_CLASS(CSSRuleList)
-DOMCI_CLASS(CSSGroupRuleRuleList)
 DOMCI_CLASS(MediaList)
 DOMCI_CLASS(StyleSheetList)
 DOMCI_CLASS(CSSStyleSheet)
@@ -68,9 +64,6 @@ DOMCI_CLASS(CSSSupportsRule)
 DOMCI_CLASS(SVGLength)
 DOMCI_CLASS(SVGNumber)
 
-// Canvas
-DOMCI_CLASS(MozCanvasPrintState)
-
 // WindowUtils
 DOMCI_CLASS(WindowUtils)
 
@@ -91,7 +84,6 @@ DOMCI_CLASS(File)
 // DOM modal content window class, almost identical to Window
 DOMCI_CLASS(ModalContentWindow)
 
-DOMCI_CLASS(MozPowerManager)
 DOMCI_CLASS(MozWakeLock)
 
 DOMCI_CLASS(MozMobileMessageManager)
@@ -116,8 +108,6 @@ DOMCI_CLASS(EventListenerInfo)
 DOMCI_CLASS(ContentFrameMessageManager)
 DOMCI_CLASS(ChromeMessageBroadcaster)
 DOMCI_CLASS(ChromeMessageSender)
-
-DOMCI_CLASS(IDBKeyRange)
 
 DOMCI_CLASS(MozCSSKeyframeRule)
 DOMCI_CLASS(MozCSSKeyframesRule)

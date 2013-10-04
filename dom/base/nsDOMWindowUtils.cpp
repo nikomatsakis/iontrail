@@ -11,6 +11,7 @@
 #include "nsIDOMEvent.h"
 #include "nsDOMWindowUtils.h"
 #include "nsQueryContentEventResult.h"
+#include "CompositionStringSynthesizer.h"
 #include "nsGlobalWindow.h"
 #include "nsIDocument.h"
 #include "nsFocusManager.h"
@@ -28,10 +29,14 @@
 
 #include "nsIFrame.h"
 #include "nsIWidget.h"
-#include "nsGUIEvent.h"
 #include "nsCharsetSource.h"
 #include "nsJSEnvironment.h"
 #include "nsJSUtils.h"
+
+#include "mozilla/MiscEvents.h"
+#include "mozilla/MouseEvents.h"
+#include "mozilla/TextEvents.h"
+#include "mozilla/TouchEvents.h"
 
 #include "nsViewManager.h"
 
@@ -47,7 +52,7 @@
 #include "nsIDocShell.h"
 #include "nsIContentViewer.h"
 #include "nsIMarkupDocumentViewer.h"
-#include "nsClientRect.h"
+#include "mozilla/dom/DOMRect.h"
 #include <algorithm>
 
 #if defined(MOZ_X11) && defined(MOZ_WIDGET_GTK)
@@ -59,7 +64,9 @@
 #include "mozilla/layers/ShadowLayers.h"
 
 #include "mozilla/dom/Element.h"
+#include "mozilla/dom/IDBFactoryBinding.h"
 #include "mozilla/dom/indexedDB/IndexedDatabaseManager.h"
+#include "mozilla/dom/quota/PersistenceType.h"
 #include "mozilla/dom/quota/QuotaManager.h"
 #include "nsDOMBlobBuilder.h"
 #include "nsIDOMFileHandle.h"
@@ -75,6 +82,7 @@
 #include "nsIBaseWindow.h"
 #include "nsIDocShellTreeOwner.h"
 #include "nsIInterfaceRequestorUtils.h"
+#include "GeckoProfiler.h"
 
 #ifdef XP_WIN
 #undef GetClassName
@@ -545,42 +553,42 @@ nsDOMWindowUtils::GetPresShellId(uint32_t *aPresShellId)
 }
 
 /* static */
-mozilla::widget::Modifiers
+mozilla::Modifiers
 nsDOMWindowUtils::GetWidgetModifiers(int32_t aModifiers)
 {
-  widget::Modifiers result = 0;
+  Modifiers result = 0;
   if (aModifiers & nsIDOMWindowUtils::MODIFIER_SHIFT) {
-    result |= widget::MODIFIER_SHIFT;
+    result |= mozilla::MODIFIER_SHIFT;
   }
   if (aModifiers & nsIDOMWindowUtils::MODIFIER_CONTROL) {
-    result |= widget::MODIFIER_CONTROL;
+    result |= mozilla::MODIFIER_CONTROL;
   }
   if (aModifiers & nsIDOMWindowUtils::MODIFIER_ALT) {
-    result |= widget::MODIFIER_ALT;
+    result |= mozilla::MODIFIER_ALT;
   }
   if (aModifiers & nsIDOMWindowUtils::MODIFIER_META) {
-    result |= widget::MODIFIER_META;
+    result |= mozilla::MODIFIER_META;
   }
   if (aModifiers & nsIDOMWindowUtils::MODIFIER_ALTGRAPH) {
-    result |= widget::MODIFIER_ALTGRAPH;
+    result |= mozilla::MODIFIER_ALTGRAPH;
   }
   if (aModifiers & nsIDOMWindowUtils::MODIFIER_CAPSLOCK) {
-    result |= widget::MODIFIER_CAPSLOCK;
+    result |= mozilla::MODIFIER_CAPSLOCK;
   }
   if (aModifiers & nsIDOMWindowUtils::MODIFIER_FN) {
-    result |= widget::MODIFIER_FN;
+    result |= mozilla::MODIFIER_FN;
   }
   if (aModifiers & nsIDOMWindowUtils::MODIFIER_NUMLOCK) {
-    result |= widget::MODIFIER_NUMLOCK;
+    result |= mozilla::MODIFIER_NUMLOCK;
   }
   if (aModifiers & nsIDOMWindowUtils::MODIFIER_SCROLLLOCK) {
-    result |= widget::MODIFIER_SCROLLLOCK;
+    result |= mozilla::MODIFIER_SCROLLLOCK;
   }
   if (aModifiers & nsIDOMWindowUtils::MODIFIER_SYMBOLLOCK) {
-    result |= widget::MODIFIER_SYMBOLLOCK;
+    result |= mozilla::MODIFIER_SYMBOLLOCK;
   }
   if (aModifiers & nsIDOMWindowUtils::MODIFIER_OS) {
-    result |= widget::MODIFIER_OS;
+    result |= mozilla::MODIFIER_OS;
   }
   return result;
 }
@@ -632,16 +640,16 @@ static inline int16_t
 GetButtonsFlagForButton(int32_t aButton)
 {
   switch (aButton) {
-    case nsMouseEvent::eLeftButton:
-      return nsMouseEvent::eLeftButtonFlag;
-    case nsMouseEvent::eMiddleButton:
-      return nsMouseEvent::eMiddleButtonFlag;
-    case nsMouseEvent::eRightButton:
-      return nsMouseEvent::eRightButtonFlag;
+    case WidgetMouseEvent::eLeftButton:
+      return WidgetMouseEvent::eLeftButtonFlag;
+    case WidgetMouseEvent::eMiddleButton:
+      return WidgetMouseEvent::eMiddleButtonFlag;
+    case WidgetMouseEvent::eRightButton:
+      return WidgetMouseEvent::eRightButtonFlag;
     case 4:
-      return nsMouseEvent::e4thButtonFlag;
+      return WidgetMouseEvent::e4thButtonFlag;
     case 5:
-      return nsMouseEvent::e5thButtonFlag;
+      return WidgetMouseEvent::e5thButtonFlag;
     default:
       NS_ERROR("Button not known.");
       return 0;
@@ -695,9 +703,9 @@ nsDOMWindowUtils::SendMouseEventCommon(const nsAString& aType,
     aInputSourceArg = nsIDOMMouseEvent::MOZ_SOURCE_MOUSE;
   }
 
-  nsMouseEvent event(true, msg, widget, nsMouseEvent::eReal,
-                     contextMenuKey ?
-                       nsMouseEvent::eContextMenuKey : nsMouseEvent::eNormal);
+  WidgetMouseEvent event(true, msg, widget, WidgetMouseEvent::eReal,
+                         contextMenuKey ? WidgetMouseEvent::eContextMenuKey :
+                                          WidgetMouseEvent::eNormal);
   event.modifiers = GetWidgetModifiers(aModifiers);
   event.button = aButton;
   event.buttons = GetButtonsFlagForButton(aButton);
@@ -759,7 +767,7 @@ nsDOMWindowUtils::SendWheelEvent(float aX,
     return NS_ERROR_NULL_POINTER;
   }
 
-  widget::WheelEvent wheelEvent(true, NS_WHEEL_WHEEL, widget);
+  WheelEvent wheelEvent(true, NS_WHEEL_WHEEL, widget);
   wheelEvent.modifiers = GetWidgetModifiers(aModifiers);
   wheelEvent.deltaX = aDeltaX;
   wheelEvent.deltaY = aDeltaY;
@@ -869,7 +877,7 @@ nsDOMWindowUtils::SendTouchEvent(const nsAString& aType,
   } else {
     return NS_ERROR_UNEXPECTED;
   }
-  nsTouchEvent event(true, msg, widget);
+  WidgetTouchEvent event(true, msg, widget);
   event.modifiers = GetWidgetModifiers(aModifiers);
   event.widget = widget;
   event.time = PR_Now();
@@ -923,7 +931,7 @@ nsDOMWindowUtils::SendKeyEvent(const nsAString& aType,
   else
     return NS_ERROR_FAILURE;
 
-  nsKeyEvent event(true, msg, widget);
+  WidgetKeyboardEvent event(true, msg, widget);
   event.modifiers = GetWidgetModifiers(aModifiers);
 
   if (msg == NS_KEY_PRESS) {
@@ -1256,7 +1264,7 @@ nsDOMWindowUtils::SendSimpleGestureEvent(const nsAString& aType,
   else
     return NS_ERROR_FAILURE;
  
-  nsSimpleGestureEvent event(true, msg, widget, aDirection, aDelta);
+  WidgetSimpleGestureEvent event(true, msg, widget, aDirection, aDelta);
   event.modifiers = GetWidgetModifiers(aModifiers);
   event.clickCount = aClickCount;
   event.time = PR_IntervalNow();
@@ -1506,6 +1514,23 @@ nsDOMWindowUtils::GetScrollXY(bool aFlushLayout, int32_t* aScrollX, int32_t* aSc
 }
 
 NS_IMETHODIMP
+nsDOMWindowUtils::ScrollToCSSPixelsApproximate(float aX, float aY, bool* aRetVal)
+{
+  nsCOMPtr<nsPIDOMWindow> window = do_QueryReferent(mWindow);
+  NS_ENSURE_STATE(window);
+
+  nsIScrollableFrame* sf = static_cast<nsGlobalWindow*>(window.get())->GetScrollFrame();
+  if (sf) {
+    sf->ScrollToCSSPixelsApproximate(CSSPoint(aX, aY));
+  }
+  if (aRetVal) {
+    *aRetVal = (sf != nullptr);
+  }
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsDOMWindowUtils::GetScrollbarSize(bool aFlushLayout, int32_t* aWidth,
                                                       int32_t* aHeight)
 {
@@ -1554,7 +1579,7 @@ nsDOMWindowUtils::GetBoundsWithoutFlushing(nsIDOMElement *aElement,
   nsCOMPtr<nsIContent> content = do_QueryInterface(aElement, &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  nsRefPtr<nsClientRect> rect = new nsClientRect(window);
+  nsRefPtr<DOMRect> rect = new DOMRect(window);
   nsIFrame* frame = content->GetPrimaryFrame();
 
   if (frame) {
@@ -1594,7 +1619,7 @@ nsDOMWindowUtils::GetRootBounds(nsIDOMClientRect** aResult)
     }
   }
 
-  nsRefPtr<nsClientRect> rect = new nsClientRect(window);
+  nsRefPtr<DOMRect> rect = new DOMRect(window);
   rect->SetRect(nsPresContext::AppUnitsToFloatCSSPixels(bounds.x),
                 nsPresContext::AppUnitsToFloatCSSPixels(bounds.y),
                 nsPresContext::AppUnitsToFloatCSSPixels(bounds.width),
@@ -1743,7 +1768,7 @@ nsDOMWindowUtils::DispatchDOMEventViaPresShell(nsIDOMNode* aTarget,
 
   NS_ENSURE_STATE(aEvent);
   aEvent->SetTrusted(aTrusted);
-  nsEvent* internalEvent = aEvent->GetInternalNSEvent();
+  WidgetEvent* internalEvent = aEvent->GetInternalNSEvent();
   NS_ENSURE_STATE(internalEvent);
   nsCOMPtr<nsIContent> content = do_QueryInterface(aTarget);
   NS_ENSURE_STATE(content);
@@ -1765,7 +1790,7 @@ nsDOMWindowUtils::DispatchDOMEventViaPresShell(nsIDOMNode* aTarget,
 }
 
 static void
-InitEvent(nsGUIEvent& aEvent, LayoutDeviceIntPoint* aPt = nullptr)
+InitEvent(WidgetGUIEvent& aEvent, LayoutDeviceIntPoint* aPt = nullptr)
 {
   if (aPt) {
     aEvent.refPoint = *aPt;
@@ -1799,7 +1824,7 @@ nsDOMWindowUtils::SendCompositionEvent(const nsAString& aType,
     return NS_ERROR_FAILURE;
   }
 
-  nsCompositionEvent compositionEvent(true, msg, widget);
+  WidgetCompositionEvent compositionEvent(true, msg, widget);
   InitEvent(compositionEvent);
   if (msg != NS_COMPOSITION_START) {
     compositionEvent.data = aData;
@@ -1814,82 +1839,21 @@ nsDOMWindowUtils::SendCompositionEvent(const nsAString& aType,
   return NS_OK;
 }
 
-static void
-AppendClause(int32_t aClauseLength, uint32_t aClauseAttr,
-             nsTArray<nsTextRange>* aRanges)
-{
-  NS_PRECONDITION(aRanges, "aRange is null");
-  if (aClauseLength == 0) {
-    return;
-  }
-  nsTextRange range;
-  range.mStartOffset = aRanges->Length() == 0 ? 0 :
-    aRanges->ElementAt(aRanges->Length() - 1).mEndOffset + 1;
-  range.mEndOffset = range.mStartOffset + aClauseLength;
-  NS_ASSERTION(range.mStartOffset <= range.mEndOffset, "range is invalid");
-  NS_PRECONDITION(aClauseAttr == NS_TEXTRANGE_RAWINPUT ||
-                  aClauseAttr == NS_TEXTRANGE_SELECTEDRAWTEXT ||
-                  aClauseAttr == NS_TEXTRANGE_CONVERTEDTEXT ||
-                  aClauseAttr == NS_TEXTRANGE_SELECTEDCONVERTEDTEXT,
-                  "aClauseAttr is invalid value");
-  range.mRangeType = aClauseAttr;
-  aRanges->AppendElement(range);
-}
-
 NS_IMETHODIMP
-nsDOMWindowUtils::SendTextEvent(const nsAString& aCompositionString,
-                                int32_t aFirstClauseLength,
-                                uint32_t aFirstClauseAttr,
-                                int32_t aSecondClauseLength,
-                                uint32_t aSecondClauseAttr,
-                                int32_t aThirdClauseLength,
-                                uint32_t aThirdClauseAttr,
-                                int32_t aCaretStart,
-                                int32_t aCaretLength)
+nsDOMWindowUtils::CreateCompositionStringSynthesizer(
+                    nsICompositionStringSynthesizer** aResult)
 {
+  NS_ENSURE_ARG_POINTER(aResult);
+  *aResult = nullptr;
+
   if (!nsContentUtils::IsCallerChrome()) {
     return NS_ERROR_DOM_SECURITY_ERR;
   }
 
-  // get the widget to send the event to
-  nsCOMPtr<nsIWidget> widget = GetWidget();
-  if (!widget) {
-    return NS_ERROR_FAILURE;
-  }
+  nsCOMPtr<nsPIDOMWindow> window = do_QueryReferent(mWindow);
+  NS_ENSURE_TRUE(window, NS_ERROR_NOT_AVAILABLE);
 
-  nsTextEvent textEvent(true, NS_TEXT_TEXT, widget);
-  InitEvent(textEvent);
-
-  nsAutoTArray<nsTextRange, 4> textRanges;
-  NS_ENSURE_TRUE(aFirstClauseLength >= 0,  NS_ERROR_INVALID_ARG);
-  NS_ENSURE_TRUE(aSecondClauseLength >= 0, NS_ERROR_INVALID_ARG);
-  NS_ENSURE_TRUE(aThirdClauseLength >= 0,  NS_ERROR_INVALID_ARG);
-  AppendClause(aFirstClauseLength,  aFirstClauseAttr, &textRanges);
-  AppendClause(aSecondClauseLength, aSecondClauseAttr, &textRanges);
-  AppendClause(aThirdClauseLength,  aThirdClauseAttr, &textRanges);
-  int32_t len = aFirstClauseLength + aSecondClauseLength + aThirdClauseLength;
-  NS_ENSURE_TRUE(len == 0 || uint32_t(len) == aCompositionString.Length(),
-                 NS_ERROR_FAILURE);
-
-  if (aCaretStart >= 0) {
-    nsTextRange range;
-    range.mStartOffset = aCaretStart;
-    range.mEndOffset = range.mStartOffset + aCaretLength;
-    range.mRangeType = NS_TEXTRANGE_CARETPOSITION;
-    textRanges.AppendElement(range);
-  }
-
-  textEvent.theText = aCompositionString;
-
-  textEvent.rangeCount = textRanges.Length();
-  textEvent.rangeArray = textRanges.Elements();
-
-  textEvent.mFlags.mIsSynthesizedForTests = true;
-
-  nsEventStatus status;
-  nsresult rv = widget->DispatchEvent(&textEvent, status);
-  NS_ENSURE_SUCCESS(rv, rv);
-
+  NS_ADDREF(*aResult = new CompositionStringSynthesizer(window));
   return NS_OK;
 }
 
@@ -1937,7 +1901,7 @@ nsDOMWindowUtils::SendQueryContentEvent(uint32_t aType,
 
   if (aType == QUERY_CHARACTER_AT_POINT) {
     // Looking for the widget at the point.
-    nsQueryContentEvent dummyEvent(true, NS_QUERY_CONTENT_STATE, widget);
+    WidgetQueryContentEvent dummyEvent(true, NS_QUERY_CONTENT_STATE, widget);
     InitEvent(dummyEvent, &pt);
     nsIFrame* popupFrame =
       nsLayoutUtils::GetPopupFrameForEventCoordinates(presContext->GetRootPresContext(), &dummyEvent);
@@ -1962,7 +1926,7 @@ nsDOMWindowUtils::SendQueryContentEvent(uint32_t aType,
   pt += LayoutDeviceIntPoint::FromUntyped(
     widget->WidgetToScreenOffset() - targetWidget->WidgetToScreenOffset());
 
-  nsQueryContentEvent queryEvent(true, aType, targetWidget);
+  WidgetQueryContentEvent queryEvent(true, aType, targetWidget);
   InitEvent(queryEvent, &pt);
 
   switch (aType) {
@@ -2006,7 +1970,7 @@ nsDOMWindowUtils::SendSelectionSetEvent(uint32_t aOffset,
     return NS_ERROR_FAILURE;
   }
 
-  nsSelectionEvent selectionEvent(true, NS_SELECTION_SET, widget);
+  WidgetSelectionEvent selectionEvent(true, NS_SELECTION_SET, widget);
   InitEvent(selectionEvent);
 
   selectionEvent.mOffset = aOffset;
@@ -2052,7 +2016,7 @@ nsDOMWindowUtils::SendContentCommandEvent(const nsAString& aType,
   else
     return NS_ERROR_FAILURE;
 
-  nsContentCommandEvent event(true, msg, widget);
+  WidgetContentCommandEvent event(true, msg, widget);
   if (msg == NS_CONTENT_COMMAND_PASTE_TRANSFERABLE) {
     event.mTransferable = aTransferable;
   }
@@ -2576,6 +2540,23 @@ nsDOMWindowUtils::GetOuterWindowWithId(uint64_t aWindowID,
 }
 
 NS_IMETHODIMP
+nsDOMWindowUtils::GetContainerElement(nsIDOMElement** aResult)
+{
+  if (!nsContentUtils::IsCallerChrome()) {
+    return NS_ERROR_DOM_SECURITY_ERR;
+  }
+
+  nsCOMPtr<nsPIDOMWindow> window = do_QueryReferent(mWindow);
+  NS_ENSURE_STATE(window);
+
+  nsCOMPtr<nsIDOMElement> element =
+    do_QueryInterface(window->GetFrameElementInternal());
+
+  element.forget(aResult);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsDOMWindowUtils::WrapDOMFile(nsIFile *aFile,
                               nsIDOMFile **aDOMFile)
 {
@@ -2826,9 +2807,10 @@ nsDOMWindowUtils::GetFileId(const JS::Value& aFile, JSContext* aCx,
 }
 
 NS_IMETHODIMP
-nsDOMWindowUtils::GetFileReferences(const nsAString& aDatabaseName,
-                                    int64_t aId, int32_t* aRefCnt,
-                                    int32_t* aDBRefCnt, int32_t* aSliceRefCnt,
+nsDOMWindowUtils::GetFileReferences(const nsAString& aDatabaseName, int64_t aId,
+                                    const jsval& aOptions,
+                                    int32_t* aRefCnt, int32_t* aDBRefCnt,
+                                    int32_t* aSliceRefCnt, JSContext* aCx,
                                     bool* aResult)
 {
   if (!nsContentUtils::IsCallerChrome()) {
@@ -2839,15 +2821,28 @@ nsDOMWindowUtils::GetFileReferences(const nsAString& aDatabaseName,
   NS_ENSURE_TRUE(window, NS_ERROR_FAILURE);
 
   nsCString origin;
-  nsresult rv = quota::QuotaManager::GetASCIIOriginFromWindow(window, origin);
+  quota::PersistenceType defaultPersistenceType;
+  nsresult rv =
+    quota::QuotaManager::GetInfoFromWindow(window, nullptr, &origin, nullptr,
+                                           &defaultPersistenceType);
   NS_ENSURE_SUCCESS(rv, rv);
+
+  IDBOpenDBOptions options;
+  JS::Rooted<JS::Value> optionsVal(aCx, aOptions);
+  if (!options.Init(aCx, optionsVal)) {
+    return NS_ERROR_TYPE_ERR;
+  }
+
+  quota::PersistenceType persistenceType =
+    quota::PersistenceTypeFromStorage(options.mStorage, defaultPersistenceType);
 
   nsRefPtr<indexedDB::IndexedDatabaseManager> mgr =
     indexedDB::IndexedDatabaseManager::Get();
 
   if (mgr) {
-    rv = mgr->BlockAndGetFileReferences(origin, aDatabaseName, aId, aRefCnt,
-                                        aDBRefCnt, aSliceRefCnt, aResult);
+    rv = mgr->BlockAndGetFileReferences(persistenceType, origin, aDatabaseName,
+                                        aId, aRefCnt, aDBRefCnt, aSliceRefCnt,
+                                        aResult);
     NS_ENSURE_SUCCESS(rv, rv);
   }
   else {

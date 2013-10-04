@@ -3,6 +3,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "mozilla/BasicEvents.h"
 #include "mozilla/Util.h"
 
 #include "nsDOMDataTransfer.h"
@@ -13,7 +14,6 @@
 #include "nsDOMClassInfoID.h"
 #include "nsIScriptSecurityManager.h"
 #include "nsDOMLists.h"
-#include "nsGUIEvent.h"
 #include "nsError.h"
 #include "nsIDragService.h"
 #include "nsIClipboard.h"
@@ -22,6 +22,8 @@
 #include "nsCRT.h"
 #include "nsIScriptObjectPrincipal.h"
 #include "nsIScriptContext.h"
+#include "nsIDocument.h"
+#include "nsIScriptGlobalObject.h"
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -492,8 +494,10 @@ nsDOMDataTransfer::MozGetDataAt(const nsAString& aFormat,
           nsresult rv = NS_OK;
           nsIScriptContext* c = pt->GetContextForEventHandlers(&rv);
           NS_ENSURE_TRUE(c && NS_SUCCEEDED(rv), NS_ERROR_DOM_SECURITY_ERR);
-          nsIScriptObjectPrincipal* sp = c->GetGlobalObject();
-          NS_ENSURE_TRUE(sp, NS_ERROR_DOM_SECURITY_ERR);
+          nsIGlobalObject* go = c->GetGlobalObject();
+          NS_ENSURE_TRUE(go, NS_ERROR_DOM_SECURITY_ERR);
+          nsCOMPtr<nsIScriptObjectPrincipal> sp = do_QueryInterface(go);
+          MOZ_ASSERT(sp, "This cannot fail on the main thread.");
           nsIPrincipal* dataPrincipal = sp->GetPrincipal();
           NS_ENSURE_TRUE(dataPrincipal, NS_ERROR_DOM_SECURITY_ERR);
           NS_ENSURE_TRUE(principal || (principal = GetCurrentPrincipal(&rv)),

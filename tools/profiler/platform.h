@@ -199,11 +199,16 @@ class Thread {
 
 #ifdef XP_WIN
   HANDLE thread_;
-  unsigned thread_id_;
+  typedef DWORD tid_t;
+  tid_t thread_id_;
+#else
+  typedef ::pid_t tid_t;
 #endif
 #if defined(XP_MACOSX)
   pthread_t thread_;
 #endif
+
+  static tid_t GetCurrentId();
 
  private:
   void set_name(const char *name);
@@ -243,6 +248,7 @@ extern int     sUnwindStackScan;  /* max # of dubious frames allowed */
 
 extern int     sProfileEntries;   /* how many entries do we store? */
 
+void set_tls_stack_top(void* stackTop);
 
 // ----------------------------------------------------------------------------
 // Sampler
@@ -265,27 +271,28 @@ class TickSample {
 #ifdef ENABLE_ARM_LR_SAVING
         lr(NULL),
 #endif
-        function(NULL),
         context(NULL),
-        frames_count(0) {}
+        isSamplingCurrentThread(false) {}
+
+  void PopulateContext(void* aContext);
+
   Address pc;  // Instruction pointer.
   Address sp;  // Stack pointer.
   Address fp;  // Frame pointer.
 #ifdef ENABLE_ARM_LR_SAVING
   Address lr;  // ARM link register
 #endif
-  Address function;  // The last called JS function.
   void*   context;   // The context from the signal handler, if available. On
                      // Win32 this may contain the windows thread context.
+  bool    isSamplingCurrentThread;
   ThreadProfile* threadProfile;
-  static const int kMaxFramesCount = 64;
-  int frames_count;  // Number of captured frames.
   mozilla::TimeStamp timestamp;
 };
 
 class ThreadInfo;
 class PlatformData;
 class TableTicker;
+class SyncProfile;
 class Sampler {
  public:
   // Initialize sampler.
@@ -297,6 +304,9 @@ class Sampler {
   // This method is called for each sampling period with the current
   // program counter.
   virtual void Tick(TickSample* sample) = 0;
+
+  // Immediately captures the calling thread's call stack and returns it.
+  virtual SyncProfile* GetBacktrace() = 0;
 
   // Request a save from a signal handler
   virtual void RequestSave() = 0;
@@ -378,13 +388,14 @@ class Sampler {
 
 class ThreadInfo {
  public:
-  ThreadInfo(const char* aName, int aThreadId, bool aIsMainThread, PseudoStack* aPseudoStack)
+  ThreadInfo(const char* aName, int aThreadId, bool aIsMainThread, PseudoStack* aPseudoStack, void* aStackTop)
     : mName(strdup(aName))
     , mThreadId(aThreadId)
     , mIsMainThread(aIsMainThread)
     , mPseudoStack(aPseudoStack)
     , mPlatformData(Sampler::AllocPlatformData(aThreadId))
-    , mProfile(NULL) {}
+    , mProfile(NULL)
+    , mStackTop(aStackTop) {}
 
   virtual ~ThreadInfo();
 
@@ -398,6 +409,7 @@ class ThreadInfo {
   ThreadProfile* Profile() const { return mProfile; }
 
   PlatformData* GetPlatformData() const { return mPlatformData; }
+  void* StackTop() const { return mStackTop; }
  private:
   char* mName;
   int mThreadId;
@@ -405,6 +417,7 @@ class ThreadInfo {
   PseudoStack* mPseudoStack;
   PlatformData* mPlatformData;
   ThreadProfile* mProfile;
+  void* const mStackTop;
 };
 
 #endif /* ndef TOOLS_PLATFORM_H_ */

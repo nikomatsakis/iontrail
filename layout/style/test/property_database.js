@@ -2336,7 +2336,7 @@ var gCSSProperties = {
 		inherited: true,
 		type: CSS_TYPE_LONGHAND,
 		initial_values: [ "auto" ],
-		other_values: [ "crosshair", "default", "pointer", "move", "e-resize", "ne-resize", "nw-resize", "n-resize", "se-resize", "sw-resize", "s-resize", "w-resize", "text", "wait", "help", "progress", "copy", "alias", "context-menu", "cell", "not-allowed", "col-resize", "row-resize", "no-drop", "vertical-text", "all-scroll", "nesw-resize", "nwse-resize", "ns-resize", "ew-resize", "none", "zoom-in", "zoom-out", "-moz-grab", "-moz-grabbing", "-moz-zoom-in", "-moz-zoom-out", "url(foo.png), move", "url(foo.png) 5 7, move", "url(foo.png) 12 3, url(bar.png), no-drop", "url(foo.png), url(bar.png) 7 2, wait", "url(foo.png) 3 2, url(bar.png) 7 9, pointer" ],
+		other_values: [ "crosshair", "default", "pointer", "move", "e-resize", "ne-resize", "nw-resize", "n-resize", "se-resize", "sw-resize", "s-resize", "w-resize", "text", "wait", "help", "progress", "copy", "alias", "context-menu", "cell", "not-allowed", "col-resize", "row-resize", "no-drop", "vertical-text", "all-scroll", "nesw-resize", "nwse-resize", "ns-resize", "ew-resize", "none", "grab", "grabbing", "zoom-in", "zoom-out", "-moz-grab", "-moz-grabbing", "-moz-zoom-in", "-moz-zoom-out", "url(foo.png), move", "url(foo.png) 5 7, move", "url(foo.png) 12 3, url(bar.png), no-drop", "url(foo.png), url(bar.png) 7 2, wait", "url(foo.png) 3 2, url(bar.png) 7 9, pointer" ],
 		invalid_values: [ "url(foo.png)", "url(foo.png) 5 5" ]
 	},
 	"direction": {
@@ -3479,14 +3479,14 @@ var gCSSProperties = {
 		type: CSS_TYPE_LONGHAND,
 		prerequisites: { "color": "blue" },
 		initial_values: [ "black", "#000", "#000000", "rgb(0,0,0)", "rgba(0,0,0,1)" ],
-		other_values: [ "green", "#fc3", "url('#myserver')", "url(foo.svg#myserver)", 'url("#myserver") green', "none", "currentColor", "-moz-objectFill", "-moz-objectStroke" ],
+		other_values: [ "green", "#fc3", "url('#myserver')", "url(foo.svg#myserver)", 'url("#myserver") green', "none", "currentColor", "context-fill", "context-stroke" ],
 		invalid_values: [ "000000", "ff00ff" ]
 	},
 	"fill-opacity": {
 		domProp: "fillOpacity",
 		inherited: true,
 		type: CSS_TYPE_LONGHAND,
-		initial_values: [ "1", "2.8", "1.000", "-moz-objectFillOpacity", "-moz-objectStrokeOpacity" ],
+		initial_values: [ "1", "2.8", "1.000", "context-fill-opacity", "context-stroke-opacity" ],
 		other_values: [ "0", "0.3", "-7.3" ],
 		invalid_values: []
 	},
@@ -3611,14 +3611,14 @@ var gCSSProperties = {
 		inherited: true,
 		type: CSS_TYPE_LONGHAND,
 		initial_values: [ "none" ],
-		other_values: [ "black", "#000", "#000000", "rgb(0,0,0)", "rgba(0,0,0,1)", "green", "#fc3", "url('#myserver')", "url(foo.svg#myserver)", 'url("#myserver") green', "currentColor", "-moz-objectFill", "-moz-objectStroke" ],
+		other_values: [ "black", "#000", "#000000", "rgb(0,0,0)", "rgba(0,0,0,1)", "green", "#fc3", "url('#myserver')", "url(foo.svg#myserver)", 'url("#myserver") green', "currentColor", "context-fill", "context-stroke" ],
 		invalid_values: [ "000000", "ff00ff" ]
 	},
 	"stroke-dasharray": {
 		domProp: "strokeDasharray",
 		inherited: true,
 		type: CSS_TYPE_LONGHAND,
-		initial_values: [ "none", "-moz-objectValue" ],
+		initial_values: [ "none", "context-value" ],
 		other_values: [ "5px,3px,2px", "5px 3px 2px", "  5px ,3px	, 2px ", "1px", "5%", "3em" ],
 		invalid_values: [ "-5px,3px,2px", "5px,3px,-2px" ]
 	},
@@ -3626,7 +3626,7 @@ var gCSSProperties = {
 		domProp: "strokeDashoffset",
 		inherited: true,
 		type: CSS_TYPE_LONGHAND,
-		initial_values: [ "0", "-0px", "0em", "-moz-objectValue" ],
+		initial_values: [ "0", "-0px", "0em", "context-value" ],
 		other_values: [ "3px", "3%", "1em" ],
 		invalid_values: []
 	},
@@ -3658,7 +3658,7 @@ var gCSSProperties = {
 		domProp: "strokeOpacity",
 		inherited: true,
 		type: CSS_TYPE_LONGHAND,
-		initial_values: [ "1", "2.8", "1.000", "-moz-objectFillOpacity", "-moz-objectStrokeOpacity" ],
+		initial_values: [ "1", "2.8", "1.000", "context-fill-opacity", "context-stroke-opacity" ],
 		other_values: [ "0", "0.3", "-7.3" ],
 		invalid_values: []
 	},
@@ -3666,7 +3666,7 @@ var gCSSProperties = {
 		domProp: "strokeWidth",
 		inherited: true,
 		type: CSS_TYPE_LONGHAND,
-		initial_values: [ "1px", "-moz-objectValue" ],
+		initial_values: [ "1px", "context-value" ],
 		other_values: [ "0", "0px", "-0em", "17px", "0.2em" ],
 		invalid_values: [ "-0.1px", "-3px" ]
 	},
@@ -4738,6 +4738,10 @@ if (SpecialPowers.getBoolPref("layout.css.osx-font-smoothing.enabled")) {
 		other_values: [ "grayscale" ],
 		invalid_values: [ "none", "subpixel-antialiased", "antialiased" ]
 	};
+}
+
+if (SpecialPowers.getBoolPref("layout.css.sticky.enabled")) {
+	gCSSProperties["position"].other_values.push("sticky");
 }
 
 if (SpecialPowers.getBoolPref("layout.css.mix-blend-mode.enabled")) {

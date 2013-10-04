@@ -93,7 +93,7 @@ class ICStubSpace
 // OptimizedICStubSpace.
 struct OptimizedICStubSpace : public ICStubSpace
 {
-    const static size_t STUB_DEFAULT_CHUNK_SIZE = 4 * 1024;
+    static const size_t STUB_DEFAULT_CHUNK_SIZE = 4 * 1024;
 
   public:
     OptimizedICStubSpace()
@@ -109,7 +109,7 @@ struct OptimizedICStubSpace : public ICStubSpace
 // FallbackICStubSpace.
 struct FallbackICStubSpace : public ICStubSpace
 {
-    const static size_t STUB_DEFAULT_CHUNK_SIZE = 256;
+    static const size_t STUB_DEFAULT_CHUNK_SIZE = 256;
 
   public:
     FallbackICStubSpace()
@@ -369,7 +369,7 @@ class IonCompartment
         ICStubCodeMap::AddPtr p = stubCodes_->lookupForAdd(key);
         if (p)
             return p->value;
-        return NULL;
+        return nullptr;
     }
     bool putStubCode(uint32_t key, Handle<IonCode *> stubCode) {
         // Make sure to do a lookupForAdd(key) and then insert into that slot, because
@@ -380,27 +380,27 @@ class IonCompartment
         return stubCodes_->add(p, key, stubCode.get());
     }
     void initBaselineCallReturnAddr(void *addr) {
-        JS_ASSERT(baselineCallReturnAddr_ == NULL);
+        JS_ASSERT(baselineCallReturnAddr_ == nullptr);
         baselineCallReturnAddr_ = addr;
     }
     void *baselineCallReturnAddr() {
-        JS_ASSERT(baselineCallReturnAddr_ != NULL);
+        JS_ASSERT(baselineCallReturnAddr_ != nullptr);
         return baselineCallReturnAddr_;
     }
     void initBaselineGetPropReturnAddr(void *addr) {
-        JS_ASSERT(baselineGetPropReturnAddr_ == NULL);
+        JS_ASSERT(baselineGetPropReturnAddr_ == nullptr);
         baselineGetPropReturnAddr_ = addr;
     }
     void *baselineGetPropReturnAddr() {
-        JS_ASSERT(baselineGetPropReturnAddr_ != NULL);
+        JS_ASSERT(baselineGetPropReturnAddr_ != nullptr);
         return baselineGetPropReturnAddr_;
     }
     void initBaselineSetPropReturnAddr(void *addr) {
-        JS_ASSERT(baselineSetPropReturnAddr_ == NULL);
+        JS_ASSERT(baselineSetPropReturnAddr_ == nullptr);
         baselineSetPropReturnAddr_ = addr;
     }
     void *baselineSetPropReturnAddr() {
-        JS_ASSERT(baselineSetPropReturnAddr_ != NULL);
+        JS_ASSERT(baselineSetPropReturnAddr_ != nullptr);
         return baselineSetPropReturnAddr_;
     }
 
@@ -432,12 +432,6 @@ class IonCompartment
         }
     }
 
-    AutoFlushCache *flusher() {
-        return rt->flusher();
-    }
-    void setFlusher(AutoFlushCache *fl) {
-        rt->setFlusher(fl);
-    }
     OptimizedICStubSpace *optimizedStubSpace() {
         return &optimizedStubSpace_;
     }
@@ -446,6 +440,12 @@ class IonCompartment
 // Called from JSCompartment::discardJitCode().
 void InvalidateAll(FreeOp *fop, JS::Zone *zone);
 void FinishInvalidation(FreeOp *fop, JSScript *script);
+
+// On windows systems, really large frames need to be incrementally touched.
+// The following constant defines the minimum increment of the touch.
+#ifdef XP_WIN
+const unsigned WINDOWS_BIG_FRAME_TOUCH_INCREMENT = 4096 - 1;
+#endif
 
 } // namespace jit
 } // namespace js

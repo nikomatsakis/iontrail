@@ -147,7 +147,7 @@ class ReadRilSettingTask MOZ_FINAL : public nsISettingsServiceCallback
 public:
   NS_DECL_ISUPPORTS
 
-  ReadRilSettingTask(nsRefPtr<ReplyRunnable> aPendingRequest)
+  ReadRilSettingTask(nsRefPtr<FMRadioReplyRunnable> aPendingRequest)
     : mPendingRequest(aPendingRequest) { }
 
   NS_IMETHOD
@@ -194,7 +194,7 @@ public:
   }
 
 private:
-  nsRefPtr<ReplyRunnable> mPendingRequest;
+  nsRefPtr<FMRadioReplyRunnable> mPendingRequest;
 };
 
 NS_IMPL_ISUPPORTS1(ReadRilSettingTask, nsISettingsServiceCallback)
@@ -228,10 +228,6 @@ public:
   NS_IMETHOD Run()
   {
     SetFMRadioFrequency(mFrequency);
-
-    FMRadioService* fmRadioService = FMRadioService::Singleton();
-    fmRadioService->UpdateFrequency();
-
     return NS_OK;
   }
 
@@ -375,7 +371,8 @@ FMRadioService::GetChannelWidth() const
 }
 
 void
-FMRadioService::Enable(double aFrequencyInMHz, ReplyRunnable* aReplyRunnable)
+FMRadioService::Enable(double aFrequencyInMHz,
+                       FMRadioReplyRunnable* aReplyRunnable)
 {
   MOZ_ASSERT(NS_IsMainThread(), "Wrong thread!");
   MOZ_ASSERT(aReplyRunnable);
@@ -455,11 +452,11 @@ FMRadioService::Enable(double aFrequencyInMHz, ReplyRunnable* aReplyRunnable)
 }
 
 void
-FMRadioService::Disable(ReplyRunnable* aReplyRunnable)
+FMRadioService::Disable(FMRadioReplyRunnable* aReplyRunnable)
 {
   // When airplane-mode is enabled, we will call this function from
-  // FMRadioService::Observe without passing a ReplyRunnable, so we have to
-  // check if |aReplyRunnable| is null before we dispatch it.
+  // FMRadioService::Observe without passing a FMRadioReplyRunnable,
+  // so we have to check if |aReplyRunnable| is null before we dispatch it.
   MOZ_ASSERT(NS_IsMainThread(), "Wrong thread!");
 
   switch (mState) {
@@ -483,7 +480,7 @@ FMRadioService::Disable(ReplyRunnable* aReplyRunnable)
       break;
   }
 
-  nsRefPtr<ReplyRunnable> enablingRequest = mPendingRequest;
+  nsRefPtr<FMRadioReplyRunnable> enablingRequest = mPendingRequest;
 
   // If the FM Radio is currently seeking, no fail-to-seek or similar
   // event will be fired, execute the seek callback manually.
@@ -536,7 +533,7 @@ FMRadioService::DoDisable()
 
 void
 FMRadioService::SetFrequency(double aFrequencyInMHz,
-                             ReplyRunnable* aReplyRunnable)
+                             FMRadioReplyRunnable* aReplyRunnable)
 {
   MOZ_ASSERT(NS_IsMainThread(), "Wrong thread!");
   MOZ_ASSERT(aReplyRunnable);
@@ -583,7 +580,7 @@ FMRadioService::SetFrequency(double aFrequencyInMHz,
 
 void
 FMRadioService::Seek(FMRadioSeekDirection aDirection,
-                     ReplyRunnable* aReplyRunnable)
+                     FMRadioReplyRunnable* aReplyRunnable)
 {
   MOZ_ASSERT(NS_IsMainThread(), "Wrong thread!");
   MOZ_ASSERT(aReplyRunnable);
@@ -620,7 +617,7 @@ FMRadioService::Seek(FMRadioSeekDirection aDirection,
 }
 
 void
-FMRadioService::CancelSeek(ReplyRunnable* aReplyRunnable)
+FMRadioService::CancelSeek(FMRadioReplyRunnable* aReplyRunnable)
 {
   MOZ_ASSERT(NS_IsMainThread(), "Wrong thread!");
   MOZ_ASSERT(aReplyRunnable);
@@ -753,6 +750,9 @@ FMRadioService::Notify(const FMRadioOperationInformation& aInfo)
         TransitionState(SuccessResponse(), Enabled);
       }
 
+      UpdateFrequency();
+      break;
+    case FM_RADIO_OPERATION_TUNE:
       UpdateFrequency();
       break;
     default:

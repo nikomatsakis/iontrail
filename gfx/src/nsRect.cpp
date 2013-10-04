@@ -6,8 +6,9 @@
 #include "nsRect.h"
 #include "mozilla/gfx/Types.h"          // for NS_SIDE_BOTTOM, etc
 #include "nsDeviceContext.h"            // for nsDeviceContext
-#include "nsStringGlue.h"               // for nsAutoString, etc
+#include "nsString.h"               // for nsAutoString, etc
 #include "prtypes.h"                    // for PR_STATIC_ASSERT
+#include "nsMargin.h"                   // for nsMargin
 
 // the mozilla::css::Side sequence must match the nsMargin nscoord sequence
 PR_STATIC_ASSERT((NS_SIDE_TOP == 0) && (NS_SIDE_RIGHT == 1) && (NS_SIDE_BOTTOM == 2) && (NS_SIDE_LEFT == 3));

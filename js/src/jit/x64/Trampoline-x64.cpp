@@ -4,14 +4,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "assembler/assembler/MacroAssembler.h"
 #include "jit/Bailouts.h"
-#include "jit/ExecutionModeInlines.h"
 #include "jit/IonCompartment.h"
 #include "jit/IonFrames.h"
 #include "jit/IonLinker.h"
-#include "jit/IonSpewer.h"
-#include "jit/PerfSpewer.h"
+#ifdef JS_ION_PERF
+# include "jit/PerfSpewer.h"
+#endif
 #include "jit/VMFunctions.h"
 #include "jit/x64/BaselineHelpers-x64.h"
 
@@ -173,6 +172,27 @@ IonRuntime::generateEnterJIT(JSContext *cx, EnterJitType type)
         masm.subPtr(Imm32(BaselineFrame::Size()), rsp);
         masm.mov(rsp, framePtr);
 
+#ifdef XP_WIN
+        // Can't push large frames blindly on windows.  Touch frame memory incrementally.
+        masm.mov(numStackValues, scratch);
+        masm.lshiftPtr(Imm32(3), scratch);
+        masm.subPtr(scratch, framePtr);
+        {
+            masm.movePtr(rsp, scratch);
+            masm.subPtr(Imm32(WINDOWS_BIG_FRAME_TOUCH_INCREMENT), scratch);
+
+            Label touchFrameLoop;
+            Label touchFrameLoopEnd;
+            masm.bind(&touchFrameLoop);
+            masm.branchPtr(Assembler::Below, scratch, framePtr, &touchFrameLoopEnd);
+            masm.store32(Imm32(0), Address(scratch, 0));
+            masm.subPtr(Imm32(WINDOWS_BIG_FRAME_TOUCH_INCREMENT), scratch);
+            masm.jump(&touchFrameLoop);
+            masm.bind(&touchFrameLoopEnd);
+        }
+        masm.mov(rsp, framePtr);
+#endif
+
         // Reserve space for locals and stack values.
         Register valuesSize = regs.takeAny();
         masm.mov(numStackValues, valuesSize);
@@ -229,7 +249,7 @@ IonRuntime::generateEnterJIT(JSContext *cx, EnterJitType type)
         // Baseline OSR will return here.
         masm.bind(returnLabel.src());
         if (!masm.addCodeLabel(returnLabel))
-            return NULL;
+            return nullptr;
     }
 
     // Pop arguments and padding from stack.
@@ -342,13 +362,13 @@ IonRuntime::generateArgumentsRectifier(JSContext *cx, ExecutionMode mode, void *
     JS_ASSERT(ArgumentsRectifierReg == r8);
 
     // Load the number of |undefined|s to push into %rcx.
-    masm.movq(Operand(rsp, IonRectifierFrameLayout::offsetOfCalleeToken()), rax);
+    masm.loadPtr(Address(rsp, IonRectifierFrameLayout::offsetOfCalleeToken()), rax);
     masm.clearCalleeTag(rax, mode);
     masm.movzwl(Operand(rax, offsetof(JSFunction, nargs)), rcx);
     masm.subq(r8, rcx);
 
     // Copy the number of actual arguments
-    masm.movq(Operand(rsp, IonRectifierFrameLayout::offsetOfNumActualArgs()), rdx);
+    masm.loadPtr(Address(rsp, IonRectifierFrameLayout::offsetOfNumActualArgs()), rdx);
 
     masm.moveValue(UndefinedValue(), r10);
 
@@ -391,8 +411,8 @@ IonRuntime::generateArgumentsRectifier(JSContext *cx, ExecutionMode mode, void *
 
     // Call the target function.
     // Note that this code assumes the function is JITted.
-    masm.movq(Operand(rax, JSFunction::offsetOfNativeOrScript()), rax);
-    masm.loadBaselineOrIonRaw(rax, rax, mode, NULL);
+    masm.loadPtr(Address(rax, JSFunction::offsetOfNativeOrScript()), rax);
+    masm.loadBaselineOrIonRaw(rax, rax, mode, nullptr);
     masm.call(rax);
     uint32_t returnOffset = masm.currentOffset();
 
@@ -505,6 +525,7 @@ IonRuntime::generateVMWrapper(JSContext *cx, const VMFunction &f)
 
     // The context is the first argument.
     Register cxreg = IntArgReg0;
+    regs.take(cxreg);
 
     // Stack is:
     //    ... frame ...
@@ -657,7 +678,7 @@ IonRuntime::generateVMWrapper(JSContext *cx, const VMFunction &f)
     Linker linker(masm);
     IonCode *wrapper = linker.newCode(cx, JSC::OTHER_CODE);
     if (!wrapper)
-        return NULL;
+        return nullptr;
 
 #ifdef JS_ION_PERF
     writePerfSpewerIonCodeProfile(wrapper, "VMWrapper");
@@ -666,7 +687,7 @@ IonRuntime::generateVMWrapper(JSContext *cx, const VMFunction &f)
     // linker.newCode may trigger a GC and sweep functionWrappers_ so we have to
     // use relookupOrAdd instead of add.
     if (!functionWrappers_->relookupOrAdd(p, &f, wrapper))
-        return NULL;
+        return nullptr;
 
     return wrapper;
 }
@@ -681,7 +702,7 @@ IonRuntime::generatePreBarrier(JSContext *cx, MIRType type)
     masm.PushRegsInMask(regs);
 
     JS_ASSERT(PreBarrierReg == rdx);
-    masm.mov(ImmWord(cx->runtime()), rcx);
+    masm.mov(ImmPtr(cx->runtime()), rcx);
 
     masm.setupUnalignedABICall(2, rax);
     masm.passABIArg(rcx);
@@ -726,14 +747,14 @@ IonRuntime::generateDebugTrapHandler(JSContext *cx)
     masm.subPtr(Imm32(BaselineFrame::Size()), scratch2);
 
     // Enter a stub frame and call the HandleDebugTrap VM function. Ensure
-    // the stub frame has a NULL ICStub pointer, since this pointer is marked
+    // the stub frame has a nullptr ICStub pointer, since this pointer is marked
     // during GC.
-    masm.movePtr(ImmWord((void *)NULL), BaselineStubReg);
+    masm.movePtr(ImmPtr(nullptr), BaselineStubReg);
     EmitEnterStubFrame(masm, scratch3);
 
     IonCode *code = cx->runtime()->ionRuntime()->getVMWrapper(HandleDebugTrapInfo);
     if (!code)
-        return NULL;
+        return nullptr;
 
     masm.push(scratch1);
     masm.push(scratch2);

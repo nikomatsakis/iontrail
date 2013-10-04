@@ -34,9 +34,6 @@ endif
 
 include $(topsrcdir)/config/config.mk
 
-# Do not install util programs
-NO_INSTALL=1
-
 ifneq (WINNT,$(HOST_OS_ARCH))
 # Ensure nsinstall is atomically created
 nsinstall$(HOST_BIN_SUFFIX): $(HOST_PROGRAM)
@@ -113,7 +110,7 @@ STL_WRAPPERS_SENTINEL = $(DIST)/stl_wrappers/sentinel
 
 $(STL_WRAPPERS_SENTINEL): $(srcdir)/make-stl-wrappers.py $(srcdir)/$(stl_compiler)-stl-wrapper.template.h $(srcdir)/stl-headers $(GLOBAL_DEPS)
 	$(PYTHON) $(srcdir)/make-stl-wrappers.py stl_wrappers $(stl_compiler) $(srcdir)/$(stl_compiler)-stl-wrapper.template.h $(srcdir)/stl-headers
-	$(PYTHON) $(srcdir)/nsinstall.py stl_wrappers $(DIST)
+	$(PYTHON) $(srcdir)/nsinstall.py -t stl_wrappers $(DIST)
 	touch $(STL_WRAPPERS_SENTINEL)
 
 export:: $(STL_WRAPPERS_SENTINEL)

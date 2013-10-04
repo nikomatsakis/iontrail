@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "GLContext.h"
 
@@ -15,12 +16,13 @@
 #include "gfxUtils.h"
 #include "GLContextProvider.h"
 #include "GLTextureImage.h"
-#include "nsIMemoryReporter.h"
 #include "nsPrintfCString.h"
 #include "nsThreadUtils.h"
 #include "prenv.h"
 #include "prlink.h"
 #include "SurfaceStream.h"
+#include "GfxTexturesReporter.h"
+#include "TextureGarbageBin.h"
 
 #include "mozilla/DebugOnly.h"
 #include "mozilla/Preferences.h"
@@ -111,23 +113,9 @@ static const char *sExtensionNames[] = {
     "GL_ARB_occlusion_query2",
     "GL_EXT_transform_feedback",
     "GL_NV_transform_feedback",
+    "GL_ANGLE_depth_texture",
     nullptr
 };
-
-int64_t GfxTexturesReporter::sAmount = 0;
-
-/* static */ void
-GfxTexturesReporter::UpdateAmount(MemoryUse action, GLenum format,
-                                  GLenum type, uint16_t tileSize)
-{
-    uint32_t bytesPerTexel = mozilla::gl::GetBitsPerTexel(format, type) / 8;
-    int64_t bytes = (int64_t)(tileSize * tileSize * bytesPerTexel);
-    if (action == MemoryFreed) {
-        sAmount -= bytes;
-    } else {
-        sAmount += bytes;
-    }
-}
 
 static bool
 ParseGLVersion(GLContext* gl, unsigned int* version)
@@ -245,6 +233,62 @@ ParseGLVersion(GLContext* gl, unsigned int* version)
 
     *version = (unsigned int)(majorVersion * 100 + minorVersion * 10);
     return true;
+}
+
+GLContext::GLContext(const SurfaceCaps& caps,
+          GLContext* sharedContext,
+          bool isOffscreen)
+  : mInitialized(false),
+    mIsOffscreen(isOffscreen),
+    mIsGlobalSharedContext(false),
+    mContextLost(false),
+    mVersion(0),
+    mProfile(ContextProfile::Unknown),
+    mVendor(-1),
+    mRenderer(-1),
+    mHasRobustness(false),
+#ifdef DEBUG
+    mGLError(LOCAL_GL_NO_ERROR),
+#endif
+    mTexBlit_Buffer(0),
+    mTexBlit_VertShader(0),
+    mTex2DBlit_FragShader(0),
+    mTex2DRectBlit_FragShader(0),
+    mTex2DBlit_Program(0),
+    mTex2DRectBlit_Program(0),
+    mTexBlit_UseDrawNotCopy(false),
+    mSharedContext(sharedContext),
+    mFlipped(false),
+    mBlitProgram(0),
+    mBlitFramebuffer(0),
+    mCaps(caps),
+    mScreen(nullptr),
+    mLockedSurface(nullptr),
+    mMaxTextureSize(0),
+    mMaxCubeMapTextureSize(0),
+    mMaxTextureImageSize(0),
+    mMaxRenderbufferSize(0),
+    mNeedsTextureSizeChecks(false),
+    mWorkAroundDriverBugs(true)
+{
+    mOwningThread = NS_GetCurrentThread();
+
+    mTexBlit_UseDrawNotCopy = Preferences::GetBool("gl.blit-draw-not-copy", false);
+}
+
+GLContext::~GLContext() {
+    NS_ASSERTION(IsDestroyed(), "GLContext implementation must call MarkDestroyed in destructor!");
+#ifdef DEBUG
+    if (mSharedContext) {
+        GLContext *tip = mSharedContext;
+        while (tip->mSharedContext)
+            tip = tip->mSharedContext;
+        tip->SharedContextDestroyed(this);
+        tip->ReportOutstandingNames();
+    } else {
+        ReportOutstandingNames();
+    }
+#endif
 }
 
 bool
@@ -493,7 +537,8 @@ GLContext::InitWithPrefix(const char *prefix, bool trygl)
                 "Adreno (TM) 320",
                 "PowerVR SGX 530",
                 "PowerVR SGX 540",
-                "NVIDIA Tegra"
+                "NVIDIA Tegra",
+                "Android Emulator"
         };
 
         mRenderer = RendererOther;
@@ -561,6 +606,10 @@ GLContext::InitWithPrefix(const char *prefix, bool trygl)
                 MarkUnsupported(GLFeature::depth_texture);
             }
 #endif
+            // ANGLE's divisor support is busted. (see bug 916816)
+            if (IsANGLE()) {
+                MarkUnsupported(GLFeature::instanced_arrays);
+            }
         }
 
         NS_ASSERTION(!IsExtensionSupported(GLContext::ARB_pixel_buffer_object) ||
@@ -1043,6 +1092,14 @@ GLContext::InitExtensions()
         MarkExtensionSupported(OES_EGL_sync);
     }
 
+    if (WorkAroundDriverBugs() &&
+        Renderer() == RendererAndroidEmulator) {
+        // the Android emulator, which we use to run B2G reftests on,
+        // doesn't expose the OES_rgb8_rgba8 extension, but it seems to
+        // support it (tautologically, as it only runs on desktop GL).
+        MarkExtensionSupported(OES_rgb8_rgba8);
+    }
+
 #ifdef DEBUG
     firstRun = false;
 #endif
@@ -1211,15 +1268,15 @@ GLContext::CreateTextureImage(const nsIntSize& aSize,
                                    aFlags, aImageFormat);
 }
 
-void GLContext::ApplyFilterToBoundTexture(gfxPattern::GraphicsFilter aFilter)
+void GLContext::ApplyFilterToBoundTexture(GraphicsFilter aFilter)
 {
     ApplyFilterToBoundTexture(LOCAL_GL_TEXTURE_2D, aFilter);
 }
 
 void GLContext::ApplyFilterToBoundTexture(GLuint aTarget,
-                                          gfxPattern::GraphicsFilter aFilter)
+                                          GraphicsFilter aFilter)
 {
-    if (aFilter == gfxPattern::FILTER_NEAREST) {
+    if (aFilter == GraphicsFilter::FILTER_NEAREST) {
         fTexParameteri(aTarget, LOCAL_GL_TEXTURE_MIN_FILTER, LOCAL_GL_NEAREST);
         fTexParameteri(aTarget, LOCAL_GL_TEXTURE_MAG_FILTER, LOCAL_GL_NEAREST);
     } else {
@@ -1807,7 +1864,7 @@ GLContext::GetTexImage(GLuint aTexture, bool aYInvert, SurfaceFormat aFormat)
     fGetTexLevelParameteriv(LOCAL_GL_TEXTURE_2D, 0, LOCAL_GL_TEXTURE_WIDTH, &size.width);
     fGetTexLevelParameteriv(LOCAL_GL_TEXTURE_2D, 0, LOCAL_GL_TEXTURE_HEIGHT, &size.height);
 
-    nsRefPtr<gfxImageSurface> surf = new gfxImageSurface(size, gfxASurface::ImageFormatARGB32);
+    nsRefPtr<gfxImageSurface> surf = new gfxImageSurface(size, gfxImageFormatARGB32);
     if (!surf || surf->CairoStatus()) {
         return nullptr;
     }
@@ -1931,7 +1988,7 @@ GLContext::ReadTextureImage(GLuint aTexture,
     fDisableVertexAttribArray(1);
     fDisableVertexAttribArray(0);
 
-    isurf = new gfxImageSurface(aSize, gfxASurface::ImageFormatARGB32);
+    isurf = new gfxImageSurface(aSize, gfxImageFormatARGB32);
     if (!isurf || isurf->CairoStatus()) {
         isurf = nullptr;
         goto cleanup;
@@ -2029,37 +2086,54 @@ GLContext::ReadScreenIntoImageSurface(gfxImageSurface* dest)
     ReadPixelsIntoImageSurface(dest);
 }
 
+TemporaryRef<SourceSurface>
+GLContext::ReadPixelsToSourceSurface(const gfx::IntSize &aSize)
+{
+    // XXX we should do this properly one day without using the gfxImageSurface
+    RefPtr<DataSourceSurface> dataSourceSurface =
+        Factory::CreateDataSourceSurface(aSize, gfx::FORMAT_B8G8R8A8);
+    nsRefPtr<gfxImageSurface> surf =
+        new gfxImageSurface(dataSourceSurface->GetData(),
+                            gfxIntSize(aSize.width, aSize.height),
+                            dataSourceSurface->Stride(),
+                            gfxImageFormatARGB32);
+    ReadPixelsIntoImageSurface(surf);
+    dataSourceSurface->MarkDirty();
+
+    return dataSourceSurface;
+}
+
 void
 GLContext::ReadPixelsIntoImageSurface(gfxImageSurface* dest)
 {
     MakeCurrent();
     MOZ_ASSERT(dest->GetSize() != gfxIntSize(0, 0));
 
-    /* ImageFormatARGB32:
+    /* gfxImageFormatARGB32:
      * RGBA+UByte: be[RGBA], le[ABGR]
      * RGBA+UInt: le[RGBA]
      * BGRA+UInt: le[BGRA]
      * BGRA+UIntRev: le[ARGB]
      *
-     * ImageFormatRGB16_565:
+     * gfxImageFormatRGB16_565:
      * RGB+UShort: le[rrrrrggg,gggbbbbb]
      */
-    bool hasAlpha = dest->Format() == gfxASurface::ImageFormatARGB32;
+    bool hasAlpha = dest->Format() == gfxImageFormatARGB32;
 
     int destPixelSize;
     GLenum destFormat;
     GLenum destType;
 
     switch (dest->Format()) {
-        case gfxASurface::ImageFormatRGB24: // XRGB
-        case gfxASurface::ImageFormatARGB32:
+        case gfxImageFormatRGB24: // XRGB
+        case gfxImageFormatARGB32:
             destPixelSize = 4;
             // Needs host (little) endian ARGB.
             destFormat = LOCAL_GL_BGRA;
             destType = LOCAL_GL_UNSIGNED_INT_8_8_8_8_REV;
             break;
 
-        case gfxASurface::ImageFormatRGB16_565:
+        case gfxImageFormatRGB16_565:
             destPixelSize = 2;
             destFormat = LOCAL_GL_RGB;
             destType = LOCAL_GL_UNSIGNED_SHORT_5_6_5_REV;
@@ -2088,14 +2162,14 @@ GLContext::ReadPixelsIntoImageSurface(gfxImageSurface* dest)
         switch (readFormat) {
             case LOCAL_GL_RGBA:
             case LOCAL_GL_BGRA: {
-                readFormatGFX = hasAlpha ? gfxASurface::ImageFormatARGB32
-                                         : gfxASurface::ImageFormatRGB24;
+                readFormatGFX = hasAlpha ? gfxImageFormatARGB32
+                                         : gfxImageFormatRGB24;
                 break;
             }
             case LOCAL_GL_RGB: {
                 MOZ_ASSERT(readPixelSize == 2);
                 MOZ_ASSERT(readType == LOCAL_GL_UNSIGNED_SHORT_5_6_5_REV);
-                readFormatGFX = gfxASurface::ImageFormatRGB16_565;
+                readFormatGFX = gfxImageFormatRGB16_565;
                 break;
             }
             default: {
@@ -2171,7 +2245,7 @@ GLContext::ReadPixelsIntoImageSurface(gfxImageSurface* dest)
 #ifdef XP_MACOSX
     if (WorkAroundDriverBugs() &&
         mVendor == VendorNVIDIA &&
-        dest->Format() == gfxASurface::ImageFormatARGB32 &&
+        dest->Format() == gfxImageFormatARGB32 &&
         width && height)
     {
         GLint alphaBits = 0;
@@ -2341,7 +2415,7 @@ GLContext::BlitTextureImage(TextureImage *aSrc, const nsIntRect& aSrcRect,
 }
 
 static unsigned int
-DataOffset(const nsIntPoint &aPoint, int32_t aStride, gfxASurface::gfxImageFormat aFormat)
+DataOffset(const nsIntPoint &aPoint, int32_t aStride, gfxImageFormat aFormat)
 {
   unsigned int data = aPoint.y * aStride;
   data += aPoint.x * gfxASurface::BytePerPixelFromFormat(aFormat);
@@ -2351,7 +2425,7 @@ DataOffset(const nsIntPoint &aPoint, int32_t aStride, gfxASurface::gfxImageForma
 GLContext::SurfaceFormat
 GLContext::UploadImageDataToTexture(unsigned char* aData,
                                     int32_t aStride,
-                                    gfxASurface::gfxImageFormat aFormat,
+                                    gfxImageFormat aFormat,
                                     const nsIntRegion& aDstRegion,
                                     GLuint& aTexture,
                                     bool aOverwrite,
@@ -2399,7 +2473,7 @@ GLContext::UploadImageDataToTexture(unsigned char* aData,
     MOZ_ASSERT(GetPreferredARGB32Format() == LOCAL_GL_BGRA ||
                GetPreferredARGB32Format() == LOCAL_GL_RGBA);
     switch (aFormat) {
-        case gfxASurface::ImageFormatARGB32:
+        case gfxImageFormatARGB32:
             if (GetPreferredARGB32Format() == LOCAL_GL_BGRA) {
               format = LOCAL_GL_BGRA;
               surfaceFormat = FORMAT_R8G8B8A8;
@@ -2411,7 +2485,7 @@ GLContext::UploadImageDataToTexture(unsigned char* aData,
             }
             internalFormat = LOCAL_GL_RGBA;
             break;
-        case gfxASurface::ImageFormatRGB24:
+        case gfxImageFormatRGB24:
             // Treat RGB24 surfaces as RGBA32 except for the surface
             // format used.
             if (GetPreferredARGB32Format() == LOCAL_GL_BGRA) {
@@ -2425,12 +2499,12 @@ GLContext::UploadImageDataToTexture(unsigned char* aData,
             }
             internalFormat = LOCAL_GL_RGBA;
             break;
-        case gfxASurface::ImageFormatRGB16_565:
+        case gfxImageFormatRGB16_565:
             internalFormat = format = LOCAL_GL_RGB;
             type = LOCAL_GL_UNSIGNED_SHORT_5_6_5;
             surfaceFormat = FORMAT_R5G6B5;
             break;
-        case gfxASurface::ImageFormatA8:
+        case gfxImageFormatA8:
             internalFormat = format = LOCAL_GL_LUMINANCE;
             type = LOCAL_GL_UNSIGNED_BYTE;
             // We don't have a specific luminance shader
@@ -2505,15 +2579,15 @@ GLContext::UploadSurfaceToTexture(gfxASurface *aSurface,
     unsigned char* data = nullptr;
 
     if (!imageSurface ||
-        (imageSurface->Format() != gfxASurface::ImageFormatARGB32 &&
-         imageSurface->Format() != gfxASurface::ImageFormatRGB24 &&
-         imageSurface->Format() != gfxASurface::ImageFormatRGB16_565 &&
-         imageSurface->Format() != gfxASurface::ImageFormatA8)) {
+        (imageSurface->Format() != gfxImageFormatARGB32 &&
+         imageSurface->Format() != gfxImageFormatRGB24 &&
+         imageSurface->Format() != gfxImageFormatRGB16_565 &&
+         imageSurface->Format() != gfxImageFormatA8)) {
         // We can't get suitable pixel data for the surface, make a copy
         nsIntRect bounds = aDstRegion.GetBounds();
         imageSurface =
           new gfxImageSurface(gfxIntSize(bounds.width, bounds.height),
-                              gfxASurface::ImageFormatARGB32);
+                              gfxImageFormatARGB32);
 
         nsRefPtr<gfxContext> context = new gfxContext(imageSurface);
 
@@ -2543,20 +2617,20 @@ GLContext::UploadSurfaceToTexture(gfxASurface *aSurface,
                                     aPixelBuffer, aTextureUnit, aTextureTarget);
 }
 
-static gfxASurface::gfxImageFormat
+static gfxImageFormat
 ImageFormatForSurfaceFormat(gfx::SurfaceFormat aFormat)
 {
     switch (aFormat) {
         case gfx::FORMAT_B8G8R8A8:
-            return gfxASurface::ImageFormatARGB32;
+            return gfxImageFormatARGB32;
         case gfx::FORMAT_B8G8R8X8:
-            return gfxASurface::ImageFormatRGB24;
+            return gfxImageFormatRGB24;
         case gfx::FORMAT_R5G6B5:
-            return gfxASurface::ImageFormatRGB16_565;
+            return gfxImageFormatRGB16_565;
         case gfx::FORMAT_A8:
-            return gfxASurface::ImageFormatA8;
+            return gfxImageFormatA8;
         default:
-            return gfxASurface::ImageFormatUnknown;
+            return gfxImageFormatUnknown;
     }
 }
 
@@ -2572,7 +2646,7 @@ GLContext::UploadSurfaceToTexture(gfx::DataSourceSurface *aSurface,
 {
     unsigned char* data = aPixelBuffer ? nullptr : aSurface->GetData();
     int32_t stride = aSurface->Stride();
-    gfxASurface::gfxImageFormat format =
+    gfxImageFormat format =
         ImageFormatForSurfaceFormat(aSurface->GetFormat());
     data += DataOffset(aSrcPoint, stride, format);
     return UploadImageDataToTexture(data, stride, format,
@@ -3389,38 +3463,54 @@ GLContext::EmptyTexGarbageBin()
    TexGarbageBin()->EmptyGarbage();
 }
 
+bool
+GLContext::IsOffscreenSizeAllowed(const gfxIntSize& aSize) const {
+  int32_t biggerDimension = std::max(aSize.width, aSize.height);
+  int32_t maxAllowed = std::min(mMaxRenderbufferSize, mMaxTextureSize);
+  return biggerDimension <= maxAllowed;
+}
 
-void
-TextureGarbageBin::GLContextTeardown()
+bool
+GLContext::IsOwningThreadCurrent()
 {
-    EmptyGarbage();
-
-    MutexAutoLock lock(mMutex);
-    mGL = nullptr;
+  return NS_GetCurrentThread() == mOwningThread;
 }
 
 void
-TextureGarbageBin::Trash(GLuint tex)
+GLContext::DispatchToOwningThread(nsIRunnable *event)
 {
-    MutexAutoLock lock(mMutex);
-    if (!mGL)
-        return;
-
-    mGarbageTextures.push(tex);
-}
-
-void
-TextureGarbageBin::EmptyGarbage()
-{
-    MutexAutoLock lock(mMutex);
-    if (!mGL)
-        return;
-
-    while (!mGarbageTextures.empty()) {
-        GLuint tex = mGarbageTextures.top();
-        mGarbageTextures.pop();
-        mGL->fDeleteTextures(1, &tex);
+    // Before dispatching, we need to ensure we're not in the middle of
+    // shutting down. Dispatching runnables in the middle of shutdown
+    // (that is, when the main thread is no longer get-able) can cause them
+    // to leak. See Bug 741319, and Bug 744115.
+    nsCOMPtr<nsIThread> mainThread;
+    if (NS_SUCCEEDED(NS_GetMainThread(getter_AddRefs(mainThread)))) {
+        mOwningThread->Dispatch(event, NS_DISPATCH_NORMAL);
     }
+}
+
+bool
+DoesStringMatch(const char* aString, const char *aWantedString)
+{
+    if (!aString || !aWantedString)
+        return false;
+
+    const char *occurrence = strstr(aString, aWantedString);
+
+    // aWanted not found
+    if (!occurrence)
+        return false;
+
+    // aWantedString preceded by alpha character
+    if (occurrence != aString && isalpha(*(occurrence-1)))
+        return false;
+
+    // aWantedVendor followed by alpha character
+    const char *afterOccurrence = occurrence + strlen(aWantedString);
+    if (isalpha(*afterOccurrence))
+        return false;
+
+    return true;
 }
 
 } /* namespace gl */

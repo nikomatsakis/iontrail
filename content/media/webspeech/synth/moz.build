@@ -30,13 +30,16 @@ if CONFIG['MOZ_WEBSPEECH']:
     CPP_SOURCES += [
         'EnableSpeechSynthesisCheck.cpp',
         'SpeechSynthesis.cpp',
-        'SpeechSynthesisChild.cpp',
-        'SpeechSynthesisParent.cpp',
+        'ipc/SpeechSynthesisChild.cpp',
+        'ipc/SpeechSynthesisParent.cpp',
         'SpeechSynthesisUtterance.cpp',
         'SpeechSynthesisVoice.cpp',
         'nsSpeechTask.cpp',
         'nsSynthVoiceRegistry.cpp',
     ]
+
+    if CONFIG['MOZ_SYNTH_PICO']:
+        PARALLEL_DIRS = ['pico']
 
 IPDL_SOURCES += [
     'ipc/PSpeechSynthesis.ipdl',
@@ -48,4 +51,6 @@ FAIL_ON_WARNINGS = True
 LIBXUL_LIBRARY = True
 
 LIBRARY_NAME = 'gkconwebspeechsynth_s'
+
+EXPORT_LIBRARY = True
 

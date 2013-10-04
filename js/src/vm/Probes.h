@@ -11,9 +11,6 @@
 #include "javascript-trace.h"
 #endif
 
-#include "jsobj.h"
-#include "jspubtd.h"
-
 #include "vm/Stack.h"
 
 namespace js {
@@ -129,7 +126,7 @@ void DTraceExitJSFun(JSContext *cx, JSFunction *fun, JSScript *script);
 static const char *ObjectClassname(JSObject *obj) {
     if (!obj)
         return "(null object)";
-    Class *clasp = obj->getClass();
+    const Class *clasp = obj->getClass();
     if (!clasp)
         return "(null)";
     const char *class_name = clasp->name;
@@ -159,10 +156,10 @@ Probes::finalizeObject(JSObject *obj)
 
 #ifdef INCLUDE_MOZILLA_DTRACE
     if (JAVASCRIPT_OBJECT_FINALIZE_ENABLED()) {
-        Class *clasp = obj->getClass();
+        const Class *clasp = obj->getClass();
 
-        /* the first arg is NULL - reserved for future use (filename?) */
-        JAVASCRIPT_OBJECT_FINALIZE(NULL, (char *)clasp->name, (uintptr_t)obj);
+        /* the first arg is nullptr - reserved for future use (filename?) */
+        JAVASCRIPT_OBJECT_FINALIZE(nullptr, (char *)clasp->name, (uintptr_t)obj);
     }
 #endif
 

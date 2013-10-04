@@ -14,7 +14,7 @@
 #include "nsWeakPtr.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsIDOMWindow.h"
-#include "nsThreadUtils.h"
+#include "nsIScriptObjectPrincipal.h"
 
 #include "nsDOMEventTargetHelper.h"
 #include "nsIDOMEvent.h"

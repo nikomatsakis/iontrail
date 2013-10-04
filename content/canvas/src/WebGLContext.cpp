@@ -10,7 +10,7 @@
 #include "WebGLContextUtils.h"
 #include "WebGLBuffer.h"
 #include "WebGLVertexAttribData.h"
-#include "WebGLMemoryMultiReporterWrapper.h"
+#include "WebGLMemoryReporterWrapper.h"
 #include "WebGLFramebuffer.h"
 #include "WebGLVertexArray.h"
 #include "WebGLQuery.h"
@@ -179,7 +179,7 @@ WebGLContext::WebGLContext()
     mPixelStorePackAlignment = 4;
     mPixelStoreUnpackAlignment = 4;
 
-    WebGLMemoryMultiReporterWrapper::AddWebGLContext(this);
+    WebGLMemoryReporterWrapper::AddWebGLContext(this);
 
     mAllowRestore = true;
     mContextLossTimerRunning = false;
@@ -213,7 +213,7 @@ WebGLContext::WebGLContext()
 WebGLContext::~WebGLContext()
 {
     DestroyResourcesAndContext();
-    WebGLMemoryMultiReporterWrapper::RemoveWebGLContext(this);
+    WebGLMemoryReporterWrapper::RemoveWebGLContext(this);
     TerminateContextLossTimer();
     mContextRestorer = nullptr;
 }
@@ -347,6 +347,20 @@ WebGLContext::SetContextOptions(JSContext* aCx, JS::Handle<JS::Value> aOptions)
     mOptions = newOpts;
     return NS_OK;
 }
+
+#ifdef DEBUG
+int32_t
+WebGLContext::GetWidth() const
+{
+  return mWidth;
+}
+
+int32_t
+WebGLContext::GetHeight() const
+{
+  return mHeight;
+}
+#endif
 
 NS_IMETHODIMP
 WebGLContext::SetDimensions(int32_t width, int32_t height)
@@ -595,13 +609,13 @@ WebGLContext::SetDimensions(int32_t width, int32_t height)
 }
 
 NS_IMETHODIMP
-WebGLContext::Render(gfxContext *ctx, gfxPattern::GraphicsFilter f, uint32_t aFlags)
+WebGLContext::Render(gfxContext *ctx, GraphicsFilter f, uint32_t aFlags)
 {
     if (!gl)
         return NS_OK;
 
     nsRefPtr<gfxImageSurface> surf = new gfxImageSurface(gfxIntSize(mWidth, mHeight),
-                                                         gfxASurface::ImageFormatARGB32);
+                                                         gfxImageFormatARGB32);
     if (surf->CairoStatus() != 0)
         return NS_ERROR_FAILURE;
 
@@ -653,8 +667,8 @@ void WebGLContext::LoseOldestWebGLContextIfLimitExceeded()
     // when choosing which one to lose first.
     UpdateLastUseIndex();
 
-    WebGLMemoryMultiReporterWrapper::ContextsArrayType &contexts
-      = WebGLMemoryMultiReporterWrapper::Contexts();
+    WebGLMemoryReporterWrapper::ContextsArrayType &contexts
+      = WebGLMemoryReporterWrapper::Contexts();
 
     // quick exit path, should cover a majority of cases
     if (contexts.Length() <= kMaxWebGLContextsPerPrincipal) {
@@ -731,14 +745,14 @@ WebGLContext::GetInputStream(const char* aMimeType,
         return NS_ERROR_FAILURE;
 
     nsRefPtr<gfxImageSurface> surf = new gfxImageSurface(gfxIntSize(mWidth, mHeight),
-                                                         gfxASurface::ImageFormatARGB32);
+                                                         gfxImageFormatARGB32);
     if (surf->CairoStatus() != 0)
         return NS_ERROR_FAILURE;
 
     nsRefPtr<gfxContext> tmpcx = new gfxContext(surf);
     // Use Render() to make sure that appropriate y-flip gets applied
     uint32_t flags = mOptions.premultipliedAlpha ? RenderFlagPremultAlpha : 0;
-    nsresult rv = Render(tmpcx, gfxPattern::FILTER_NEAREST, flags);
+    nsresult rv = Render(tmpcx, GraphicsFilter::FILTER_NEAREST, flags);
     if (NS_FAILED(rv))
         return rv;
 
@@ -1314,6 +1328,12 @@ WebGLContext::ForceRestoreContext()
 
 void
 WebGLContext::MakeContextCurrent() const { gl->MakeCurrent(); }
+
+mozilla::TemporaryRef<mozilla::gfx::SourceSurface>
+WebGLContext::GetSurfaceSnapshot()
+{
+  return nullptr;
+}
 
 //
 // XPCOM goop

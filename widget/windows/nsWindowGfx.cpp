@@ -44,6 +44,7 @@ using mozilla::plugins::PluginInstanceParent;
 #ifdef MOZ_ENABLE_D3D10_LAYER
 #include "LayerManagerD3D10.h"
 #endif
+#include "mozilla/layers/CompositorParent.h"
 
 #include "nsUXThemeData.h"
 #include "nsUXThemeConstants.h"
@@ -176,7 +177,7 @@ bool nsWindow::OnPaint(HDC aDC, uint32_t aNestingLevel)
   // windows event spin loop. If we don't trap for this, we'll try to paint,
   // but view manager will refuse to paint the surface, resulting is black
   // flashes on the plugin rendering surface.
-  if (mozilla::ipc::RPCChannel::IsSpinLoopActive() && mPainting)
+  if (mozilla::ipc::MessageChannel::IsSpinLoopActive() && mPainting)
     return false;
 
   if (mWindowType == eWindowType_plugin) {
@@ -210,6 +211,13 @@ bool nsWindow::OnPaint(HDC aDC, uint32_t aNestingLevel)
 
     ValidateRect(mWnd, NULL);
     return true;
+  }
+
+  // Do an early async composite so that we at least have something on screen
+  // in the right place, even if the content is out of date.
+  if (GetLayerManager()->GetBackendType() == LAYERS_CLIENT &&
+      mCompositorParent) {
+    mCompositorParent->ScheduleRenderOnCompositorThread();
   }
 
   nsIWidgetListener* listener = GetPaintListener();
@@ -299,10 +307,10 @@ bool nsWindow::OnPaint(HDC aDC, uint32_t aNestingLevel)
               IsRenderMode(gfxWindowsPlatform::RENDER_DIRECT2D))
           {
             if (!mD2DWindowSurface) {
-              gfxASurface::gfxContentType content = gfxASurface::CONTENT_COLOR;
+              gfxContentType content = GFX_CONTENT_COLOR;
 #if defined(MOZ_XUL)
               if (mTransparencyMode != eTransparencyOpaque) {
-                content = gfxASurface::CONTENT_COLOR_ALPHA;
+                content = GFX_CONTENT_COLOR_ALPHA;
               }
 #endif
               mD2DWindowSurface = new gfxD2DSurface(mWnd, content);
@@ -344,7 +352,7 @@ bool nsWindow::OnPaint(HDC aDC, uint32_t aNestingLevel)
             targetSurfaceImage = new gfxImageSurface(sSharedSurfaceData.get(),
                                                      surfaceSize,
                                                      surfaceSize.width * 4,
-                                                     gfxASurface::ImageFormatRGB24);
+                                                     gfxImageFormatRGB24);
 
             if (targetSurfaceImage && !targetSurfaceImage->CairoStatus()) {
               targetSurfaceImage->SetDeviceOffset(gfxPoint(-ps.rcPaint.left, -ps.rcPaint.top));
@@ -359,10 +367,12 @@ bool nsWindow::OnPaint(HDC aDC, uint32_t aNestingLevel)
 
           nsRefPtr<gfxContext> thebesContext;
           if (gfxPlatform::GetPlatform()->SupportsAzureContentForType(mozilla::gfx::BACKEND_CAIRO)) {
+            RECT paintRect;
+            ::GetClientRect(mWnd, &paintRect);
             RefPtr<mozilla::gfx::DrawTarget> dt =
               gfxPlatform::GetPlatform()->CreateDrawTargetForSurface(targetSurface,
-                                                                     mozilla::gfx::IntSize(targetSurface->GetSize().width,
-                                                                                           targetSurface->GetSize().height));
+                                                                     mozilla::gfx::IntSize(paintRect.right - paintRect.left,
+                                                                                           paintRect.bottom - paintRect.top));
             thebesContext = new gfxContext(dt);
           } else {
             thebesContext = new gfxContext(targetSurface);
@@ -647,7 +657,7 @@ nsresult nsWindowGfx::CreateIcon(imgIContainer *aContainer,
     NS_ENSURE_ARG(aScaledSize.width > 0);
     NS_ENSURE_ARG(aScaledSize.height > 0);
     // Draw a scaled version of the image to a temporary surface
-    dest = new gfxImageSurface(aScaledSize, gfxASurface::ImageFormatARGB32);
+    dest = new gfxImageSurface(aScaledSize, gfxImageFormatARGB32);
     if (!dest)
       return NS_ERROR_OUT_OF_MEMORY;
 

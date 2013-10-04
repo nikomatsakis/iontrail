@@ -279,10 +279,7 @@ var BrowserApp = {
     Services.obs.addObserver(this, "Session:Stop", false);
     Services.obs.addObserver(this, "SaveAs:PDF", false);
     Services.obs.addObserver(this, "Browser:Quit", false);
-    Services.obs.addObserver(this, "Preferences:Get", false);
     Services.obs.addObserver(this, "Preferences:Set", false);
-    Services.obs.addObserver(this, "Preferences:Observe", false);
-    Services.obs.addObserver(this, "Preferences:RemoveObservers", false);
     Services.obs.addObserver(this, "ScrollTo:FocusedInput", false);
     Services.obs.addObserver(this, "Sanitize:ClearData", false);
     Services.obs.addObserver(this, "FullScreen:Exit", false);
@@ -334,7 +331,6 @@ var BrowserApp = {
     Reader.init();
     UserAgentOverrides.init();
     DesktopUserAgent.init();
-    ExternalApps.init();
     Distribution.init();
     Tabs.init();
 #ifdef ACCESSIBILITY
@@ -368,6 +364,9 @@ var BrowserApp = {
       SearchEngines.init();
       this.initContextMenu();
     }
+    // The order that context menu items are added is important
+    // Make sure the "Open in App" context menu item appears at the bottom of the list
+    ExternalApps.init();
 
     // XXX maybe we don't do this if the launch was kicked off from external
     Services.io.offline = false;
@@ -920,7 +919,7 @@ var BrowserApp = {
     let e = Services.wm.getEnumerator("navigator:browser");
     while (e.hasMoreElements() && lastBrowser) {
       let win = e.getNext();
-      if (win != window)
+      if (!win.closed && win != window)
         lastBrowser = false;
     }
 
@@ -991,16 +990,17 @@ var BrowserApp = {
 
   notifyPrefObservers: function(aPref) {
     this._prefObservers[aPref].forEach(function(aRequestId) {
-      let request = { requestId : aRequestId,
-                      preferences : [aPref] };
-      this.getPreferences(request);
+      this.getPreferences(aRequestId, [aPref], 1);
     }, this);
   },
 
-  getPreferences: function getPreferences(aPrefsRequest, aListen) {
+  handlePreferencesRequest: function handlePreferencesRequest(aRequestId,
+                                                              aPrefNames,
+                                                              aListen) {
+
     let prefs = [];
 
-    for (let prefName of aPrefsRequest.preferences) {
+    for (let prefName of aPrefNames) {
       let pref = {
         name: prefName,
         type: "",
@@ -1009,9 +1009,9 @@ var BrowserApp = {
 
       if (aListen) {
         if (this._prefObservers[prefName])
-          this._prefObservers[prefName].push(aPrefsRequest.requestId);
+          this._prefObservers[prefName].push(aRequestId);
         else
-          this._prefObservers[prefName] = [ aPrefsRequest.requestId ];
+          this._prefObservers[prefName] = [ aRequestId ];
         Services.prefs.addObserver(prefName, this, false);
       }
 
@@ -1118,29 +1118,9 @@ var BrowserApp = {
 
     sendMessageToJava({
       type: "Preferences:Data",
-      requestId: aPrefsRequest.requestId,    // opaque request identifier, can be any string/int/whatever
+      requestId: aRequestId,    // opaque request identifier, can be any string/int/whatever
       preferences: prefs
     });
-  },
-
-  removePreferenceObservers: function removePreferenceObservers(aRequestId) {
-    let newPrefObservers = [];
-    for (let prefName in this._prefObservers) {
-      let requestIds = this._prefObservers[prefName];
-      // Remove the requestID from the preference handlers
-      let i = requestIds.indexOf(aRequestId);
-      if (i >= 0) {
-        requestIds.splice(i, 1);
-      }
-
-      // If there are no more request IDs, remove the observer
-      if (requestIds.length == 0) {
-        Services.prefs.removeObserver(prefName, this);
-      } else {
-        newPrefObservers[prefName] = requestIds;
-      }
-    }
-    this._prefObservers = newPrefObservers;
   },
 
   setPreferences: function setPreferences(aPref) {
@@ -1337,17 +1317,24 @@ var BrowserApp = {
         break;
 
       case "Session:Reload": {
-        let allowMixedContent = false;
+        let flags = Ci.nsIWebNavigation.LOAD_FLAGS_BYPASS_PROXY | Ci.nsIWebNavigation.LOAD_FLAGS_BYPASS_CACHE;
+
+        // Check to see if this is a message to enable/disable mixed content blocking.
         if (aData) {
-            let data = JSON.parse(aData);
-            allowMixedContent = data.allowMixedContent;
+          let allowMixedContent = JSON.parse(aData).allowMixedContent;
+          if (allowMixedContent) {
+            // Set a flag to disable mixed content blocking.
+            flags = Ci.nsIWebNavigation.LOAD_FLAGS_ALLOW_MIXED_CONTENT;
+          } else {
+            // Set mixedContentChannel to null to re-enable mixed content blocking.
+            let docShell = browser.webNavigation.QueryInterface(Ci.nsIDocShell);
+            docShell.mixedContentChannel = null;
+          }
         }
 
         // Try to use the session history to reload so that framesets are
         // handled properly. If the window has no session history, fall back
         // to using the web navigation's reload method.
-        let flags = allowMixedContent ? Ci.nsIWebNavigation.LOAD_FLAGS_ALLOW_MIXED_CONTENT :
-                    Ci.nsIWebNavigation.LOAD_FLAGS_BYPASS_PROXY | Ci.nsIWebNavigation.LOAD_FLAGS_BYPASS_CACHE;
         let webNav = browser.webNavigation;
         try {
           let sh = webNav.sessionHistory;
@@ -1422,7 +1409,9 @@ var BrowserApp = {
         break;
 
       case "keyword-search":
-        // This assumes that the user can only perform a keyword search on the selected tab.
+        // This event refers to a search via the URL bar, not a bookmarks
+        // keyword search. Note that this code assumes that the user can only
+        // perform a keyword search on the selected tab.
         this.selectedTab.userSearch = aData;
 
         let engine = aSubject.QueryInterface(Ci.nsISearchEngine);
@@ -1441,20 +1430,8 @@ var BrowserApp = {
         this.saveAsPDF(browser);
         break;
 
-      case "Preferences:Get":
-        this.getPreferences(JSON.parse(aData));
-        break;
-
       case "Preferences:Set":
         this.setPreferences(aData);
-        break;
-
-      case "Preferences:Observe":
-        this.getPreferences(JSON.parse(aData), true);
-        break;
-
-      case "Preferences:RemoveObservers":
-        this.removePreferenceObservers(aData);
         break;
 
       case "ScrollTo:FocusedInput":
@@ -1528,6 +1505,34 @@ var BrowserApp = {
   // nsIAndroidBrowserApp
   getBrowserTab: function(tabId) {
     return this.getTabForId(tabId);
+  },
+
+  getPreferences: function getPreferences(requestId, prefNames, count) {
+    this.handlePreferencesRequest(requestId, prefNames, false);
+  },
+
+  observePreferences: function observePreferences(requestId, prefNames, count) {
+    this.handlePreferencesRequest(requestId, prefNames, true);
+  },
+
+  removePreferenceObservers: function removePreferenceObservers(aRequestId) {
+    let newPrefObservers = [];
+    for (let prefName in this._prefObservers) {
+      let requestIds = this._prefObservers[prefName];
+      // Remove the requestID from the preference handlers
+      let i = requestIds.indexOf(aRequestId);
+      if (i >= 0) {
+        requestIds.splice(i, 1);
+      }
+
+      // If there are no more request IDs, remove the observer
+      if (requestIds.length == 0) {
+        Services.prefs.removeObserver(prefName, this);
+      } else {
+        newPrefObservers[prefName] = requestIds;
+      }
+    }
+    this._prefObservers = newPrefObservers;
   },
 
   // This method will print a list from fromIndex to toIndex, optionally
@@ -4156,7 +4161,7 @@ var BrowserEventHandler = {
       if (this._scrollableElement != null) {
         // Discard if it's the top-level scrollable, we let Java handle this
         let doc = BrowserApp.selectedBrowser.contentDocument;
-        if (this._scrollableElement != doc.body && this._scrollableElement != doc.documentElement)
+        if (this._scrollableElement != doc.documentElement)
           sendMessageToJava({ type: "Panning:Override" });
       }
     }
@@ -4243,7 +4248,6 @@ var BrowserEventHandler = {
 
           let doc = BrowserApp.selectedBrowser.contentDocument;
           if (this._scrollableElement == null ||
-              this._scrollableElement == doc.body ||
               this._scrollableElement == doc.documentElement) {
             sendMessageToJava({ type: "Panning:CancelOverride" });
             return;
@@ -4614,15 +4618,14 @@ var BrowserEventHandler = {
     let scrollable = false;
     while (elem) {
       /* Element is scrollable if its scroll-size exceeds its client size, and:
-       * - It has overflow 'auto' or 'scroll'
-       * - It's a textarea
-       * - It's an HTML/BODY node
+       * - It has overflow 'auto' or 'scroll', or
+       * - It's a textarea or HTML node, or
        * - It's a select element showing multiple rows
        */
       if (checkElem) {
         if ((elem.scrollTopMax > 0 || elem.scrollLeftMax > 0) &&
             (this._hasScrollableOverflow(elem) ||
-             elem.mozMatchesSelector("html, body, textarea")) ||
+             elem.mozMatchesSelector("html, textarea")) ||
             (elem instanceof HTMLSelectElement && (elem.size > 1 || elem.multiple))) {
           scrollable = true;
           break;
@@ -4670,14 +4673,14 @@ const ElementTouchHelper = {
   anyElementFromPoint: function(aX, aY, aWindow) {
     let win = (aWindow ? aWindow : BrowserApp.selectedBrowser.contentWindow);
     let cwu = win.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils);
-    let elem = cwu.elementFromPoint(aX, aY, false, true);
+    let elem = cwu.elementFromPoint(aX, aY, true, true);
 
     while (elem && (elem instanceof HTMLIFrameElement || elem instanceof HTMLFrameElement)) {
       let rect = elem.getBoundingClientRect();
       aX -= rect.left;
       aY -= rect.top;
       cwu = elem.contentDocument.defaultView.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils);
-      elem = cwu.elementFromPoint(aX, aY, false, true);
+      elem = cwu.elementFromPoint(aX, aY, true, true);
     }
 
     return elem;
@@ -5140,10 +5143,16 @@ var FormAssistant = {
 
       // Reset invalid submit state on each pageshow
       case "pageshow":
-        let target = aEvent.originalTarget;
-        let selectedDocument = BrowserApp.selectedBrowser.contentDocument;
-        if (target == selectedDocument || target.ownerDocument == selectedDocument)
-          this._invalidSubmit = false;
+        if (!this._invalidSubmit)
+          return;
+
+        let selectedBrowser = BrowserApp.selectedBrowser;
+        if (selectedBrowser) {
+          let selectedDocument = selectedBrowser.contentDocument;
+          let target = aEvent.originalTarget;
+          if (target == selectedDocument || target.ownerDocument == selectedDocument)
+            this._invalidSubmit = false;
+        }
     }
   },
 
@@ -6535,6 +6544,13 @@ var SearchEngines = {
         prompted: Services.prefs.getBoolPref(this.PREF_SUGGEST_PROMPTED)
       }
     });
+
+    // Send a speculative connection to the default engine.
+    let connector = Services.io.QueryInterface(Ci.nsISpeculativeConnect);
+    let searchURI = Services.search.defaultEngine.getSubmission("dummy").uri;
+    let callbacks = window.QueryInterface(Ci.nsIInterfaceRequestor)
+                          .getInterface(Ci.nsIWebNavigation).QueryInterface(Ci.nsILoadContext);
+    connector.speculativeConnect(searchURI, callbacks);
   },
 
   _handleSearchEnginesGetAll: function _handleSearchEnginesGetAll(rv) {

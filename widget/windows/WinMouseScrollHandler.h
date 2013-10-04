@@ -10,18 +10,17 @@
 #include "nscore.h"
 #include "nsDebug.h"
 #include "mozilla/Assertions.h"
+#include "mozilla/EventForwards.h"
 #include "mozilla/TimeStamp.h"
 #include <windows.h>
 
 class nsWindowBase;
-class nsGUIEvent;
 struct nsIntPoint;
 
 namespace mozilla {
 namespace widget {
 
 class ModifierKeyState;
-class WheelEvent;
 
 struct MSGResult;
 
@@ -32,6 +31,7 @@ public:
   static void Initialize();
   static void Shutdown();
 
+  static bool NeedsMessage(UINT aMsg);
   static bool ProcessMessage(nsWindowBase* aWidget,
                              UINT msg,
                              WPARAM wParam,
@@ -72,14 +72,14 @@ private:
    *
    * @return TRUE if the event was consumed.  Otherwise, FALSE.
    */
-  static bool DispatchEvent(nsWindowBase* aWidget, nsGUIEvent& aEvent);
+  static bool DispatchEvent(nsWindowBase* aWidget, WidgetGUIEvent& aEvent);
 
   /**
    * InitEvent() initializes the aEvent.  If aPoint is null, the result of
    * GetCurrentMessagePos() will be used.
    */
   static void InitEvent(nsWindowBase* aWidget,
-                        nsGUIEvent& aEvent,
+                        WidgetGUIEvent& aEvent,
                         nsIntPoint* aPoint = nullptr);
 
   /**

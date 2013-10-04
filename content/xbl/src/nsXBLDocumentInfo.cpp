@@ -39,8 +39,6 @@ using namespace mozilla;
 
 static const char kXBLCachePrefix[] = "xblcache";
 
-static NS_DEFINE_CID(kDOMScriptObjectFactoryCID, NS_DOM_SCRIPT_OBJECT_FACTORY_CID);
-
 class nsXBLDocGlobalObject : public nsISupports
 {
 public:
@@ -60,7 +58,7 @@ public:
 
   void ClearGlobalObjectOwner();
 
-  static JSClass gSharedGlobalClass;
+  static const JSClass gSharedGlobalClass;
 
 protected:
   virtual ~nsXBLDocGlobalObject();
@@ -151,7 +149,7 @@ nsXBLDocGlobalObject_resolve(JSContext *cx, JS::Handle<JSObject*> obj, JS::Handl
 }
 
 
-JSClass nsXBLDocGlobalObject::gSharedGlobalClass = {
+const JSClass nsXBLDocGlobalObject::gSharedGlobalClass = {
     "nsXBLPrototypeScript compilation scope",
     JSCLASS_HAS_PRIVATE | JSCLASS_PRIVATE_IS_NSISUPPORTS |
     JSCLASS_IMPLEMENTS_BARRIERS | JSCLASS_GLOBAL_FLAGS_WITH_SLOTS(0),
@@ -213,7 +211,9 @@ nsXBLDocGlobalObject::ClearGlobalObjectOwner()
 void
 nsXBLDocGlobalObject::UnmarkCompilationGlobal()
 {
-  xpc_UnmarkGrayObject(mJSObject);
+  if (mJSObject) {
+    JS::ExposeObjectToActiveJS(mJSObject);
+  }
 }
 
 JSObject *
@@ -357,7 +357,7 @@ NS_IMPL_CYCLE_COLLECTION_TRACE_END
 static void
 UnmarkXBLJSObject(void* aP, const char* aName, void* aClosure)
 {
-  xpc_UnmarkGrayObject(static_cast<JSObject*>(aP));
+  JS::ExposeObjectToActiveJS(static_cast<JSObject*>(aP));
 }
 
 static bool

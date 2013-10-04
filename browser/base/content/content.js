@@ -16,6 +16,11 @@ XPCOMUtils.defineLazyModuleGetter(this,
 XPCOMUtils.defineLazyModuleGetter(this, "PrivateBrowsingUtils",
   "resource://gre/modules/PrivateBrowsingUtils.jsm");
 
+// Creates a new nsIURI object.
+function makeURI(uri, originCharset, baseURI) {
+  return Services.io.newURI(uri, originCharset, baseURI);
+}
+
 addMessageListener("Browser:HideSessionRestoreButton", function (message) {
   // Hide session restore button on about:home
   let doc = content.document;
@@ -48,8 +53,7 @@ if (Services.prefs.getBoolPref("browser.tabs.remote")) {
 
 let AboutHomeListener = {
   init: function(chromeGlobal) {
-    let self = this;
-    chromeGlobal.addEventListener('AboutHomeLoad', function(e) { self.onPageLoad(); }, false, true);
+    chromeGlobal.addEventListener('AboutHomeLoad', () => this.onPageLoad(), false, true);
   },
 
   handleEvent: function(aEvent) {
@@ -169,8 +173,14 @@ let AboutHomeListener = {
 };
 AboutHomeListener.init(this);
 
-
 var global = this;
+
+// Lazily load the finder code
+addMessageListener("Finder:Initialize", function () {
+  let {RemoteFinderListener} = Cu.import("resource://gre/modules/RemoteFinder.jsm", {});
+  new RemoteFinderListener(global);
+});
+
 
 let ClickEventHandler = {
   init: function init() {
@@ -232,11 +242,6 @@ let ClickEventHandler = {
               aNode instanceof content.HTMLLinkElement);
     }
 
-    function makeURLAbsolute(aBase, aUrl) {
-      // Note:  makeURI() will throw if aUri is not a valid URI
-      return makeURI(aUrl, null, makeURI(aBase)).spec;
-    }
-
     let node = event.target;
     while (node && !isHTMLLink(node)) {
       node = node.parentNode;
@@ -252,14 +257,15 @@ let ClickEventHandler = {
       if (node.nodeType == content.Node.ELEMENT_NODE) {
         href = node.getAttributeNS("http://www.w3.org/1999/xlink", "href");
         if (href)
-          baseURI = node.baseURI;
+          baseURI = node.ownerDocument.baseURIObject;
       }
       node = node.parentNode;
     }
 
     // In case of XLink, we don't return the node we got href from since
     // callers expect <a>-like elements.
-    return [href ? makeURLAbsolute(baseURI, href) : null, null];
+    // Note: makeURI() will throw if aUri is not a valid URI.
+    return [href ? makeURI(href, null, baseURI).spec : null, null];
   }
 };
 ClickEventHandler.init();

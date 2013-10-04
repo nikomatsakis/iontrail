@@ -18,14 +18,15 @@
 #include "nsISeekableStream.h"
 #include "nsITimedChannel.h"
 #include "nsIEncodedChannel.h"
-#include "nsIResumableChannel.h"
 #include "nsIApplicationCacheChannel.h"
-#include "nsILoadContext.h"
 #include "nsEscape.h"
 #include "nsStreamListenerWrapper.h"
 #include "nsISecurityConsoleMessage.h"
+#include "nsURLHelper.h"
+#include "nsICookieService.h"
+#include "nsIStreamConverterService.h"
+#include "nsCRT.h"
 
-#include "prnetdb.h"
 #include <algorithm>
 
 namespace mozilla {
@@ -87,9 +88,6 @@ HttpBaseChannel::Init(nsIURI *aURI,
 
   NS_PRECONDITION(aURI, "null uri");
 
-  nsresult rv = nsHashPropertyBag::Init();
-  if (NS_FAILED(rv)) return rv;
-
   mURI = aURI;
   mOriginalURI = aURI;
   mDocumentURI = nullptr;
@@ -102,7 +100,7 @@ HttpBaseChannel::Init(nsIURI *aURI,
   int32_t port = -1;
   bool usingSSL = false;
 
-  rv = mURI->SchemeIs("https", &usingSSL);
+  nsresult rv = mURI->SchemeIs("https", &usingSSL);
   if (NS_FAILED(rv)) return rv;
 
   rv = mURI->GetAsciiHost(host);

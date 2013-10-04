@@ -177,12 +177,8 @@ nsDOMEventTargetHelper::AddEventListener(const nsAString& aType,
                "explicit by making aOptionalArgc non-zero.");
 
   if (aOptionalArgc < 2) {
-    nsresult rv;
-    nsIScriptContext* context = GetContextForEventHandlers(&rv);
+    nsresult rv = WantsUntrusted(&aWantsUntrusted);
     NS_ENSURE_SUCCESS(rv, rv);
-    nsCOMPtr<nsIDocument> doc =
-      nsContentUtils::GetDocumentFromScriptContext(context);
-    aWantsUntrusted = doc && !nsContentUtils::IsChromeDoc(doc);
   }
 
   nsEventListenerManager* elm = GetListenerManager(true);
@@ -193,22 +189,18 @@ nsDOMEventTargetHelper::AddEventListener(const nsAString& aType,
 
 void
 nsDOMEventTargetHelper::AddEventListener(const nsAString& aType,
-                                         nsIDOMEventListener* aListener,
+                                         EventListener* aListener,
                                          bool aUseCapture,
                                          const Nullable<bool>& aWantsUntrusted,
                                          ErrorResult& aRv)
 {
   bool wantsUntrusted;
   if (aWantsUntrusted.IsNull()) {
-    nsresult rv;
-    nsIScriptContext* context = GetContextForEventHandlers(&rv);
+    nsresult rv = WantsUntrusted(&wantsUntrusted);
     if (NS_FAILED(rv)) {
       aRv.Throw(rv);
       return;
     }
-    nsCOMPtr<nsIDocument> doc =
-      nsContentUtils::GetDocumentFromScriptContext(context);
-    wantsUntrusted = doc && !nsContentUtils::IsChromeDoc(doc);
   } else {
     wantsUntrusted = aWantsUntrusted.Value();
   }
@@ -234,12 +226,8 @@ nsDOMEventTargetHelper::AddSystemEventListener(const nsAString& aType,
                "explicit by making aOptionalArgc non-zero.");
 
   if (aOptionalArgc < 2) {
-    nsresult rv;
-    nsIScriptContext* context = GetContextForEventHandlers(&rv);
+    nsresult rv = WantsUntrusted(&aWantsUntrusted);
     NS_ENSURE_SUCCESS(rv, rv);
-    nsCOMPtr<nsIDocument> doc =
-      nsContentUtils::GetDocumentFromScriptContext(context);
-    aWantsUntrusted = doc && !nsContentUtils::IsChromeDoc(doc);
   }
 
   return NS_AddSystemEventListener(this, aType, aListener, aUseCapture,
@@ -288,9 +276,8 @@ nsDOMEventTargetHelper::SetEventHandler(nsIAtom* aType,
       JS_ObjectIsCallable(aCx, callable = &aValue.toObject())) {
     handler = new EventHandlerNonNull(callable);
   }
-  ErrorResult rv;
-  SetEventHandler(aType, EmptyString(), handler, rv);
-  return rv.ErrorCode();
+  SetEventHandler(aType, EmptyString(), handler);
+  return NS_OK;
 }
 
 void
@@ -321,7 +308,7 @@ nsDOMEventTargetHelper::PostHandleEvent(nsEventChainPostVisitor& aVisitor)
 }
 
 nsresult
-nsDOMEventTargetHelper::DispatchDOMEvent(nsEvent* aEvent,
+nsDOMEventTargetHelper::DispatchDOMEvent(WidgetEvent* aEvent,
                                          nsIDOMEvent* aDOMEvent,
                                          nsPresContext* aPresContext,
                                          nsEventStatus* aEventStatus)
@@ -353,3 +340,15 @@ nsDOMEventTargetHelper::GetContextForEventHandlers(nsresult* aRv)
                : nullptr;
 }
 
+nsresult
+nsDOMEventTargetHelper::WantsUntrusted(bool* aRetVal)
+{
+  nsresult rv;
+  nsIScriptContext* context = GetContextForEventHandlers(&rv);
+  NS_ENSURE_SUCCESS(rv, rv);
+  nsCOMPtr<nsIDocument> doc =
+    nsContentUtils::GetDocumentFromScriptContext(context);
+  // We can let listeners on workers to always handle all the events.
+  *aRetVal = (doc && !nsContentUtils::IsChromeDoc(doc)) || !NS_IsMainThread();
+  return rv;
+}

@@ -23,21 +23,14 @@
 #include "jsapi.h"
 #include "nsCOMPtr.h"
 #include "nsAutoPtr.h"
-#include "nsICategoryManager.h"
 #include "nsIComponentManager.h"
 #include "mozilla/Module.h"
 #include "nsIFile.h"
-#include "nsIServiceManager.h"
-#include "nsISupports.h"
 #include "mozJSComponentLoader.h"
 #include "mozJSLoaderUtils.h"
 #include "nsIJSRuntimeService.h"
 #include "nsIXPConnect.h"
-#include "nsCRT.h"
-#include "nsMemory.h"
 #include "nsIObserverService.h"
-#include "nsIXPCScriptable.h"
-#include "nsString.h"
 #include "nsIScriptSecurityManager.h"
 #include "nsIURI.h"
 #include "nsIFileURL.h"
@@ -46,24 +39,14 @@
 #include "nsDOMBlobBuilder.h"
 #include "jsprf.h"
 #include "nsJSPrincipals.h"
-// For reporting errors with the console service
-#include "nsIScriptError.h"
-#include "nsIConsoleService.h"
-#include "nsIStorageStream.h"
-#include "nsIStringStream.h"
-#if defined(XP_WIN)
-#include "nsILocalFileWin.h"
-#endif
 #include "xpcprivate.h"
 #include "xpcpublic.h"
-#include "nsIResProtocolHandler.h"
 #include "nsContentUtils.h"
 #include "nsCxPusher.h"
 #include "WrapperFactory.h"
 
 #include "mozilla/scache/StartupCache.h"
 #include "mozilla/scache/StartupCacheUtils.h"
-#include "mozilla/Omnijar.h"
 #include "mozilla/Preferences.h"
 
 #include "js/OldDebugAPI.h"
@@ -76,7 +59,7 @@ using namespace JS;
 // This JSClass exists to trick silly code that expects toString()ing the
 // global in a component scope to return something with "BackstagePass" in it
 // to continue working.
-static JSClass kFakeBackstagePassJSClass =
+static const JSClass kFakeBackstagePassJSClass =
 {
     "FakeBackstagePass",
     0,
@@ -160,24 +143,6 @@ Debug(JSContext *cx, unsigned argc, jsval *vp)
 #else
     return true;
 #endif
-}
-
-static bool
-Atob(JSContext *cx, unsigned argc, jsval *vp)
-{
-    if (!argc)
-        return true;
-
-    return xpc::Base64Decode(cx, JS_ARGV(cx, vp)[0], &JS_RVAL(cx, vp));
-}
-
-static bool
-Btoa(JSContext *cx, unsigned argc, jsval *vp)
-{
-    if (!argc)
-        return true;
-
-    return xpc::Base64Encode(cx, JS_ARGV(cx, vp)[0], &JS_RVAL(cx, vp));
 }
 
 static bool
@@ -343,6 +308,10 @@ ReportOnCaller(JSCLContextHelper &helper,
 mozJSComponentLoader::mozJSComponentLoader()
     : mRuntime(nullptr),
       mContext(nullptr),
+      mModules(32),
+      mImports(32),
+      mInProgressImports(32),
+      mThisObjects(32),
       mInitialized(false),
       mReuseLoaderGlobal(false)
 {
@@ -412,11 +381,6 @@ mozJSComponentLoader::ReallyInit()
     rv = secman->GetSystemPrincipal(getter_AddRefs(mSystemPrincipal));
     if (NS_FAILED(rv) || !mSystemPrincipal)
         return NS_ERROR_FAILURE;
-
-    mModules.Init(32);
-    mImports.Init(32);
-    mInProgressImports.Init(32);
-    mThisObjects.Init(32);
 
     nsCOMPtr<nsIObserverService> obsSvc =
         do_GetService(kObserverServiceContractID, &rv);
@@ -531,7 +495,7 @@ mozJSComponentLoader::LoadModule(FileLocation &aFile)
     }
 
     RootedObject jsGetFactoryObj(cx);
-    if (!JS_ValueToObject(cx, NSGetFactory_val, jsGetFactoryObj.address()) ||
+    if (!JS_ValueToObject(cx, NSGetFactory_val, &jsGetFactoryObj) ||
         !jsGetFactoryObj) {
         /* XXX report error properly */
         return NULL;
@@ -794,8 +758,7 @@ mozJSComponentLoader::ObjectForLocation(nsIFile *aComponentFile,
 
     if (cache) {
         if (!mReuseLoaderGlobal) {
-            rv = ReadCachedScript(cache, cachePath, cx, mSystemPrincipal,
-                                  script.address());
+            rv = ReadCachedScript(cache, cachePath, cx, mSystemPrincipal, &script);
         } else {
             rv = ReadCachedFunction(cache, cachePath, cx, mSystemPrincipal,
                                     function.address());
@@ -985,7 +948,7 @@ mozJSComponentLoader::ObjectForLocation(nsIFile *aComponentFile,
         // exception on this context.
         JS_SetOptions(cx, oldopts);
         if (!script && !function && aPropagateExceptions) {
-            JS_GetPendingException(cx, aException.address());
+            JS_GetPendingException(cx, aException);
             JS_ClearPendingException(cx);
         }
     }
@@ -1038,7 +1001,7 @@ mozJSComponentLoader::ObjectForLocation(nsIFile *aComponentFile,
 
     if (!ok) {
         if (aPropagateExceptions) {
-            JS_GetPendingException(cx, aException.address());
+            JS_GetPendingException(cx, aException);
             JS_ClearPendingException(cx);
         }
         *aObject = nullptr;

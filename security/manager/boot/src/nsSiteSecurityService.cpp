@@ -14,7 +14,7 @@
 #include "nsIURI.h"
 #include "nsNetUtil.h"
 #include "nsThreadUtils.h"
-#include "nsStringGlue.h"
+#include "nsString.h"
 #include "nsIScriptSecurityManager.h"
 #include "nsISocketProvider.h"
 #include "mozilla/Preferences.h"
@@ -97,8 +97,6 @@ nsSiteSecurityService::Init()
    mObserverService = mozilla::services::GetObserverService();
    if (mObserverService)
      mObserverService->AddObserver(this, "last-pb-context-exited", false);
-
-   mPrivateModeHostTable.Init();
 
    return NS_OK;
 }

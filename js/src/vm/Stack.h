@@ -236,7 +236,22 @@ class StackFrame
 
         /* Frame subtypes */
         EVAL               =        0x4,  /* frame pushed for eval() or debugger eval */
-        DEBUGGER           =        0x8,  /* frame pushed for debugger eval */
+
+
+        /*
+         * Frame pushed for debugger eval.
+         * - Don't bother to JIT it, because it's probably short-lived.
+         * - It is required to have a scope chain object outside the
+         *   js::ScopeObject hierarchy: either a global object, or a
+         *   DebugScopeObject (not a ScopeObject, despite the name)
+         * - If evalInFramePrev_ is set, then this frame was created for an
+         *   "eval in frame" call, which can push a successor to any live
+         *   frame; so its logical "prev" frame is not necessarily the
+         *   previous frame in memory. Iteration should treat
+         *   evalInFramePrev_ as this frame's previous frame.
+         */
+        DEBUGGER           =        0x8,
+
         GENERATOR          =       0x10,  /* frame is associated with a generator */
         CONSTRUCTING       =       0x20,  /* frame is for a constructor invocation */
 
@@ -294,15 +309,22 @@ class StackFrame
     ArgumentsObject     *argsObj_;      /* if HAS_ARGS_OBJ, the call's arguments object */
 
     /*
-     * Previous frame and its pc and sp. Always NULL for InterpreterActivation's
-     * entry frame, always non-NULL for inline frames.
+     * Previous frame and its pc and sp. Always nullptr for
+     * InterpreterActivation's entry frame, always non-nullptr for inline
+     * frames.
      */
     StackFrame          *prev_;
     jsbytecode          *prevpc_;
     Value               *prevsp_;
 
     void                *hookData_;     /* if HAS_HOOK_DATA, closure returned by call hook */
-    AbstractFramePtr    evalInFramePrev_; /* for an eval/debugger frame, the prev frame */
+
+    /*
+     * For an eval-in-frame DEBUGGER frame, the frame in whose scope we're
+     * evaluating code. Iteration treats this as our previous frame.
+     */
+    AbstractFramePtr    evalInFramePrev_;
+
     Value               *argv_;         /* If hasArgs(), points to frame's arguments. */
     LifoAlloc::Mark     mark_;          /* Used to release memory for this frame. */
 
@@ -551,7 +573,7 @@ class StackFrame
     }
 
     StaticBlockObject *maybeBlockChain() {
-        return (flags_ & HAS_BLOCKCHAIN) ? blockChain_ : NULL;
+        return (flags_ & HAS_BLOCKCHAIN) ? blockChain_ : nullptr;
     }
 
     StaticBlockObject &blockChain() const {
@@ -621,7 +643,7 @@ class StackFrame
     }
 
     JSFunction* maybeFun() const {
-        return isFunctionFrame() ? fun() : NULL;
+        return isFunctionFrame() ? fun() : nullptr;
     }
 
     /*
@@ -714,7 +736,7 @@ class StackFrame
     }
 
     void* maybeHookData() const {
-        return hasHookData() ? hookData_ : NULL;
+        return hasHookData() ? hookData_ : nullptr;
     }
 
     void setHookData(void *v) {
@@ -923,8 +945,12 @@ class StackFrame
         return offsetof(StackFrame, scopeChain_);
     }
 
+    static size_t offsetOfArgumentsObject() {
+        return offsetof(StackFrame, argsObj_);
+    }
+
     static ptrdiff_t offsetOfThis(JSFunction *fun) {
-        return fun == NULL
+        return fun == nullptr
                ? -1 * ptrdiff_t(sizeof(Value))
                : -(fun->nargs + 1) * ptrdiff_t(sizeof(Value));
     }
@@ -1037,7 +1063,7 @@ class InterpreterStack
     friend class FrameGuard;
     friend class InterpreterActivation;
 
-    const static size_t DEFAULT_CHUNK_SIZE = 4 * 1024;
+    static const size_t DEFAULT_CHUNK_SIZE = 4 * 1024;
     LifoAlloc allocator_;
 
     // Number of interpreter frames on the stack, for over-recursion checks.
@@ -1285,7 +1311,7 @@ class ActivationIterator
         return jitTop_;
     }
     bool done() const {
-        return activation_ == NULL;
+        return activation_ == nullptr;
     }
 };
 
@@ -1377,9 +1403,9 @@ class InterpreterFrameIterator
   public:
     explicit InterpreterFrameIterator(InterpreterActivation *activation)
       : activation_(activation),
-        fp_(NULL),
-        pc_(NULL),
-        sp_(NULL)
+        fp_(nullptr),
+        pc_(nullptr),
+        sp_(nullptr)
     {
         if (activation) {
             fp_ = activation->current();
@@ -1404,7 +1430,7 @@ class InterpreterFrameIterator
     InterpreterFrameIterator &operator++();
 
     bool done() const {
-        return fp_ == NULL;
+        return fp_ == nullptr;
     }
 };
 
@@ -1498,7 +1524,7 @@ class ScriptFrameIter
             return ionInlineFrames_.script();
         return data_.ionFrames_.script();
 #else
-        return NULL;
+        return nullptr;
 #endif
     }
     bool isJit() const {
@@ -1568,7 +1594,7 @@ class ScriptFrameIter
     void        setReturnValue(const Value &v);
 
     JSFunction *maybeCallee() const {
-        return isFunctionFrame() ? callee() : NULL;
+        return isFunctionFrame() ? callee() : nullptr;
     }
 
     // These are only valid for the top frame.

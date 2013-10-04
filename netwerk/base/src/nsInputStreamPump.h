@@ -7,23 +7,22 @@
 #define nsInputStreamPump_h__
 
 #include "nsIInputStreamPump.h"
-#include "nsIInputStream.h"
-#include "nsIURI.h"
-#include "nsILoadGroup.h"
-#include "nsIStreamListener.h"
-#include "nsIInterfaceRequestor.h"
-#include "nsIProgressEventSink.h"
 #include "nsIAsyncInputStream.h"
-#include "nsIThread.h"
 #include "nsIThreadRetargetableRequest.h"
 #include "nsCOMPtr.h"
 #include "mozilla/Attributes.h"
+#include "mozilla/ReentrantMonitor.h"
+
+class nsIInputStream;
+class nsILoadGroup;
+class nsIStreamListener;
 
 class nsInputStreamPump MOZ_FINAL : public nsIInputStreamPump
                                   , public nsIInputStreamCallback
                                   , public nsIThreadRetargetableRequest
 {
 public:
+    typedef mozilla::ReentrantMonitorAutoEnter ReentrantMonitorAutoEnter;
     NS_DECL_THREADSAFE_ISUPPORTS
     NS_DECL_NSIREQUEST
     NS_DECL_NSIINPUTSTREAMPUMP
@@ -57,18 +56,10 @@ public:
     NS_HIDDEN_(nsresult) PeekStream(PeekSegmentFun callback, void *closure);
 
     /**
-     * Called on the main thread to clean up member variables. Called directly
-     * from OnStateStop if on the main thread, or dispatching to the main
-     * thread if not. Must be called on the main thread to serialize member
-     * variable deletion with calls to Cancel.
+     * Dispatched (to the main thread) by OnStateStop if it's called off main
+     * thread. Updates mState based on return value of OnStateStop.
      */
-    void OnStateStopCleanup();
-
-    /**
-     * Called on the main thread if EnsureWaiting fails, so that we always call
-     * OnStopRequest on main thread.
-     */
-    nsresult OnStateStopForFailure();
+    nsresult CallOnStateStop();
 
 protected:
 
@@ -99,9 +90,15 @@ protected:
     uint32_t                      mSuspendCount;
     uint32_t                      mLoadFlags;
     bool                          mIsPending;
-    bool                          mWaiting; // true if waiting on async source
+    // True while in OnInputStreamReady, calling OnStateStart, OnStateTransfer
+    // and OnStateStop. Used to prevent calls to AsyncWait during callbacks.
+    bool                          mProcessingCallbacks;
+    // True if waiting on the "input stream ready" callback.
+    bool                          mWaitingForInputStreamReady;
     bool                          mCloseWhenDone;
     bool                          mRetargeting;
+    // Protects state/member var accesses across multiple threads.
+    mozilla::ReentrantMonitor     mMonitor;
 };
 
 #endif // !nsInputStreamChannel_h__

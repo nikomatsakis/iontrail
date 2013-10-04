@@ -165,12 +165,6 @@ public:
     kIceFailed
   };
 
-  enum Role {
-    kRoleUnknown,
-    kRoleOfferer,
-    kRoleAnswerer
-  };
-
   enum Error {
     kNoError                          = 0,
     kInvalidConstraintsType           = 1,
@@ -194,11 +188,6 @@ public:
     const JS::Value& aConstraints, MediaConstraints* aObj, JSContext* aCx);
   static already_AddRefed<DOMMediaStream> MakeMediaStream(nsPIDOMWindow* aWindow,
                                                           uint32_t aHint);
-
-  Role GetRole() const {
-    PC_AUTO_ENTER_API_CALL_NO_CHECK();
-    return mRole;
-  }
 
   nsresult CreateRemoteSourceStreamInfo(nsRefPtr<RemoteSourceStreamInfo>* aInfo);
 
@@ -339,9 +328,6 @@ private:
   // any other attributes of this class.
   Timecard *mTimeCard;
 
-  // The role we are adopting
-  Role mRole;
-
   // The call
   CSF::CC_CallPtr mCall;
   ReadyState mReadyState;
@@ -399,6 +385,8 @@ private:
 
   // Holder for error messages from parsing SDP
   std::vector<std::string> mSDPParseErrorMessages;
+
+  bool mTrickle;
 
 public:
   //these are temporary until the DataChannel Listen/Connect API is removed

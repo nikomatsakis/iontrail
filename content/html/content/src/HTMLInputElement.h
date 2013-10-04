@@ -11,14 +11,13 @@
 #include "nsImageLoadingContent.h"
 #include "nsIDOMHTMLInputElement.h"
 #include "nsITextControlElement.h"
+#include "nsITimer.h"
 #include "nsIPhonetic.h"
 #include "nsIDOMNSEditableElement.h"
-#include "nsTextEditorState.h"
 #include "nsCOMPtr.h"
 #include "nsIConstraintValidation.h"
-#include "nsDOMFile.h"
-#include "mozilla/dom/HTMLFormElement.h" // for ShouldShowInvalidUI()
-#include "nsIFile.h"
+#include "mozilla/dom/HTMLFormElement.h" // for HasEverTriedInvalidSubmit()
+#include "mozilla/dom/HTMLInputElementBinding.h"
 #include "nsIFilePicker.h"
 #include "nsIContentPrefService2.h"
 #include "mozilla/Decimal.h"
@@ -27,6 +26,7 @@ class nsDOMFileList;
 class nsIRadioGroupContainer;
 class nsIRadioGroupVisitor;
 class nsIRadioVisitor;
+class nsTextEditorState;
 
 namespace mozilla {
 namespace dom {
@@ -84,6 +84,7 @@ class HTMLInputElement MOZ_FINAL : public nsGenericHTMLFormElementWithState,
                                    public nsITextControlElement,
                                    public nsIPhonetic,
                                    public nsIDOMNSEditableElement,
+                                   public nsITimerCallback,
                                    public nsIConstraintValidation
 {
 public:
@@ -146,8 +147,8 @@ public:
   virtual nsresult PreHandleEvent(nsEventChainPreVisitor& aVisitor) MOZ_OVERRIDE;
   virtual nsresult PostHandleEvent(nsEventChainPostVisitor& aVisitor) MOZ_OVERRIDE;
   void PostHandleEventForRangeThumb(nsEventChainPostVisitor& aVisitor);
-  void StartRangeThumbDrag(nsGUIEvent* aEvent);
-  void FinishRangeThumbDrag(nsGUIEvent* aEvent = nullptr);
+  void StartRangeThumbDrag(WidgetGUIEvent* aEvent);
+  void FinishRangeThumbDrag(WidgetGUIEvent* aEvent = nullptr);
   void CancelRangeThumbDrag(bool aIsForUserEvent = true);
   void SetValueOfRangeForUserEvent(Decimal aValue);
 
@@ -226,6 +227,14 @@ public:
   static void DestroyUploadLastDir();
 
   void MaybeLoadImage();
+
+  // nsITimerCallback
+  NS_DECL_NSITIMERCALLBACK
+
+  // Avoid warning about the implementation of nsITimerCallback::Notify hiding
+  // our nsImageLoadingContent base class' implementation of
+  // imgINotificationObserver::Notify:
+  using nsImageLoadingContent::Notify;
 
   // nsIConstraintValidation
   bool     IsTooLong();
@@ -393,6 +402,17 @@ public:
   nsDOMFileList* GetFiles();
 
   void OpenDirectoryPicker(ErrorResult& aRv);
+
+  void ResetProgressCounters()
+  {
+    mFileListProgress = 0;
+    mLastFileListProgress = 0;
+  }
+  void StartProgressEventTimer();
+  void MaybeDispatchProgressEvent(bool aFinalProgress);
+  void DispatchProgressEvent(const nsAString& aType,
+                             bool aLengthComputable,
+                             uint64_t aLoaded, uint64_t aTotal);
 
   // XPCOM GetFormAction() is OK
   void SetFormAction(const nsAString& aValue, ErrorResult& aRv)
@@ -622,6 +642,13 @@ public:
                          const Optional< nsAString >& direction,
                          ErrorResult& aRv);
 
+  void SetRangeText(const nsAString& aReplacement, ErrorResult& aRv);
+
+  void SetRangeText(const nsAString& aReplacement, uint32_t aStart,
+                    uint32_t aEnd, const SelectionMode& aSelectMode,
+                    ErrorResult& aRv, int32_t aSelectionStart = -1,
+                    int32_t aSelectionEnd = -1);
+
   // XPCOM GetAlign() is OK
   void SetAlign(const nsAString& aValue, ErrorResult& aRv)
   {
@@ -649,6 +676,13 @@ public:
   // XPCOM SetUserInput() is OK
 
   // XPCOM GetPhonetic() is OK
+
+  void SetFileListProgress(uint32_t mFileCount)
+  {
+    MOZ_ASSERT(!NS_IsMainThread(),
+               "Why are we calling this on the main thread?");
+    mFileListProgress = mFileCount;
+  }
 
 protected:
   virtual JSObject* WrapNode(JSContext* aCx,
@@ -734,10 +768,7 @@ protected:
    */
   bool IsValueEmpty() const;
 
-  void ClearFiles(bool aSetValueChanged) {
-    nsTArray<nsCOMPtr<nsIDOMFile> > files;
-    SetFiles(files, aSetValueChanged);
-  }
+  void ClearFiles(bool aSetValueChanged);
 
   void SetIndeterminateInternal(bool aValue,
                                 bool aShouldInvalidate);
@@ -1149,6 +1180,13 @@ protected:
    */
   Decimal mRangeThumbDragStartValue;
 
+  /**
+   * Timer that is used when mType == NS_FORM_INPUT_FILE and the user selects a
+   * directory. It is used to fire progress events while the list of files
+   * under that directory tree is built.
+   */
+  nsCOMPtr<nsITimer> mProgressTimer;
+
   // Step scale factor values, for input types that have one.
   static const Decimal kStepScaleFactorDate;
   static const Decimal kStepScaleFactorNumberRange;
@@ -1163,6 +1201,19 @@ protected:
 
   // Float value returned by GetStep() when the step attribute is set to 'any'.
   static const Decimal kStepAny;
+
+  /**
+   * The number of files added to the FileList being built off-main-thread when
+   * mType == NS_FORM_INPUT_FILE and the user selects a directory. This is set
+   * off the main thread, read on main thread.
+   */
+  mozilla::Atomic<uint32_t> mFileListProgress;
+
+  /**
+   * The number of files added to the FileList at the time the last progress
+   * event was fired.
+   */
+  uint32_t mLastFileListProgress;
 
   /**
    * The type of this input (<input type=...>) as an integer.
@@ -1184,6 +1235,7 @@ protected:
   bool                     mCanShowInvalidUI    : 1;
   bool                     mHasRange            : 1;
   bool                     mIsDraggingRange     : 1;
+  bool                     mProgressTimerIsActive : 1;
 
 private:
 
@@ -1193,6 +1245,15 @@ private:
    */
   bool MayFireChangeOnBlur() const {
     return MayFireChangeOnBlur(mType);
+  }
+
+  /**
+   * Returns true if setRangeText can be called on element
+   */
+  bool SupportsSetRangeText() const {
+    return mType == NS_FORM_INPUT_TEXT || mType == NS_FORM_INPUT_SEARCH ||
+           mType == NS_FORM_INPUT_URL || mType == NS_FORM_INPUT_TEL ||
+           mType == NS_FORM_INPUT_PASSWORD;
   }
 
   static bool MayFireChangeOnBlur(uint8_t aType) {

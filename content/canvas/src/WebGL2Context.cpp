@@ -6,7 +6,7 @@
 #include "WebGL2Context.h"
 #include "GLContext.h"
 #include "mozilla/dom/WebGL2RenderingContextBinding.h"
-
+#include "mozilla/Preferences.h"
 #include "mozilla/Telemetry.h"
 
 using namespace mozilla;
@@ -74,6 +74,7 @@ WebGLContext::InitWebGL2()
     };
     const GLFeature::Enum sFeatureRequiredArr[] = {
         GLFeature::blend_minmax,
+        GLFeature::instanced_non_arrays,
         GLFeature::transform_feedback
     };
 

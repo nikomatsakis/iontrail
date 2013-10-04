@@ -25,6 +25,7 @@
 #include "GLContextTypes.h"
 #include "mozilla/Mutex.h"
 #include "nsRegion.h"
+#include "mozilla/MouseEvents.h"
 
 #include "nsString.h"
 #include "nsIDragService.h"
@@ -288,7 +289,7 @@ typedef NSInteger NSEventGestureAxis;
 
 #ifdef __LP64__
   // Support for fluid swipe tracking.
-  void (^mCancelSwipeAnimation)();
+  BOOL* mCancelSwipeAnimation;
 #endif
 
   // Whether this uses off-main-thread compositing.
@@ -319,7 +320,7 @@ typedef NSInteger NSEventGestureAxis;
 
 - (void)sendMouseEnterOrExitEvent:(NSEvent*)aEvent
                             enter:(BOOL)aEnter
-                             type:(nsMouseEvent::exitType)aType;
+                             type:(mozilla::WidgetMouseEvent::exitType)aType;
 
 - (void)update;
 - (void)lockFocus;
@@ -377,9 +378,14 @@ public:
                                  ChildView* aView, BOOL isClickThrough = NO);
   static void MouseExitedWindow(NSEvent* aEvent);
   static void MouseEnteredWindow(NSEvent* aEvent);
-  static void ReEvaluateMouseEnterState(NSEvent* aEvent = nil);
+  static void ReEvaluateMouseEnterState(NSEvent* aEvent = nil, ChildView* aOldView = nil);
   static void ResendLastMouseMoveEvent();
   static ChildView* ViewForEvent(NSEvent* aEvent);
+  static void AttachPluginEvent(mozilla::WidgetMouseEventBase& aMouseEvent,
+                                ChildView* aView,
+                                NSEvent* aNativeMouseEvent,
+                                int aPluginEventType,
+                                void* aPluginEventHolder);
 
   static ChildView* sLastMouseEventView;
   static NSEvent* sLastMouseMoveEvent;
@@ -460,7 +466,8 @@ public:
 
   static  bool            ConvertStatus(nsEventStatus aStatus)
                           { return aStatus == nsEventStatus_eConsumeNoDefault; }
-  NS_IMETHOD              DispatchEvent(nsGUIEvent* event, nsEventStatus & aStatus);
+  NS_IMETHOD              DispatchEvent(mozilla::WidgetGUIEvent* aEvent,
+                                        nsEventStatus& aStatus);
 
   virtual bool            ComputeShouldAccelerate(bool aDefault);
   virtual bool            ShouldUseOffMainThreadCompositing() MOZ_OVERRIDE;
@@ -517,7 +524,7 @@ public:
 
   // Mac specific methods
   
-  virtual bool      DispatchWindowEvent(nsGUIEvent& event);
+  virtual bool      DispatchWindowEvent(mozilla::WidgetGUIEvent& event);
 
   void WillPaintWindow();
   bool PaintWindow(nsIntRegion aRegion);

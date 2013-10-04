@@ -6,7 +6,6 @@
 #include "nsAccessibilityService.h"
 
 // NOTE: alphabetically ordered
-#include "Accessible-inl.h"
 #include "ApplicationAccessibleWrap.h"
 #include "ARIAGridAccessibleWrap.h"
 #include "ARIAMap.h"
@@ -20,13 +19,18 @@
 #include "HTMLSelectAccessible.h"
 #include "HTMLTableAccessibleWrap.h"
 #include "HyperTextAccessibleWrap.h"
+#include "RootAccessible.h"
 #include "nsAccessiblePivot.h"
 #include "nsAccUtils.h"
+#include "nsAttrName.h"
 #include "nsEventShell.h"
+#include "nsIURI.h"
 #include "OuterDocAccessible.h"
 #include "Platform.h"
 #include "Role.h"
+#ifdef MOZ_ACCESSIBILITY_ATK
 #include "RootAccessibleWrap.h"
+#endif
 #include "States.h"
 #include "Statistics.h"
 #include "TextLeafAccessibleWrap.h"
@@ -38,6 +42,7 @@
 #ifdef XP_WIN
 #include "mozilla/a11y/Compatibility.h"
 #include "HTMLWin32ObjectAccessible.h"
+#include "mozilla/StaticPtr.h"
 #endif
 
 #ifdef A11Y_LOG
@@ -48,25 +53,18 @@
 #include "nsExceptionHandler.h"
 #endif
 
-#include "nsIDOMDocument.h"
-#include "nsIDOMHTMLObjectElement.h"
-#include "nsIDOMXULElement.h"
 #include "nsImageFrame.h"
 #include "nsIObserverService.h"
 #include "nsLayoutUtils.h"
-#include "nsNPAPIPluginInstance.h"
 #include "nsObjectFrame.h"
 #include "nsSVGPathGeometryFrame.h"
 #include "nsTreeBodyFrame.h"
 #include "nsTreeColumns.h"
 #include "nsTreeUtils.h"
-#include "nsBindingManager.h"
 #include "nsXBLPrototypeBinding.h"
 #include "nsXBLBinding.h"
-#include "mozilla/dom/Element.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/Services.h"
-#include "mozilla/StaticPtr.h"
 #include "mozilla/Util.h"
 #include "nsDeckFrame.h"
 
@@ -81,6 +79,10 @@
 #include "XULSliderAccessible.h"
 #include "XULTabAccessible.h"
 #include "XULTreeGridAccessibleWrap.h"
+#endif
+
+#if defined(XP_WIN) || defined(MOZ_ACCESSIBILITY_ATK)
+#include "nsNPAPIPluginInstance.h"
 #endif
 
 using namespace mozilla;
@@ -227,6 +229,9 @@ public:
 
   NS_IMETHODIMP Notify(nsITimer* aTimer) MOZ_FINAL
   {
+    if (!mContent->IsInDoc())
+      return NS_OK;
+
     nsIPresShell* ps = mContent->OwnerDoc()->GetShell();
     if (ps) {
       DocAccessible* doc = ps->GetDocAccessible();
@@ -884,12 +889,12 @@ nsAccessibilityService::GetOrCreateAccessible(nsINode* aNode,
     }
 
     newAcc = CreateAccessibleByFrameType(frame, content, aContext);
-    if (document->BindToDocument(newAcc, nullptr)) {
-      newAcc->AsTextLeaf()->SetText(text);
-      return newAcc;
-    }
+    if (!aContext->IsAcceptableChild(newAcc))
+      return nullptr;
 
-    return nullptr;
+    document->BindToDocument(newAcc, nullptr);
+    newAcc->AsTextLeaf()->SetText(text);
+    return newAcc;
   }
 
   bool isHTML = content->IsHTML();
@@ -911,9 +916,11 @@ nsAccessibilityService::GetOrCreateAccessible(nsINode* aNode,
     }
 
     newAcc = new HyperTextAccessibleWrap(content, document);
-    if (document->BindToDocument(newAcc, aria::GetRoleMap(aNode)))
-      return newAcc;
-    return nullptr;
+    if (!aContext->IsAcceptableChild(newAcc))
+      return nullptr;
+
+    document->BindToDocument(newAcc, aria::GetRoleMap(aNode));
+    return newAcc;
   }
 
   nsRoleMapEntry* roleMapEntry = aria::GetRoleMap(aNode);
@@ -1018,8 +1025,11 @@ nsAccessibilityService::GetOrCreateAccessible(nsINode* aNode,
       } else if (content->Tag() == nsGkAtoms::svg) {
         newAcc = new EnumRoleAccessible(content, document, roles::DIAGRAM);
       }
-    } else if (content->IsMathML(nsGkAtoms::math)) {
-      newAcc = new EnumRoleAccessible(content, document, roles::EQUATION);
+    } else if (content->IsMathML()){
+      if (content->Tag() == nsGkAtoms::math)
+        newAcc = new EnumRoleAccessible(content, document, roles::EQUATION);
+      else
+        newAcc = new HyperTextAccessible(content, document);
     }
   }
 
@@ -1042,7 +1052,11 @@ nsAccessibilityService::GetOrCreateAccessible(nsINode* aNode,
     }
   }
 
-  return document->BindToDocument(newAcc, roleMapEntry) ? newAcc : nullptr;
+  if (!newAcc || !aContext->IsAcceptableChild(newAcc))
+    return nullptr;
+
+  document->BindToDocument(newAcc, roleMapEntry);
+  return newAcc;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1433,6 +1447,12 @@ nsAccessibilityService::CreateHTMLAccessibleByMarkup(nsIFrame* aFrame,
     return accessible.forget();
   }
 
+  if (tag == nsGkAtoms::label) {
+    nsRefPtr<Accessible> accessible =
+      new HTMLLabelAccessible(aContent, document);
+    return accessible.forget();
+  }
+
   if (tag == nsGkAtoms::output) {
     nsRefPtr<Accessible> accessible =
       new HTMLOutputAccessible(aContent, document);
@@ -1491,9 +1511,6 @@ nsAccessibilityService::CreateAccessibleByFrameType(nsIFrame* aFrame,
       break;
     case eHTMLImageMapType:
       newAcc = new HTMLImageMapAccessible(aContent, document);
-      break;
-    case eHTMLLabelType:
-      newAcc = new HTMLLabelAccessible(aContent, document);
       break;
     case eHTMLLiType:
       if (aContext->IsList() &&

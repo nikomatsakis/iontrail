@@ -5,8 +5,9 @@
 
 /* rendering object for list-item bullets */
 
-#include "nsCOMPtr.h"
 #include "nsBulletFrame.h"
+
+#include "nsCOMPtr.h"
 #include "nsGkAtoms.h"
 #include "nsGenericHTMLElement.h"
 #include "nsAttrValueInlines.h"
@@ -20,6 +21,7 @@
 
 #include "imgIContainer.h"
 #include "imgRequestProxy.h"
+#include "nsIURI.h"
 
 #include <algorithm>
 

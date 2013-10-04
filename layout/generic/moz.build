@@ -21,6 +21,7 @@ EXPORTS += [
     'nsHTMLReflowState.h',
     'nsIAnonymousContentCreator.h',
     'nsIFrame.h',
+    'nsIFrameInlines.h',
     'nsIFrameUtil.h',
     'nsILineIterator.h',
     'nsIObjectFrame.h',
@@ -45,6 +46,7 @@ EXPORTS.mozilla.layout += [
 CPP_SOURCES += [
     'FrameChildList.cpp',
     'ScrollbarActivity.cpp',
+    'StickyScrollContainer.cpp',
     'TextOverflow.cpp',
     'nsAbsoluteContainingBlock.cpp',
     'nsBRFrame.cpp',

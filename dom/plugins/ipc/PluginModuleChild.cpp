@@ -16,7 +16,7 @@
 /* This must occur *after* plugins/PluginModuleChild.h to avoid typedefs conflicts. */
 #include "mozilla/Util.h"
 
-#include "mozilla/ipc/SyncChannel.h"
+#include "mozilla/ipc/MessageChannel.h"
 
 #ifdef MOZ_WIDGET_GTK
 #include <gtk/gtk.h>
@@ -149,10 +149,6 @@ PluginModuleChild::Init(const std::string& aPluginFilename,
 #endif
 
     NS_ASSERTION(aChannel, "need a channel");
-
-    mObjectMap.Init();
-    mStringIdentifiers.Init();
-    mIntIdentifiers.Init();
 
     if (!InitGraphics())
         return false;
@@ -587,7 +583,7 @@ PluginModuleChild::AnswerNP_Shutdown(NPError *rv)
     mozilla::widget::StopAudioSession();
 #endif
 
-    // the PluginModuleParent shuts down this process after this RPC
+    // the PluginModuleParent shuts down this process after this interrupt
     // call pops off its stack
 
     *rv = mShutdownFunc ? mShutdownFunc() : NPERR_NO_ERROR;
@@ -726,7 +722,6 @@ PluginModuleChild::RegisterActorForNPObject(NPObject* aObject,
                                             PluginScriptableObjectChild* aActor)
 {
     AssertPluginThread();
-    NS_ASSERTION(mObjectMap.IsInitialized(), "Not initialized!");
     NS_ASSERTION(aObject && aActor, "Null pointer!");
 
     NPObjectData* d = mObjectMap.GetEntry(aObject);
@@ -743,7 +738,6 @@ void
 PluginModuleChild::UnregisterActorForNPObject(NPObject* aObject)
 {
     AssertPluginThread();
-    NS_ASSERTION(mObjectMap.IsInitialized(), "Not initialized!");
     NS_ASSERTION(aObject, "Null pointer!");
 
     NPObjectData* d = mObjectMap.GetEntry(aObject);
@@ -757,7 +751,6 @@ PluginScriptableObjectChild*
 PluginModuleChild::GetActorForNPObject(NPObject* aObject)
 {
     AssertPluginThread();
-    NS_ASSERTION(mObjectMap.IsInitialized(), "Not initialized!");
     NS_ASSERTION(aObject, "Null pointer!");
 
     NPObjectData* d = mObjectMap.GetEntry(aObject);
@@ -2357,7 +2350,7 @@ PluginModuleChild::NestedInputEventHook(int nCode, WPARAM wParam, LPARAM lParam)
     uint32_t len = self->mIncallPumpingStack.Length();
     if (nCode >= 0 && len && !self->mIncallPumpingStack[len - 1]._spinning) {
         MessageLoop* loop = MessageLoop::current();
-        self->SendProcessNativeEventsInRPCCall();
+        self->SendProcessNativeEventsInInterruptCall();
         IncallFrame& f = self->mIncallPumpingStack[len - 1];
         f._spinning = true;
         f._savedNestableTasksAllowed = loop->NestableTasksAllowed();
@@ -2406,15 +2399,15 @@ PluginModuleChild::ResetEventHooks()
 #endif
 
 bool
-PluginModuleChild::RecvProcessNativeEventsInRPCCall()
+PluginModuleChild::RecvProcessNativeEventsInInterruptCall()
 {
     PLUGIN_LOG_DEBUG(("%s", FULLFUNCTION));
 #if defined(OS_WIN)
-    ProcessNativeEventsInRPCCall();
+    ProcessNativeEventsInInterruptCall();
     return true;
 #else
     NS_RUNTIMEABORT(
-        "PluginModuleChild::RecvProcessNativeEventsInRPCCall not implemented!");
+        "PluginModuleChild::RecvProcessNativeEventsInInterruptCall not implemented!");
     return false;
 #endif
 }

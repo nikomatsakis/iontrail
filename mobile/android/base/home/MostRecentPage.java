@@ -17,6 +17,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.os.Bundle;
 import android.support.v4.app.LoaderManager;
+import android.support.v4.app.LoaderManager.LoaderCallbacks;
 import android.support.v4.content.Loader;
 import android.util.SparseArray;
 import android.view.LayoutInflater;
@@ -46,9 +47,6 @@ public class MostRecentPage extends HomeFragment {
 
     // The view shown by the fragment.
     private ListView mList;
-
-    // The title for this HomeFragment page.
-    private TextView mTitle;
 
     // Reference to the View to display when there are no results.
     private View mEmptyView;
@@ -92,11 +90,6 @@ public class MostRecentPage extends HomeFragment {
 
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
-        mTitle = (TextView) view.findViewById(R.id.title);
-        if (mTitle != null) {
-            mTitle.setText(R.string.home_most_recent_title);
-        }
-
         mList = (ListView) view.findViewById(R.id.list);
         mList.setTag(HomePager.LIST_TAG_MOST_RECENT);
 
@@ -119,7 +112,6 @@ public class MostRecentPage extends HomeFragment {
     public void onDestroyView() {
         super.onDestroyView();
         mList = null;
-        mTitle = null;
         mEmptyView = null;
     }
 
@@ -127,14 +119,12 @@ public class MostRecentPage extends HomeFragment {
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
 
-        final Activity activity = getActivity();
-
         // Intialize adapter
-        mAdapter = new MostRecentAdapter(activity);
+        mAdapter = new MostRecentAdapter(getActivity());
         mList.setAdapter(mAdapter);
 
         // Create callbacks before the initial loader is started
-        mCursorLoaderCallbacks = new CursorLoaderCallbacks(activity, getLoaderManager());
+        mCursorLoaderCallbacks = new CursorLoaderCallbacks();
         loadIfVisible();
     }
 
@@ -160,18 +150,10 @@ public class MostRecentPage extends HomeFragment {
 
     private void updateUiFromCursor(Cursor c) {
         if (c != null && c.getCount() > 0) {
-            if (mTitle != null) {
-                mTitle.setVisibility(View.VISIBLE);
-            }
             return;
         }
 
-        // Cursor is empty, so hide the title and set the
-        // empty view if it hasn't been set already.
-        if (mTitle != null) {
-            mTitle.setVisibility(View.GONE);
-        }
-
+        // Cursor is empty, so set the empty view if it hasn't been set already.
         if (mEmptyView == null) {
             // Set empty page view. We delay this so that the empty view won't flash.
             final ViewStub emptyViewStub = (ViewStub) getView().findViewById(R.id.home_empty_view_stub);
@@ -360,43 +342,21 @@ public class MostRecentPage extends HomeFragment {
         }
     }
 
-    private class CursorLoaderCallbacks extends HomeCursorLoaderCallbacks {
-        public CursorLoaderCallbacks(Context context, LoaderManager loaderManager) {
-            super(context, loaderManager);
-        }
-
+    private class CursorLoaderCallbacks implements LoaderCallbacks<Cursor> {
         @Override
         public Loader<Cursor> onCreateLoader(int id, Bundle args) {
-            if (id == LOADER_ID_HISTORY) {
-                return new MostRecentCursorLoader(getActivity());
-            } else {
-                return super.onCreateLoader(id, args);
-            }
+            return new MostRecentCursorLoader(getActivity());
         }
 
         @Override
         public void onLoadFinished(Loader<Cursor> loader, Cursor c) {
-            if (loader.getId() == LOADER_ID_HISTORY) {
-                mAdapter.swapCursor(c);
-                updateUiFromCursor(c);
-                loadFavicons(c);
-            } else {
-                super.onLoadFinished(loader, c);
-            }
+            mAdapter.swapCursor(c);
+            updateUiFromCursor(c);
         }
 
         @Override
         public void onLoaderReset(Loader<Cursor> loader) {
-            if (loader.getId() == LOADER_ID_HISTORY) {
-                mAdapter.swapCursor(null);
-            } else {
-                super.onLoaderReset(loader);
-            }
-        }
-
-        @Override
-        public void onFaviconsLoaded() {
-            mAdapter.notifyDataSetChanged();
+            mAdapter.swapCursor(null);
         }
    }
 }

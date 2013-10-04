@@ -6,8 +6,6 @@ MODULE = 'module_name'
 
 ASFILES += ['fans.asm', 'tans.s']
 
-DEFINES=['-Dfans', '-Dtans']
-
 EXTRA_COMPONENTS=['fans.js', 'tans.js']
 EXTRA_PP_COMPONENTS=['fans.pp.js', 'tans.pp.js']
 
@@ -27,6 +25,8 @@ HOST_LIBRARY_NAME = 'host_fans'
 
 LIBRARY_NAME = 'lib_name'
 LIBS += ['fans.lib', 'tans.lib']
+
+OS_LIBS += ['foo.so', '-l123', 'aaa.a']
 
 SDK_LIBRARY += ['fans.sdk', 'tans.sdk']
 

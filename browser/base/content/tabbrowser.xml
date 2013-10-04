@@ -163,8 +163,7 @@
           let findBar = document.createElementNS(this.namespaceURI, "findbar");
           let browser = this.getBrowserForTab(aTab);
           let browserContainer = this.getBrowserContainer(browser);
-          findBar.setAttribute("position", "top");
-          browserContainer.insertBefore(findBar, browserContainer.firstChild);
+          browserContainer.appendChild(findBar);
 
           // Force a style flush to ensure that our binding is attached.
           findBar.clientTop;
@@ -179,6 +178,27 @@
           aTab.dispatchEvent(event);
 
           return findBar;
+        ]]></body>
+      </method>
+
+      <method name="getStatusPanel">
+        <body><![CDATA[
+          if (!this._statusPanel) {
+            this._statusPanel = document.createElementNS(this.namespaceURI, "statuspanel");
+            this._statusPanel.setAttribute("inactive", "true");
+            this._appendStatusPanel();
+          }
+          return this._statusPanel;
+        ]]></body>
+      </method>
+
+      <method name="_appendStatusPanel">
+        <body><![CDATA[
+          if (this._statusPanel) {
+            let browser = this.selectedBrowser;
+            let browserContainer = this.getBrowserContainer(browser);
+            browserContainer.insertBefore(this._statusPanel, browser.parentNode.nextSibling);
+          }
         ]]></body>
       </method>
 
@@ -988,6 +1008,8 @@
               });
             }
 
+            this._appendStatusPanel();
+
             if (updatePageReport)
               this.mCurrentBrowser.updatePageReport();
 
@@ -1507,7 +1529,7 @@
             notificationbox.appendChild(browserSidebarContainer);
 
             var position = this.tabs.length - 1;
-            var uniqueId = "panel" + Date.now() + position;
+            var uniqueId = this._generateUniquePanelID();
             notificationbox.id = uniqueId;
             t.linkedPanel = uniqueId;
             t.linkedBrowser = b;
@@ -2730,6 +2752,10 @@
                 onget="return this.mCurrentBrowser.currentURI;"
                 readonly="true"/>
 
+      <property name="finder"
+                onget="return this.mCurrentBrowser.finder"
+                readonly="true"/>
+
       <property name="docShell"
                 onget="return this.mCurrentBrowser.docShell"
                 readonly="true"/>
@@ -2929,7 +2955,7 @@
           document.addEventListener("keypress", this, false);
           window.addEventListener("sizemodechange", this, false);
 
-          var uniqueId = "panel" + Date.now();
+          var uniqueId = this._generateUniquePanelID();
           this.mPanelContainer.childNodes[0].id = uniqueId;
           this.mCurrentTab.linkedPanel = uniqueId;
           this.mCurrentTab._tPos = 0;
@@ -2975,6 +3001,23 @@
           }
         ]]>
       </constructor>
+
+      <method name="_generateUniquePanelID">
+        <body><![CDATA[
+          if (!this._uniquePanelIDCounter) {
+            this._uniquePanelIDCounter = 0;
+          }
+
+          let outerID = window.QueryInterface(Ci.nsIInterfaceRequestor)
+                              .getInterface(Ci.nsIDOMWindowUtils)
+                              .outerWindowID;
+
+          // We want panel IDs to be globally unique, that's why we include the
+          // window ID. We switched to a monotonic counter as Date.now() lead
+          // to random failures because of colliding IDs.
+          return "panel-" + outerID + "-" + (++this._uniquePanelIDCounter);
+        ]]></body>
+      </method>
 
       <method name="_addProgressListenerForInitialTab">
         <body><![CDATA[
@@ -3128,12 +3171,15 @@
           let browser = event.originalTarget;
           let title = browser.contentTitle;
           let uri = browser.currentURI;
+          let icon = browser.mIconURL;
 
           this._updateBrowserRemoteness(browser, false);
 
           browser.setAttribute("crashedPageTitle", title);
           browser.docShell.displayLoadError(Cr.NS_ERROR_CONTENT_CRASHED, uri, null);
           browser.removeAttribute("crashedPageTitle");
+          let tab = this._getTabForBrowser(browser);
+          this.setIcon(tab, icon);
         ]]>
       </handler>
     </handlers>
@@ -4875,17 +4921,16 @@
 
       <method name="_calcMouseTargetRect">
         <body><![CDATA[
-          let alignRight = false;
+          let container = this.parentNode;
+          let alignRight = (getComputedStyle(container).direction == "rtl");
+          let panelRect = this.getBoundingClientRect();
+          let containerRect = container.getBoundingClientRect();
 
-          if (getComputedStyle(document.documentElement).direction == "rtl")
-            alignRight = !alignRight;
-
-          let rect = this.getBoundingClientRect();
           this._mouseTargetRect = {
-            top:    rect.top,
-            bottom: rect.bottom,
-            left:   alignRight ? window.innerWidth - rect.width : 0,
-            right:  alignRight ? window.innerWidth : rect.width
+            top:    panelRect.top,
+            bottom: panelRect.bottom,
+            left:   alignRight ? containerRect.right - panelRect.width : containerRect.left,
+            right:  alignRight ? containerRect.right : containerRect.left + panelRect.width
           };
         ]]></body>
       </method>

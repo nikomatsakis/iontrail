@@ -7,6 +7,7 @@
 const Cc = Components.classes;
 const Ci = Components.interfaces;
 const Cr = Components.results;
+const Cu = Components.utils;
 
 this.EXPORTED_SYMBOLS = [];
 
@@ -1685,6 +1686,8 @@ var XPIProvider = {
     this.installs = [];
     this.installLocations = [];
     this.installLocationsByName = {};
+    // Hook for tests to detect when saving database at shutdown time fails
+    this._shutdownError = null;
 
     AddonManagerPrivate.recordTimestamp("XPI_startup_begin");
 
@@ -1873,6 +1876,9 @@ var XPIProvider = {
 
   /**
    * Shuts down the database and releases all references.
+   * Return: Promise{integer} resolves / rejects with the result of
+   *                          flushing the XPI Database if it was loaded,
+   *                          0 otherwise.
    */
   shutdown: function XPI_shutdown() {
     LOG("shutdown");
@@ -1903,10 +1909,19 @@ var XPIProvider = {
     delete this._uriMappings;
 
     if (gLazyObjectsLoaded) {
-      XPIDatabase.shutdown(function shutdownCallback(saveError) {
-        LOG("Notifying XPI shutdown observers");
-        Services.obs.notifyObservers(null, "xpi-provider-shutdown", saveError);
-      });
+      let done = XPIDatabase.shutdown();
+      done.then(
+        ret => {
+          LOG("Notifying XPI shutdown observers");
+          Services.obs.notifyObservers(null, "xpi-provider-shutdown", null);
+        },
+        err => {
+          LOG("Notifying XPI shutdown observers");
+          this._shutdownError = err;
+          Services.obs.notifyObservers(null, "xpi-provider-shutdown", err);
+        }
+      );
+      return done;
     }
     else {
       LOG("Notifying XPI shutdown observers");
@@ -3190,6 +3205,9 @@ var XPIProvider = {
     // active state of add-ons but didn't commit them properly (normally due
     // to the application crashing)
     let hasPendingChanges = Prefs.getBoolPref(PREF_PENDING_OPERATIONS);
+    if (hasPendingChanges) {
+      updateReasons.push("hasPendingChanges");
+    }
 
     // If the schema appears to have changed then we should update the database
     if (DB_SCHEMA != Prefs.getIntPref(PREF_DB_SCHEMA, 0)) {
@@ -3249,9 +3267,6 @@ var XPIProvider = {
       let extensionListChanged = false;
       // If the database needs to be updated then open it and then update it
       // from the filesystem
-      if (hasPendingChanges) {
-        updateReasons.push("hasPendingChanges");
-      }
       if (updateReasons.length > 0) {
         AddonManagerPrivate.recordSimpleMeasure("XPIDB_startup_load_reasons", updateReasons);
         XPIDatabase.syncLoadDB(false);
@@ -3888,15 +3903,17 @@ var XPIProvider = {
                     createInstance(Ci.nsIPrincipal);
 
     if (!aFile.exists()) {
-      this.bootstrapScopes[aId] = new Components.utils.Sandbox(principal,
-                                                               {sandboxName: aFile.path});
+      this.bootstrapScopes[aId] =
+        new Cu.Sandbox(principal, {sandboxName: aFile.path,
+                                   wantGlobalProperties: ["indexedDB"]});
       ERROR("Attempted to load bootstrap scope from missing directory " + aFile.path);
       return;
     }
 
     let uri = getURIForResourceInFile(aFile, "bootstrap.js").spec;
-    this.bootstrapScopes[aId] = new Components.utils.Sandbox(principal,
-                                                             {sandboxName: uri});
+    this.bootstrapScopes[aId] =
+      new Cu.Sandbox(principal, {sandboxName: uri,
+                                 wantGlobalProperties: ["indexedDB"]});
 
     let loader = Cc["@mozilla.org/moz/jssubscript-loader;1"].
                  createInstance(Ci.mozIJSSubScriptLoader);

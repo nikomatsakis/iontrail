@@ -7,6 +7,7 @@
 
 #include "HTMLOptGroupElement.h"
 #include "mozAutoDocUpdate.h"
+#include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/HTMLOptionElement.h"
 #include "mozilla/dom/HTMLOptionsCollectionBinding.h"
@@ -18,7 +19,6 @@
 #include "nsEventStates.h"
 #include "nsFormSubmission.h"
 #include "nsGkAtoms.h"
-#include "nsGUIEvent.h"
 #include "nsIComboboxControlFrame.h"
 #include "nsIDocument.h"
 #include "nsIDOMHTMLOptGroupElement.h"

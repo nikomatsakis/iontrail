@@ -5,17 +5,11 @@
 
 #include "prlog.h"
 #include "nsAutoPtr.h"
-#include "nsIFactory.h"
-#include "nsIServiceManager.h"
-#include "nsIComponentManager.h"
 #include "nsIObserverService.h"
 #include "nsIObserver.h"
-#include "nsISimpleEnumerator.h"
 #include "nsObserverService.h"
 #include "nsObserverList.h"
-#include "nsHashtable.h"
 #include "nsThreadUtils.h"
-#include "nsIWeakReference.h"
 #include "nsEnumeratorUtils.h"
 #include "nsIMemoryReporter.h"
 #include "mozilla/net/NeckoCommon.h"
@@ -48,18 +42,18 @@ GetObserverServiceLog()
 
 namespace mozilla {
 
-class ObserverServiceReporter MOZ_FINAL : public nsIMemoryMultiReporter
+class ObserverServiceReporter MOZ_FINAL : public nsIMemoryReporter
 {
 public:
     NS_DECL_ISUPPORTS
-    NS_DECL_NSIMEMORYMULTIREPORTER
+    NS_DECL_NSIMEMORYREPORTER
 protected:
-    static const size_t kSuspectReferentCount = 1000;
+    static const size_t kSuspectReferentCount = 100;
     static PLDHashOperator CountReferents(nsObserverList* aObserverList,
                                           void* aClosure);
 };
 
-NS_IMPL_ISUPPORTS1(ObserverServiceReporter, nsIMemoryMultiReporter)
+NS_IMPL_ISUPPORTS1(ObserverServiceReporter, nsIMemoryReporter)
 
 NS_IMETHODIMP
 ObserverServiceReporter::GetName(nsACString& aName)
@@ -75,8 +69,9 @@ struct SuspectObserver {
     size_t referentCount;
 };
 
-struct ReferentCount {
-    ReferentCount() : numStrong(0), numWeakAlive(0), numWeakDead(0) {}
+struct ObserverServiceReferentCount {
+    ObserverServiceReferentCount()
+        : numStrong(0), numWeakAlive(0), numWeakDead(0) {}
     size_t numStrong;
     size_t numWeakAlive;
     size_t numWeakDead;
@@ -91,7 +86,8 @@ ObserverServiceReporter::CountReferents(nsObserverList* aObserverList,
         return PL_DHASH_NEXT;
     }
 
-    ReferentCount* referentCount = static_cast<ReferentCount*>(aClosure);
+    ObserverServiceReferentCount* referentCount =
+        static_cast<ObserverServiceReferentCount*>(aClosure);
 
     size_t numStrong = 0;
     size_t numWeakAlive = 0;
@@ -128,7 +124,7 @@ ObserverServiceReporter::CountReferents(nsObserverList* aObserverList,
 }
 
 NS_IMETHODIMP
-ObserverServiceReporter::CollectReports(nsIMemoryMultiReporterCallback* cb,
+ObserverServiceReporter::CollectReports(nsIMemoryReporterCallback* cb,
                                         nsISupports* aClosure)
 {
     nsCOMPtr<nsIObserverService> os = mozilla::services::GetObserverService();
@@ -137,7 +133,7 @@ ObserverServiceReporter::CollectReports(nsIMemoryMultiReporterCallback* cb,
         return NS_OK;
     }
 
-    ReferentCount referentCount;
+    ObserverServiceReferentCount referentCount;
     service->mObserverTopicTable.EnumerateEntries(CountReferents,
                                                   &referentCount);
 
@@ -152,8 +148,10 @@ ObserverServiceReporter::CollectReports(nsIMemoryMultiReporterCallback* cb,
             nsIMemoryReporter::KIND_OTHER,
             nsIMemoryReporter::UNITS_COUNT,
             suspect.referentCount,
-            NS_LITERAL_CSTRING("A topic with a suspiciously large number "
-                               "referents (symptom of a leak)."),
+            NS_LITERAL_CSTRING("A topic with a suspiciously large number of "
+                               "referents.  This may be symptomatic of a leak "
+                               "if the number of referents is high with "
+                               "respect to the number of windows."),
             aClosure);
 
         NS_ENSURE_SUCCESS(rv, rv);
@@ -208,7 +206,6 @@ NS_IMPL_ISUPPORTS2(nsObserverService, nsIObserverService, nsObserverService)
 nsObserverService::nsObserverService() :
     mShuttingDown(false), mReporter(nullptr)
 {
-    mObserverTopicTable.Init();
 }
 
 nsObserverService::~nsObserverService(void)
@@ -220,20 +217,19 @@ void
 nsObserverService::RegisterReporter()
 {
     mReporter = new ObserverServiceReporter();
-    NS_RegisterMemoryMultiReporter(mReporter);
+    NS_RegisterMemoryReporter(mReporter);
 }
 
 void
 nsObserverService::Shutdown()
 {
     if (mReporter) {
-        NS_UnregisterMemoryMultiReporter(mReporter);
+        NS_UnregisterMemoryReporter(mReporter);
     }
 
     mShuttingDown = true;
 
-    if (mObserverTopicTable.IsInitialized())
-        mObserverTopicTable.Clear();
+    mObserverTopicTable.Clear();
 }
 
 nsresult
@@ -243,7 +239,7 @@ nsObserverService::Create(nsISupports* outer, const nsIID& aIID, void* *aInstanc
 
     nsRefPtr<nsObserverService> os = new nsObserverService();
 
-    if (!os || !os->mObserverTopicTable.IsInitialized())
+    if (!os)
         return NS_ERROR_OUT_OF_MEMORY;
 
     // The memory reporter can not be immediately registered here because

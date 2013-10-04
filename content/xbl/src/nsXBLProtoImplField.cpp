@@ -116,7 +116,7 @@ ValueHasISupportsPrivate(JS::Handle<JS::Value> v)
     return domClass->mDOMObjectIsISupports;
   }
 
-  JSClass* clasp = ::JS_GetClass(&v.toObject());
+  const JSClass* clasp = ::JS_GetClass(&v.toObject());
   const uint32_t HAS_PRIVATE_NSISUPPORTS =
     JSCLASS_HAS_PRIVATE | JSCLASS_PRIVATE_IS_NSISUPPORTS;
   return (clasp->flags & HAS_PRIVATE_NSISUPPORTS) == HAS_PRIVATE_NSISUPPORTS;
@@ -327,7 +327,7 @@ nsXBLProtoImplField::InstallAccessors(JSContext* aCx,
   // Get the field name as an id.
   JS::Rooted<jsid> id(aCx);
   JS::TwoByteChars chars(mName, NS_strlen(mName));
-  if (!JS_CharsToId(aCx, chars, id.address()))
+  if (!JS_CharsToId(aCx, chars, &id))
     return NS_ERROR_OUT_OF_MEMORY;
 
   // Properties/Methods have historically taken precendence over fields. We

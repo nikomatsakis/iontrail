@@ -6,11 +6,15 @@
 #if !defined(AudioStream_h_)
 #define AudioStream_h_
 
-#include "nscore.h"
 #include "AudioSampleFormat.h"
 #include "AudioChannelCommon.h"
-#include "soundtouch/SoundTouch.h"
 #include "nsAutoPtr.h"
+#include "nsCOMPtr.h"
+#include "Latency.h"
+
+namespace soundtouch {
+class SoundTouch;
+}
 
 namespace mozilla {
 
@@ -183,6 +187,7 @@ protected:
   int64_t mWritten;
   AudioClock mAudioClock;
   nsAutoPtr<soundtouch::SoundTouch> mTimeStretcher;
+  nsRefPtr<AsyncLatencyLogger> mLatencyLog;
 };
 
 } // namespace mozilla

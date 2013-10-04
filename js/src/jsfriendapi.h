@@ -58,7 +58,7 @@ extern JS_FRIEND_API(bool)
 JS_SplicePrototype(JSContext *cx, JSObject *obj, JSObject *proto);
 
 extern JS_FRIEND_API(JSObject *)
-JS_NewObjectWithUniqueType(JSContext *cx, JSClass *clasp, JSObject *proto, JSObject *parent);
+JS_NewObjectWithUniqueType(JSContext *cx, const JSClass *clasp, JSObject *proto, JSObject *parent);
 
 extern JS_FRIEND_API(uint32_t)
 JS_ObjectCountDynamicSlots(JS::HandleObject obj);
@@ -203,13 +203,43 @@ struct JSFunctionSpecWithHelp {
 extern JS_FRIEND_API(bool)
 JS_DefineFunctionsWithHelp(JSContext *cx, JSObject *obj, const JSFunctionSpecWithHelp *fs);
 
-typedef bool (* JS_SourceHook)(JSContext *cx, JS::Handle<JSScript*> script,
-                               jschar **src, uint32_t *length);
-
-extern JS_FRIEND_API(void)
-JS_SetSourceHook(JSRuntime *rt, JS_SourceHook hook);
-
 namespace js {
+
+/*
+ * A class of objects that return source code on demand.
+ *
+ * When code is compiled with CompileOptions::LAZY_SOURCE, SpiderMonkey
+ * doesn't retain the source code (and doesn't do lazy bytecode
+ * generation). If we ever need the source code, say, in response to a call
+ * to Function.prototype.toSource or Debugger.Source.prototype.text, then
+ * we call the 'load' member function of the instance of this class that
+ * has hopefully been registered with the runtime, passing the code's URL,
+ * and hope that it will be able to find the source.
+ */
+class SourceHook {
+  public:
+    virtual ~SourceHook() { }
+
+    /*
+     * Set |*src| and |*length| to refer to the source code for |filename|.
+     * On success, the caller owns the buffer to which |*src| points, and
+     * should use JS_free to free it.
+     */
+    virtual bool load(JSContext *cx, const char *filename, jschar **src, size_t *length) = 0;
+};
+
+/*
+ * Have |rt| use |hook| to retrieve LAZY_SOURCE source code. See the
+ * comments for SourceHook. The runtime takes ownership of the hook, and
+ * will delete it when the runtime itself is deleted, or when a new hook is
+ * set.
+ */
+extern JS_FRIEND_API(void)
+SetSourceHook(JSRuntime *rt, SourceHook *hook);
+
+/* Remove |rt|'s source hook, and return it. The caller now owns the hook. */
+extern JS_FRIEND_API(SourceHook *)
+ForgetSourceHook(JSRuntime *rt);
 
 inline JSRuntime *
 GetRuntime(const JSContext *cx)
@@ -235,12 +265,17 @@ GetCompartmentZone(JSCompartment *comp);
 typedef bool
 (* PreserveWrapperCallback)(JSContext *cx, JSObject *obj);
 
+typedef enum  {
+    CollectNurseryBeforeDump,
+    IgnoreNurseryObjects
+} DumpHeapNurseryBehaviour;
+
  /*
   * Dump the complete object graph of heap-allocated things.
   * fp is the file for the dump output.
   */
 extern JS_FRIEND_API(void)
-DumpHeapComplete(JSRuntime *rt, FILE *fp);
+DumpHeapComplete(JSRuntime *rt, FILE *fp, DumpHeapNurseryBehaviour nurseryBehaviour);
 
 #ifdef JS_OLD_GETTER_SETTER_METHODS
 JS_FRIEND_API(bool) obj_defineGetter(JSContext *cx, unsigned argc, JS::Value *vp);
@@ -337,12 +372,12 @@ GetAnyCompartmentInZone(JS::Zone *zone);
 namespace shadow {
 
 struct TypeObject {
-    Class       *clasp;
+    const Class *clasp;
     JSObject    *proto;
 };
 
 struct BaseShape {
-    js::Class *clasp;
+    const js::Class *clasp;
     JSObject *parent;
     JSObject *_1;
     JSCompartment *compartment;
@@ -396,15 +431,15 @@ struct Atom {
 
 // This is equal to |&JSObject::class_|.  Use it in places where you don't want
 // to #include jsobj.h.
-extern JS_FRIEND_DATA(js::Class* const) ObjectClassPtr;
+extern JS_FRIEND_DATA(const js::Class* const) ObjectClassPtr;
 
-inline js::Class *
+inline const js::Class *
 GetObjectClass(JSObject *obj)
 {
     return reinterpret_cast<const shadow::Object*>(obj)->type->clasp;
 }
 
-inline JSClass *
+inline const JSClass *
 GetObjectJSClass(JSObject *obj)
 {
     return js::Jsvalify(GetObjectClass(obj));
@@ -487,7 +522,7 @@ NewFunctionByIdWithReserved(JSContext *cx, JSNative native, unsigned nargs, unsi
 
 JS_FRIEND_API(JSObject *)
 InitClassWithReserved(JSContext *cx, JSObject *obj, JSObject *parent_proto,
-                      JSClass *clasp, JSNative constructor, unsigned nargs,
+                      const JSClass *clasp, JSNative constructor, unsigned nargs,
                       const JSPropertySpec *ps, const JSFunctionSpec *fs,
                       const JSPropertySpec *static_ps, const JSFunctionSpec *static_fs);
 
@@ -637,6 +672,14 @@ GetNativeStackLimit(JSContext *cx)
 #define JS_CHECK_RECURSION_WITH_SP_DONT_REPORT(cx, sp, onerror)                 \
     JS_BEGIN_MACRO                                                              \
         if (!JS_CHECK_STACK_SIZE(js::GetNativeStackLimit(cx), sp)) {            \
+            onerror;                                                            \
+        }                                                                       \
+    JS_END_MACRO
+
+#define JS_CHECK_RECURSION_WITH_SP(cx, sp, onerror)                             \
+    JS_BEGIN_MACRO                                                              \
+        if (!JS_CHECK_STACK_SIZE(js::GetNativeStackLimit(cx), sp)) {            \
+            js_ReportOverRecursed(cx);                                          \
             onerror;                                                            \
         }                                                                       \
     JS_END_MACRO
@@ -826,10 +869,10 @@ typedef enum DOMProxyShadowsResult {
 typedef DOMProxyShadowsResult
 (* DOMProxyShadowsCheck)(JSContext* cx, JS::HandleObject object, JS::HandleId id);
 JS_FRIEND_API(void)
-SetDOMProxyInformation(void *domProxyHandlerFamily, uint32_t domProxyExpandoSlot,
+SetDOMProxyInformation(const void *domProxyHandlerFamily, uint32_t domProxyExpandoSlot,
                        DOMProxyShadowsCheck domProxyShadowsCheck);
 
-void *GetDOMProxyHandlerFamily();
+const void *GetDOMProxyHandlerFamily();
 uint32_t GetDOMProxyExpandoSlot();
 DOMProxyShadowsCheck GetDOMProxyShadowsCheck();
 
@@ -1479,6 +1522,20 @@ IsReadOnlyDateMethod(JS::IsAcceptableThis test, JS::NativeImpl method);
 extern JS_FRIEND_API(bool)
 IsTypedArrayThisCheck(JS::IsAcceptableThis test);
 
+/*
+ * If the embedder has registered a default JSContext callback, returns the
+ * result of the callback. Otherwise, asserts that |rt| has exactly one
+ * JSContext associated with it, and returns that context.
+ */
+extern JS_FRIEND_API(JSContext *)
+DefaultJSContext(JSRuntime *rt);
+
+typedef JSContext*
+(* DefaultJSContextCallback)(JSRuntime *rt);
+
+JS_FRIEND_API(void)
+SetDefaultJSContextCallback(JSRuntime *rt, DefaultJSContextCallback cb);
+
 enum CTypesActivityType {
     CTYPES_CALL_BEGIN,
     CTYPES_CALL_END,
@@ -1565,31 +1622,6 @@ DefaultValue(JSContext *cx, JS::HandleObject obj, JSType hint, JS::MutableHandle
 extern JS_FRIEND_API(bool)
 CheckDefineProperty(JSContext *cx, JS::HandleObject obj, JS::HandleId id, JS::HandleValue value,
                     JSPropertyOp getter, JSStrictPropertyOp setter, unsigned attrs);
-
-class ScriptSource;
-
-// An AsmJSModuleSourceDesc object holds a reference to the ScriptSource
-// containing an asm.js module as well as the [begin, end) range of the
-// module's chars within the ScriptSource.
-class AsmJSModuleSourceDesc
-{
-    ScriptSource *scriptSource_;
-    uint32_t bufStart_;
-    uint32_t bufEnd_;
-
-  public:
-    AsmJSModuleSourceDesc() : scriptSource_(NULL), bufStart_(UINT32_MAX), bufEnd_(UINT32_MAX) {}
-    void init(ScriptSource *scriptSource, uint32_t bufStart, uint32_t bufEnd);
-    ~AsmJSModuleSourceDesc();
-
-    ScriptSource *scriptSource() const { JS_ASSERT(scriptSource_ != NULL); return scriptSource_; }
-    uint32_t bufStart() const { JS_ASSERT(bufStart_ != UINT32_MAX); return bufStart_; }
-    uint32_t bufEnd() const { JS_ASSERT(bufStart_ != UINT32_MAX); return bufEnd_; }
-
-  private:
-    AsmJSModuleSourceDesc(const AsmJSModuleSourceDesc &) MOZ_DELETE;
-    void operator=(const AsmJSModuleSourceDesc &) MOZ_DELETE;
-};
 
 } /* namespace js */
 

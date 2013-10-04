@@ -11,10 +11,11 @@
 #include "nsWinGesture.h"
 #include "nsUXThemeData.h"
 #include "nsIDOMSimpleGestureEvent.h"
-#include "nsGUIEvent.h"
 #include "nsIDOMWheelEvent.h"
 #include "mozilla/Constants.h"
+#include "mozilla/MouseEvents.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/TouchEvents.h"
 
 using namespace mozilla;
 using namespace mozilla::widget;
@@ -118,7 +119,8 @@ bool nsWinGesture::InitLibrary()
 
 #define GCOUNT 5
 
-bool nsWinGesture::SetWinGestureSupport(HWND hWnd, nsGestureNotifyEvent::ePanDirection aDirection)
+bool nsWinGesture::SetWinGestureSupport(HWND hWnd,
+                     WidgetGestureNotifyEvent::ePanDirection aDirection)
 {
   if (!getGestureInfo)
     return false;
@@ -143,15 +145,15 @@ bool nsWinGesture::SetWinGestureSupport(HWND hWnd, nsGestureNotifyEvent::ePanDir
 
   if (gEnableSingleFingerPanEvents) {
 
-    if (aDirection == nsGestureNotifyEvent::ePanVertical ||
-        aDirection == nsGestureNotifyEvent::ePanBoth)
+    if (aDirection == WidgetGestureNotifyEvent::ePanVertical ||
+        aDirection == WidgetGestureNotifyEvent::ePanBoth)
     {
       config[2].dwWant  |= GC_PAN_WITH_SINGLE_FINGER_VERTICALLY;
       config[2].dwBlock -= GC_PAN_WITH_SINGLE_FINGER_VERTICALLY;
     }
 
-    if (aDirection == nsGestureNotifyEvent::ePanHorizontal ||
-        aDirection == nsGestureNotifyEvent::ePanBoth)
+    if (aDirection == WidgetGestureNotifyEvent::ePanHorizontal ||
+        aDirection == WidgetGestureNotifyEvent::ePanBoth)
     {
       config[2].dwWant  |= GC_PAN_WITH_SINGLE_FINGER_HORIZONTALLY;
       config[2].dwBlock -= GC_PAN_WITH_SINGLE_FINGER_HORIZONTALLY;
@@ -296,7 +298,8 @@ bool nsWinGesture::IsPanEvent(LPARAM lParam)
 /* Gesture event processing */
 
 bool
-nsWinGesture::ProcessGestureMessage(HWND hWnd, WPARAM wParam, LPARAM lParam, nsSimpleGestureEvent& evt)
+nsWinGesture::ProcessGestureMessage(HWND hWnd, WPARAM wParam, LPARAM lParam,
+                                    WidgetSimpleGestureEvent& evt)
 {
   GESTUREINFO gi;
 

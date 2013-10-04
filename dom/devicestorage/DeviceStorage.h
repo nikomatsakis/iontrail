@@ -23,6 +23,8 @@
 #define DEVICESTORAGE_SDCARD     "sdcard"
 #define DEVICESTORAGE_CRASHES    "crashes"
 
+class nsIInputStream;
+
 namespace mozilla {
 namespace dom {
 class DeviceStorageEnumerationParameters;
@@ -157,13 +159,13 @@ public:
 
   virtual void
   AddEventListener(const nsAString& aType,
-                   nsIDOMEventListener* aListener,
+                   mozilla::dom::EventListener* aListener,
                    bool aUseCapture,
                    const mozilla::dom::Nullable<bool>& aWantsUntrusted,
                    ErrorResult& aRv) MOZ_OVERRIDE;
 
   virtual void RemoveEventListener(const nsAString& aType,
-                                   nsIDOMEventListener* aListener,
+                                   mozilla::dom::EventListener* aListener,
                                    bool aUseCapture,
                                    ErrorResult& aRv) MOZ_OVERRIDE;
 

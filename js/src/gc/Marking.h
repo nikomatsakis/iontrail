@@ -8,8 +8,6 @@
 #define gc_Marking_h
 
 #include "gc/Barrier.h"
-#include "jit/IonCode.h"
-#include "js/TypeDecls.h"
 
 class JSAtom;
 class JSLinearString;
@@ -29,6 +27,16 @@ class Shape;
 class UnownedBaseShape;
 
 template<class, typename> class HeapPtr;
+
+namespace jit {
+class IonCode;
+class IonScript;
+class VMFunction;
+}
+
+namespace types {
+class Type;
+}
 
 namespace gc {
 
@@ -106,7 +114,9 @@ DeclMarker(TypeObject, types::TypeObject)
 
 #undef DeclMarker
 
-/* Return true if the pointer is NULL, or if it is a tagged pointer to NULL. */
+/* Return true if the pointer is nullptr, or if it is a tagged pointer to
+ * nullptr.
+ */
 JS_ALWAYS_INLINE bool
 IsNullTaggedPointer(void *p)
 {
@@ -222,10 +232,6 @@ MarkCrossCompartmentSlot(JSTracer *trc, JSObject *src, HeapSlot *dst_slot, const
  */
 void
 MarkObject(JSTracer *trc, HeapPtr<GlobalObject, JSScript *> *thingp, const char *name);
-
-/* Direct value access used by the write barriers and the methodjit. */
-void
-MarkValueUnbarriered(JSTracer *trc, Value *v, const char *name);
 
 /*
  * MarkChildren<JSObject> is exposed solely for preWriteBarrier on
@@ -361,7 +367,7 @@ ToMarkable(const Value &v)
 {
     if (v.isMarkable())
         return (Cell *)v.toGCThing();
-    return NULL;
+    return nullptr;
 }
 
 inline Cell *

@@ -26,7 +26,6 @@
 #include "gfxContext.h"
 #include "gfxColor.h"
 #include "gfxUtils.h"
-#include "nsNPAPIPluginInstance.h"
 #include "Layers.h"
 #include "SharedTextureImage.h"
 #include "GLContext.h"
@@ -80,9 +79,6 @@ PluginInstanceParent::PluginInstanceParent(PluginModuleParent* parent,
     , mShColorSpace(nullptr)
 #endif
 {
-#ifdef OS_WIN
-    mTextureMap.Init();
-#endif
 }
 
 PluginInstanceParent::~PluginInstanceParent()
@@ -113,7 +109,6 @@ PluginInstanceParent::~PluginInstanceParent()
 bool
 PluginInstanceParent::Init()
 {
-    mScriptableObjects.Init();
     return true;
 }
 
@@ -611,7 +606,7 @@ PluginInstanceParent::RecvShow(const NPRect& updatedRect,
         // the plugin.  We might still have drawing operations
         // referencing it.
 #ifdef MOZ_X11
-        if (mFrontSurface->GetType() == gfxASurface::SurfaceTypeXlib) {
+        if (mFrontSurface->GetType() == gfxSurfaceTypeXlib) {
             // Finish with the surface and XSync here to ensure the server has
             // finished operations on the surface before the plugin starts
             // scribbling on it again, or worse, destroys it.
@@ -884,7 +879,7 @@ PluginInstanceParent::CreateBackground(const nsIntSize& aSize)
         gfxSharedImageSurface::CreateUnsafe(
             this,
             gfxIntSize(aSize.width, aSize.height),
-            gfxASurface::ImageFormatRGB24);
+            gfxImageFormatRGB24);
     return !!mBackground;
 #else
     return nullptr;
@@ -1537,7 +1532,6 @@ PluginInstanceParent::RegisterNPObjectForActor(
                                            PluginScriptableObjectParent* aActor)
 {
     NS_ASSERTION(aObject && aActor, "Null pointers!");
-    NS_ASSERTION(mScriptableObjects.IsInitialized(), "Hash not initialized!");
     NS_ASSERTION(!mScriptableObjects.Get(aObject, nullptr), "Duplicate entry!");
     mScriptableObjects.Put(aObject, aActor);
     return true;
@@ -1547,7 +1541,6 @@ void
 PluginInstanceParent::UnregisterNPObject(NPObject* aObject)
 {
     NS_ASSERTION(aObject, "Null pointer!");
-    NS_ASSERTION(mScriptableObjects.IsInitialized(), "Hash not initialized!");
     NS_ASSERTION(mScriptableObjects.Get(aObject, nullptr), "Unknown entry!");
     mScriptableObjects.Remove(aObject);
 }

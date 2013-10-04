@@ -36,7 +36,6 @@
 #include "vm/ArgumentsObject-inl.h"
 #include "vm/ArrayObject-inl.h"
 #include "vm/Interpreter-inl.h"
-#include "vm/ObjectImpl-inl.h"
 #include "vm/Runtime-inl.h"
 
 using namespace js;
@@ -768,7 +767,7 @@ js::ObjectMayHaveExtraIndexedProperties(JSObject *obj)
     return false;
 }
 
-Class ArrayObject::class_ = {
+const Class ArrayObject::class_ = {
     "Array",
     JSCLASS_HAS_CACHED_PROTO(JSProto_Array),
     array_addProperty,
@@ -895,8 +894,107 @@ array_toSource(JSContext *cx, unsigned argc, Value *vp)
 }
 #endif
 
+struct EmptySeparatorOp
+{
+    bool operator()(JSContext *, StringBuffer &sb) { return true; }
+};
+
+struct CharSeparatorOp
+{
+    jschar sep;
+    CharSeparatorOp(jschar sep) : sep(sep) {};
+    bool operator()(JSContext *, StringBuffer &sb) { return sb.append(sep); }
+};
+
+struct StringSeparatorOp
+{
+    const jschar *sepchars;
+    size_t seplen;
+
+    StringSeparatorOp(const jschar *sepchars, size_t seplen)
+      : sepchars(sepchars), seplen(seplen) {};
+
+    bool operator()(JSContext *cx, StringBuffer &sb) {
+        return sb.append(sepchars, seplen);
+    }
+};
+
+template <bool Locale, typename SeparatorOp>
 static bool
-array_join_sub(JSContext *cx, CallArgs &args, bool locale)
+ArrayJoinKernel(JSContext *cx, SeparatorOp sepOp, HandleObject obj, uint32_t length,
+               StringBuffer &sb)
+{
+    uint32_t i = 0;
+
+    if (!Locale && obj->is<ArrayObject>() && !ObjectMayHaveExtraIndexedProperties(obj)) {
+        // This loop handles all elements up to initializedLength. If
+        // length > initLength we rely on the second loop to add the
+        // other elements.
+        uint32_t initLength = obj->getDenseInitializedLength();
+        while (i < initLength) {
+            if (!JS_CHECK_OPERATION_LIMIT(cx))
+                return false;
+
+            const Value &elem = obj->getDenseElement(i);
+
+            if (elem.isString()) {
+                if (!sb.append(elem.toString()))
+                    return false;
+            } else if (elem.isNumber()) {
+                if (!NumberValueToStringBuffer(cx, elem, sb))
+                    return false;
+            } else if (elem.isBoolean()) {
+                if (!BooleanToStringBuffer(cx, elem.toBoolean(), sb))
+                    return false;
+            } else if (elem.isObject()) {
+                /*
+                 * Object stringifying could modify the initialized length or make
+                 * the array sparse. Delegate it to a separate loop to keep this
+                 * one tight.
+                 */
+                break;
+            } else {
+                JS_ASSERT(elem.isMagic(JS_ELEMENTS_HOLE) || elem.isNullOrUndefined());
+            }
+
+            if (++i != length && !sepOp(cx, sb))
+                return false;
+        }
+    }
+
+    if (i != length) {
+        RootedValue v(cx);
+        while (i < length) {
+            if (!JS_CHECK_OPERATION_LIMIT(cx))
+                return false;
+
+            bool hole;
+            if (!GetElement(cx, obj, i, &hole, &v))
+                return false;
+            if (!hole && !v.isNullOrUndefined()) {
+                if (Locale) {
+                    JSObject *robj = ToObject(cx, v);
+                    if (!robj)
+                        return false;
+                    RootedId id(cx, NameToId(cx->names().toLocaleString));
+                    if (!robj->callMethod(cx, id, 0, NULL, &v))
+                        return false;
+                }
+                if (!ValueToStringBuffer(cx, v, sb))
+                    return false;
+            }
+
+            if (++i != length && !sepOp(cx, sb))
+                return false;
+        }
+    }
+
+    return true;
+}
+
+template <bool Locale>
+static bool
+ArrayJoin(JSContext *cx, CallArgs &args)
 {
     // This method is shared by Array.prototype.join and
     // Array.prototype.toLocaleString. The steps in ES5 are nearly the same, so
@@ -923,19 +1021,21 @@ array_join_sub(JSContext *cx, CallArgs &args, bool locale)
 
     // Steps 4 and 5
     RootedString sepstr(cx, NULL);
-    if (!locale && args.hasDefined(0)) {
+    if (!Locale && args.hasDefined(0)) {
         sepstr = ToString<CanGC>(cx, args[0]);
         if (!sepstr)
             return false;
     }
-    static const jschar comma = ',';
-    const jschar *sep;
+    const jschar *sepchars;
     size_t seplen;
     if (sepstr) {
-        sep = NULL;
+        sepchars = sepstr->getChars(cx);
+        if (!sepchars)
+            return false;
         seplen = sepstr->length();
     } else {
-        sep = &comma;
+        static const jschar comma = ',';
+        sepchars = &comma;
         seplen = 1;
     }
 
@@ -943,70 +1043,24 @@ array_join_sub(JSContext *cx, CallArgs &args, bool locale)
 
     StringBuffer sb(cx);
 
+    // The separator will be added |length - 1| times, reserve space for that
+    // so that we don't have to unnecessarily grow the buffer.
+    if (length > 0 && !sb.reserve(seplen * (length - 1)))
+        return false;
+
     // Various optimized versions of steps 7-10
-    if (!locale && !seplen && obj->is<ArrayObject>() && !ObjectMayHaveExtraIndexedProperties(obj)) {
-        uint32_t i;
-        for (i = 0; i < obj->getDenseInitializedLength(); ++i) {
-            if (!JS_CHECK_OPERATION_LIMIT(cx))
-                return false;
-
-            const Value *elem = &obj->getDenseElement(i);
-
-            /*
-             * Object stringifying is slow; delegate it to a separate loop to
-             * keep this one tight.
-             */
-            if (elem->isObject())
-                break;
-
-            if (!elem->isMagic(JS_ELEMENTS_HOLE) && !elem->isNullOrUndefined()) {
-                if (!ValueToStringBuffer(cx, *elem, sb))
-                    return false;
-            }
-        }
-
-        RootedValue v(cx);
-        for (; i < length; ++i) {
-            if (!JS_CHECK_OPERATION_LIMIT(cx))
-                return false;
-
-            bool hole;
-            if (!GetElement(cx, obj, i, &hole, &v))
-                return false;
-            if (!hole && !v.isNullOrUndefined()) {
-                if (!ValueToStringBuffer(cx, v, sb))
-                    return false;
-            }
-        }
+    if (seplen == 0) {
+        EmptySeparatorOp op;
+        if (!ArrayJoinKernel<Locale>(cx, op, obj, length, sb))
+            return false;
+    } else if (seplen == 1) {
+        CharSeparatorOp op(sepchars[0]);
+        if (!ArrayJoinKernel<Locale>(cx, op, obj, length, sb))
+            return false;
     } else {
-        RootedValue elt(cx);
-        for (uint32_t index = 0; index < length; index++) {
-            if (!JS_CHECK_OPERATION_LIMIT(cx))
-                return false;
-
-            bool hole;
-            if (!GetElement(cx, obj, index, &hole, &elt))
-                return false;
-
-            if (!hole && !elt.isNullOrUndefined()) {
-                if (locale) {
-                    JSObject *robj = ToObject(cx, elt);
-                    if (!robj)
-                        return false;
-                    RootedId id(cx, NameToId(cx->names().toLocaleString));
-                    if (!robj->callMethod(cx, id, 0, NULL, &elt))
-                        return false;
-                }
-                if (!ValueToStringBuffer(cx, elt, sb))
-                    return false;
-            }
-
-            if (index + 1 != length) {
-                const jschar *sepchars = sep ? sep : sepstr->getChars(cx);
-                if (!sepchars || !sb.append(sepchars, seplen))
-                    return false;
-            }
-        }
+        StringSeparatorOp op(sepchars, seplen);
+        if (!ArrayJoinKernel<Locale>(cx, op, obj, length, sb))
+            return false;
     }
 
     // Step 11
@@ -1061,8 +1115,7 @@ array_toLocaleString(JSContext *cx, unsigned argc, Value *vp)
     JS_CHECK_RECURSION(cx, return false);
 
     CallArgs args = CallArgsFromVp(argc, vp);
-
-    return array_join_sub(cx, args, true);
+    return ArrayJoin<true>(cx, args);
 }
 
 /* ES5 15.4.4.5 */
@@ -1072,7 +1125,7 @@ array_join(JSContext *cx, unsigned argc, Value *vp)
     JS_CHECK_RECURSION(cx, return false);
 
     CallArgs args = CallArgsFromVp(argc, vp);
-    return array_join_sub(cx, args, false);
+    return ArrayJoin<false>(cx, args);
 }
 
 static inline bool
@@ -1081,7 +1134,7 @@ InitArrayTypes(JSContext *cx, TypeObject *type, const Value *vector, unsigned co
     if (cx->typeInferenceEnabled() && !type->unknownProperties()) {
         AutoEnterAnalysis enter(cx);
 
-        TypeSet *types = type->getProperty(cx, JSID_VOID, true);
+        TypeSet *types = type->getProperty(cx, JSID_VOID);
         if (!types)
             return false;
 
@@ -1305,7 +1358,7 @@ CompareStringValues(JSContext *cx, const Value &a, const Value &b, bool *lessOrE
     return true;
 }
 
-static uint64_t const powersOf10[] = {
+static const uint64_t powersOf10[] = {
     1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000, 1000000000000ULL
 };
 
@@ -1995,10 +2048,14 @@ js::array_pop(JSContext *cx, unsigned argc, Value *vp)
             return false;
     }
 
-    // Keep dense initialized length optimal, if possible.  Note that this just
-    // reflects the possible deletion above: in particular, it's okay to do
-    // this even if the length is non-writable and SetLengthProperty throws.
-    if (obj->isNative() && obj->getDenseInitializedLength() > index)
+    // If this was an array, then there are no elements above the one we just
+    // deleted (if we deleted an element).  Thus we can shrink the dense
+    // initialized length accordingly.  (This is fine even if the array length
+    // is non-writable: length-changing occurs after element-deletion effects.)
+    // Don't do anything if this isn't an array, as any deletion above has no
+    // effect on any elements after the "last" one indicated by the "length"
+    // property.
+    if (obj->is<ArrayObject>() && obj->getDenseInitializedLength() > index)
         obj->setDenseInitializedLength(index);
 
     /* Steps 4a, 5d. */
@@ -2812,28 +2869,28 @@ static const JSFunctionSpec array_methods[] = {
     JS_FN("concat",             array_concat,       1,JSFUN_GENERIC_NATIVE),
     JS_FN("slice",              array_slice,        2,JSFUN_GENERIC_NATIVE),
 
-         {"lastIndexOf",        {NULL, NULL},       1,0, "ArrayLastIndexOf"},
-         {"indexOf",            {NULL, NULL},       1,0, "ArrayIndexOf"},
-         {"forEach",            {NULL, NULL},       1,0, "ArrayForEach"},
-         {"map",                {NULL, NULL},       1,0, "ArrayMap"},
-         {"reduce",             {NULL, NULL},       1,0, "ArrayReduce"},
-         {"reduceRight",        {NULL, NULL},       1,0, "ArrayReduceRight"},
+    JS_SELF_HOSTED_FN("lastIndexOf", "ArrayLastIndexOf", 1,0),
+    JS_SELF_HOSTED_FN("indexOf",     "ArrayIndexOf",     1,0),
+    JS_SELF_HOSTED_FN("forEach",     "ArrayForEach",     1,0),
+    JS_SELF_HOSTED_FN("map",         "ArrayMap",         1,0),
+    JS_SELF_HOSTED_FN("reduce",      "ArrayReduce",      1,0),
+    JS_SELF_HOSTED_FN("reduceRight", "ArrayReduceRight", 1,0),
     JS_FN("filter",             array_filter,       1,JSFUN_GENERIC_NATIVE),
-         {"some",               {NULL, NULL},       1,0, "ArraySome"},
-         {"every",              {NULL, NULL},       1,0, "ArrayEvery"},
+    JS_SELF_HOSTED_FN("some",        "ArraySome",        1,0),
+    JS_SELF_HOSTED_FN("every",       "ArrayEvery",       1,0),
 
 #ifdef ENABLE_PARALLEL_JS
     /* Parallelizable and pure methods. */
-         {"mapPar",             {NULL, NULL},       2,0, "ArrayMapPar"},
-         {"reducePar",          {NULL, NULL},       2,0, "ArrayReducePar"},
-         {"scanPar",            {NULL, NULL},       2,0, "ArrayScanPar"},
-         {"scatterPar",         {NULL, NULL},       5,0, "ArrayScatterPar"},
-         {"filterPar",          {NULL, NULL},       2,0, "ArrayFilterPar"},
+    JS_SELF_HOSTED_FN("mapPar",      "ArrayMapPar",      2,0),
+    JS_SELF_HOSTED_FN("reducePar",   "ArrayReducePar",   2,0),
+    JS_SELF_HOSTED_FN("scanPar",     "ArrayScanPar",     2,0),
+    JS_SELF_HOSTED_FN("scatterPar",  "ArrayScatterPar",  5,0),
+    JS_SELF_HOSTED_FN("filterPar",   "ArrayFilterPar",   2,0),
 #endif
 
     /* ES6 additions */
-         {"find",               {NULL, NULL},       1,0, "ArrayFind"},
-         {"findIndex",          {NULL, NULL},       1,0, "ArrayFindIndex"},
+    JS_SELF_HOSTED_FN("find",        "ArrayFind",        1,0),
+    JS_SELF_HOSTED_FN("findIndex",   "ArrayFindIndex",   1,0),
 
     JS_FN("iterator",           JS_ArrayIterator,   0,0),
     JS_FS_END
@@ -2841,20 +2898,20 @@ static const JSFunctionSpec array_methods[] = {
 
 static const JSFunctionSpec array_static_methods[] = {
     JS_FN("isArray",            array_isArray,      1,0),
-         {"lastIndexOf",        {NULL, NULL},       2,0, "ArrayStaticLastIndexOf"},
-         {"indexOf",            {NULL, NULL},       2,0, "ArrayStaticIndexOf"},
-         {"forEach",            {NULL, NULL},       2,0, "ArrayStaticForEach"},
-         {"map",                {NULL, NULL},       2,0, "ArrayStaticMap"},
-         {"every",              {NULL, NULL},       2,0, "ArrayStaticEvery"},
-         {"some",               {NULL, NULL},       2,0, "ArrayStaticSome"},
-         {"reduce",             {NULL, NULL},       2,0, "ArrayStaticReduce"},
-         {"reduceRight",        {NULL, NULL},       2,0, "ArrayStaticReduceRight"},
+    JS_SELF_HOSTED_FN("lastIndexOf", "ArrayStaticLastIndexOf", 2,0),
+    JS_SELF_HOSTED_FN("indexOf",     "ArrayStaticIndexOf", 2,0),
+    JS_SELF_HOSTED_FN("forEach",     "ArrayStaticForEach", 2,0),
+    JS_SELF_HOSTED_FN("map",         "ArrayStaticMap",   2,0),
+    JS_SELF_HOSTED_FN("every",       "ArrayStaticEvery", 2,0),
+    JS_SELF_HOSTED_FN("some",        "ArrayStaticSome",  2,0),
+    JS_SELF_HOSTED_FN("reduce",      "ArrayStaticReduce", 2,0),
+    JS_SELF_HOSTED_FN("reduceRight", "ArrayStaticReduceRight", 2,0),
     JS_FN("of",                 array_of,           0,0),
 
 #ifdef ENABLE_PARALLEL_JS
-         {"build",              {NULL, NULL},       2,0, "ArrayStaticBuild"},
+    JS_SELF_HOSTED_FN("build",       "ArrayStaticBuild", 2,0),
     /* Parallelizable and pure static methods. */
-         {"buildPar",           {NULL, NULL},       3,0, "ArrayStaticBuildPar"},
+    JS_SELF_HOSTED_FN("buildPar",    "ArrayStaticBuildPar", 3,0),
 #endif
 
     JS_FS_END

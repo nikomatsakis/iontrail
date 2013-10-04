@@ -5,7 +5,8 @@
  */
 
 [JSImplementation="@mozilla.org/b2g-inputmethod;1",
- NavigatorProperty="mozInputMethod"]
+ NavigatorProperty="mozInputMethod",
+ Func="Navigator::HasInputMethodSupport"]
 interface MozInputMethod : EventTarget {
   // Input Method Manager contain a few global methods expose to apps
   readonly attribute MozInputMethodManager mgmt;
@@ -23,11 +24,16 @@ interface MozInputMethod : EventTarget {
   // allow to mutate.  this attribute should be null when there is no
   // text field currently focused.
   readonly attribute MozInputContext? inputcontext;
+
+  [ChromeOnly]
+  // Activate or decactive current input method window.
+  void setActive(boolean isActive);
 };
 
 // Manages the list of IMEs, enables/disables IME and switches to an
 // IME.
-[JSImplementation="@mozilla.org/b2g-imm;1"]
+[JSImplementation="@mozilla.org/b2g-imm;1",
+ Pref="dom.mozInputMethod.enabled"]
 interface MozInputMethodManager {
   // Ask the OS to show a list of available IMEs for users to switch from.
   // OS should ignore this request if the app is currently not the active one.
@@ -55,7 +61,8 @@ interface MozInputMethodManager {
 // It also hosts the methods available to the keyboard app to mutate the input field represented.
 // An "input context" gets void when the app is no longer allowed to interact with the text field,
 // e.g., the text field does no longer exist, the app is being switched to background, and etc.
-[JSImplementation="@mozilla.org/b2g-inputcontext;1"]
+[JSImplementation="@mozilla.org/b2g-inputcontext;1",
+ Pref="dom.mozInputMethod.enabled"]
 interface MozInputContext: EventTarget {
    // The tag name of input field, which is enum of "input", "textarea", or "contenteditable"
    readonly attribute DOMString? type;
@@ -81,6 +88,10 @@ interface MozInputContext: EventTarget {
    // The start and stop position of the selection.
    readonly attribute long selectionStart;
    readonly attribute long selectionEnd;
+
+   // The start and stop position of the selection.
+   readonly attribute DOMString? textBeforeCursor;
+   readonly attribute DOMString? textAfterCursor;
 
     /*
      * Set the selection range of the the editable text.

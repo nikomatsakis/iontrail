@@ -8,10 +8,13 @@
 #include "DocAccessible.h"
 #include "nsAccUtils.h"
 #include "nsIAccessibleRelation.h"
+#include "nsIPersistentProperties2.h"
 #include "nsTextEquivUtils.h"
 #include "Relation.h"
 #include "Role.h"
 #include "States.h"
+
+#include "mozilla/dom/HTMLLabelElement.h"
 
 using namespace mozilla::a11y;
 
@@ -59,6 +62,18 @@ HTMLLabelAccessible::NativeName(nsString& aName)
 {
   nsTextEquivUtils::GetNameFromSubtree(this, aName);
   return aName.IsEmpty() ? eNameOK : eNameFromSubtree;
+}
+
+Relation
+HTMLLabelAccessible::RelationByType(uint32_t aType)
+{
+  Relation rel = AccessibleWrap::RelationByType(aType);
+  if (aType == nsIAccessibleRelation::RELATION_LABEL_FOR) {
+    nsRefPtr<dom::HTMLLabelElement> label = dom::HTMLLabelElement::FromContent(mContent);
+    rel.AppendTarget(mDoc, label->GetControl());
+  }
+
+  return rel;
 }
 
 role

@@ -16,8 +16,9 @@
 #include "jit/BaselineFrame.h"
 #include "vm/ScopeObject.h"
 
+#include "jsobjinlines.h"
+
 #include "jit/BaselineFrame-inl.h"
-#include "jit/IonFrameIterator-inl.h"
 
 namespace js {
 
@@ -84,7 +85,7 @@ StackFrame::initCallFrame(JSContext *cx, StackFrame *prev, jsbytecode *prevpc, V
     prev_ = prev;
     prevpc_ = prevpc;
     prevsp_ = prevsp;
-    blockChain_= NULL;
+    blockChain_= nullptr;
     JS_ASSERT(!hasBlockChain());
     JS_ASSERT(!hasHookData());
 
@@ -236,12 +237,12 @@ InterpreterStack::allocateFrame(JSContext *cx, size_t size)
 
     if (JS_UNLIKELY(frameCount_ >= maxFrames)) {
         js_ReportOverRecursed(cx);
-        return NULL;
+        return nullptr;
     }
 
     uint8_t *buffer = reinterpret_cast<uint8_t *>(allocator_.alloc(size));
     if (!buffer)
-        return NULL;
+        return nullptr;
 
     frameCount_++;
     return buffer;
@@ -269,7 +270,7 @@ InterpreterStack::getCallFrame(JSContext *cx, const CallArgs &args, HandleScript
     nvals += nformal + 2; // Include callee, |this|.
     uint8_t *buffer = allocateFrame(cx, sizeof(StackFrame) + nvals * sizeof(Value));
     if (!buffer)
-        return NULL;
+        return nullptr;
 
     Value *argv = reinterpret_cast<Value *>(buffer);
     unsigned nmissing = nformal - args.length();
@@ -520,7 +521,7 @@ AbstractFramePtr::maybeSuspendedGenerator(JSRuntime *rt) const
 {
     if (isStackFrame())
         return asStackFrame()->maybeSuspendedGenerator(rt);
-    return NULL;
+    return nullptr;
 }
 
 inline StaticBlockObject *

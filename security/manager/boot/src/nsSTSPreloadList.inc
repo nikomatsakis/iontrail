@@ -8,7 +8,7 @@
 /*****************************************************************************/
 
 #include <stdint.h>
-const PRTime gPreloadListExpirationTime = INT64_C(1388829945161000);
+const PRTime gPreloadListExpirationTime = INT64_C(1391250031831000);
 
 class nsSTSPreload
 {
@@ -22,6 +22,7 @@ static const nsSTSPreload kSTSPreloadList[] = {
   { "alpha.irccloud.com", false },
   { "api.intercom.io", false },
   { "app.recurly.com", false },
+  { "appseccalifornia.org", true },
   { "arivo.com.br", true },
   { "bank.simple.com", false },
   { "bassh.net", true },
@@ -73,6 +74,7 @@ static const nsSTSPreload kSTSPreloadList[] = {
   { "logotype.se", true },
   { "lolicore.ch", true },
   { "lookout.com", false },
+  { "lumi.do", false },
   { "luneta.nearbuysystems.com", false },
   { "makeyourlaws.org", true },
   { "manager.linode.com", false },
@@ -106,6 +108,7 @@ static const nsSTSPreload kSTSPreloadList[] = {
   { "squareup.com", false },
   { "stocktrade.de", false },
   { "stripe.com", true },
+  { "strongest-privacy.com", true },
   { "support.mayfirst.org", false },
   { "surkatty.org", true },
   { "therapynotes.com", false },
@@ -114,7 +117,7 @@ static const nsSTSPreload kSTSPreloadList[] = {
   { "webmail.gigahost.dk", false },
   { "webmail.mayfirst.org", false },
   { "webmail.onlime.ch", false },
-  { "whonix.org", true },
+  { "wiki.python.org", true },
   { "wiz.biz", true },
   { "writeapp.me", false },
   { "www.apollo-auto.com", true },
@@ -122,6 +125,7 @@ static const nsSTSPreload kSTSPreloadList[] = {
   { "www.cueup.com", false },
   { "www.cyveillance.com", true },
   { "www.entropia.de", false },
+  { "www.gov.uk", false },
   { "www.grc.com", false },
   { "www.intercom.io", false },
   { "www.irccloud.com", false },

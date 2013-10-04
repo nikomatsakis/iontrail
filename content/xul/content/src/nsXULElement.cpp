@@ -73,7 +73,8 @@
 #include "nsIListBoxObject.h"
 #include "nsContentUtils.h"
 #include "nsContentList.h"
-#include "nsMutationEvent.h"
+#include "mozilla/MouseEvents.h"
+#include "mozilla/MutationEvent.h"
 #include "nsAsyncDOMEvent.h"
 #include "nsIDOMMutationEvent.h"
 #include "nsPIDOMWindow.h"
@@ -89,6 +90,7 @@
 #include "nsAttrValueOrString.h"
 #include "nsAttrValueInlines.h"
 #include "mozilla/Attributes.h"
+#include "nsIController.h"
 #include <algorithm>
 
 // The XUL doc interface
@@ -108,12 +110,6 @@
 
 using namespace mozilla;
 using namespace mozilla::dom;
-
-//----------------------------------------------------------------------
-
-static NS_DEFINE_CID(kXULPopupListenerCID,        NS_XULPOPUPLISTENER_CID);
-
-//----------------------------------------------------------------------
 
 #ifdef XUL_PROTOTYPE_ATTRIBUTE_METERING
 uint32_t             nsXULPrototypeAttribute::gNumElements;
@@ -1194,8 +1190,8 @@ nsXULElement::PreHandleEvent(nsEventChainPreVisitor& aVisitor)
                     }
                 }
 
-                nsInputEvent* orig =
-                    static_cast<nsInputEvent*>(aVisitor.mEvent);
+                WidgetInputEvent* orig =
+                    static_cast<WidgetInputEvent*>(aVisitor.mEvent);
                 nsContentUtils::DispatchXULCommand(
                   commandContent,
                   aVisitor.mEvent->mFlags.mIsTrusted,
@@ -1604,12 +1600,12 @@ nsXULElement::ClickWithInputSource(uint16_t aInputSource)
 
             bool isCallerChrome = nsContentUtils::IsCallerChrome();
 
-            nsMouseEvent eventDown(isCallerChrome, NS_MOUSE_BUTTON_DOWN,
-                                   nullptr, nsMouseEvent::eReal);
-            nsMouseEvent eventUp(isCallerChrome, NS_MOUSE_BUTTON_UP,
-                                 nullptr, nsMouseEvent::eReal);
-            nsMouseEvent eventClick(isCallerChrome, NS_MOUSE_CLICK, nullptr,
-                                    nsMouseEvent::eReal);
+            WidgetMouseEvent eventDown(isCallerChrome, NS_MOUSE_BUTTON_DOWN,
+                                       nullptr, WidgetMouseEvent::eReal);
+            WidgetMouseEvent eventUp(isCallerChrome, NS_MOUSE_BUTTON_UP,
+                                     nullptr, WidgetMouseEvent::eReal);
+            WidgetMouseEvent eventClick(isCallerChrome, NS_MOUSE_CLICK, nullptr,
+                                        WidgetMouseEvent::eReal);
             eventDown.inputSource = eventUp.inputSource = eventClick.inputSource 
                                   = aInputSource;
 
@@ -2579,10 +2575,11 @@ NotifyOffThreadScriptCompletedRunnable::Run()
     nsCOMPtr<nsIJSRuntimeService> svc = do_GetService("@mozilla.org/js/xpc/RuntimeService;1");
     NS_ENSURE_TRUE(svc, NS_ERROR_FAILURE);
 
-    JSRuntime *rt;
-    svc->GetRuntime(&rt);
-    NS_ENSURE_TRUE(svc, NS_ERROR_FAILURE);
-    JSScript *script = JS::FinishOffThreadScript(NULL, rt, mToken);
+    JSScript *script;
+    {
+        AutoSafeJSContext cx;
+        script = JS::FinishOffThreadScript(cx, JS_GetRuntime(cx), mToken);
+    }
 
     return mReceiver->OnScriptCompileComplete(script, script ? NS_OK : NS_ERROR_FAILURE);
 }
@@ -2638,7 +2635,9 @@ nsXULPrototypeScript::Compile(const PRUnichar* aText,
     options.setSourcePolicy(mOutOfLine ? JS::CompileOptions::LAZY_SOURCE
                                        : JS::CompileOptions::SAVE_SOURCE);
     JS::RootedObject scope(cx, JS::CurrentGlobalOrNull(cx));
-    xpc_UnmarkGrayObject(scope);
+    if (scope) {
+      JS::ExposeObjectToActiveJS(scope);
+    }
 
     if (aOffThreadReceiver && JS::CanCompileOffThread(cx, options)) {
         if (!JS::CompileOffThread(cx, scope, options,

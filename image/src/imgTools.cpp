@@ -9,17 +9,13 @@
 #include "nsCOMPtr.h"
 #include "nsIDocument.h"
 #include "nsIDOMDocument.h"
-#include "nsString.h"
 #include "nsError.h"
 #include "imgLoader.h"
 #include "imgICache.h"
 #include "imgIContainer.h"
 #include "imgIEncoder.h"
 #include "gfxContext.h"
-#include "nsStringStream.h"
 #include "nsComponentManagerUtils.h"
-#include "nsWeakReference.h"
-#include "nsIInterfaceRequestorUtils.h"
 #include "nsStreamUtils.h"
 #include "nsNetUtil.h"
 #include "nsContentUtils.h"
@@ -147,7 +143,7 @@ NS_IMETHODIMP imgTools::EncodeScaledImage(imgIContainer *aContainer,
 
   // Create a temporary image surface
   nsRefPtr<gfxImageSurface> dest = new gfxImageSurface(gfxIntSize(aScaledWidth, aScaledHeight),
-                                                       gfxASurface::ImageFormatARGB32);
+                                                       gfxImageFormatARGB32);
   gfxContext ctx(dest);
 
   // Set scaling
@@ -205,7 +201,7 @@ NS_IMETHODIMP imgTools::EncodeCroppedImage(imgIContainer *aContainer,
 
   // Create a temporary image surface
   nsRefPtr<gfxImageSurface> dest = new gfxImageSurface(gfxIntSize(aWidth, aHeight),
-                                                       gfxASurface::ImageFormatARGB32);
+                                                       gfxImageFormatARGB32);
   gfxContext ctx(dest);
 
   // Set translate

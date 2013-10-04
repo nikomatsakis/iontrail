@@ -259,7 +259,7 @@ panel[noactions] > richlistbox > richlistitem[type~="action"] > .ac-url-box > .a
 
 #wrapper-urlbar-container > #urlbar-container > #urlbar {
   -moz-user-input: disabled;
-  cursor: -moz-grab;
+  cursor: grab;
 }
 
 #PopupAutoComplete {
@@ -544,7 +544,6 @@ statuspanel {
   -moz-binding: url("chrome://browser/content/tabbrowser.xml#statuspanel");
   position: fixed;
   margin-top: -3em;
-  left: 0;
   max-width: calc(100% - 5px);
   pointer-events: none;
 }
@@ -656,6 +655,14 @@ toolbarbutton[type="badged"] {
   -moz-binding: url("chrome://browser/content/urlbarBindings.xml#toolbarbutton-badged");
 }
 
+toolbarbutton[type="socialmark"] {
+  -moz-binding: url("chrome://browser/content/socialmarks.xml#toolbarbutton-marks");
+}
+toolbarbutton[type="socialmark"] > .toolbarbutton-icon {
+  width: 16px;
+  height: 16px;
+}
+
 /* Note the chatbox 'width' values are duplicated in socialchat.xml */
 chatbox {
   -moz-binding: url("chrome://browser/content/socialchat.xml#chatbox");
@@ -677,8 +684,47 @@ chatbar {
 
 /** See bug 872317 for why the following rule is necessary. */
 
-#downloads-indicator {
+#downloads-button {
   -moz-binding: url("chrome://browser/content/downloads/download.xml#download-toolbarbutton");
+}
+
+/*** Visibility of downloads indicator controls ***/
+
+#downloads-button[indicator] > image.toolbarbutton-icon {
+  display: none;
+}
+
+toolbarpaletteitem[place="palette"] > #downloads-button[indicator] > image.toolbarbutton-icon {
+  display: -moz-box;
+}
+
+toolbarpaletteitem[place="palette"] > #downloads-button[indicator] > stack.toolbarbutton-icon {
+  display: none;
+}
+
+#downloads-button:-moz-any([progress], [counter], [paused]) #downloads-indicator-icon,
+#downloads-button:not(:-moz-any([progress], [counter], [paused]))
+                                                   #downloads-indicator-progress-area
+{
+  visibility: hidden;
+}
+
+/* Hacks for toolbar full and text modes, until bug 573329 removes them */
+
+toolbar[mode="text"] > #downloads-button {
+  display: -moz-box;
+  -moz-box-orient: vertical;
+  -moz-box-pack: center;
+}
+
+toolbar[mode="text"] > #downloads-button > .toolbarbutton-text {
+  -moz-box-ordinal-group: 1;
+}
+
+toolbar[mode="text"] > #downloads-button > .toolbarbutton-icon {
+  display: -moz-box;
+  -moz-box-ordinal-group: 2;
+  visibility: collapse;
 }
 
 /* full screen chat window support */

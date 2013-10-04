@@ -4,9 +4,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "nsError.h"
 #include "nsDOMNotifyAudioAvailableEvent.h"
-#include "nsCycleCollectionHoldDrop.h"
+
+#include "nsError.h"
+#include "mozilla/HoldDropJSObjects.h"
 #include "jsfriendapi.h"
 
 using namespace mozilla;
@@ -14,7 +15,7 @@ using namespace mozilla::dom;
 
 nsDOMNotifyAudioAvailableEvent::nsDOMNotifyAudioAvailableEvent(EventTarget* aOwner,
                                                                nsPresContext* aPresContext,
-                                                               nsEvent* aEvent,
+                                                               WidgetEvent* aEvent,
                                                                uint32_t aEventType,
                                                                float* aFrameBuffer,
                                                                uint32_t aFrameBufferLength,
@@ -155,7 +156,7 @@ nsDOMNotifyAudioAvailableEvent::InitAudioAvailableEvent(const nsAString& aType,
 nsresult NS_NewDOMAudioAvailableEvent(nsIDOMEvent** aInstancePtrResult,
                                       EventTarget* aOwner,
                                       nsPresContext* aPresContext,
-                                      nsEvent *aEvent,
+                                      WidgetEvent* aEvent,
                                       uint32_t aEventType,
                                       float* aFrameBuffer,
                                       uint32_t aFrameBufferLength,

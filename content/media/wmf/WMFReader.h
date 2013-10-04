@@ -9,6 +9,8 @@
 #include "WMF.h"
 #include "MediaDecoderReader.h"
 #include "nsAutoPtr.h"
+#include "mozilla/RefPtr.h"
+#include "nsRect.h"
 
 namespace mozilla {
 
@@ -38,7 +40,7 @@ public:
   bool HasAudio() MOZ_OVERRIDE;
   bool HasVideo() MOZ_OVERRIDE;
 
-  nsresult ReadMetadata(VideoInfo* aInfo,
+  nsresult ReadMetadata(MediaInfo* aInfo,
                         MetadataTags** aTags) MOZ_OVERRIDE;
 
   nsresult Seek(int64_t aTime,
@@ -73,11 +75,6 @@ private:
 
   // Attempt to initialize DXVA. Returns true on success.
   bool InitializeDXVA();  
-
-  // Notifies the MediaDecoder of the number of bytes we have consumed
-  // since last time we called this. We call this once per call to
-  // DecodeVideoFrame() and/or DecodeAudioData().
-  void NotifyBytesConsumed();
 
   RefPtr<IMFSourceReader> mSourceReader;
   RefPtr<WMFByteStream> mByteStream;

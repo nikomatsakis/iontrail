@@ -8,11 +8,9 @@
 
 #include "Image.h"
 #include "nsIStreamListener.h"
-#include "nsIRequest.h"
 #include "mozilla/MemoryReporting.h"
-#include "mozilla/WeakPtr.h"
 
-class imgDecoderObserver;
+class nsIRequest;
 
 namespace mozilla {
 namespace layers {
@@ -77,7 +75,8 @@ public:
   void OnSVGDocumentError();
 
 protected:
-  VectorImage(imgStatusTracker* aStatusTracker = nullptr, nsIURI* aURI = nullptr);
+  VectorImage(imgStatusTracker* aStatusTracker = nullptr,
+              ImageURL* aURI = nullptr);
 
   virtual nsresult StartAnimation();
   virtual nsresult StopAnimation();
@@ -98,6 +97,9 @@ private:
                                           // (Only set after mIsFullyLoaded.)
   bool           mHasPendingInvalidation; // Invalidate observers next refresh
                                           // driver tick.
+
+  // Initializes imgStatusTracker and resets it on RasterImage destruction.
+  nsAutoPtr<imgStatusTrackerInit> mStatusTrackerInit;
 
   friend class ImageFactory;
 };

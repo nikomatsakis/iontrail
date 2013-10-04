@@ -41,8 +41,8 @@ nsresult MediaPluginReader::Init(MediaDecoderReader* aCloneDonor)
   return NS_OK;
 }
 
-nsresult MediaPluginReader::ReadMetadata(VideoInfo* aInfo,
-                                           MetadataTags** aTags)
+nsresult MediaPluginReader::ReadMetadata(MediaInfo* aInfo,
+                                         MetadataTags** aTags)
 {
   NS_ASSERTION(mDecoder->OnDecodeThread(), "Should be on decode thread.");
 
@@ -75,8 +75,8 @@ nsresult MediaPluginReader::ReadMetadata(VideoInfo* aInfo,
     }
 
     // Video track's frame sizes will not overflow. Activate the video track.
-    mHasVideo = mInfo.mHasVideo = true;
-    mInfo.mDisplay = displaySize;
+    mHasVideo = mInfo.mVideo.mHasVideo = true;
+    mInfo.mVideo.mDisplay = displaySize;
     mPicture = pictureRect;
     mInitialFrame = frameSize;
     VideoFrameContainer* container = mDecoder->GetVideoFrameContainer();
@@ -90,9 +90,9 @@ nsresult MediaPluginReader::ReadMetadata(VideoInfo* aInfo,
   if (mPlugin->HasAudio(mPlugin)) {
     int32_t numChannels, sampleRate;
     mPlugin->GetAudioParameters(mPlugin, &numChannels, &sampleRate);
-    mHasAudio = mInfo.mHasAudio = true;
-    mInfo.mAudioChannels = numChannels;
-    mInfo.mAudioRate = sampleRate;
+    mHasAudio = mInfo.mAudio.mHasAudio = true;
+    mInfo.mAudio.mChannels = numChannels;
+    mInfo.mAudio.mRate = sampleRate;
   }
 
  *aInfo = mInfo;
@@ -148,7 +148,6 @@ bool MediaPluginReader::DecodeVideoFrame(bool &aKeyframeSkip,
         mVideoQueue.Push(mLastVideoFrame);
         mLastVideoFrame = NULL;
       }
-      mVideoQueue.Finish();
       return false;
     }
     mVideoSeekTimeUs = -1;
@@ -187,7 +186,7 @@ bool MediaPluginReader::DecodeVideoFrame(bool &aKeyframeSkip,
         picture.height = (frameSize.height * mPicture.height) / mInitialFrame.height;
       }
 
-      v = VideoData::CreateFromImage(mInfo,
+      v = VideoData::CreateFromImage(mInfo.mVideo,
                                      mDecoder->GetImageContainer(),
                                      pos,
                                      frame.mTimeUs,
@@ -233,7 +232,7 @@ bool MediaPluginReader::DecodeVideoFrame(bool &aKeyframeSkip,
       }
 
       // This is the approximate byte position in the stream.
-      v = VideoData::Create(mInfo,
+      v = VideoData::Create(mInfo.mVideo,
                             mDecoder->GetImageContainer(),
                             pos,
                             frame.mTimeUs,
@@ -292,7 +291,6 @@ bool MediaPluginReader::DecodeAudioData()
   // Read next frame
   MPAPI::AudioFrame frame;
   if (!mPlugin->ReadAudio(mPlugin, &frame, mAudioSeekTimeUs)) {
-    mAudioQueue.Finish();
     return false;
   }
   mAudioSeekTimeUs = -1;
@@ -365,7 +363,7 @@ MediaPluginReader::ImageBufferCallback::operator()(size_t aWidth, size_t aHeight
     case MPAPI::RGB565:
       rgbImage = mozilla::layers::CreateSharedRGBImage(mImageContainer,
                                                        nsIntSize(aWidth, aHeight),
-                                                       gfxASurface::ImageFormatRGB16_565);
+                                                       gfxImageFormatRGB16_565);
       if (!rgbImage) {
         NS_WARNING("Could not create rgb image");
         return nullptr;

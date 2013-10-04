@@ -4,14 +4,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "mozilla/DebugOnly.h"
+#include "nsHTMLDocument.h"
 
+#include "mozilla/DebugOnly.h"
+#include "mozilla/dom/HTMLAllCollection.h"
 #include "nsCOMPtr.h"
 #include "nsXPIDLString.h"
 #include "nsPrintfCString.h"
 #include "nsReadableUtils.h"
 #include "nsUnicharUtils.h"
-#include "nsHTMLDocument.h"
 #include "nsIHTMLContentSink.h"
 #include "nsIXMLContentSink.h"
 #include "nsHTMLParts.h"
@@ -116,10 +117,6 @@ using namespace mozilla::dom;
 
 #include "prtime.h"
 
-// Find/Search Includes
-const int32_t kForward  = 0;
-const int32_t kBackward = 1;
-
 //#define DEBUG_charset
 
 static NS_DEFINE_CID(kCParserCID, NS_PARSER_CID);
@@ -209,43 +206,20 @@ nsHTMLDocument::nsHTMLDocument()
 
 nsHTMLDocument::~nsHTMLDocument()
 {
-  mAll = nullptr;
 }
 
-NS_IMPL_CYCLE_COLLECTION_CLASS(nsHTMLDocument)
-
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(nsHTMLDocument, nsDocument)
-  NS_ASSERTION(!nsCCUncollectableMarker::InGeneration(cb, tmp->GetMarkedCCGeneration()),
-               "Shouldn't traverse nsHTMLDocument!");
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mImages)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mApplets)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mEmbeds)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mLinks)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAnchors)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mScripts)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mForms)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFormControls)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWyciwygChannel)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMidasCommandManager)
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
-
-NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(nsHTMLDocument, nsDocument)
-  tmp->mAll = nullptr;
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mImages)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mApplets)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mEmbeds)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mLinks)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mAnchors)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mScripts)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mForms)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mFormControls)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mWyciwygChannel)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mMidasCommandManager)
-NS_IMPL_CYCLE_COLLECTION_UNLINK_END
-
-NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(nsHTMLDocument, nsDocument)
-  NS_IMPL_CYCLE_COLLECTION_TRACE_JS_MEMBER_CALLBACK(mAll)
-NS_IMPL_CYCLE_COLLECTION_TRACE_END
+NS_IMPL_CYCLE_COLLECTION_INHERITED_11(nsHTMLDocument, nsDocument,
+                                      mAll,
+                                      mImages,
+                                      mApplets,
+                                      mEmbeds,
+                                      mLinks,
+                                      mAnchors,
+                                      mScripts,
+                                      mForms,
+                                      mFormControls,
+                                      mWyciwygChannel,
+                                      mMidasCommandManager)
 
 NS_IMPL_ADDREF_INHERITED(nsHTMLDocument, nsDocument)
 NS_IMPL_RELEASE_INHERITED(nsHTMLDocument, nsDocument)
@@ -2720,23 +2694,10 @@ JSObject*
 nsHTMLDocument::GetAll(JSContext* aCx, ErrorResult& aRv)
 {
   if (!mAll) {
-    JS::Rooted<JSObject*> wrapper(aCx, GetWrapper());
-    JSAutoCompartment ac(aCx, wrapper);
-    mAll = JS_NewObject(aCx, &sHTMLDocumentAllClass, nullptr,
-                        JS_GetGlobalForObject(aCx, wrapper));
-    if (!mAll) {
-      aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
-      return nullptr;
-    }
-
-    // Make the JSObject hold a reference to this.
-    JS_SetPrivate(mAll, static_cast<nsINode*>(this));
-    NS_ADDREF_THIS();
-
-    PreserveWrapper(static_cast<nsINode*>(this));
+    mAll = new HTMLAllCollection(this);
   }
 
-  return mAll;
+  return mAll->GetObject(aCx, aRv);
 }
 
 static void
@@ -3789,9 +3750,9 @@ nsHTMLDocument::RemovedFromDocShell()
 }
 
 /* virtual */ void
-nsHTMLDocument::DocSizeOfExcludingThis(nsWindowSizes* aWindowSizes) const
+nsHTMLDocument::DocAddSizeOfExcludingThis(nsWindowSizes* aWindowSizes) const
 {
-  nsDocument::DocSizeOfExcludingThis(aWindowSizes);
+  nsDocument::DocAddSizeOfExcludingThis(aWindowSizes);
 
   // Measurement of the following members may be added later if DMD finds it is
   // worthwhile:

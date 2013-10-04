@@ -28,14 +28,22 @@ class LBox : public LInstructionHelper<2, 1, 0>
     }
 };
 
-class LBoxDouble : public LInstructionHelper<2, 1, 1>
+class LBoxFloatingPoint : public LInstructionHelper<2, 1, 1>
 {
-  public:
-    LIR_HEADER(BoxDouble);
+    MIRType type_;
 
-    LBoxDouble(const LAllocation &in, const LDefinition &temp) {
+  public:
+    LIR_HEADER(BoxFloatingPoint);
+
+    LBoxFloatingPoint(const LAllocation &in, const LDefinition &temp, MIRType type)
+      : type_(type)
+    {
         setOperand(0, in);
         setTemp(0, temp);
+    }
+
+    MIRType type() const {
+        return type_;
     }
 };
 
@@ -55,15 +63,25 @@ class LUnbox : public LInstructionHelper<1, 2, 0>
     }
 };
 
-class LUnboxDouble : public LInstructionHelper<1, 2, 0>
+class LUnboxFloatingPoint : public LInstructionHelper<1, 2, 0>
 {
+    MIRType type_;
+
   public:
-    LIR_HEADER(UnboxDouble);
+    LIR_HEADER(UnboxFloatingPoint);
 
     static const size_t Input = 0;
 
+    LUnboxFloatingPoint(MIRType type)
+      : type_(type)
+    { }
+
     MUnbox *mir() const {
         return mir_->toUnbox();
+    }
+
+    MIRType type() const {
+        return type_;
     }
 };
 
@@ -274,7 +292,7 @@ class LTableSwitch : public LInstructionHelper<0, 1, 1>
     }
     // This is added to share the same CodeGenerator prefixes.
     const LAllocation *tempPointer() {
-        return NULL;
+        return nullptr;
     }
 };
 
@@ -305,7 +323,7 @@ class LTableSwitchV : public LInstructionHelper<0, BOX_PIECES, 2>
         return getTemp(1)->output();
     }
     const LAllocation *tempPointer() {
-        return NULL;
+        return nullptr;
     }
 };
 

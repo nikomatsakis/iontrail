@@ -2,12 +2,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http:mozilla.org/MPL/2.0/. */
 
-#include "mozilla/net/Dashboard.h"
-
-#include "jsapi.h"
 #include "mozilla/dom/NetDashboardBinding.h"
+#include "mozilla/net/Dashboard.h"
 #include "mozilla/net/HttpInfo.h"
 #include "nsCxPusher.h"
+#include "nsHttp.h"
+#include "nsICancelable.h"
+#include "nsIDNSService.h"
+#include "nsIDNSRecord.h"
+#include "nsIInputStream.h"
+#include "nsISocketTransport.h"
+#include "nsIThread.h"
+#include "nsSocketTransportService2.h"
+#include "nsThreadUtils.h"
+#include "nsURLHelper.h"
 
 using mozilla::AutoSafeJSContext;
 namespace mozilla {
@@ -17,6 +25,11 @@ NS_IMPL_ISUPPORTS5(Dashboard, nsIDashboard, nsIDashboardEventNotifier,
                               nsITransportEventSink, nsITimerCallback,
                               nsIDNSListener)
 using mozilla::dom::Sequence;
+
+struct ConnStatus
+{
+    nsString creationSts;
+};
 
 Dashboard::Dashboard()
 {
@@ -559,10 +572,12 @@ HttpConnInfo::SetHTTP1ProtocolVersion(uint8_t pv)
 void
 HttpConnInfo::SetHTTP2ProtocolVersion(uint8_t pv)
 {
-    if (pv == SPDY_VERSION_2)
-        protocolVersion.Assign(NS_LITERAL_STRING("spdy/2"));
-    else
+    if (pv == SPDY_VERSION_3)
         protocolVersion.Assign(NS_LITERAL_STRING("spdy/3"));
+    else {
+        MOZ_ASSERT (pv == SPDY_VERSION_31);
+        protocolVersion.Assign(NS_LITERAL_STRING("spdy/3.1"));
+    }
 }
 
 NS_IMETHODIMP
@@ -578,7 +593,8 @@ Dashboard::RequestConnection(const nsACString& aHost, uint32_t aPort,
     if (NS_FAILED(rv)) {
         ConnStatus status;
         CopyASCIItoUTF16(GetErrorString(rv), status.creationSts);
-        nsCOMPtr<nsIRunnable> event = new DashConnStatusRunnable(this, status);
+        nsCOMPtr<nsIRunnable> event =
+            NS_NewRunnableMethodWithArg<ConnStatus>(this, &Dashboard::GetConnectionStatus, status);
         mConn.thread->Dispatch(event, NS_DISPATCH_NORMAL);
         return rv;
     }
@@ -648,7 +664,7 @@ Dashboard::OnTransportStatus(nsITransport *aTransport, nsresult aStatus,
 
     ConnStatus status;
     CopyASCIItoUTF16(GetErrorString(aStatus), status.creationSts);
-    nsCOMPtr<nsIRunnable> event = new DashConnStatusRunnable(this, status);
+    nsCOMPtr<nsIRunnable> event = NS_NewRunnableMethodWithArg<ConnStatus>(this, &Dashboard::GetConnectionStatus, status);
     mConn.thread->Dispatch(event, NS_DISPATCH_NORMAL);
 
     return NS_OK;
@@ -667,7 +683,7 @@ Dashboard::Notify(nsITimer *timer)
 
     ConnStatus status;
     status.creationSts.Assign(NS_LITERAL_STRING("NS_ERROR_NET_TIMEOUT"));
-    nsCOMPtr<nsIRunnable> event = new DashConnStatusRunnable(this, status);
+    nsCOMPtr<nsIRunnable> event = NS_NewRunnableMethodWithArg<ConnStatus>(this, &Dashboard::GetConnectionStatus, status);
     mConn.thread->Dispatch(event, NS_DISPATCH_NORMAL);
 
     return NS_OK;
@@ -727,7 +743,7 @@ Dashboard::GetErrorString(nsresult rv)
         if (errors[i].key == rv)
             return errors[i].error;
 
-    return NULL;
+    return nullptr;
 }
 
 } } // namespace mozilla::net

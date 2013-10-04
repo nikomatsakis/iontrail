@@ -187,8 +187,6 @@
 #include "nsIWebBrowserFind.h"
 #include "nsIWidget.h"
 
-static NS_DEFINE_CID(kDOMScriptObjectFactoryCID,
-                     NS_DOM_SCRIPT_OBJECT_FACTORY_CID);
 static NS_DEFINE_CID(kAppShellCID, NS_APPSHELL_CID);
 
 #if defined(DEBUG_bryner) || defined(DEBUG_chb)
@@ -763,6 +761,7 @@ nsDocShell::nsDocShell():
     mInEnsureScriptEnv(false),
 #endif
     mAffectPrivateSessionLifetime(true),
+    mDefaultLoadFlags(nsIRequest::LOAD_NORMAL),
     mFrameType(eFrameTypeRegular),
     mOwnOrContainingAppId(nsIScriptSecurityManager::UNKNOWN_APP_ID),
     mParentCharsetSource(0)
@@ -2876,6 +2875,12 @@ nsDocShell::SetDocLoaderParent(nsDocLoader * aParent)
         SetAllowDNSPrefetch(value);
         value = parentAsDocShell->GetAffectPrivateSessionLifetime();
         SetAffectPrivateSessionLifetime(value);
+        uint32_t flags;
+        if (NS_SUCCEEDED(parentAsDocShell->GetDefaultLoadFlags(&flags)))
+        {
+            SetDefaultLoadFlags(flags);
+        }
+
     }
 
     nsCOMPtr<nsILoadContext> parentAsLoadContext(do_QueryInterface(parent));
@@ -4342,6 +4347,13 @@ nsDocShell::DisplayLoadError(nsresult aError, nsIURI *aURI,
         nsCOMPtr<Element> element = do_QueryInterface(handler);
         element->GetAttribute(NS_LITERAL_STRING("crashedPageTitle"), messageStr);
       }
+
+      // DisplayLoadError requires a non-empty messageStr to proceed and call LoadErrorPage.
+      // If the page doesn't have a title, we will use a blank space which will be trimmed
+      // and thus treated as empty by the front-end.
+      if (messageStr.IsEmpty()) {
+        messageStr.Assign(NS_LITERAL_STRING(" "));
+      }
     }
     else {
         // Errors requiring simple formatting
@@ -4586,8 +4598,26 @@ nsDocShell::LoadErrorPage(nsIURI *aURI, const PRUnichar *aURL,
     errorPageUrl.AppendLiteral("&d=");
     errorPageUrl.AppendASCII(escapedDescription.get());
 
+    // Append the manifest URL if the error comes from an app.
+    uint32_t appId;
+    nsresult rv = GetAppId(&appId);
+    if (appId != nsIScriptSecurityManager::NO_APP_ID &&
+        appId != nsIScriptSecurityManager::UNKNOWN_APP_ID) {
+      nsCOMPtr<nsIAppsService> appsService =
+        do_GetService(APPS_SERVICE_CONTRACTID);
+      NS_ASSERTION(appsService, "No AppsService available");
+      nsAutoString manifestURL;
+      appsService->GetManifestURLByLocalId(appId, manifestURL);
+      nsCString manifestParam;
+      SAFE_ESCAPE(manifestParam,
+                  NS_ConvertUTF16toUTF8(manifestURL).get(),
+                  url_Path);
+      errorPageUrl.AppendLiteral("&m=");
+      errorPageUrl.AppendASCII(manifestParam.get());
+    }
+
     nsCOMPtr<nsIURI> errorPageURI;
-    nsresult rv = NS_NewURI(getter_AddRefs(errorPageURI), errorPageUrl);
+    rv = NS_NewURI(getter_AddRefs(errorPageURI), errorPageUrl);
     NS_ENSURE_SUCCESS(rv, rv);
 
     return InternalLoad(errorPageURI, nullptr, nullptr,
@@ -5041,7 +5071,7 @@ NS_IMETHODIMP
 nsDocShell::GetUnscaledDevicePixelsPerCSSPixel(double *aScale)
 {
     if (mParentWidget) {
-        *aScale = mParentWidget->GetDefaultScale();
+        *aScale = mParentWidget->GetDefaultScale().scale;
         return NS_OK;
     }
 
@@ -5367,6 +5397,40 @@ nsDocShell::GetSandboxFlags(uint32_t  *aSandboxFlags)
     *aSandboxFlags = mSandboxFlags;
     return NS_OK;
 }
+
+NS_IMETHODIMP
+nsDocShell::SetDefaultLoadFlags(uint32_t aDefaultLoadFlags)
+{
+    mDefaultLoadFlags = aDefaultLoadFlags;
+
+    // Tell the load group to set these flags all requests in the group
+    if (mLoadGroup) {
+        mLoadGroup->SetDefaultLoadFlags(aDefaultLoadFlags);
+    } else {
+        NS_WARNING("nsDocShell::SetDefaultLoadFlags has no loadGroup to propagate the flags to");
+    }
+
+    // Recursively tell all of our children.  We *do not* skip
+    // <iframe mozbrowser> children - if someone sticks custom flags in this
+    // docShell then they too get the same flags.
+    nsTObserverArray<nsDocLoader*>::ForwardIterator iter(mChildList);
+    while (iter.HasMore()) {
+        nsCOMPtr<nsIDocShell> docshell = do_QueryObject(iter.GetNext());
+        if (!docshell) {
+            continue;
+        }
+        docshell->SetDefaultLoadFlags(aDefaultLoadFlags);
+    }
+    return NS_OK;
+}
+
+NS_IMETHODIMP
+nsDocShell::GetDefaultLoadFlags(uint32_t *aDefaultLoadFlags)
+{
+    *aDefaultLoadFlags = mDefaultLoadFlags;
+    return NS_OK;
+}
+
 
 NS_IMETHODIMP
 nsDocShell::SetMixedContentChannel(nsIChannel* aMixedContentChannel)
@@ -7791,6 +7855,9 @@ nsDocShell::RestoreFromHistory()
 
         bool allowContentRetargeting = childShell->GetAllowContentRetargeting();
 
+        uint32_t defaultLoadFlags;
+        childShell->GetDefaultLoadFlags(&defaultLoadFlags);
+
         // this.AddChild(child) calls child.SetDocLoaderParent(this), meaning
         // that the child inherits our state. Among other things, this means
         // that the child inherits our mIsActive and mInPrivateBrowsing, which
@@ -7805,6 +7872,7 @@ nsDocShell::RestoreFromHistory()
         childShell->SetAllowMedia(allowMedia);
         childShell->SetAllowDNSPrefetch(allowDNSPrefetch);
         childShell->SetAllowContentRetargeting(allowContentRetargeting);
+        childShell->SetDefaultLoadFlags(defaultLoadFlags);
 
         rv = childShell->BeginRestore(nullptr, false);
         NS_ENSURE_SUCCESS(rv, rv);
@@ -9169,18 +9237,23 @@ nsDocShell::InternalLoad(nsIURI * aURI,
             SetDocCurrentStateObj(mOSHE);
 
             // Dispatch the popstate and hashchange events, as appropriate.
-            if (mScriptGlobal) {
+            //
+            // The event dispatch below can cause us to re-enter script and
+            // destroy the docshell, nulling out mScriptGlobal. Hold a stack
+            // reference to avoid null derefs. See bug 914521.
+            nsRefPtr<nsGlobalWindow> win = mScriptGlobal;
+            if (win) {
                 // Fire a hashchange event URIs differ, and only in their hashes.
                 bool doHashchange = sameExceptHashes && !curHash.Equals(newHash);
 
                 if (historyNavBetweenSameDoc || doHashchange) {
-                    mScriptGlobal->DispatchSyncPopState();
+                    win->DispatchSyncPopState();
                 }
 
                 if (doHashchange) {
                     // Make sure to use oldURI here, not mCurrentURI, because by
                     // now, mCurrentURI has changed!
-                    mScriptGlobal->DispatchAsyncHashchange(oldURI, aURI);
+                    win->DispatchAsyncHashchange(oldURI, aURI);
                 }
             }
 
@@ -9432,7 +9505,7 @@ nsDocShell::DoURILoad(nsIURI * aURI,
     uriLoader = do_GetService(NS_URI_LOADER_CONTRACTID, &rv);
     if (NS_FAILED(rv)) return rv;
 
-    nsLoadFlags loadFlags = nsIRequest::LOAD_NORMAL;
+    nsLoadFlags loadFlags = mDefaultLoadFlags;
     if (aFirstParty) {
         // tag first party URL loads
         loadFlags |= nsIChannel::LOAD_INITIAL_DOCUMENT_URI;
@@ -12681,7 +12754,7 @@ nsDocShell::GetAppId(uint32_t* aAppId)
 NS_IMETHODIMP
 nsDocShell::GetAsyncPanZoomEnabled(bool* aOut)
 {
-    if (TabChild* tabChild = GetTabChildFrom(this)) {
+    if (TabChild* tabChild = TabChild::GetFrom(this)) {
         *aOut = tabChild->IsAsyncPanZoomEnabled();
         return NS_OK;
     }

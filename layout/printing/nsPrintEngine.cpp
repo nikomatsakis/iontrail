@@ -105,7 +105,6 @@ static const char kPrintingPromptService[] = "@mozilla.org/embedcomp/printingpro
 #include "nsIBaseWindow.h"
 #include "nsILayoutHistoryState.h"
 #include "nsFrameManager.h"
-#include "nsGUIEvent.h"
 #include "nsHTMLReflowState.h"
 #include "nsIDOMHTMLAnchorElement.h"
 #include "nsIDOMHTMLAreaElement.h"
@@ -2640,10 +2639,8 @@ DocHasPrintCallbackCanvas(nsIDocument* aDoc, void* aData)
                                                        NS_LITERAL_STRING("canvas"));
   uint32_t canvasCount = canvases->Length(true);
   for (uint32_t i = 0; i < canvasCount; ++i) {
-    nsCOMPtr<nsIDOMHTMLCanvasElement> canvas = do_QueryInterface(canvases->Item(i, false));
-    nsCOMPtr<nsIPrintCallback> printCallback;
-    if (canvas && NS_SUCCEEDED(canvas->GetMozPrintCallback(getter_AddRefs(printCallback))) &&
-        printCallback) {
+    HTMLCanvasElement* canvas = HTMLCanvasElement::FromContentOrNull(canvases->Item(i, false));
+    if (canvas && canvas->GetMozPrintCallback()) {
       // This subdocument has a print callback. Set result and return false to
       // stop iteration.
       *static_cast<bool*>(aData) = true;

@@ -11,12 +11,13 @@
 #include "AudioStream.h"
 #include "nsTArray.h"
 #include "nsIRunnable.h"
-#include "nsISupportsImpl.h"
 #include "StreamBuffer.h"
 #include "TimeVarying.h"
 #include "VideoFrameContainer.h"
 #include "VideoSegment.h"
-#include "nsThreadUtils.h"
+#include "MainThreadUtils.h"
+
+class nsIRunnable;
 
 namespace mozilla {
 
@@ -918,10 +919,7 @@ public:
   friend class MediaStreamGraphImpl;
 
   // Do not call these from outside MediaStreamGraph.cpp!
-  virtual void AddInput(MediaInputPort* aPort)
-  {
-    mInputs.AppendElement(aPort);
-  }
+  virtual void AddInput(MediaInputPort* aPort);
   virtual void RemoveInput(MediaInputPort* aPort)
   {
     mInputs.RemoveElement(aPort);
@@ -946,6 +944,9 @@ public:
    * Forward SetTrackEnabled() to the input MediaStream(s) and translate the ID
    */
   virtual void ForwardTrackEnabled(TrackID aOutputID, bool aEnabled) {};
+
+  bool InCycle() const { return mInCycle; }
+
 
 protected:
   // This state is all accessed only on the media graph thread.
@@ -976,6 +977,7 @@ public:
   // Main thread only
   static MediaStreamGraph* GetInstance();
   static MediaStreamGraph* CreateNonRealtimeInstance();
+  // Idempotent
   static void DestroyNonRealtimeInstance(MediaStreamGraph* aGraph);
 
   // Control API.
@@ -1023,6 +1025,8 @@ public:
    * in main-thread stream state.
    */
   int64_t GetCurrentGraphUpdateIndex() { return mGraphUpdatesSent; }
+
+  bool IsNonRealtime() const;
   /**
    * Start processing non-realtime for a specific number of ticks.
    */

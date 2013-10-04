@@ -7,6 +7,7 @@
 
 #include "nsDOMEvent.h"
 #include "nsIDOMTransitionEvent.h"
+#include "mozilla/ContentEvents.h"
 #include "mozilla/dom/TransitionEventBinding.h"
 
 class nsAString;
@@ -17,7 +18,7 @@ class nsDOMTransitionEvent : public nsDOMEvent,
 public:
   nsDOMTransitionEvent(mozilla::dom::EventTarget* aOwner,
                        nsPresContext *aPresContext,
-                       nsTransitionEvent *aEvent);
+                       mozilla::InternalTransitionEvent* aEvent);
   ~nsDOMTransitionEvent();
 
   NS_DECL_ISUPPORTS_INHERITED
@@ -46,10 +47,10 @@ public:
   }
 
 private:
-  nsTransitionEvent* TransitionEvent() {
+  mozilla::InternalTransitionEvent* TransitionEvent() {
     NS_ABORT_IF_FALSE(mEvent->eventStructType == NS_TRANSITION_EVENT,
                       "unexpected struct type");
-    return static_cast<nsTransitionEvent*>(mEvent);
+    return static_cast<mozilla::InternalTransitionEvent*>(mEvent);
   }
 };
 

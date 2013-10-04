@@ -10,7 +10,7 @@
 #include "Layers.h"                     // for Layer, ContainerLayer, etc
 #include "gfx3DMatrix.h"                // for gfx3DMatrix
 #include "gfxColor.h"                   // for gfxRGBA
-#include "gfxPattern.h"                 // for gfxPattern, etc
+#include "GraphicsFilter.h"             // for GraphicsFilter
 #include "gfxPoint.h"                   // for gfxIntSize
 #include "gfxPoint3D.h"                 // for gfxPoint3D
 #include "gfxRect.h"                    // for gfxRect
@@ -168,7 +168,7 @@ struct LayerPropertiesBase : public LayerProperties
     AddTransformedRegion(result, visible, mTransform);
 
     AddRegion(result, ComputeChangeInternal(aCallback));
-    AddTransformedRegion(result, mLayer->GetInvalidRegion().GetBounds(), mTransform);
+    AddTransformedRegion(result, mLayer->GetInvalidRegion(), mTransform);
 
     if (mMaskLayer && otherMask) {
       AddTransformedRegion(result, mMaskLayer->ComputeChange(aCallback), mTransform);
@@ -231,8 +231,7 @@ struct ContainerLayerProperties : public LayerPropertiesBase
     // TODO: Consider how we could avoid unnecessary invalidation when children
     // change order, and whether the overhead would be worth it.
 
-    nsDataHashtable<nsPtrHashKey<Layer>, uint32_t> oldIndexMap;
-    oldIndexMap.Init(mChildren.Length());
+    nsDataHashtable<nsPtrHashKey<Layer>, uint32_t> oldIndexMap(mChildren.Length());
     for (uint32_t i = 0; i < mChildren.Length(); ++i) {
       oldIndexMap.Put(mChildren[i]->mLayer, i);
     }
@@ -351,7 +350,7 @@ struct ImageLayerProperties : public LayerPropertiesBase
 
   nsIntRegion mVisibleRegion;
   nsRefPtr<ImageContainer> mContainer;
-  gfxPattern::GraphicsFilter mFilter;
+  GraphicsFilter mFilter;
   gfxIntSize mScaleToSize;
   ScaleMode mScaleMode;
 };

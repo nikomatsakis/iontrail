@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-"use strict";
+"use strict;"
 
 const Cc = Components.classes;
 const Ci = Components.interfaces;
@@ -21,64 +21,46 @@ XPCOMUtils.defineLazyGetter(this, "libcutils", function () {
 });
 #endif
 
+// Once Bug 731746 - Allow chrome JS object to implement nsIDOMEventTarget
+// is resolved this helper could be removed.
 var SettingsListener = {
-  // Timer to remove the lock.
-  _timer: null,
+  _callbacks: {},
 
-  // lock stores here
-  _lock: null,
-
-  /**
-   * getSettingsLock: create a lock or retrieve one that we saved.
-   * mozSettings.createLock() is expensive and lock should be reused
-   * whenever possible.
-   */
-  getSettingsLock: function sl_getSettingsLock() {
-    // Each time there is a getSettingsLock call, we postpone the removal.
-    clearTimeout(this._timer);
-    this._timer = setTimeout((function() {
-      this._lock = null;
-    }).bind(this), 0);
-
-    // If there is a lock present we return that.
-    if (this._lock) {
-      return this._lock;
+  init: function sl_init() {
+    if ('mozSettings' in navigator && navigator.mozSettings) {
+      navigator.mozSettings.onsettingchange = this.onchange.bind(this);
     }
+  },
 
-    // If there isn't we create a new one.
-    let settings = window.navigator.mozSettings;
-
-    return (this._lock = settings.createLock());
+  onchange: function sl_onchange(evt) {
+    var callback = this._callbacks[evt.settingName];
+    if (callback) {
+      callback(evt.settingValue);
+    }
   },
 
   observe: function sl_observe(name, defaultValue, callback) {
-    let settings = window.navigator.mozSettings;
-
-    let req;
-    try {
-      req = this.getSettingsLock().get(name);
-    } catch (e) {
-      // It is possible (but rare) for getSettingsLock() to return
-      // a SettingsLock object that is no longer valid.
-      // Until https://bugzilla.mozilla.org/show_bug.cgi?id=793239
-      // is fixed, we just catch the resulting exception and try
-      // again with a fresh lock
-      console.warn('Stale lock in settings.js.',
-                   'See https://bugzilla.mozilla.org/show_bug.cgi?id=793239');
-      this._lock = null;
-      req = this.getSettingsLock().get(name);
+    var settings = window.navigator.mozSettings;
+    if (!settings) {
+      window.setTimeout(function() { callback(defaultValue); });
+      return;
     }
 
+    if (!callback || typeof callback !== 'function') {
+      throw new Error('Callback is not a function');
+    }
+
+    var req = settings.createLock().get(name);
     req.addEventListener('success', (function onsuccess() {
       callback(typeof(req.result[name]) != 'undefined' ?
         req.result[name] : defaultValue);
     }));
 
-    settings.addObserver(name, function settingChanged(evt) {
-      callback(evt.settingValue);
-    });
+    this._callbacks[name] = callback;
   }
 };
+
+SettingsListener.init();
 
 // =================== Console ======================
 
@@ -181,26 +163,16 @@ SettingsListener.observe('language.current', 'en-US', function(value) {
 Components.utils.import('resource://gre/modules/XPCOMUtils.jsm');
 Components.utils.import('resource://gre/modules/ctypes.jsm');
 (function DeviceInfoToSettings() {
-  XPCOMUtils.defineLazyServiceGetter(this, 'gSettingsService',
-                                     '@mozilla.org/settingsService;1',
-                                     'nsISettingsService');
-  let lock = gSettingsService.createLock();
   // MOZ_B2G_VERSION is set in b2g/confvars.sh, and is output as a #define value
   // from configure.in, defaults to 1.0.0 if this value is not exist.
 #filter attemptSubstitution
   let os_version = '@MOZ_B2G_VERSION@';
   let os_name = '@MOZ_B2G_OS_NAME@';
 #unfilter attemptSubstitution
-  lock.set('deviceinfo.os', os_version, null, null);
-  lock.set('deviceinfo.software', os_name + ' ' + os_version, null, null);
 
   let appInfo = Cc["@mozilla.org/xre/app-info;1"]
                   .getService(Ci.nsIXULAppInfo);
-  lock.set('deviceinfo.platform_version', appInfo.platformVersion, null, null);
-  lock.set('deviceinfo.platform_build_id', appInfo.platformBuildID, null, null);
-
   let update_channel = Services.prefs.getCharPref('app.update.channel');
-  lock.set('deviceinfo.update_channel', update_channel, null, null);
 
   // Get the hardware info and firmware revision from device properties.
   let hardware_info = null;
@@ -211,9 +183,19 @@ Components.utils.import('resource://gre/modules/ctypes.jsm');
     firmware_revision = libcutils.property_get('ro.firmware_revision');
     product_model = libcutils.property_get('ro.product.model');
 #endif
-  lock.set('deviceinfo.hardware', hardware_info, null, null);
-  lock.set('deviceinfo.firmware_revision', firmware_revision, null, null);
-  lock.set('deviceinfo.product_model', product_model, null, null);
+
+  let software = os_name + ' ' + os_version;
+  let setting = {
+    'deviceinfo.os': os_version,
+    'deviceinfo.software': software,
+    'deviceinfo.platform_version': appInfo.platformVersion,
+    'deviceinfo.platform_build_id': appInfo.platformBuildID,
+    'deviceinfo.update_channel': update_channel,
+    'deviceinfo.hardware': hardware_info,
+    'deviceinfo.firmware_revision': firmware_revision,
+    'deviceinfo.product_model': product_model
+  }
+  window.navigator.mozSettings.createLock().set(setting);
 })();
 
 // =================== Debugger / ADB ====================
@@ -332,8 +314,18 @@ let AdbController = {
       }
       return;
     }
+
+    // Check if we have a remote debugging session going on. If so, we won't
+    // disable adb even if the screen is locked.
+    let isDebugging = DebuggerServer._connections &&
+                      Object.keys(DebuggerServer._connections).length > 0;
+    if (this.DEBUG) {
+      this.debug("isDebugging=" + isDebugging);
+    }
+
     let enableAdb = this.remoteDebuggerEnabled &&
-      !(this.lockEnabled && this.locked);
+      (!(this.lockEnabled && this.locked) || isDebugging);
+
     let useDisableAdbTimer = true;
     try {
       if (Services.prefs.getBoolPref("marionette.defaultPrefs.enabled")) {
@@ -384,7 +376,7 @@ let AdbController = {
       }
     }
     if (useDisableAdbTimer) {
-      if (enableAdb) {
+      if (enableAdb && !isDebugging) {
         this.startDisableAdbTimer();
       } else {
         this.stopDisableAdbTimer();
@@ -446,6 +438,8 @@ SettingsListener.observe('app.reportCrashes', 'ask', function(value) {
   } else {
     Services.prefs.clearUserPref('app.reportCrashes');
   }
+  // This preference is consulted during startup.
+  Services.prefs.savePrefFile(null);
 });
 
 // ================ Updates ================

@@ -43,6 +43,7 @@
 #include "nsIDirectoryEnumerator.h"
 #include "nsISimpleEnumerator.h"
 #include "private/pprio.h"
+#include "prlink.h"
 
 #ifdef MOZ_WIDGET_GTK
 #include "nsIGIOService.h"
@@ -1809,7 +1810,7 @@ nsLocalFile::Launch()
     nsDependentCString fileUri = NS_LITERAL_CSTRING("file://");
     fileUri.Append(mPath);
     mozilla::AndroidBridge* bridge = mozilla::AndroidBridge::Bridge();
-    return bridge->OpenUriExternal(fileUri, type) ? NS_OK : NS_ERROR_FAILURE;
+    return bridge->OpenUriExternal(NS_ConvertUTF8toUTF16(fileUri), NS_ConvertUTF8toUTF16(type)) ? NS_OK : NS_ERROR_FAILURE;
 #elif defined(MOZ_WIDGET_COCOA)
     CFURLRef url;
     if (NS_SUCCEEDED(GetCFURL(&url))) {

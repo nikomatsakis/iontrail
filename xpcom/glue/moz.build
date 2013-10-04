@@ -14,6 +14,7 @@ if CONFIG['OS_ARCH'] == 'WINNT':
 MODULE = 'xpcom'
 
 EXPORTS += [
+    'MainThreadUtils.h',
     'nsArrayEnumerator.h',
     'nsArrayUtils.h',
     'nsBaseHashtable.h',
@@ -23,7 +24,6 @@ EXPORTS += [
     'nsCategoryCache.h',
     'nsClassHashtable.h',
     'nsComponentManagerUtils.h',
-    'nsCycleCollectionHoldDrop.h',
     'nsCycleCollectionNoteChild.h',
     'nsCycleCollectionNoteRootCallback.h',
     'nsCycleCollectionParticipant.h',
@@ -74,6 +74,7 @@ EXPORTS.mozilla += [
     'DeadlockDetector.h',
     'FileUtils.h',
     'GenericFactory.h',
+    'HoldDropJSObjects.h',
     'IntentionalCrash.h',
     'Monitor.h',
     'Mutex.h',
@@ -86,11 +87,18 @@ EXPORTS.mozilla.threads += [
     'nsThreadIDs.h',
 ]
 
+include('objs.mozbuild')
+
+CPP_SOURCES += xpcom_gluens_src_cppsrcs
+CPP_SOURCES += xpcom_glue_src_cppsrcs
+
 CPP_SOURCES += [
-    '$(XPCOM_GLUENS_SRC_LCPPSRCS)',
-    '$(XPCOM_GLUE_SRC_LCPPSRCS)',
     'GenericModule.cpp',
     'nsStringAPI.cpp',
 ]
 
 LIBRARY_NAME = 'xpcomglue_s'
+
+SDK_LIBRARY = [
+    "%s%s.%s" % (CONFIG['LIB_PREFIX'], 'xpcomglue_s', CONFIG['LIB_SUFFIX']),
+]

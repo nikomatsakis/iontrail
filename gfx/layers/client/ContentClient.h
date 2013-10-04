@@ -8,7 +8,7 @@
 
 #include <stdint.h>                     // for uint32_t
 #include "ThebesLayerBuffer.h"          // for ThebesLayerBuffer, etc
-#include "gfxASurface.h"                // for gfxASurface, etc
+#include "gfxTypes.h"
 #include "gfxPlatform.h"                // for gfxPlatform
 #include "mozilla/Assertions.h"         // for MOZ_CRASH
 #include "mozilla/Attributes.h"         // for MOZ_OVERRIDE
@@ -29,6 +29,7 @@
 
 class gfxContext;
 struct gfxMatrix;
+class gfxASurface;
 
 namespace mozilla {
 namespace gfx {
@@ -152,14 +153,9 @@ public:
     ThebesLayerBuffer::DrawTo(aLayer, aTarget, aOpacity, aMask, aMaskTransform);
   }
 
-  virtual already_AddRefed<gfxASurface> CreateBuffer(ContentType aType,
-                                                     const nsIntRect& aRect,
-                                                     uint32_t aFlags,
-                                                     gfxASurface**) MOZ_OVERRIDE;
-  virtual TemporaryRef<gfx::DrawTarget> CreateDTBuffer(ContentType aType,
-                                                       const nsIntRect& aRect,
-                                                       uint32_t aFlags,
-                                                       RefPtr<gfx::DrawTarget>* aWhiteDT);
+  virtual void CreateBuffer(ContentType aType, const nsIntRect& aRect, uint32_t aFlags,
+                            gfxASurface** aBlackSurface, gfxASurface** aWhiteSurface,
+                            RefPtr<gfx::DrawTarget>* aBlackDT, RefPtr<gfx::DrawTarget>* aWhiteDT) MOZ_OVERRIDE;
   virtual bool SupportsAzureContent() const;
 
   virtual TextureInfo GetTextureInfo() const MOZ_OVERRIDE
@@ -198,7 +194,7 @@ public:
     , mDeprecatedTextureClient(nullptr)
     , mIsNewBuffer(false)
     , mFrontAndBackBufferDiffer(false)
-    , mContentType(gfxASurface::CONTENT_COLOR_ALPHA)
+    , mContentType(GFX_CONTENT_COLOR_ALPHA)
   {}
 
   typedef ThebesLayerBuffer::PaintState PaintState;
@@ -238,14 +234,9 @@ public:
     return ThebesLayerBuffer::BufferRotation();
   }
 
-  virtual already_AddRefed<gfxASurface> CreateBuffer(ContentType aType,
-                                                     const nsIntRect& aRect,
-                                                     uint32_t aFlags,
-                                                     gfxASurface** aWhiteSurface) MOZ_OVERRIDE;
-  virtual TemporaryRef<gfx::DrawTarget> CreateDTBuffer(ContentType aType,
-                                                       const nsIntRect& aRect,
-                                                       uint32_t aFlags,
-                                                       RefPtr<gfx::DrawTarget>* aWhiteDT) MOZ_OVERRIDE;
+  virtual void CreateBuffer(ContentType aType, const nsIntRect& aRect, uint32_t aFlags,
+                            gfxASurface** aBlackSurface, gfxASurface** aWhiteSurface,
+                            RefPtr<gfx::DrawTarget>* aBlackDT, RefPtr<gfx::DrawTarget>* aWhiteDT) MOZ_OVERRIDE;
 
   virtual bool SupportsAzureContent() const MOZ_OVERRIDE;
 
@@ -365,7 +356,7 @@ class ContentClientIncremental : public ContentClientRemote
 public:
   ContentClientIncremental(CompositableForwarder* aFwd)
     : ContentClientRemote(aFwd)
-    , mContentType(gfxASurface::CONTENT_COLOR_ALPHA)
+    , mContentType(GFX_CONTENT_COLOR_ALPHA)
     , mHasBuffer(false)
     , mHasBufferOnWhite(false)
   {
@@ -413,7 +404,7 @@ private:
 
   void NotifyBufferCreated(ContentType aType, uint32_t aFlags)
   {
-    mTextureInfo.mTextureFlags = aFlags | TEXTURE_DEALLOCATE_HOST;
+    mTextureInfo.mTextureFlags = aFlags & ~TEXTURE_DEALLOCATE_CLIENT;
     mContentType = aType;
 
     mForwarder->CreatedIncrementalBuffer(this,

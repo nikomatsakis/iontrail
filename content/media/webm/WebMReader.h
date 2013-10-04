@@ -133,10 +133,10 @@ public:
     return mHasVideo;
   }
 
-  virtual nsresult ReadMetadata(VideoInfo* aInfo,
+  virtual nsresult ReadMetadata(MediaInfo* aInfo,
                                 MetadataTags** aTags);
   virtual nsresult Seek(int64_t aTime, int64_t aStartTime, int64_t aEndTime, int64_t aCurrentTime);
-  virtual nsresult GetBuffered(TimeRanges* aBuffered, int64_t aStartTime);
+  virtual nsresult GetBuffered(dom::TimeRanges* aBuffered, int64_t aStartTime);
   virtual void NotifyDataArrived(const char* aBuffer, uint32_t aLength, int64_t aOffset);
 
 #ifdef MOZ_DASH

@@ -12,11 +12,11 @@
 #include "mozilla/DebugOnly.h"
 #include "mozilla/MemoryReporting.h"
 
-#include "jsapi.h"
 #include "jslock.h"
 #include "jsobj.h"
 
 #include "js/GCAPI.h"
+#include "js/Tracer.h"
 #include "js/Vector.h"
 
 class JSAtom;
@@ -126,26 +126,27 @@ MapAllocToTraceKind(AllocKind kind)
 }
 
 template <typename T> struct MapTypeToTraceKind {};
-template <> struct MapTypeToTraceKind<JSObject>         { const static JSGCTraceKind kind = JSTRACE_OBJECT; };
-template <> struct MapTypeToTraceKind<JSFunction>       { const static JSGCTraceKind kind = JSTRACE_OBJECT; };
-template <> struct MapTypeToTraceKind<ArgumentsObject>  { const static JSGCTraceKind kind = JSTRACE_OBJECT; };
-template <> struct MapTypeToTraceKind<ArrayBufferObject>{ const static JSGCTraceKind kind = JSTRACE_OBJECT; };
-template <> struct MapTypeToTraceKind<ArrayBufferViewObject>{ const static JSGCTraceKind kind = JSTRACE_OBJECT; };
-template <> struct MapTypeToTraceKind<DebugScopeObject> { const static JSGCTraceKind kind = JSTRACE_OBJECT; };
-template <> struct MapTypeToTraceKind<GlobalObject>     { const static JSGCTraceKind kind = JSTRACE_OBJECT; };
-template <> struct MapTypeToTraceKind<ScopeObject>      { const static JSGCTraceKind kind = JSTRACE_OBJECT; };
-template <> struct MapTypeToTraceKind<JSScript>         { const static JSGCTraceKind kind = JSTRACE_SCRIPT; };
-template <> struct MapTypeToTraceKind<LazyScript>       { const static JSGCTraceKind kind = JSTRACE_LAZY_SCRIPT; };
-template <> struct MapTypeToTraceKind<Shape>            { const static JSGCTraceKind kind = JSTRACE_SHAPE; };
-template <> struct MapTypeToTraceKind<BaseShape>        { const static JSGCTraceKind kind = JSTRACE_BASE_SHAPE; };
-template <> struct MapTypeToTraceKind<UnownedBaseShape> { const static JSGCTraceKind kind = JSTRACE_BASE_SHAPE; };
-template <> struct MapTypeToTraceKind<types::TypeObject>{ const static JSGCTraceKind kind = JSTRACE_TYPE_OBJECT; };
-template <> struct MapTypeToTraceKind<JSAtom>           { const static JSGCTraceKind kind = JSTRACE_STRING; };
-template <> struct MapTypeToTraceKind<JSString>         { const static JSGCTraceKind kind = JSTRACE_STRING; };
-template <> struct MapTypeToTraceKind<JSFlatString>     { const static JSGCTraceKind kind = JSTRACE_STRING; };
-template <> struct MapTypeToTraceKind<JSLinearString>   { const static JSGCTraceKind kind = JSTRACE_STRING; };
-template <> struct MapTypeToTraceKind<PropertyName>     { const static JSGCTraceKind kind = JSTRACE_STRING; };
-template <> struct MapTypeToTraceKind<jit::IonCode>     { const static JSGCTraceKind kind = JSTRACE_IONCODE; };
+template <> struct MapTypeToTraceKind<ObjectImpl>       { static const JSGCTraceKind kind = JSTRACE_OBJECT; };
+template <> struct MapTypeToTraceKind<JSObject>         { static const JSGCTraceKind kind = JSTRACE_OBJECT; };
+template <> struct MapTypeToTraceKind<JSFunction>       { static const JSGCTraceKind kind = JSTRACE_OBJECT; };
+template <> struct MapTypeToTraceKind<ArgumentsObject>  { static const JSGCTraceKind kind = JSTRACE_OBJECT; };
+template <> struct MapTypeToTraceKind<ArrayBufferObject>{ static const JSGCTraceKind kind = JSTRACE_OBJECT; };
+template <> struct MapTypeToTraceKind<ArrayBufferViewObject>{ static const JSGCTraceKind kind = JSTRACE_OBJECT; };
+template <> struct MapTypeToTraceKind<DebugScopeObject> { static const JSGCTraceKind kind = JSTRACE_OBJECT; };
+template <> struct MapTypeToTraceKind<GlobalObject>     { static const JSGCTraceKind kind = JSTRACE_OBJECT; };
+template <> struct MapTypeToTraceKind<ScopeObject>      { static const JSGCTraceKind kind = JSTRACE_OBJECT; };
+template <> struct MapTypeToTraceKind<JSScript>         { static const JSGCTraceKind kind = JSTRACE_SCRIPT; };
+template <> struct MapTypeToTraceKind<LazyScript>       { static const JSGCTraceKind kind = JSTRACE_LAZY_SCRIPT; };
+template <> struct MapTypeToTraceKind<Shape>            { static const JSGCTraceKind kind = JSTRACE_SHAPE; };
+template <> struct MapTypeToTraceKind<BaseShape>        { static const JSGCTraceKind kind = JSTRACE_BASE_SHAPE; };
+template <> struct MapTypeToTraceKind<UnownedBaseShape> { static const JSGCTraceKind kind = JSTRACE_BASE_SHAPE; };
+template <> struct MapTypeToTraceKind<types::TypeObject>{ static const JSGCTraceKind kind = JSTRACE_TYPE_OBJECT; };
+template <> struct MapTypeToTraceKind<JSAtom>           { static const JSGCTraceKind kind = JSTRACE_STRING; };
+template <> struct MapTypeToTraceKind<JSString>         { static const JSGCTraceKind kind = JSTRACE_STRING; };
+template <> struct MapTypeToTraceKind<JSFlatString>     { static const JSGCTraceKind kind = JSTRACE_STRING; };
+template <> struct MapTypeToTraceKind<JSLinearString>   { static const JSGCTraceKind kind = JSTRACE_STRING; };
+template <> struct MapTypeToTraceKind<PropertyName>     { static const JSGCTraceKind kind = JSTRACE_STRING; };
+template <> struct MapTypeToTraceKind<jit::IonCode>     { static const JSGCTraceKind kind = JSTRACE_IONCODE; };
 
 #if defined(JSGC_GENERATIONAL) || defined(DEBUG)
 static inline bool
@@ -212,7 +213,7 @@ IsBackgroundFinalized(AllocKind kind)
 }
 
 static inline bool
-CanBeFinalizedInBackground(gc::AllocKind kind, Class *clasp)
+CanBeFinalizedInBackground(gc::AllocKind kind, const Class *clasp)
 {
     JS_ASSERT(kind <= gc::FINALIZE_OBJECT_LAST);
     /* If the class has no finalizer or a finalizer that is safe to call on
@@ -318,7 +319,7 @@ GetGCKindSlots(AllocKind thingKind)
 }
 
 static inline size_t
-GetGCKindSlots(AllocKind thingKind, Class *clasp)
+GetGCKindSlots(AllocKind thingKind, const Class *clasp)
 {
     size_t nslots = GetGCKindSlots(thingKind);
 
@@ -881,7 +882,6 @@ class GCHelperThread {
     }
 };
 
-
 struct GCChunkHasher {
     typedef gc::Chunk *Lookup;
 
@@ -1131,7 +1131,7 @@ struct GCMarker : public JSTracer {
     void stop();
     void reset();
 
-    void pushObject(JSObject *obj) {
+    void pushObject(ObjectImpl *obj) {
         pushTaggedPtr(ObjectTag, obj);
     }
 
@@ -1349,10 +1349,8 @@ const int ZealAllocValue = 2;
 const int ZealFrameGCValue = 3;
 const int ZealVerifierPreValue = 4;
 const int ZealFrameVerifierPreValue = 5;
-// These two values used to be distinct.  They no longer are, but both were
-// kept to avoid breaking fuzz tests.  Avoid using ZealStackRootingValue__2.
 const int ZealStackRootingValue = 6;
-const int ZealStackRootingValue__2 = 7;
+const int ZealGenerationalGCValue = 7;
 const int ZealIncrementalRootsThenFinish = 8;
 const int ZealIncrementalMarkAllThenFinish = 9;
 const int ZealIncrementalMultipleSlices = 10;
@@ -1407,6 +1405,24 @@ class AutoSuppressGC
         suppressGC_--;
     }
 };
+
+#ifdef DEBUG
+/* Disable OOM testing in sections which are not OOM safe. */
+class AutoEnterOOMUnsafeRegion
+{
+    uint32_t saved_;
+
+  public:
+    AutoEnterOOMUnsafeRegion() : saved_(OOM_maxAllocations) {
+        OOM_maxAllocations = UINT32_MAX;
+    }
+    ~AutoEnterOOMUnsafeRegion() {
+        OOM_maxAllocations = saved_;
+    }
+};
+#else
+class AutoEnterOOMUnsafeRegion {};
+#endif /* DEBUG */
 
 } /* namespace gc */
 

@@ -64,6 +64,7 @@
 #include "nsCycleCollectionParticipant.h"
 #include "nsCycleCollector.h"
 #include "nsDOMJSUtils.h"
+#include "nsIException.h"
 #include "nsThreadUtils.h"
 #include "xpcpublic.h"
 
@@ -437,7 +438,8 @@ CycleCollectedJSRuntime::CycleCollectedJSRuntime(uint32_t aMaxbytes,
                                                  JSUseHelperThreads aUseHelperThreads)
   : mGCThingCycleCollectorGlobal(sGCThingCycleCollectorGlobal),
     mJSZoneCycleCollectorGlobal(sJSZoneCycleCollectorGlobal),
-    mJSRuntime(nullptr)
+    mJSRuntime(nullptr),
+    mJSHolders(512)
 #ifdef DEBUG
   , mObjectToUnlink(nullptr)
 #endif
@@ -454,22 +456,31 @@ CycleCollectedJSRuntime::CycleCollectedJSRuntime(uint32_t aMaxbytes,
   JS_SetGCCallback(mJSRuntime, GCCallback, this);
   JS_SetContextCallback(mJSRuntime, ContextCallback, this);
 
-  mJSHolders.Init(512);
-
   nsCycleCollector_registerJSRuntime(this);
+}
 
-  mDeferredFinalizerTable.Init();
+void
+CycleCollectedJSRuntime::DestroyRuntime()
+{
+  if (!mJSRuntime) {
+    return;
+  }
+
+  MOZ_ASSERT(!mDeferredFinalizerTable.Count());
+  MOZ_ASSERT(!mDeferredSupports.Length());
+
+  // Clear mPendingException first, since it might be cycle collected.
+  mPendingException = nullptr;
+
+  JS_DestroyRuntime(mJSRuntime);
+  mJSRuntime = nullptr;
+  nsCycleCollector_forgetJSRuntime();
 }
 
 CycleCollectedJSRuntime::~CycleCollectedJSRuntime()
 {
-  MOZ_ASSERT(!mDeferredFinalizerTable.Count());
-  MOZ_ASSERT(!mDeferredSupports.Length());
-
-  nsCycleCollector_forgetJSRuntime();
-
-  JS_DestroyRuntime(mJSRuntime);
-  mJSRuntime = nullptr;
+  // Destroy our runtime if the subclass hasn't done it already.
+  DestroyRuntime();
 }
 
 size_t
@@ -510,7 +521,7 @@ CycleCollectedJSRuntime::DescribeGCThing(bool aIsMarked, void* aThing,
   char name[72];
   if (aTraceKind == JSTRACE_OBJECT) {
     JSObject* obj = static_cast<JSObject*>(aThing);
-    js::Class* clasp = js::GetObjectClass(obj);
+    const js::Class* clasp = js::GetObjectClass(obj);
 
     // Give the subclass a chance to do something
     if (DescribeCustomObjects(obj, clasp, name)) {
@@ -561,7 +572,7 @@ CycleCollectedJSRuntime::NoteGCThingJSChildren(void* aThing,
 }
 
 void
-CycleCollectedJSRuntime::NoteGCThingXPCOMChildren(js::Class* aClasp, JSObject* aObj,
+CycleCollectedJSRuntime::NoteGCThingXPCOMChildren(const js::Class* aClasp, JSObject* aObj,
                                                   nsCycleCollectionTraversalCallback& aCb) const
 {
   MOZ_ASSERT(aClasp);
@@ -723,7 +734,7 @@ CycleCollectedJSRuntime::ContextCallback(JSContext* aContext,
 
   MOZ_ASSERT(JS_GetRuntime(aContext) == self->Runtime());
 
-  return self->OnContext(aContext, aOperation);
+  return self->CustomContextCallback(aContext, aOperation);
 }
 
 struct JsGcTracer : public TraceCallbacks
@@ -830,6 +841,19 @@ CycleCollectedJSRuntime::AssertNoObjectsToTrace(void* aPossibleJSHolder)
   }
 }
 #endif
+
+already_AddRefed<nsIException>
+CycleCollectedJSRuntime::GetPendingException() const
+{
+  nsCOMPtr<nsIException> out = mPendingException;
+  return out.forget();
+}
+
+void
+CycleCollectedJSRuntime::SetPendingException(nsIException* aException)
+{
+  mPendingException = aException;
+}
 
 nsCycleCollectionParticipant*
 CycleCollectedJSRuntime::GCThingParticipant()
@@ -944,7 +968,7 @@ CycleCollectedJSRuntime::DeferredFinalize(nsISupports* aSupports)
 void
 CycleCollectedJSRuntime::DumpJSHeap(FILE* file)
 {
-  js::DumpHeapComplete(Runtime(), file);
+  js::DumpHeapComplete(Runtime(), file, js::CollectNurseryBeforeDump);
 }
 
 
@@ -1118,10 +1142,4 @@ CycleCollectedJSRuntime::OnGC(JSGCStatus aStatus)
   }
 
   CustomGCCallback(aStatus);
-}
-
-bool
-CycleCollectedJSRuntime::OnContext(JSContext* aCx, unsigned aOperation)
-{
-  return CustomContextCallback(aCx, aOperation);
 }

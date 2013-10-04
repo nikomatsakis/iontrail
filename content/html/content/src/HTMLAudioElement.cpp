@@ -18,6 +18,7 @@
 #include "AudioChannelCommon.h"
 #include <algorithm>
 #include "mozilla/Preferences.h"
+#include "nsComponentManagerUtils.h"
 
 static bool
 IsAudioAPIEnabled()
@@ -231,7 +232,7 @@ HTMLAudioElement::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aScope)
 
 /* void canPlayChanged (in boolean canPlay); */
 NS_IMETHODIMP
-HTMLAudioElement::CanPlayChanged(bool canPlay)
+HTMLAudioElement::CanPlayChanged(int32_t canPlay)
 {
   NS_ENSURE_TRUE(nsContentUtils::IsCallerChrome(), NS_ERROR_NOT_AVAILABLE);
   // Only Audio_Data API will initialize the mAudioStream, so we call the parent
@@ -240,7 +241,7 @@ HTMLAudioElement::CanPlayChanged(bool canPlay)
     return HTMLMediaElement::CanPlayChanged(canPlay);
   }
 #ifdef MOZ_B2G
-  if (canPlay) {
+  if (canPlay != AUDIO_CHANNEL_STATE_MUTED) {
     SetMutedInternal(mMuted & ~MUTED_BY_AUDIO_CHANNEL);
   } else {
     SetMutedInternal(mMuted | MUTED_BY_AUDIO_CHANNEL);
@@ -285,7 +286,7 @@ HTMLAudioElement::UpdateAudioChannelPlayingState()
     }
 
     if (mPlayingThroughTheAudioChannel) {
-      bool canPlay;
+      int32_t canPlay;
       mAudioChannelAgent->StartPlaying(&canPlay);
       CanPlayChanged(canPlay);
     } else {

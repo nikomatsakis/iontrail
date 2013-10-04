@@ -53,6 +53,9 @@ XPCOMUtils.defineLazyModuleGetter(this, "BrowserNewTabPreloader",
 XPCOMUtils.defineLazyModuleGetter(this, "PdfJs",
                                   "resource://pdf.js/PdfJs.jsm");
 
+XPCOMUtils.defineLazyModuleGetter(this, "ShumwayUtils",
+                                  "resource://shumway/ShumwayUtils.jsm");
+
 XPCOMUtils.defineLazyModuleGetter(this, "webrtcUI",
                                   "resource:///modules/webrtcUI.jsm");
 
@@ -467,6 +470,7 @@ BrowserGlue.prototype = {
     BrowserNewTabPreloader.init();
     SignInToWebsiteUX.init();
     PdfJs.init();
+    ShumwayUtils.init();
     webrtcUI.init();
     AboutHome.init();
 
@@ -769,6 +773,7 @@ BrowserGlue.prototype = {
     var browserEnum = Services.wm.getEnumerator("navigator:browser");
     let allWindowsPrivate = true;
     while (browserEnum.hasMoreElements()) {
+      // XXXbz should we skip closed windows here?
       windowcount++;
 
       var browser = browserEnum.getNext();
@@ -1203,7 +1208,7 @@ BrowserGlue.prototype = {
       // potential hangs (bug 518683).  The asynchronous shutdown operations
       // will then be handled by a shutdown service (bug 435058).
       waitingForHTMLExportToComplete = false;
-      BookmarkHTMLUtils.exportToFile(FileUtils.getFile("BMarks", [])).then(
+      BookmarkHTMLUtils.exportToFile(Services.dirsvc.get("BMarks", Ci.nsIFile)).then(
         function onSuccess() {
           waitingForHTMLExportToComplete = true;
         },

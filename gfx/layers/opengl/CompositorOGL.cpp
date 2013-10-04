@@ -18,7 +18,7 @@
 #include "gfxCrashReporterUtils.h"      // for ScopedGfxFeatureReporter
 #include "gfxImageSurface.h"            // for gfxImageSurface
 #include "gfxMatrix.h"                  // for gfxMatrix
-#include "gfxPattern.h"                 // for gfxPattern, etc
+#include "GraphicsFilter.h"             // for GraphicsFilter
 #include "gfxPlatform.h"                // for gfxPlatform
 #include "gfxRect.h"                    // for gfxRect
 #include "gfxUtils.h"                   // for NextPowerOfTwo, gfxUtils, etc
@@ -44,6 +44,7 @@
 #if MOZ_ANDROID_OMTC
 #include "TexturePoolOGL.h"
 #endif
+#include "GeckoProfiler.h"
 
 
 namespace mozilla {
@@ -105,15 +106,11 @@ DrawWithVertexBuffer2(GLContext *aGLContext, VBOArena &aVBOs,
 }
 
 void
-FPSState::DrawFPS(TimeStamp aNow,
-                  GLContext* context, ShaderProgramOGL* copyprog)
+FPSState::DrawCounter(float offset,
+                      unsigned value,
+                      GLContext* context,
+                      ShaderProgramOGL* copyprog)
 {
-  int fps = int(mCompositionFps.AddFrameAndGetFps(aNow));
-  int txnFps = int(mTransactionFps.GetFpsAt(aNow));
-
-  GLint viewport[4];
-  context->fGetIntegerv(LOCAL_GL_VIEWPORT, viewport);
-
   if (!mTexture) {
     // Bind the number of textures we need, in this case one.
     context->fGenTextures(1, &mTexture);
@@ -143,7 +140,8 @@ FPSState::DrawFPS(TimeStamp aNow,
     free(buf);
   }
 
-  mVBOs.Reset();
+  GLint viewport[4];
+  context->fGetIntegerv(LOCAL_GL_VIEWPORT, viewport);
 
   struct Vertex2D {
     float x,y;
@@ -151,49 +149,26 @@ FPSState::DrawFPS(TimeStamp aNow,
   float oneOverVP2 = 1.0 / viewport[2];
   float oneOverVP3 = 1.0 / viewport[3];
   const Vertex2D vertices[] = {
-    { -1.0f, 1.0f - 42.f * oneOverVP3 },
-    { -1.0f, 1.0f},
-    { -1.0f + 22.f * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
-    { -1.0f + 22.f * oneOverVP2, 1.0f },
+    { -1.0f + (offset +  0.f) * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
+    { -1.0f + (offset +  0.f) * oneOverVP2, 1.0f},
+    { -1.0f + (offset + 22.f) * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
+    { -1.0f + (offset + 22.f) * oneOverVP2, 1.0f },
 
-    {  -1.0f + 22.f * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
-    {  -1.0f + 22.f * oneOverVP2, 1.0f },
-    {  -1.0f + 44.f * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
-    {  -1.0f + 44.f * oneOverVP2, 1.0f },
+    { -1.0f + (offset + 22.f) * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
+    { -1.0f + (offset + 22.f) * oneOverVP2, 1.0f },
+    { -1.0f + (offset + 44.f) * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
+    { -1.0f + (offset + 44.f) * oneOverVP2, 1.0f },
 
-    { -1.0f + 44.f * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
-    { -1.0f + 44.f * oneOverVP2, 1.0f },
-    { -1.0f + 66.f * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
-    { -1.0f + 66.f * oneOverVP2, 1.0f }
+    { -1.0f + (offset + 44.f) * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
+    { -1.0f + (offset + 44.f) * oneOverVP2, 1.0f },
+    { -1.0f + (offset + 66.f) * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
+    { -1.0f + (offset + 66.f) * oneOverVP2, 1.0f }
   };
 
-  const Vertex2D vertices2[] = {
-    { -1.0f + 80.f * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
-    { -1.0f + 80.f * oneOverVP2, 1.0f },
-    { -1.0f + 102.f * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
-    { -1.0f + 102.f * oneOverVP2, 1.0f },
+  unsigned v1   = value % 10;
+  unsigned v10  = (value % 100) / 10;
+  unsigned v100 = (value % 1000) / 100;
 
-    { -1.0f + 102.f * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
-    { -1.0f + 102.f * oneOverVP2, 1.0f },
-    { -1.0f + 124.f * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
-    { -1.0f + 124.f * oneOverVP2, 1.0f },
-
-    { -1.0f + 124.f * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
-    { -1.0f + 124.f * oneOverVP2, 1.0f },
-    { -1.0f + 146.f * oneOverVP2, 1.0f - 42.f * oneOverVP3 },
-    { -1.0f + 146.f * oneOverVP2, 1.0f },
-  };
-
-  int v1   = fps % 10;
-  int v10  = (fps % 100) / 10;
-  int v100 = (fps % 1000) / 100;
-
-  int txn1 = txnFps % 10;
-  int txn10  = (txnFps % 100) / 10;
-  int txn100 = (txnFps % 1000) / 100;
-
-  // Feel free to comment these texture coordinates out and use one
-  // of the ones below instead, or play around with your own values.
   const GLfloat texCoords[] = {
     (v100 * 4.f) / 64, 7.f / 8,
     (v100 * 4.f) / 64, 0.0f,
@@ -209,23 +184,6 @@ FPSState::DrawFPS(TimeStamp aNow,
     (v1 * 4.f) / 64, 0.0f,
     (v1 * 4.f + 4) / 64, 7.f / 8,
     (v1 * 4.f + 4) / 64, 0.0f,
-  };
-
-  const GLfloat texCoords2[] = {
-    (txn100 * 4.f) / 64, 7.f / 8,
-    (txn100 * 4.f) / 64, 0.0f,
-    (txn100 * 4.f + 4) / 64, 7.f / 8,
-    (txn100 * 4.f + 4) / 64, 0.0f,
-
-    (txn10 * 4.f) / 64, 7.f / 8,
-    (txn10 * 4.f) / 64, 0.0f,
-    (txn10 * 4.f + 4) / 64, 7.f / 8,
-    (txn10 * 4.f + 4) / 64, 0.0f,
-
-    (txn1 * 4.f) / 64, 7.f / 8,
-    (txn1 * 4.f) / 64, 0.0f,
-    (txn1 * 4.f + 4) / 64, 7.f / 8,
-    (txn1 * 4.f + 4) / 64, 0.0f,
   };
 
   // Turn necessary features on
@@ -249,10 +207,21 @@ FPSState::DrawFPS(TimeStamp aNow,
                         LOCAL_GL_TRIANGLE_STRIP, 12,
                         vcattr, (GLfloat *) vertices,
                         tcattr, (GLfloat *) texCoords);
-  DrawWithVertexBuffer2(context, mVBOs,
-                        LOCAL_GL_TRIANGLE_STRIP, 12,
-                        vcattr, (GLfloat *) vertices2,
-                        tcattr, (GLfloat *) texCoords2);
+}
+
+void
+FPSState::DrawFPS(TimeStamp aNow,
+                  unsigned aFillRatio,
+                  GLContext* context, ShaderProgramOGL* copyprog)
+{
+  mVBOs.Reset();
+
+  unsigned fps = unsigned(mCompositionFps.AddFrameAndGetFps(aNow));
+  unsigned txnFps = unsigned(mTransactionFps.GetFpsAt(aNow));
+
+  DrawCounter(0, fps, context, copyprog);
+  DrawCounter(80, txnFps, context, copyprog);
+  DrawCounter(160, aFillRatio, context, copyprog);
 }
 
 #ifdef CHECK_CURRENT_PROGRAM
@@ -780,6 +749,7 @@ CompositorOGL::BeginFrame(const Rect *aClipRectIn, const gfxMatrix& aTransform,
                           const Rect& aRenderBounds, Rect *aClipRectOut,
                           Rect *aRenderBoundsOut)
 {
+  PROFILER_LABEL("CompositorOGL", "BeginFrame");
   MOZ_ASSERT(!mFrameInProgress, "frame still in progress (should have called EndFrame or AbortFrame");
 
   mVBOs.Reset();
@@ -826,6 +796,9 @@ CompositorOGL::BeginFrame(const Rect *aClipRectIn, const gfxMatrix& aTransform,
   } else {
     MakeCurrent();
   }
+
+  mPixelsPerFrame = width * height;
+  mPixelsFilled = 0;
 
 #if MOZ_ANDROID_OMTC
   TexturePoolOGL::Fill(gl());
@@ -1010,6 +983,7 @@ CompositorOGL::DrawQuad(const Rect& aRect, const Rect& aClipRect,
                         Float aOpacity, const gfx::Matrix4x4 &aTransform,
                         const Point& aOffset)
 {
+  PROFILER_LABEL("CompositorOGL", "DrawQuad");
   MOZ_ASSERT(mFrameInProgress, "frame not started");
 
   IntRect intClipRect;
@@ -1049,6 +1023,8 @@ CompositorOGL::DrawQuad(const Rect& aRect, const Rect& aClipRect,
   } else {
     maskType = MaskNone;
   }
+
+  mPixelsFilled += aRect.width * aRect.height;
 
   ShaderProgramType programType = GetProgramTypeForEffect(aEffectChain.mPrimaryEffect);
   ShaderProgramOGL *program = GetProgram(programType, maskType);
@@ -1149,7 +1125,7 @@ CompositorOGL::DrawQuad(const Rect& aRect, const Rect& aClipRect,
         return;
       }
 
-      gfxPattern::GraphicsFilter filter = ThebesFilter(effectYCbCr->mFilter);
+      GraphicsFilter filter = ThebesFilter(effectYCbCr->mFilter);
 
       AutoBindTexture bindY(sourceY, LOCAL_GL_TEXTURE0);
       mGLContext->ApplyFilterToBoundTexture(filter);
@@ -1274,6 +1250,7 @@ CompositorOGL::DrawQuad(const Rect& aRect, const Rect& aClipRect,
 void
 CompositorOGL::EndFrame()
 {
+  PROFILER_LABEL("CompositorOGL", "EndFrame");
   MOZ_ASSERT(mCurrentRenderTarget == mWindowRenderTarget, "Rendering target not properly restored");
 
 #ifdef MOZ_DUMP_PAINTING
@@ -1284,11 +1261,10 @@ CompositorOGL::EndFrame()
     } else {
       mWidget->GetBounds(rect);
     }
-    nsRefPtr<gfxASurface> surf = gfxPlatform::GetPlatform()->CreateOffscreenSurface(rect.Size(), gfxASurface::CONTENT_COLOR_ALPHA);
-    nsRefPtr<gfxContext> ctx = new gfxContext(surf);
-    CopyToTarget(ctx, mCurrentRenderTarget->GetTransform());
+    RefPtr<DrawTarget> target = gfxPlatform::GetPlatform()->CreateOffscreenContentDrawTarget(IntSize(rect.width, rect.height), FORMAT_B8G8R8A8);
+    CopyToTarget(target, mCurrentRenderTarget->GetTransform());
 
-    WriteSnapshotToDumpFile(this, surf);
+    WriteSnapshotToDumpFile(this, target);
   }
 #endif
 
@@ -1310,7 +1286,13 @@ CompositorOGL::EndFrame()
   }
 
   if (mFPS) {
-    mFPS->DrawFPS(TimeStamp::Now(), mGLContext, GetProgram(Copy2DProgramType));
+    float fillRatio = 0;
+    if (mPixelsFilled > 0 && mPixelsPerFrame > 0) {
+      fillRatio = 100.0f * float(mPixelsFilled) / float(mPixelsPerFrame);
+      if (fillRatio > 999.0f)
+        fillRatio = 999.0f;
+    }
+    mFPS->DrawFPS(TimeStamp::Now(), unsigned(fillRatio), mGLContext, GetProgram(Copy2DProgramType));
   }
 
   mGLContext->SwapBuffers();
@@ -1352,13 +1334,13 @@ CompositorOGL::SetDestinationSurfaceSize(const gfx::IntSize& aSize)
 }
 
 void
-CompositorOGL::CopyToTarget(gfxContext *aTarget, const gfxMatrix& aTransform)
+CompositorOGL::CopyToTarget(DrawTarget *aTarget, const gfxMatrix& aTransform)
 {
-  nsIntRect rect;
+  IntRect rect;
   if (mUseExternalSurfaceSize) {
-    rect = nsIntRect(0, 0, mSurfaceSize.width, mSurfaceSize.height);
+    rect = IntRect(0, 0, mSurfaceSize.width, mSurfaceSize.height);
   } else {
-    rect = nsIntRect(0, 0, mWidgetSize.width, mWidgetSize.height);
+    rect = IntRect(0, 0, mWidgetSize.width, mWidgetSize.height);
   }
   GLint width = rect.width;
   GLint height = rect.height;
@@ -1368,10 +1350,6 @@ CompositorOGL::CopyToTarget(gfxContext *aTarget, const gfxMatrix& aTransform)
     return;
   }
 
-  nsRefPtr<gfxImageSurface> imageSurface =
-    new gfxImageSurface(gfxIntSize(width, height),
-                        gfxASurface::ImageFormatARGB32);
-
   mGLContext->fBindFramebuffer(LOCAL_GL_FRAMEBUFFER, 0);
 
   if (!mGLContext->IsGLES2()) {
@@ -1380,22 +1358,21 @@ CompositorOGL::CopyToTarget(gfxContext *aTarget, const gfxMatrix& aTransform)
     mGLContext->fReadBuffer(LOCAL_GL_BACK);
   }
 
-  NS_ASSERTION(imageSurface->Stride() == width * 4,
-               "Image Surfaces being created with weird stride!");
-
-  mGLContext->ReadPixelsIntoImageSurface(imageSurface);
+  RefPtr<SourceSurface> source =
+    mGLContext->ReadPixelsToSourceSurface(IntSize(width, height));
 
   // Map from GL space to Cairo space and reverse the world transform.
-  gfxMatrix glToCairoTransform = aTransform;
+  Matrix glToCairoTransform = MatrixForThebesMatrix(aTransform);
   glToCairoTransform.Invert();
   glToCairoTransform.Scale(1.0, -1.0);
-  glToCairoTransform.Translate(-gfxPoint(0.0, height));
+  glToCairoTransform.Translate(0.0, -height);
 
-  gfxContextAutoSaveRestore restore(aTarget);
-  aTarget->SetOperator(gfxContext::OPERATOR_SOURCE);
-  aTarget->SetMatrix(glToCairoTransform);
-  aTarget->SetSource(imageSurface);
-  aTarget->Paint();
+  Matrix oldMatrix = aTarget->GetTransform();
+  aTarget->SetTransform(glToCairoTransform);
+  Rect floatRect = Rect(rect.x, rect.y, rect.width, rect.height);
+  aTarget->DrawSurface(source, floatRect, floatRect, DrawSurfaceOptions(), DrawOptions(1.0f, OP_SOURCE));
+  aTarget->SetTransform(oldMatrix);
+  aTarget->Flush();
 }
 
 double

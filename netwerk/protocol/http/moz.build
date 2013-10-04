@@ -13,6 +13,7 @@ XPIDL_SOURCES += [
     'nsIHttpChannelAuthProvider.idl',
     'nsIHttpChannelChild.idl',
     'nsIHttpChannelInternal.idl',
+    'nsIHttpDataUsage.idl',
     'nsIHttpEventSink.idl',
     'nsIHttpHeaderVisitor.idl',
     'nsIHttpProtocolHandler.idl',
@@ -35,7 +36,7 @@ EXPORTS.mozilla.net += [
     'HttpChannelParent.h',
     'HttpInfo.h',
     'PHttpChannelParams.h',
-    'PSpdyPush3.h',
+    'PSpdyPush.h',
 ]
 
 CPP_SOURCES += [
@@ -48,10 +49,11 @@ CPP_SOURCES += [
     'HttpInfo.cpp',
     'NullHttpTransaction.cpp',
     'SpdyPush3.cpp',
-    'SpdySession2.cpp',
+    'SpdyPush31.cpp',
     'SpdySession3.cpp',
-    'SpdyStream2.cpp',
+    'SpdySession31.cpp',
     'SpdyStream3.cpp',
+    'SpdyStream31.cpp',
     'nsHttp.cpp',
     'nsHttpActivityDistributor.cpp',
     'nsHttpAuthCache.cpp',
@@ -78,6 +80,12 @@ IPDL_SOURCES += [
 ]
 EXTRA_JS_MODULES += [
     'UserAgentOverrides.jsm',
+    'UserAgentUpdates.jsm',
+]
+
+EXTRA_COMPONENTS += [
+    'HttpDataUsage.js',
+    'HttpDataUsage.manifest',
 ]
 
 FAIL_ON_WARNINGS = True

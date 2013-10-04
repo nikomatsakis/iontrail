@@ -10,7 +10,7 @@ function test() {
     origin: "https://example.com",
     sidebarURL: "https://example.com/browser/browser/base/content/test/social/social_sidebar.html",
     workerURL: "https://example.com/browser/browser/base/content/test/social/social_worker.js",
-    iconURL: "https://example.com/browser/browser/base/content/test/moz.png"
+    iconURL: "https://example.com/browser/browser/base/content/test/general/moz.png"
   };
   runSocialTestWithProvider(manifest, function (finishcb) {
     runSocialTests(tests, undefined, undefined, finishcb);
@@ -35,15 +35,14 @@ var tests = {
     }
 
     function triggerIconPanel() {
+      let pButton = document.getElementById("social-provider-button");
       waitForCondition(function() {
-        let mButton = document.getElementById("social-mark-button");
-        let pButton = document.getElementById("social-provider-button");
         // wait for a new button to be inserted inbetween the provider and mark
         // button
-        return pButton.nextSibling != mButton;
+        return !!pButton.nextSibling;
       }, function() {
         // Click the button to trigger its contentPanel
-        let statusIcon = document.getElementById("social-provider-button").nextSibling;
+        let statusIcon = pButton.nextSibling;
         EventUtils.synthesizeMouseAtCenter(statusIcon, {});
       }, "Status icon didn't become non-hidden");
     }

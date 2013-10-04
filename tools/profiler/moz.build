@@ -18,6 +18,7 @@ if CONFIG['MOZ_ENABLE_PROFILER_SPS']:
     EXPORTS += [
         'GeckoProfilerFunc.h',
         'GeckoProfilerImpl.h',
+        'ProfilerMarkers.h',
         'PseudoStack.h',
         'shared-libraries.h',
     ]
@@ -38,8 +39,10 @@ if CONFIG['MOZ_ENABLE_PROFILER_SPS']:
         'JSCustomObjectBuilder.cpp',
         'IOInterposer.cpp',
         'NSPRInterposer.cpp',
+        'ProfilerBacktrace.cpp',
         'ProfilerIOInterposeObserver.cpp',
-        'SQLiteInterposer.cpp',
+        'ProfilerMarkers.cpp',
+        'SyncProfile.cpp',
     ]
 
     if CONFIG['OS_TARGET'] in ('Android', 'Linux'):
@@ -47,10 +50,17 @@ if CONFIG['MOZ_ENABLE_PROFILER_SPS']:
             'shared-libraries-linux.cc',
             'platform-linux.cc',
         ]
+        if CONFIG['CPU_ARCH'] == 'arm':
+            CPP_SOURCES += [
+                'EHABIStackWalk.cpp',
+            ]
     elif CONFIG['OS_TARGET'] == 'Darwin':
         CPP_SOURCES += [
             'shared-libraries-macos.cc',
             'platform-macos.cc',
+        ]
+        CMMSRCS += [
+            'shim_mac_dump_syms.mm',
         ]
     elif CONFIG['OS_TARGET'] == 'WINNT':
         CPP_SOURCES += [
@@ -64,7 +74,6 @@ EXPORTS += [
 
 EXPORTS.mozilla += [
     'IOInterposer.h',
-    'SQLiteInterposer.h',
 ]
 
 XPCSHELL_TESTS_MANIFESTS += ['tests/xpcshell.ini']

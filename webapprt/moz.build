@@ -18,10 +18,12 @@ EXTRA_COMPONENTS += [
     'CommandLineHandler.js',
     'ContentPermission.js',
     'DirectoryProvider.js',
+    'PaymentUIGlue.js',
     'components.manifest',
 ]
 
 EXTRA_JS_MODULES += [
+    'RemoteDebugger.jsm',
     'Startup.jsm',
     'WebappRT.jsm',
     'WebappsHandler.jsm',

@@ -102,8 +102,12 @@ public:
 
   void UpdateRenderBounds(const nsIntRect& aRect);
 
-  void BeginTransaction() MOZ_OVERRIDE;
-  void BeginTransactionWithTarget(gfxContext* aTarget) MOZ_OVERRIDE;
+  virtual void BeginTransaction() MOZ_OVERRIDE;
+  virtual void BeginTransactionWithTarget(gfxContext* aTarget) MOZ_OVERRIDE
+  {
+    MOZ_CRASH("Use BeginTransactionWithDrawTarget");
+  }
+  void BeginTransactionWithDrawTarget(gfx::DrawTarget* aTarget);
 
   void NotifyShadowTreeTransaction();
 
@@ -184,12 +188,6 @@ public:
    */
   void SetWorldTransform(const gfxMatrix& aMatrix);
   gfxMatrix& GetWorldTransform(void);
-
-  static bool AddMaskEffect(Layer* aMaskLayer,
-                            EffectChain& aEffect,
-                            bool aIs3D = false);
-
-  static void RemoveMaskEffect(Layer* aMaskLayer);
 
   /**
    * RAII helper class to add a mask effect with the compositable from aMaskLayer

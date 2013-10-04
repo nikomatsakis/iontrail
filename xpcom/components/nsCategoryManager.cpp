@@ -32,6 +32,7 @@
 #include "mozilla/Services.h"
 
 #include "ManifestParser.h"
+#include "nsISimpleEnumerator.h"
 
 using namespace mozilla;
 class nsIComponentLoaderManager;
@@ -210,7 +211,6 @@ CategoryNode::Create(PLArenaPool* aArena)
   if (!node)
     return nullptr;
 
-  node->mTable.Init();
   return node;
 }
 
@@ -402,11 +402,11 @@ CategoryEnumerator::enumfunc_createenumerator(const char* aStr, CategoryNode* aN
 
 NS_IMPL_QUERY_INTERFACE1(nsCategoryManager, nsICategoryManager)
 
-class XPCOMCategoryManagerReporter MOZ_FINAL : public MemoryReporterBase
+class XPCOMCategoryManagerReporter MOZ_FINAL : public MemoryUniReporter
 {
 public:
     XPCOMCategoryManagerReporter()
-      : MemoryReporterBase("explicit/xpcom/category-manager",
+      : MemoryUniReporter("explicit/xpcom/category-manager",
                            KIND_HEAP, UNITS_BYTES,
                            "Memory used for the XPCOM category manager.")
     {}
@@ -462,8 +462,6 @@ nsCategoryManager::nsCategoryManager()
 {
   PL_INIT_ARENA_POOL(&mArena, "CategoryManagerArena",
                      NS_CATEGORYMANAGER_ARENA_SIZE);
-
-  mTable.Init();
 }
 
 void

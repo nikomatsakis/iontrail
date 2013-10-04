@@ -15,7 +15,6 @@
 #include "jscompartment.h"
 
 #include "jit/CompileInfo.h"
-#include "jit/IonCode.h"
 
 namespace js {
 namespace jit {
@@ -255,13 +254,14 @@ enum AbortReason {
     AbortReason_Alloc,
     AbortReason_Inlining,
     AbortReason_Disable,
+    AbortReason_Error,
     AbortReason_NoAbort
 };
 
 // An Ion context is needed to enter into either an Ion method or an instance
 // of the Ion compiler. It points to a temporary allocator and the active
-// JSContext, either of which may be NULL, and the active compartment, which
-// will not be NULL.
+// JSContext, either of which may be nullptr, and the active compartment, which
+// will not be nullptr.
 
 class IonContext
 {
@@ -354,8 +354,8 @@ class CodeGenerator;
 
 bool OptimizeMIR(MIRGenerator *mir);
 LIRGraph *GenerateLIR(MIRGenerator *mir);
-CodeGenerator *GenerateCode(MIRGenerator *mir, LIRGraph *lir, MacroAssembler *maybeMasm = NULL);
-CodeGenerator *CompileBackEnd(MIRGenerator *mir, MacroAssembler *maybeMasm = NULL);
+CodeGenerator *GenerateCode(MIRGenerator *mir, LIRGraph *lir, MacroAssembler *maybeMasm = nullptr);
+CodeGenerator *CompileBackEnd(MIRGenerator *mir, MacroAssembler *maybeMasm = nullptr);
 
 void AttachFinishedCompilations(JSContext *cx);
 void FinishOffThreadBuilder(IonBuilder *builder);
@@ -373,7 +373,7 @@ IsIonInlinablePC(jsbytecode *pc) {
     // CALL, FUNCALL, FUNAPPLY, EVAL, NEW (Normal Callsites)
     // GETPROP, CALLPROP, and LENGTH. (Inlined Getters)
     // SETPROP, SETNAME, SETGNAME (Inlined Setters)
-    return IsCallPC(pc) || IsGetterPC(pc) || IsSetterPC(pc);
+    return IsCallPC(pc) || IsGetPropPC(pc) || IsSetPropPC(pc);
 }
 
 void ForbidCompilation(JSContext *cx, JSScript *script);

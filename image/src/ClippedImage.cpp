@@ -6,10 +6,10 @@
 #include "gfxDrawable.h"
 #include "gfxPlatform.h"
 #include "gfxUtils.h"
-#include "mozilla/dom/SVGSVGElement.h"
 
 #include "ClippedImage.h"
 #include "Orientation.h"
+#include "SVGImageContext.h"
 
 using mozilla::layers::LayerManager;
 using mozilla::layers::ImageContainer;
@@ -83,7 +83,7 @@ public:
 
   virtual bool operator()(gfxContext* aContext,
                           const gfxRect& aFillRect,
-                          const gfxPattern::GraphicsFilter& aFilter,
+                          const GraphicsFilter& aFilter,
                           const gfxMatrix& aTransform)
   {
     // Draw the image. |gfxCallbackDrawable| always calls this function with
@@ -123,6 +123,8 @@ ClippedImage::ShouldClip()
   // available yet, in which case we'll try again later.
   if (mShouldClip.empty()) {
     int32_t width, height;
+    nsRefPtr<imgStatusTracker> innerImageStatusTracker =
+      InnerImage()->GetStatusTracker();
     if (InnerImage()->HasError()) {
       // If there's a problem with the inner image we'll let it handle everything.
       mShouldClip.construct(false);
@@ -134,7 +136,8 @@ ClippedImage::ShouldClip()
       // If the clipping region is the same size as the underlying image we
       // don't have to do anything.
       mShouldClip.construct(!mClip.IsEqualInterior(nsIntRect(0, 0, width, height)));
-    } else if (InnerImage()->GetStatusTracker().IsLoading()) {
+    } else if (innerImageStatusTracker &&
+               innerImageStatusTracker->IsLoading()) {
       // The image just hasn't finished loading yet. We don't yet know whether
       // clipping with be needed or not for now. Just return without memoizing
       // anything.
@@ -249,8 +252,8 @@ ClippedImage::GetFrameInternal(const nsIntSize& aViewportSize,
     gfxRect imageRect(0, 0, mClip.width, mClip.height);
     gfxUtils::DrawPixelSnapped(ctx, drawable, gfxMatrix(),
                                imageRect, imageRect, imageRect, imageRect,
-                               gfxASurface::ImageFormatARGB32,
-                               gfxPattern::FILTER_FAST);
+                               gfxImageFormatARGB32,
+                               GraphicsFilter::FILTER_FAST);
 
     // Cache the resulting surface.
     mCachedSurface = new ClippedImageCachedSurface(target,
@@ -302,7 +305,7 @@ ClippedImage::MustCreateSurface(gfxContext* aContext,
 
 NS_IMETHODIMP
 ClippedImage::Draw(gfxContext* aContext,
-                   gfxPattern::GraphicsFilter aFilter,
+                   GraphicsFilter aFilter,
                    const gfxMatrix& aUserSpaceToImageSpace,
                    const gfxRect& aFill,
                    const nsIntRect& aSubimage,
@@ -336,7 +339,7 @@ ClippedImage::Draw(gfxContext* aContext,
     gfxRect subimage(aSubimage.x, aSubimage.y, aSubimage.width, aSubimage.height);
     gfxUtils::DrawPixelSnapped(aContext, drawable, aUserSpaceToImageSpace,
                                subimage, sourceRect, imageRect, aFill,
-                               gfxASurface::ImageFormatARGB32, aFilter);
+                               gfxImageFormatARGB32, aFilter);
 
     return NS_OK;
   }
@@ -359,7 +362,7 @@ ClippedImage::ClampFactor(const gfxFloat aToClamp, const int aReference) const
 
 nsresult
 ClippedImage::DrawSingleTile(gfxContext* aContext,
-                             gfxPattern::GraphicsFilter aFilter,
+                             GraphicsFilter aFilter,
                              const gfxMatrix& aUserSpaceToImageSpace,
                              const gfxRect& aFill,
                              const nsIntRect& aSubimage,

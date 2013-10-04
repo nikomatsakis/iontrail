@@ -10,6 +10,7 @@
 #include "nsDOMUIEvent.h"
 #include "nsIDOMCompositionEvent.h"
 #include "mozilla/dom/CompositionEventBinding.h"
+#include "mozilla/TextEvents.h"
 
 class nsDOMCompositionEvent : public nsDOMUIEvent,
                               public nsIDOMCompositionEvent
@@ -17,7 +18,7 @@ class nsDOMCompositionEvent : public nsDOMUIEvent,
 public:
   nsDOMCompositionEvent(mozilla::dom::EventTarget* aOwner,
                         nsPresContext* aPresContext,
-                        nsCompositionEvent* aEvent);
+                        mozilla::WidgetCompositionEvent* aEvent);
   virtual ~nsDOMCompositionEvent();
 
   NS_DECL_ISUPPORTS_INHERITED

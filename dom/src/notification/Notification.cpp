@@ -4,6 +4,7 @@
 
 #include "PCOMContentPermissionRequestChild.h"
 #include "mozilla/dom/Notification.h"
+#include "mozilla/dom/OwningNonNull.h"
 #include "mozilla/Preferences.h"
 #include "TabChild.h"
 #include "nsContentUtils.h"
@@ -16,6 +17,11 @@
 #include "nsToolkitCompsCID.h"
 #include "nsGlobalWindow.h"
 #include "nsDOMJSUtils.h"
+#include "nsIScriptSecurityManager.h"
+#ifdef MOZ_B2G
+#include "nsIDOMDesktopNotification.h"
+#include "nsIAppsService.h"
+#endif
 
 namespace mozilla {
 namespace dom {
@@ -135,7 +141,7 @@ NotificationPermissionRequest::Run()
   if (XRE_GetProcessType() == GeckoProcessType_Content) {
     // because owner implements nsITabChild, we can assume that it is
     // the one and only TabChild.
-    TabChild* child = GetTabChildFrom(mWindow->GetDocShell());
+    TabChild* child = TabChild::GetFrom(mWindow->GetDocShell());
     if (!child) {
       return NS_ERROR_NOT_AVAILABLE;
     }
@@ -352,15 +358,36 @@ Notification::ShowInternal()
     }
   }
 
+  nsCOMPtr<nsIObserver> observer = new NotificationObserver(this);
+
   nsString alertName;
   rv = GetAlertName(alertName);
   NS_ENSURE_SUCCESS(rv, rv);
+
+#ifdef MOZ_B2G
+  nsCOMPtr<nsIAppNotificationService> appNotifier =
+    do_GetService("@mozilla.org/system-alerts-service;1");
+  if (appNotifier) {
+    nsCOMPtr<nsPIDOMWindow> window = GetOwner();
+    uint32_t appId = (window.get())->GetDoc()->NodePrincipal()->GetAppId();
+
+    if (appId != nsIScriptSecurityManager::UNKNOWN_APP_ID) {
+      nsCOMPtr<nsIAppsService> appsService = do_GetService("@mozilla.org/AppsService;1");
+      nsString manifestUrl = EmptyString();
+      appsService->GetManifestURLByLocalId(appId, manifestUrl);
+      return appNotifier->ShowAppNotification(mIconUrl, mTitle, mBody,
+                                              true,
+                                              manifestUrl,
+                                              observer,
+                                              alertName);
+    }
+  }
+#endif
 
   // In the case of IPC, the parent process uses the cookie to map to
   // nsIObserver. Thus the cookie must be unique to differentiate observers.
   nsString uniqueCookie = NS_LITERAL_STRING("notification:");
   uniqueCookie.AppendInt(sCount++);
-  nsCOMPtr<nsIObserver> observer = new NotificationObserver(this);
   return alertService->ShowAlertNotification(absoluteUrl, mTitle, mBody, true,
                                              uniqueCookie, observer, alertName,
                                              DirectionToString(mDir), mLang);

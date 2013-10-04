@@ -96,6 +96,8 @@ static char const * const callbackNames[] = {
     NULL
 };
 
+enum YieldKind { Delegating, NotDelegating };
+
 typedef AutoValueVector NodeVector;
 
 /*
@@ -121,6 +123,21 @@ typedef AutoValueVector NodeVector;
     JS_END_MACRO
 
 namespace {
+
+/* Set 'result' to obj[id] if any such property exists, else defaultValue. */
+static bool
+GetPropertyDefault(JSContext *cx, HandleObject obj, HandleId id, HandleValue defaultValue,
+                   MutableHandleValue result)
+{
+    bool found;
+    if (!JSObject::hasProperty(cx, obj, id, &found))
+        return false;
+    if (!found) {
+        result.set(defaultValue);
+        return true;
+    }
+    return JSObject::getGeneric(cx, obj, obj, id, result);
+}
 
 /*
  * Builder class that constructs JavaScript AST node objects. See:
@@ -175,7 +192,7 @@ class NodeBuilder
             if (!atom)
                 return false;
             RootedId id(cx, AtomToId(atom));
-            if (!baseops::GetPropertyDefault(cx, userobj, id, nullVal, &funv))
+            if (!GetPropertyDefault(cx, userobj, id, nullVal, &funv))
                 return false;
 
             if (funv.isNullOrUndefined()) {
@@ -586,7 +603,7 @@ class NodeBuilder
 
     bool thisExpression(TokenPos *pos, MutableHandleValue dst);
 
-    bool yieldExpression(HandleValue arg, TokenPos *pos, MutableHandleValue dst);
+    bool yieldExpression(HandleValue arg, YieldKind kind, TokenPos *pos, MutableHandleValue dst);
 
     bool comprehensionBlock(HandleValue patt, HandleValue src, bool isForEach, bool isForOf, TokenPos *pos,
                             MutableHandleValue dst);
@@ -1227,13 +1244,23 @@ NodeBuilder::thisExpression(TokenPos *pos, MutableHandleValue dst)
 }
 
 bool
-NodeBuilder::yieldExpression(HandleValue arg, TokenPos *pos, MutableHandleValue dst)
+NodeBuilder::yieldExpression(HandleValue arg, YieldKind kind, TokenPos *pos, MutableHandleValue dst)
 {
     RootedValue cb(cx, callbacks[AST_YIELD_EXPR]);
-    if (!cb.isNull())
-        return callback(cb, opt(arg), pos, dst);
+    RootedValue delegateVal(cx);
 
-    return newNode(AST_YIELD_EXPR, pos, "argument", arg, dst);
+    switch (kind) {
+      case Delegating:
+        delegateVal = BooleanValue(true);
+        break;
+      case NotDelegating:
+        delegateVal = BooleanValue(false);
+        break;
+    }
+
+    if (!cb.isNull())
+        return callback(cb, opt(arg), delegateVal, pos, dst);
+    return newNode(AST_YIELD_EXPR, pos, "argument", arg, "delegate", delegateVal, dst);
 }
 
 bool
@@ -1475,6 +1502,8 @@ NodeBuilder::function(ASTType type, TokenPos *pos,
                    dst);
 }
 
+namespace {
+
 /*
  * Serialization of parse nodes to JavaScript objects.
  *
@@ -1585,6 +1614,8 @@ class ASTSerializer
 
     bool program(ParseNode *pn, MutableHandleValue dst);
 };
+
+} /* anonymous namespace */
 
 AssignmentOperator
 ASTSerializer::aop(JSOp op)
@@ -2578,13 +2609,22 @@ ASTSerializer::expression(ParseNode *pn, MutableHandleValue dst)
       case PNK_NULL:
         return literal(pn, dst);
 
+      case PNK_YIELD_STAR:
+      {
+        JS_ASSERT(pn->pn_pos.encloses(pn->pn_kid->pn_pos));
+
+        RootedValue arg(cx);
+        return expression(pn->pn_kid, &arg) &&
+               builder.yieldExpression(arg, Delegating, &pn->pn_pos, dst);
+      }
+
       case PNK_YIELD:
       {
         JS_ASSERT_IF(pn->pn_kid, pn->pn_pos.encloses(pn->pn_kid->pn_pos));
 
         RootedValue arg(cx);
         return optExpression(pn->pn_kid, &arg) &&
-               builder.yieldExpression(arg, &pn->pn_pos, dst);
+               builder.yieldExpression(arg, NotDelegating, &pn->pn_pos, dst);
       }
 
       case PNK_ARRAYCOMP:
@@ -2991,7 +3031,7 @@ reflect_parse(JSContext *cx, uint32_t argc, jsval *vp)
         /* config.loc */
         RootedId locId(cx, NameToId(cx->names().loc));
         RootedValue trueVal(cx, BooleanValue(true));
-        if (!baseops::GetPropertyDefault(cx, config, locId, trueVal, &prop))
+        if (!GetPropertyDefault(cx, config, locId, trueVal, &prop))
             return false;
 
         loc = ToBoolean(prop);
@@ -3000,7 +3040,7 @@ reflect_parse(JSContext *cx, uint32_t argc, jsval *vp)
             /* config.source */
             RootedId sourceId(cx, NameToId(cx->names().source));
             RootedValue nullVal(cx, NullValue());
-            if (!baseops::GetPropertyDefault(cx, config, sourceId, nullVal, &prop))
+            if (!GetPropertyDefault(cx, config, sourceId, nullVal, &prop))
                 return false;
 
             if (!prop.isNullOrUndefined()) {
@@ -3022,7 +3062,7 @@ reflect_parse(JSContext *cx, uint32_t argc, jsval *vp)
             /* config.line */
             RootedId lineId(cx, NameToId(cx->names().line));
             RootedValue oneValue(cx, Int32Value(1));
-            if (!baseops::GetPropertyDefault(cx, config, lineId, oneValue, &prop) ||
+            if (!GetPropertyDefault(cx, config, lineId, oneValue, &prop) ||
                 !ToUint32(cx, prop, &lineno)) {
                 return false;
             }
@@ -3031,7 +3071,7 @@ reflect_parse(JSContext *cx, uint32_t argc, jsval *vp)
         /* config.builder */
         RootedId builderId(cx, NameToId(cx->names().builder));
         RootedValue nullVal(cx, NullValue());
-        if (!baseops::GetPropertyDefault(cx, config, builderId, nullVal, &prop))
+        if (!GetPropertyDefault(cx, config, builderId, nullVal, &prop))
             return false;
 
         if (!prop.isNullOrUndefined()) {

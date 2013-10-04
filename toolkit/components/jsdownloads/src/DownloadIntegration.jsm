@@ -25,6 +25,8 @@ const Cr = Components.results;
 
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 
+XPCOMUtils.defineLazyModuleGetter(this, "Downloads",
+                                  "resource://gre/modules/Downloads.jsm");
 XPCOMUtils.defineLazyModuleGetter(this, "DownloadStore",
                                   "resource://gre/modules/DownloadStore.jsm");
 XPCOMUtils.defineLazyModuleGetter(this, "DownloadImport",
@@ -37,6 +39,8 @@ XPCOMUtils.defineLazyModuleGetter(this, "NetUtil",
                                   "resource://gre/modules/NetUtil.jsm");
 XPCOMUtils.defineLazyModuleGetter(this, "OS",
                                   "resource://gre/modules/osfile.jsm");
+XPCOMUtils.defineLazyModuleGetter(this, "PlacesUtils",
+                                  "resource://gre/modules/PlacesUtils.jsm");
 XPCOMUtils.defineLazyModuleGetter(this, "Promise",
                                   "resource://gre/modules/commonjs/sdk/core/promise.js");
 XPCOMUtils.defineLazyModuleGetter(this, "Services",
@@ -45,6 +49,7 @@ XPCOMUtils.defineLazyModuleGetter(this, "Task",
                                   "resource://gre/modules/Task.jsm");
 XPCOMUtils.defineLazyModuleGetter(this, "NetUtil",
                                   "resource://gre/modules/NetUtil.jsm");
+
 XPCOMUtils.defineLazyServiceGetter(this, "gDownloadPlatform",
                                    "@mozilla.org/toolkit/download-platform;1",
                                    "mozIDownloadPlatform");
@@ -57,7 +62,7 @@ XPCOMUtils.defineLazyServiceGetter(this, "gMIMEService",
 XPCOMUtils.defineLazyServiceGetter(this, "gExternalProtocolService",
                                    "@mozilla.org/uriloader/external-protocol-service;1",
                                    "nsIExternalProtocolService");
- 
+
 XPCOMUtils.defineLazyGetter(this, "gParentalControlsService", function() {
   if ("@mozilla.org/parental-controls-service;1" in Cc) {
     return Cc["@mozilla.org/parental-controls-service;1"]
@@ -66,10 +71,12 @@ XPCOMUtils.defineLazyGetter(this, "gParentalControlsService", function() {
   return null;
 });
 
-// This will be replaced by "DownloadUIHelper.strings" (see bug 905123).
-XPCOMUtils.defineLazyGetter(this, "gStringBundle", function() {
-  return Services.strings.
-    createBundle("chrome://mozapps/locale/downloads/downloads.properties");
+/**
+ * ArrayBufferView representing the bytes to be written to the "Zone.Identifier"
+ * Alternate Data Stream to mark a file as coming from the Internet zone.
+ */
+XPCOMUtils.defineLazyGetter(this, "gInternetZoneIdentifier", function() {
+  return new TextEncoder().encode("[ZoneTransfer]\r\nZoneId=3\r\n");
 });
 
 const Timer = Components.Constructor("@mozilla.org/timer;1", "nsITimer",
@@ -122,6 +129,7 @@ this.DownloadIntegration = {
   downloadDoneCalled: false,
   _deferTestOpenFile: null,
   _deferTestShowDir: null,
+  _deferTestClearPrivateList: null,
 
   /**
    * Main DownloadStore object for loading and saving the list of persistent
@@ -156,6 +164,9 @@ this.DownloadIntegration = {
   initializePublicDownloadList: function(aList) {
     return Task.spawn(function task_DI_initializePublicDownloadList() {
       if (this.dontLoadList) {
+        // In tests, only register the history observer.  This object is kept
+        // alive by the history service, so we don't keep a reference to it.
+        new DownloadHistoryObserver(aList);
         return;
       }
 
@@ -202,9 +213,15 @@ this.DownloadIntegration = {
 
       }
 
-      // After the list of persisten downloads have been loaded, add
-      // the DownloadAutoSaveView (even if the load operation failed).
-      new DownloadAutoSaveView(aList, this._store);
+      // After the list of persistent downloads has been loaded, add the
+      // DownloadAutoSaveView and the DownloadHistoryObserver (even if the load
+      // operation failed).  These objects are kept alive by the underlying
+      // DownloadList and by the history service respectively.  We wait for a
+      // complete initialization of the view used for detecting changes to
+      // downloads to be persisted, before other callers get a chance to modify
+      // the list without being detected.
+      yield new DownloadAutoSaveView(aList, this._store).initialize();
+      new DownloadHistoryObserver(aList);
     }.bind(this));
   },
 
@@ -296,7 +313,7 @@ this.DownloadIntegration = {
    * @return {Promise}
    * @resolves The nsIFile of downloads directory.
    */
-  getUserDownloadsDirectory: function DI_getUserDownloadsDirectory() {
+  getPreferredDownloadsDirectory: function DI_getPreferredDownloadsDirectory() {
     return Task.spawn(function() {
       let directory = null;
       let prefValue = 1;
@@ -339,7 +356,7 @@ this.DownloadIntegration = {
     return Task.spawn(function() {
       let directory = null;
 #ifdef XP_MACOSX
-      directory = yield this.getUserDownloadsDirectory();
+      directory = yield this.getPreferredDownloadsDirectory();
 #elifdef ANDROID
       directory = yield this.getSystemDownloadsDirectory();
 #else
@@ -395,15 +412,46 @@ this.DownloadIntegration = {
    * @rejects JavaScript exception if any of the operations failed.
    */
   downloadDone: function(aDownload) {
-    try {
+    return Task.spawn(function () {
+#ifdef XP_WIN
+      // On Windows, we mark any executable file saved to the NTFS file system
+      // as coming from the Internet security zone.  We do this by writing to
+      // the "Zone.Identifier" Alternate Data Stream directly, because the Save
+      // method of the IAttachmentExecute interface would trigger operations
+      // that may cause the application to hang, or other performance issues.
+      // The stream created in this way is forward-compatible with all the
+      // current and future versions of Windows.
+      if (Services.prefs.getBoolPref("browser.download.saveZoneInformation")) {
+        let file = new FileUtils.File(aDownload.target.path);
+        if (file.isExecutable()) {
+          try {
+            let streamPath = aDownload.target.path + ":Zone.Identifier";
+            let stream = yield OS.File.open(streamPath, { create: true });
+            try {
+              yield stream.write(gInternetZoneIdentifier);
+            } finally {
+              yield stream.close();
+            }
+          } catch (ex) {
+            // If writing to the stream fails, we ignore the error and continue.
+            // The Windows API error 123 (ERROR_INVALID_NAME) is expected to
+            // occur when working on a file system that does not support
+            // Alternate Data Streams, like FAT32, thus we don't report this
+            // specific error.
+            if (!(ex instanceof OS.File.Error) || ex.winLastError != 123) {
+              Cu.reportError(ex);
+            }
+          }
+        }
+      }
+#endif
+
       gDownloadPlatform.downloadDone(NetUtil.newURI(aDownload.source.url),
                                      new FileUtils.File(aDownload.target.path),
-                                     aDownload.contentType, aDownload.source.isPrivate);
+                                     aDownload.contentType,
+                                     aDownload.source.isPrivate);
       this.downloadDoneCalled = true;
-      return Promise.resolve();
-    } catch(ex) {
-      return Promise.reject(ex);
-    }
+    }.bind(this));
   },
 
   /**
@@ -438,12 +486,14 @@ this.DownloadIntegration = {
     let deferred = Task.spawn(function DI_launchDownload_task() {
       let file = new FileUtils.File(aDownload.target.path);
 
-      // Ask for confirmation if the file is executable.  We do this here,
-      // instead of letting the caller handle the prompt separately in the user
-      // interface layer, for two reasons.  The first is because of its security
-      // nature, so that add-ons cannot forget to do this check.  The second is
-      // that the system-level security prompt, if enabled, would be displayed
-      // at launch time in any case.
+#ifndef XP_WIN
+      // Ask for confirmation if the file is executable, except on Windows where
+      // the operating system will show the prompt based on the security zone.
+      // We do this here, instead of letting the caller handle the prompt
+      // separately in the user interface layer, for two reasons.  The first is
+      // because of its security nature, so that add-ons cannot forget to do
+      // this check.  The second is that the system-level security prompt would
+      // be displayed at launch time in any case.
       if (file.isExecutable() && !this.dontOpenFileAndFolder) {
         // We don't anchor the prompt to a specific window intentionally, not
         // only because this is the same behavior as the system-level prompt,
@@ -455,6 +505,7 @@ this.DownloadIntegration = {
           return;
         }
       }
+#endif
 
       // In case of a double extension, like ".tar.gz", we only
       // consider the last one, because the MIME service cannot
@@ -647,6 +698,14 @@ this.DownloadIntegration = {
       Services.obs.addObserver(DownloadObserver, "quit-application-requested", true);
       Services.obs.addObserver(DownloadObserver, "offline-requested", true);
       Services.obs.addObserver(DownloadObserver, "last-pb-context-exiting", true);
+      Services.obs.addObserver(DownloadObserver, "last-pb-context-exited", true);
+
+      Services.obs.addObserver(DownloadObserver, "sleep_notification", true);
+      Services.obs.addObserver(DownloadObserver, "suspend_process_notification", true);
+      Services.obs.addObserver(DownloadObserver, "wake_notification", true);
+      Services.obs.addObserver(DownloadObserver, "resume_process_notification", true);
+      Services.obs.addObserver(DownloadObserver, "network:offline-about-to-go-offline", true);
+      Services.obs.addObserver(DownloadObserver, "network:offline-status-changed", true);
     }
     return Promise.resolve();
   },
@@ -676,23 +735,37 @@ this.DownloadObserver = {
   observersAdded: false,
 
   /**
+   * Timer used to delay restarting canceled downloads upon waking and returning
+   * online.
+   */
+  _wakeTimer: null,
+
+  /**
    * Set that contains the in progress publics downloads.
-   * It's keep updated when a public download is added, removed or change its
+   * It's kept updated when a public download is added, removed or changes its
    * properties.
    */
   _publicInProgressDownloads: new Set(),
 
   /**
    * Set that contains the in progress private downloads.
-   * It's keep updated when a private download is added, removed or change its
+   * It's kept updated when a private download is added, removed or changes its
    * properties.
    */
   _privateInProgressDownloads: new Set(),
 
   /**
+   * Set that contains the downloads that have been canceled when going offline
+   * or to sleep. These are started again when returning online or waking. This
+   * list is not persisted so when exiting and restarting, the downloads will not
+   * be started again.
+   */
+  _canceledOfflineDownloads: new Set(),
+
+  /**
    * Registers a view that updates the corresponding downloads state set, based
    * on the aIsPrivate argument. The set is updated when a download is added,
-   * removed or changed its properties.
+   * removed or changes its properties.
    *
    * @param aList
    *        The public or private downloads list.
@@ -703,44 +776,45 @@ this.DownloadObserver = {
     let downloadsSet = aIsPrivate ? this._privateInProgressDownloads
                                   : this._publicInProgressDownloads;
     let downloadsView = {
-      onDownloadAdded: function DO_V_onDownloadAdded(aDownload) {
+      onDownloadAdded: aDownload => {
         if (!aDownload.stopped) {
           downloadsSet.add(aDownload);
         }
       },
-      onDownloadChanged: function DO_V_onDownloadChanged(aDownload) {
+      onDownloadChanged: aDownload => {
         if (aDownload.stopped) {
           downloadsSet.delete(aDownload);
         } else {
           downloadsSet.add(aDownload);
         }
       },
-      onDownloadRemoved: function DO_V_onDownloadRemoved(aDownload) {
+      onDownloadRemoved: aDownload => {
         downloadsSet.delete(aDownload);
+        // The download must also be removed from the canceled when offline set.
+        this._canceledOfflineDownloads.delete(aDownload);
       }
     };
 
-    aList.addView(downloadsView);
+    // We register the view asynchronously.
+    aList.addView(downloadsView).then(null, Cu.reportError);
   },
 
   /**
-   * Shows the confirm cancel downloads dialog.
+   * Wrapper that handles the test mode before calling the prompt that display
+   * a warning message box that informs that there are active downloads,
+   * and asks whether the user wants to cancel them or not.
    *
    * @param aCancel
    *        The observer notification subject.
    * @param aDownloadsCount
    *        The current downloads count.
-   * @param aIdTitle
-   *        The string bundle id for the dialog title.
-   * @param aIdMessageSingle
-   *        The string bundle id for the single download message.
-   * @param aIdMessageMultiple
-   *        The string bundle id for the multiple downloads message.
-   * @param aIdButton
-   *        The string bundle id for the don't cancel button text.
+   * @param aPrompter
+   *        The prompter object that shows the confirm dialog.
+   * @param aPromptType
+   *        The type of prompt notification depending on the observer.
    */
   _confirmCancelDownloads: function DO_confirmCancelDownload(
-    aCancel, aDownloadsCount, aIdTitle, aIdMessageSingle, aIdMessageMultiple, aIdButton) {
+    aCancel, aDownloadsCount, aPrompter, aPromptType) {
     // If user has already dismissed the request, then do nothing.
     if ((aCancel instanceof Ci.nsISupportsPRBool) && aCancel.data) {
       return;
@@ -750,32 +824,20 @@ this.DownloadObserver = {
       DownloadIntegration.testPromptDownloads = aDownloadsCount;
       return;
     }
-    // If there are no active downloads, then do nothing.
-    if (aDownloadsCount <= 0) {
-      return;
+
+    aCancel.data = aPrompter.confirmCancelDownloads(aDownloadsCount, aPromptType);
+  },
+
+  /**
+   * Resume all downloads that were paused when going offline, used when waking
+   * from sleep or returning from being offline.
+   */
+  _resumeOfflineDownloads: function DO_resumeOfflineDownloads() {
+    this._wakeTimer = null;
+
+    for (let download of this._canceledOfflineDownloads) {
+      download.start();
     }
-
-    let win = Services.wm.getMostRecentWindow("navigator:browser");
-    let buttonFlags = (Ci.nsIPrompt.BUTTON_TITLE_IS_STRING * Ci.nsIPrompt.BUTTON_POS_0) +
-                      (Ci.nsIPrompt.BUTTON_TITLE_IS_STRING * Ci.nsIPrompt.BUTTON_POS_1);
-    let title = gStringBundle.GetStringFromName(aIdTitle);
-    let dontQuitButton = gStringBundle.GetStringFromName(aIdButton);
-    let quitButton;
-    let message;
-
-    if (aDownloadsCount > 1) {
-      message = gStringBundle.formatStringFromName(aIdMessageMultiple,
-                                                   [aDownloadsCount], 1);
-      quitButton = gStringBundle.formatStringFromName("cancelDownloadsOKTextMultiple",
-                                                      [aDownloadsCount], 1);
-    } else {
-      message = gStringBundle.GetStringFromName(aIdMessageSingle);
-      quitButton = gStringBundle.GetStringFromName("cancelDownloadsOKText");
-    }
-
-    let rv = Services.prompt.confirmEx(win, title, message, buttonFlags,
-                                       quitButton, dontQuitButton, null, null, {});
-    aCancel.data = (rv == 1);
   },
 
   ////////////////////////////////////////////////////////////////////////////
@@ -783,40 +845,68 @@ this.DownloadObserver = {
 
   observe: function DO_observe(aSubject, aTopic, aData) {
     let downloadsCount;
+    let p = DownloadUIHelper.getPrompter();
     switch (aTopic) {
       case "quit-application-requested":
         downloadsCount = this._publicInProgressDownloads.size +
                          this._privateInProgressDownloads.size;
-#ifndef XP_MACOSX
-        this._confirmCancelDownloads(aSubject, downloadsCount,
-                                     "quitCancelDownloadsAlertTitle",
-                                     "quitCancelDownloadsAlertMsg",
-                                     "quitCancelDownloadsAlertMsgMultiple",
-                                     "dontQuitButtonWin");
-#else
-        this._confirmCancelDownloads(aSubject, downloadsCount,
-                                     "quitCancelDownloadsAlertTitle",
-                                     "quitCancelDownloadsAlertMsgMac",
-                                     "quitCancelDownloadsAlertMsgMacMultiple",
-                                     "dontQuitButtonMac");
-#endif
+        this._confirmCancelDownloads(aSubject, downloadsCount, p, p.ON_QUIT);
         break;
       case "offline-requested":
         downloadsCount = this._publicInProgressDownloads.size +
                          this._privateInProgressDownloads.size;
-        this._confirmCancelDownloads(aSubject, downloadsCount,
-                                     "offlineCancelDownloadsAlertTitle",
-                                     "offlineCancelDownloadsAlertMsg",
-                                     "offlineCancelDownloadsAlertMsgMultiple",
-                                     "dontGoOfflineButton");
+        this._confirmCancelDownloads(aSubject, downloadsCount, p, p.ON_OFFLINE);
         break;
       case "last-pb-context-exiting":
-        this._confirmCancelDownloads(aSubject,
-                                     this._privateInProgressDownloads.size,
-                                     "leavePrivateBrowsingCancelDownloadsAlertTitle",
-                                     "leavePrivateBrowsingWindowsCancelDownloadsAlertMsg",
-                                     "leavePrivateBrowsingWindowsCancelDownloadsAlertMsgMultiple",
-                                     "dontLeavePrivateBrowsingButton");
+        downloadsCount = this._privateInProgressDownloads.size;
+        this._confirmCancelDownloads(aSubject, downloadsCount, p,
+                                     p.ON_LEAVE_PRIVATE_BROWSING);
+        break;
+      case "last-pb-context-exited":
+        let deferred = Task.spawn(function() {
+          let list = yield Downloads.getList(Downloads.PRIVATE);
+          let downloads = yield list.getAll();
+
+          // We can remove the downloads and finalize them in parallel.
+          for (let download of downloads) {
+            list.remove(download).then(null, Cu.reportError);
+            download.finalize(true).then(null, Cu.reportError);
+          }
+        });
+        // Handle test mode
+        if (DownloadIntegration.testMode) {
+          deferred.then((value) => { DownloadIntegration._deferTestClearPrivateList.resolve("success"); },
+                        (error) => { DownloadIntegration._deferTestClearPrivateList.reject(error); });
+        }
+        break;
+      case "sleep_notification":
+      case "suspend_process_notification":
+      case "network:offline-about-to-go-offline":
+        for (let download of this._publicInProgressDownloads) {
+          download.cancel();
+          this._canceledOfflineDownloads.add(download);
+        }
+        for (let download of this._privateInProgressDownloads) {
+          download.cancel();
+          this._canceledOfflineDownloads.add(download);
+        }
+        break;
+      case "wake_notification":
+      case "resume_process_notification":
+        let wakeDelay = 10000;
+        try {
+          wakeDelay = Services.prefs.getIntPref("browser.download.manager.resumeOnWakeDelay");
+        } catch(e) {}
+
+        if (wakeDelay >= 0) {
+          this._wakeTimer = new Timer(this._resumeOfflineDownloads.bind(this), wakeDelay,
+                                      Ci.nsITimer.TYPE_ONE_SHOT);
+        }
+        break;
+      case "network:offline-status-changed":
+        if (aData == "online") {
+          this._resumeOfflineDownloads();
+        }
         break;
     }
   },
@@ -829,35 +919,107 @@ this.DownloadObserver = {
 };
 
 ////////////////////////////////////////////////////////////////////////////////
+//// DownloadHistoryObserver
+
+/**
+ * Registers a Places observer so that operations on download history are
+ * reflected on the provided list of downloads.
+ *
+ * You do not need to keep a reference to this object in order to keep it alive,
+ * because the history service already keeps a strong reference to it.
+ *
+ * @param aList
+ *        DownloadList object linked to this observer.
+ */
+function DownloadHistoryObserver(aList)
+{
+  this._list = aList;
+  PlacesUtils.history.addObserver(this, false);
+}
+
+DownloadHistoryObserver.prototype = {
+  /**
+   * DownloadList object linked to this observer.
+   */
+  _list: null,
+
+  ////////////////////////////////////////////////////////////////////////////
+  //// nsISupports
+
+  QueryInterface: XPCOMUtils.generateQI([Ci.nsINavHistoryObserver]),
+
+  ////////////////////////////////////////////////////////////////////////////
+  //// nsINavHistoryObserver
+
+  onDeleteURI: function DL_onDeleteURI(aURI, aGUID) {
+    this._list.removeFinished(download => aURI.equals(NetUtil.newURI(
+                                                      download.source.url)));
+  },
+
+  onClearHistory: function DL_onClearHistory() {
+    this._list.removeFinished();
+  },
+
+  onTitleChanged: function () {},
+  onBeginUpdateBatch: function () {},
+  onEndUpdateBatch: function () {},
+  onVisit: function () {},
+  onPageChanged: function () {},
+  onDeleteVisits: function () {},
+};
+
+////////////////////////////////////////////////////////////////////////////////
 //// DownloadAutoSaveView
 
 /**
  * This view can be added to a DownloadList object to trigger a save operation
- * in the given DownloadStore object when a relevant change occurs.
+ * in the given DownloadStore object when a relevant change occurs.  You should
+ * call the "initialize" method in order to register the view and load the
+ * current state from disk.
  *
+ * You do not need to keep a reference to this object in order to keep it alive,
+ * because the DownloadList object already keeps a strong reference to it.
+ *
+ * @param aList
+ *        The DownloadList object on which the view should be registered.
  * @param aStore
  *        The DownloadStore object used for saving.
  */
 function DownloadAutoSaveView(aList, aStore) {
+  this._list = aList;
   this._store = aStore;
   this._downloadsMap = new Map();
-
-  // We set _initialized to true after adding the view, so that onDownloadAdded
-  // doesn't cause a save to occur.
-  aList.addView(this);
-  this._initialized = true;
 }
 
 DownloadAutoSaveView.prototype = {
+  /**
+   * DownloadList object linked to this view.
+   */
+  _list: null,
+
+  /**
+   * The DownloadStore object used for saving.
+   */
+  _store: null,
+
   /**
    * True when the initial state of the downloads has been loaded.
    */
   _initialized: false,
 
   /**
-   * The DownloadStore object used for saving.
+   * Registers the view and loads the current state from disk.
+   *
+   * @return {Promise}
+   * @resolves When the view has been registered.
+   * @rejects JavaScript exception.
    */
-  _store: null,
+  initialize: function ()
+  {
+    // We set _initialized to true after adding the view, so that
+    // onDownloadAdded doesn't cause a save to occur.
+    return this._list.addView(this).then(() => this._initialized = true);
+  },
 
   /**
    * This map contains only Download objects that should be saved to disk, and

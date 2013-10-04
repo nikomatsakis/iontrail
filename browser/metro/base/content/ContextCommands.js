@@ -164,7 +164,7 @@ var ContextCommands = {
     let defaultURI = aRichListItem.getAttribute("searchString");
     aRichListItem.childNodes[0].setAttribute("value", "");
     aRichListItem.setAttribute("searchString", "");
-    BrowserUI.newTab(defaultURI, Browser.selectedTab);
+    BrowserUI.addAndShowTab(defaultURI, Browser.selectedTab);
   },
 
   // Link specific
@@ -208,7 +208,7 @@ var ContextCommands = {
   },
 
   openImageInNewTab: function cc_openImageInNewTab() {
-    BrowserUI.newTab(ContextMenuUI.popupState.mediaURL, Browser.selectedTab);
+    BrowserUI.addAndShowTab(ContextMenuUI.popupState.mediaURL, Browser.selectedTab);
   },
 
   // Video specific
@@ -223,7 +223,7 @@ var ContextCommands = {
   },
 
   openVideoInNewTab: function cc_openVideoInNewTab() {
-    BrowserUI.newTab(ContextMenuUI.popupState.mediaURL, Browser.selectedTab);
+    BrowserUI.addAndShowTab(ContextMenuUI.popupState.mediaURL, Browser.selectedTab);
   },
 
   // Bookmarks
@@ -349,20 +349,22 @@ var ContextCommands = {
     picker.appendFilters(Ci.nsIFilePicker.filterImages);
 
     // prefered save location
-    var dnldMgr = Cc["@mozilla.org/download-manager;1"].getService(Ci.nsIDownloadManager);
-    picker.displayDirectory = dnldMgr.userDownloadsDirectory;
-    try {
-      let lastDir = Services.prefs.getComplexValue("browser.download.lastDir", Ci.nsILocalFile);
-      if (this.isAccessibleDirectory(lastDir))
-        picker.displayDirectory = lastDir;
-    }
-    catch (e) { }
+    Task.spawn(function() {
+      picker.displayDirectory = yield Downloads.getPreferredDownloadsDirectory();
 
-    this._picker = picker;
-    this._pickerUrl = mediaURL;
-    this._pickerContentDisp = aPopupState.contentDisposition;
-    this._contentType = aPopupState.contentType;
-    picker.open(ContextCommands);
+      try {
+        let lastDir = Services.prefs.getComplexValue("browser.download.lastDir", Ci.nsILocalFile);
+        if (this.isAccessibleDirectory(lastDir))
+          picker.displayDirectory = lastDir;
+      }
+      catch (e) { }
+
+      this._picker = picker;
+      this._pickerUrl = mediaURL;
+      this._pickerContentDisp = aPopupState.contentDisposition;
+      this._contentType = aPopupState.contentType;
+      picker.open(ContextCommands);
+    }.bind(this));
   },
 
   /*

@@ -10,7 +10,7 @@
 #include "mozilla/dom/HTMLLabelElementBinding.h"
 #include "nsEventDispatcher.h"
 #include "nsFocusManager.h"
-#include "nsGUIEvent.h"
+#include "mozilla/MouseEvents.h"
 #include "nsIDOMMouseEvent.h"
 
 // construction, destruction
@@ -83,7 +83,7 @@ HTMLLabelElement::Focus(ErrorResult& aError)
 }
 
 static bool
-EventTargetIn(nsEvent *aEvent, nsIContent *aChild, nsIContent *aStop)
+EventTargetIn(WidgetEvent* aEvent, nsIContent* aChild, nsIContent* aStop)
 {
   nsCOMPtr<nsIContent> c = do_QueryInterface(aEvent->target);
   nsIContent *content = c;
@@ -115,7 +115,7 @@ nsresult
 HTMLLabelElement::PostHandleEvent(nsEventChainPostVisitor& aVisitor)
 {
   if (mHandlingEvent ||
-      (!NS_IS_MOUSE_LEFT_CLICK(aVisitor.mEvent) &&
+      (!aVisitor.mEvent->IsLeftClickEvent() &&
        aVisitor.mEvent->message != NS_MOUSE_BUTTON_DOWN) ||
       aVisitor.mEventStatus == nsEventStatus_eConsumeNoDefault ||
       !aVisitor.mPresContext ||
@@ -133,8 +133,8 @@ HTMLLabelElement::PostHandleEvent(nsEventChainPostVisitor& aVisitor)
       case NS_MOUSE_BUTTON_DOWN:
         NS_ASSERTION(aVisitor.mEvent->eventStructType == NS_MOUSE_EVENT,
                      "wrong event struct for event");
-        if (static_cast<nsMouseEvent*>(aVisitor.mEvent)->button ==
-            nsMouseEvent::eLeftButton) {
+        if (static_cast<WidgetMouseEvent*>(aVisitor.mEvent)->button ==
+              WidgetMouseEvent::eLeftButton) {
           // We reset the mouse-down point on every event because there is
           // no guarantee we will reach the NS_MOUSE_CLICK code below.
           LayoutDeviceIntPoint* curPoint =
@@ -146,9 +146,9 @@ HTMLLabelElement::PostHandleEvent(nsEventChainPostVisitor& aVisitor)
         break;
 
       case NS_MOUSE_CLICK:
-        if (NS_IS_MOUSE_LEFT_CLICK(aVisitor.mEvent)) {
-          const nsMouseEvent* event =
-            static_cast<const nsMouseEvent*>(aVisitor.mEvent);
+        if (aVisitor.mEvent->IsLeftClickEvent()) {
+          const WidgetMouseEvent* event =
+            static_cast<const WidgetMouseEvent*>(aVisitor.mEvent);
           LayoutDeviceIntPoint* mouseDownPoint =
             static_cast<LayoutDeviceIntPoint*>(
               GetProperty(nsGkAtoms::labelMouseDownPtProperty));
@@ -194,10 +194,10 @@ HTMLLabelElement::PostHandleEvent(nsEventChainPostVisitor& aVisitor)
           nsEventStatus status = aVisitor.mEventStatus;
           // Ok to use aVisitor.mEvent as parameter because DispatchClickEvent
           // will actually create a new event.
-          widget::EventFlags eventFlags;
+          EventFlags eventFlags;
           eventFlags.mMultipleActionsPrevented = true;
           DispatchClickEvent(aVisitor.mPresContext,
-                             static_cast<nsInputEvent*>(aVisitor.mEvent),
+                             static_cast<WidgetInputEvent*>(aVisitor.mEvent),
                              content, false, &eventFlags, &status);
           // Do we care about the status this returned?  I don't think we do...
           // Don't run another <label> off of this click
@@ -236,8 +236,8 @@ HTMLLabelElement::PerformAccesskey(bool aKeyCausesActivation,
       return;
 
     // Click on it if the users prefs indicate to do so.
-    nsMouseEvent event(aIsTrustedEvent, NS_MOUSE_CLICK,
-                       nullptr, nsMouseEvent::eReal);
+    WidgetMouseEvent event(aIsTrustedEvent, NS_MOUSE_CLICK,
+                           nullptr, WidgetMouseEvent::eReal);
     event.inputSource = nsIDOMMouseEvent::MOZ_SOURCE_KEYBOARD;
 
     nsAutoPopupStatePusher popupStatePusher(aIsTrustedEvent ?

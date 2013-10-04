@@ -12,6 +12,7 @@
 #include "mozilla/dom/ContentChild.h"
 
 #include "BluetoothChild.h"
+#include "MainThreadUtils.h"
 
 USING_BLUETOOTH_NAMESPACE
 
@@ -104,10 +105,10 @@ BluetoothServiceChildProcess::GetDefaultAdapterPathInternal(
 
 nsresult
 BluetoothServiceChildProcess::GetConnectedDevicePropertiesInternal(
-                                              uint16_t aProfileId,
+                                              uint16_t aServiceUuid,
                                               BluetoothReplyRunnable* aRunnable)
 {
-  SendRequest(aRunnable, ConnectedDevicePropertiesRequest(aProfileId));
+  SendRequest(aRunnable, ConnectedDevicePropertiesRequest(aServiceUuid));
   return NS_OK;
 }
 nsresult
@@ -253,20 +254,24 @@ BluetoothServiceChildProcess::SetPairingConfirmationInternal(
 void
 BluetoothServiceChildProcess::Connect(
   const nsAString& aDeviceAddress,
-  const uint16_t aProfileId,
+  uint32_t aCod,
+  uint16_t aServiceUuid,
   BluetoothReplyRunnable* aRunnable)
 {
   SendRequest(aRunnable,
               ConnectRequest(nsString(aDeviceAddress),
-                             aProfileId));
+                             aCod,
+                             aServiceUuid));
 }
 
 void
 BluetoothServiceChildProcess::Disconnect(
-  const uint16_t aProfileId,
+  const nsAString& aDeviceAddress,
+  uint16_t aServiceUuid,
   BluetoothReplyRunnable* aRunnable)
 {
-  SendRequest(aRunnable, DisconnectRequest(aProfileId));
+  SendRequest(aRunnable,
+              DisconnectRequest(nsString(aDeviceAddress), aServiceUuid));
 }
 
 void
@@ -387,7 +392,7 @@ BluetoothServiceChildProcess::IsEnabledInternal()
 }
 
 bool
-BluetoothServiceChildProcess::IsConnected(uint16_t aProfileId)
+BluetoothServiceChildProcess::IsConnected(uint16_t aServiceUuid)
 {
   MOZ_CRASH("This should never be called!");
 }
@@ -401,8 +406,7 @@ BluetoothServiceChildProcess::SendSinkMessage(const nsAString& aDeviceAddresses,
 
 nsresult
 BluetoothServiceChildProcess::SendInputMessage(const nsAString& aDeviceAddresses,
-                                               const nsAString& aMessage,
-                                               BluetoothReplyRunnable* aRunnable)
+                                               const nsAString& aMessage)
 {
   MOZ_CRASH("This should never be called!");
 }

@@ -153,7 +153,7 @@ this.DownloadImport.prototype = {
                 type: "copy",
                 entityID: entityID
               },
-              startTime: startTime,
+              startTime: new Date(startTime / 1000),
               totalBytes: maxBytes,
               hasPartialData: !!tempPath,
               tryToKeepPartialData: true,
@@ -170,7 +170,7 @@ this.DownloadImport.prototype = {
 
             let download = yield Downloads.createDownload(downloadOptions);
 
-            this.list.add(download);
+            yield this.list.add(download);
 
             if (resumeDownload) {
               download.start();

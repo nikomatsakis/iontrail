@@ -18,31 +18,23 @@
 #include "nsIWebBrowserChrome2.h"
 #include "nsIEmbeddingSiteWindow.h"
 #include "nsIWebBrowserChromeFocus.h"
-#include "nsIWidget.h"
 #include "nsIDOMEventListener.h"
 #include "nsIInterfaceRequestor.h"
 #include "nsIWindowProvider.h"
 #include "nsIDOMWindow.h"
 #include "nsIDocShell.h"
-#include "nsIDocShellTreeItem.h"
-#include "nsIDocShellTreeOwner.h"
-#include "nsIDocument.h"
-#include "nsNetUtil.h"
+#include "nsIInterfaceRequestorUtils.h"
 #include "nsFrameMessageManager.h"
 #include "nsIWebProgressListener.h"
 #include "nsDOMEventTargetHelper.h"
 #include "nsIDialogCreator.h"
-#include "nsIDialogParamBlock.h"
 #include "nsIPresShell.h"
-#include "nsIPrincipal.h"
 #include "nsIScriptObjectPrincipal.h"
 #include "nsWeakReference.h"
 #include "nsITabChild.h"
 #include "mozilla/Attributes.h"
-#include "FrameMetrics.h"
-#include "ProcessUtils.h"
 #include "mozilla/dom/TabContext.h"
-#include "mozilla/dom/ContentChild.h"
+#include "mozilla/EventForwards.h"
 
 struct gfxMatrix;
 class nsICachedFileDescriptorListener;
@@ -83,6 +75,17 @@ public:
   {
     return mMessageManager
       ? mMessageManager->SendSyncMessage(aMessageName, aObject, aRemote, aCx, aArgc, aRetval)
+      : NS_ERROR_NULL_POINTER;
+  }
+  NS_IMETHOD SendRpcMessage(const nsAString& aMessageName,
+                            const JS::Value& aObject,
+                            const JS::Value& aRemote,
+                            JSContext* aCx,
+                            uint8_t aArgc,
+                            JS::Value* aRetval)
+  {
+    return mMessageManager
+      ? mMessageManager->SendRpcMessage(aMessageName, aObject, aRemote, aCx, aArgc, aRetval)
       : NS_ERROR_NULL_POINTER;
   }
   NS_IMETHOD GetContent(nsIDOMWindow** aContent) MOZ_OVERRIDE;
@@ -193,15 +196,16 @@ public:
     /**
      * MessageManagerCallback methods that we override.
      */
-    virtual bool DoSendSyncMessage(JSContext* aCx,
-                                   const nsAString& aMessage,
-                                   const mozilla::dom::StructuredCloneData& aData,
-                                   JS::Handle<JSObject *> aCpows,
-                                   InfallibleTArray<nsString>* aJSONRetVal);
+    virtual bool DoSendBlockingMessage(JSContext* aCx,
+                                       const nsAString& aMessage,
+                                       const mozilla::dom::StructuredCloneData& aData,
+                                       JS::Handle<JSObject *> aCpows,
+                                       InfallibleTArray<nsString>* aJSONRetVal,
+                                       bool aIsSync) MOZ_OVERRIDE;
     virtual bool DoSendAsyncMessage(JSContext* aCx,
                                     const nsAString& aMessage,
                                     const mozilla::dom::StructuredCloneData& aData,
-                                    JS::Handle<JSObject *> aCpows);
+                                    JS::Handle<JSObject *> aCpows) MOZ_OVERRIDE;
 
     virtual bool RecvLoadURL(const nsCString& uri);
     virtual bool RecvCacheFileDescriptor(const nsString& aPath,
@@ -222,19 +226,19 @@ public:
                                 const int32_t&  aClickCount,
                                 const int32_t&  aModifiers,
                                 const bool&     aIgnoreRootScrollFrame);
-    virtual bool RecvRealMouseEvent(const nsMouseEvent& event);
-    virtual bool RecvRealKeyEvent(const nsKeyEvent& event);
-    virtual bool RecvMouseWheelEvent(const mozilla::widget::WheelEvent& event);
-    virtual bool RecvRealTouchEvent(const nsTouchEvent& event);
-    virtual bool RecvRealTouchMoveEvent(const nsTouchEvent& event);
+    virtual bool RecvRealMouseEvent(const mozilla::WidgetMouseEvent& event);
+    virtual bool RecvRealKeyEvent(const mozilla::WidgetKeyboardEvent& event);
+    virtual bool RecvMouseWheelEvent(const mozilla::WheelEvent& event);
+    virtual bool RecvRealTouchEvent(const WidgetTouchEvent& event);
+    virtual bool RecvRealTouchMoveEvent(const WidgetTouchEvent& event);
     virtual bool RecvKeyEvent(const nsString& aType,
                               const int32_t&  aKeyCode,
                               const int32_t&  aCharCode,
                               const int32_t&  aModifiers,
                               const bool&     aPreventDefault);
-    virtual bool RecvCompositionEvent(const nsCompositionEvent& event);
-    virtual bool RecvTextEvent(const nsTextEvent& event);
-    virtual bool RecvSelectionEvent(const nsSelectionEvent& event);
+    virtual bool RecvCompositionEvent(const mozilla::WidgetCompositionEvent& event);
+    virtual bool RecvTextEvent(const mozilla::WidgetTextEvent& event);
+    virtual bool RecvSelectionEvent(const mozilla::WidgetSelectionEvent& event);
     virtual bool RecvActivateFrameEvent(const nsString& aType, const bool& capture);
     virtual bool RecvLoadRemoteScript(const nsString& aURL);
     virtual bool RecvAsyncMessage(const nsString& aMessage,
@@ -311,12 +315,13 @@ public:
     /** Return a boolean indicating if the page has called preventDefault on
      *  the event.
      */
-    bool DispatchMouseEvent(const nsString& aType,
-                            const CSSPoint& aPoint,
-                            const int32_t&  aButton,
-                            const int32_t&  aClickCount,
-                            const int32_t&  aModifiers,
-                            const bool&     aIgnoreRootScrollFrame);
+    bool DispatchMouseEvent(const nsString&       aType,
+                            const CSSPoint&       aPoint,
+                            const int32_t&        aButton,
+                            const int32_t&        aClickCount,
+                            const int32_t&        aModifiers,
+                            const bool&           aIgnoreRootScrollFrame,
+                            const unsigned short& aInputSourceArg);
 
     /**
      * Signal to this TabChild that it should be made visible:
@@ -341,6 +346,23 @@ public:
 
     void UpdateHitRegion(const nsRegion& aRegion);
 
+    static inline TabChild*
+    GetFrom(nsIDocShell* aDocShell)
+    {
+      nsCOMPtr<nsITabChild> tc = do_GetInterface(aDocShell);
+      return static_cast<TabChild*>(tc.get());
+    }
+
+    static TabChild* GetFrom(nsIPresShell* aPresShell);
+
+    static inline TabChild*
+    GetFrom(nsIDOMWindow* aWindow)
+    {
+      nsCOMPtr<nsIWebNavigation> webNav = do_GetInterface(aWindow);
+      nsCOMPtr<nsIDocShell> docShell = do_QueryInterface(webNav);
+      return GetFrom(docShell);
+    }
+
 protected:
     virtual PRenderFrameChild* AllocPRenderFrameChild(ScrollingBehavior* aScrolling,
                                                       TextureFactoryIdentifier* aTextureFactoryIdentifier,
@@ -349,9 +371,10 @@ protected:
     virtual bool RecvDestroy() MOZ_OVERRIDE;
     virtual bool RecvSetUpdateHitRegion(const bool& aEnabled) MOZ_OVERRIDE;
 
-    nsEventStatus DispatchWidgetEvent(nsGUIEvent& event);
+    nsEventStatus DispatchWidgetEvent(WidgetGUIEvent& event);
 
-    virtual PIndexedDBChild* AllocPIndexedDBChild(const nsCString& aASCIIOrigin,
+    virtual PIndexedDBChild* AllocPIndexedDBChild(const nsCString& aGroup,
+                                                  const nsCString& aASCIIOrigin,
                                                   bool* /* aAllowed */);
 
     virtual bool DeallocPIndexedDBChild(PIndexedDBChild* aActor);
@@ -386,7 +409,6 @@ private:
     void DestroyWindow();
     void SetProcessNameToAppName();
     bool ProcessUpdateFrame(const mozilla::layers::FrameMetrics& aFrameMetrics);
-    bool ProcessUpdateSubframe(nsIContent* aContent, const FrameMetrics& aMetrics);
 
     // Call RecvShow(nsIntSize(0, 0)) and block future calls to RecvShow().
     void DoFakeShow();
@@ -421,7 +443,7 @@ private:
     // FireContextMenuEvent().
     void FireContextMenuEvent();
     void CancelTapTracking();
-    void UpdateTapState(const nsTouchEvent& aEvent, nsEventStatus aStatus);
+    void UpdateTapState(const WidgetTouchEvent& aEvent, nsEventStatus aStatus);
 
     nsresult
     BrowserFrameProvideWindow(nsIDOMWindow* aOpener,
@@ -474,33 +496,6 @@ private:
 
     DISALLOW_EVIL_CONSTRUCTORS(TabChild);
 };
-
-inline TabChild*
-GetTabChildFrom(nsIDocShell* aDocShell)
-{
-    nsCOMPtr<nsITabChild> tc = do_GetInterface(aDocShell);
-    return static_cast<TabChild*>(tc.get());
-}
-
-inline TabChild*
-GetTabChildFrom(nsIPresShell* aPresShell)
-{
-    nsIDocument* doc = aPresShell->GetDocument();
-    if (!doc) {
-        return nullptr;
-    }
-    nsCOMPtr<nsISupports> container = doc->GetContainer();
-    nsCOMPtr<nsIDocShell> docShell(do_QueryInterface(container));
-    return GetTabChildFrom(docShell);
-}
-
-inline TabChild*
-GetTabChildFrom(nsIDOMWindow* aWindow)
-{
-    nsCOMPtr<nsIWebNavigation> webNav = do_GetInterface(aWindow);
-    nsCOMPtr<nsIDocShell> docShell = do_QueryInterface(webNav);
-    return GetTabChildFrom(docShell);
-}
 
 }
 }

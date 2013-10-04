@@ -96,13 +96,13 @@ setSlot(JSContext *cx, HandleObject obj, int slot, HandleValue val)
 bool
 Uint32x4::construct(JSContext *cx, unsigned int argc, jsval *vp)
 {
-    if (JS_IsConstructing(cx, vp)) {
+    CallArgs args = CallArgsFromVp(argc, vp);
+
+    if (args.isConstructing()) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
                              JSMSG_NOT_CONSTRUCTOR, "uint32x4");
         return false;
     }
-
-    CallArgs args = CallArgsFromVp(argc, vp);
 
     if (argc != 1 && argc != 4) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,

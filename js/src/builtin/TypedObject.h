@@ -19,12 +19,14 @@
  *
  * Typed objects are a special kind of JS object where the data is
  * given well-structured form. To use a typed object, users first
- * create *type objects* (no relation to the type objects used in TI)
- * that define the type layout. For example, a statement like:
+ * create *type descriptors* that define the type layout (note: the
+ * spec refers to them as *type objects*, but in the JS engine code we
+ * use the term type descriptors to avoid confusion with TI). For
+ * example, a statement like:
  *
  *    var PointType = new StructType({x: uint8, y: uint8});
  *
- * would create a type object PointType that is a struct with
+ * would create a type descriptor PointType that is a struct with
  * two fields, each of uint8 type.
  *
  * This comment typically assumes familiary with the API.  For more
@@ -39,26 +41,26 @@
  * own js::Class and when that class is initialized, we also create
  * and define all other values (in `js_InitTypedObjectClass()`).
  *
- * - Type objects, meta type objects, and type representations:
+ * - type descriptors, meta type descriptors, and type representations:
  *
- * There are a number of pre-defined type objects, one for each
+ * There are a number of pre-defined type descriptors, one for each
  * scalar type (`uint8` etc). Each of these has its own class_,
  * defined in `DefineNumericClass()`.
  *
- * There are also meta type objects (`ArrayType`, `StructType`).
- * These constructors are not themselves type objects but rather the
+ * There are also meta type descriptors (`ArrayType`, `StructType`).
+ * These constructors are not themselves type descriptors but rather the
  * means for the *user* to construct new typed objects.
  *
- * Each type object is associated with a *type representation* (see
+ * Each type descriptor is associated with a *type representation* (see
  * TypeRepresentation.h). Type representations are canonical versions
- * of type objects. We attach them to TI type objects and (eventually)
+ * of type descriptors. We attach them to TI type descriptors and (eventually)
  * use them for shape guards etc. They are purely internal to the
  * engine and are not exposed to end users (though self-hosted code
  * sometimes accesses them).
  *
  * - Typed datums, objects, and handles:
  *
- * A typed object is an instance of a type object. A handle is a
+ * A typed object is an instance of a type descriptor. A handle is a
  * relocatable pointer that points into other typed objects. Both of them
  * are basically represented the same way, though they have distinct
  * js::Class entries. They are both subtypes of `TypedDatum`.
@@ -108,7 +110,7 @@ class ScalarType
 {
   public:
     static const Class class_;
-    static const JSFunctionSpec typeObjectMethods[];
+    static const JSFunctionSpec typeDescriptorMethods[];
     typedef ScalarTypeRepresentation TypeRepr;
 
     static bool call(JSContext *cx, unsigned argc, Value *vp);
@@ -119,7 +121,7 @@ class ReferenceType
 {
   public:
     static const Class class_;
-    static const JSFunctionSpec typeObjectMethods[];
+    static const JSFunctionSpec typeDescriptorMethods[];
     typedef ReferenceTypeRepresentation TypeRepr;
 
     static bool call(JSContext *cx, unsigned argc, Value *vp);
@@ -131,13 +133,13 @@ class ReferenceType
 class ArrayType : public JSObject
 {
   private:
-    // Helper for creating a new ArrayType object, either sized or unsized.
+    // Helper for creating a new Arraytype descriptor, either sized or unsized.
     // - `arrayTypePrototype` - prototype for the new object to be created,
     //                          either ArrayType.prototype or
     //                          unsizedArrayType.__proto__ depending on
     //                          whether this is a sized or unsized array
     // - `arrayTypeReprObj` - a type representation object for the array
-    // - `elementType` - type object for the elements in the array
+    // - `elementType` - type descriptor for the elements in the array
     static JSObject *create(JSContext *cx,
                             HandleObject arrayTypePrototype,
                             HandleObject arrayTypeReprObj,
@@ -147,9 +149,9 @@ class ArrayType : public JSObject
     static const Class class_;
 
     // Properties and methods to be installed on ArrayType.prototype,
-    // and hence inherited by all array type objects:
-    static const JSPropertySpec typeObjectProperties[];
-    static const JSFunctionSpec typeObjectMethods[];
+    // and hence inherited by all array type descriptors:
+    static const JSPropertySpec typeDescriptorProperties[];
+    static const JSFunctionSpec typeDescriptorMethods[];
 
     // Properties and methods to be installed on ArrayType.prototype.prototype,
     // and hence inherited by all array *typed* objects:
@@ -157,10 +159,10 @@ class ArrayType : public JSObject
     static const JSFunctionSpec typedObjectMethods[];
 
     // This is the function that gets called when the user
-    // does `new ArrayType(elem)`. It produces an array type object.
+    // does `new ArrayType(elem)`. It produces an array type descriptor.
     static bool construct(JSContext *cx, unsigned argc, Value *vp);
 
-    // This is the sized method on unsized array type objects.  It
+    // This is the sized method on unsized array type descriptors.  It
     // produces a sized variant.
     static bool dimension(JSContext *cx, unsigned int argc, jsval *vp);
 
@@ -187,9 +189,9 @@ class StructType : public JSObject
     static const Class class_;
 
     // Properties and methods to be installed on StructType.prototype,
-    // and hence inherited by all struct type objects:
-    static const JSPropertySpec typeObjectProperties[];
-    static const JSFunctionSpec typeObjectMethods[];
+    // and hence inherited by all struct type descriptors:
+    static const JSPropertySpec typeDescriptorProperties[];
+    static const JSFunctionSpec typeDescriptorMethods[];
 
     // Properties and methods to be installed on StructType.prototype.prototype,
     // and hence inherited by all struct *typed* objects:
@@ -197,7 +199,7 @@ class StructType : public JSObject
     static const JSFunctionSpec typedObjectMethods[];
 
     // This is the function that gets called when the user
-    // does `new StructType(...)`. It produces a struct type object.
+    // does `new StructType(...)`. It produces a struct type descriptor.
     static bool construct(JSContext *cx, unsigned argc, Value *vp);
 
     static bool convertAndCopyTo(JSContext *cx,
@@ -305,7 +307,7 @@ class TypedDatum : public JSObject
     // should always invoke one of the `attach()` methods below.
     //
     // Arguments:
-    // - type: type object for resulting object
+    // - type: type descriptor for resulting object
     template<class T>
     static T *createUnattached(JSContext *cx, HandleObject type, int32_t length);
 
@@ -342,21 +344,21 @@ class TypedHandle : public TypedDatum
 };
 
 /*
- * Usage: NewTypedHandle(typeObj)
+ * Usage: NewTypedHandle(typeDesc)
  *
  * Constructs a new, unattached instance of `Handle`.
  */
 bool NewTypedHandle(JSContext *cx, unsigned argc, Value *vp);
 
 /*
- * Usage: NewTypedHandle(typeObj)
+ * Usage: NewTypedHandle(typeDesc)
  *
  * Constructs a new, unattached instance of `Handle`.
  */
 bool NewTypedHandle(JSContext *cx, unsigned argc, Value *vp);
 
 /*
- * Usage: NewDerivedTypedDatum(typeObj, owner, offset)
+ * Usage: NewDerivedTypedDatum(typeDesc, owner, offset)
  *
  * Constructs a new, unattached instance of `Handle`.
  */
@@ -372,12 +374,12 @@ bool AttachHandle(ThreadSafeContext *cx, unsigned argc, Value *vp);
 extern const JSJitInfo AttachHandleJitInfo;
 
 /*
- * Usage: ObjectIsTypeObject(obj)
+ * Usage: ObjectIsTypeDescriptor(obj)
  *
- * True if `obj` is a type object.
+ * True if `obj` is a type descriptor.
  */
-bool ObjectIsTypeObject(ThreadSafeContext *cx, unsigned argc, Value *vp);
-extern const JSJitInfo ObjectIsTypeObjectJitInfo;
+bool ObjectIsTypeDescriptor(ThreadSafeContext *cx, unsigned argc, Value *vp);
+extern const JSJitInfo ObjectIsTypeDescriptorJitInfo;
 
 /*
  * Usage: ObjectIsTypeRepresentation(obj)

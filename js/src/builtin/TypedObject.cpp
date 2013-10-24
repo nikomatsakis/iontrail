@@ -75,81 +75,81 @@ TypedMem(JSObject &val)
     return (uint8_t*) val.getPrivate();
 }
 
-static inline bool IsTypeObject(JSObject &type);
+static inline bool IsTypeDescriptor(JSObject &type);
 
 /*
  * Given a user-visible type descriptor object, returns the
  * owner object for the TypeRepresentation* that we use internally.
  */
 static JSObject *
-typeRepresentationOwnerObj(JSObject &typeObj)
+typeRepresentationOwnerObj(JSObject &typeDescriptor)
 {
-    JS_ASSERT(IsTypeObject(typeObj));
-    return &typeObj.getReservedSlot(JS_TYPEOBJ_SLOT_TYPE_REPR).toObject();
+    JS_ASSERT(IsTypeDescriptor(typeDescriptor));
+    return &typeDescriptor.getReservedSlot(JS_TYPEOBJ_SLOT_TYPE_REPR).toObject();
 }
 
 /*
  * Given a user-visible type descriptor object, returns the
  * TypeRepresentation* that we use internally.
  *
- * Note: this pointer is valid only so long as `typeObj` remains rooted.
+ * Note: this pointer is valid only so long as `typeDescriptor` remains rooted.
  */
 static TypeRepresentation *
-typeRepresentation(JSObject &typeObj)
+typeRepresentation(JSObject &typeDescriptor)
 {
-    return TypeRepresentation::fromOwnerObject(*typeRepresentationOwnerObj(typeObj));
+    return TypeRepresentation::fromOwnerObject(*typeRepresentationOwnerObj(typeDescriptor));
 }
 
 static inline bool
-IsScalarTypeObject(JSObject &type)
+IsScalarTypeDescriptor(JSObject &type)
 {
     return type.hasClass(&ScalarType::class_);
 }
 
 static inline bool
-IsReferenceTypeObject(JSObject &type)
+IsReferenceTypeDescriptor(JSObject &type)
 {
     return type.hasClass(&ReferenceType::class_);
 }
 
 static inline bool
-IsSimpleTypeObject(JSObject &type)
+IsSimpleTypeDescriptor(JSObject &type)
 {
-    return IsScalarTypeObject(type) || IsReferenceTypeObject(type);
+    return IsScalarTypeDescriptor(type) || IsReferenceTypeDescriptor(type);
 }
 
 static inline bool
-IsArrayTypeObject(JSObject &type)
+IsArrayTypeDescriptor(JSObject &type)
 {
     return type.hasClass(&ArrayType::class_);
 }
 
 static inline bool
-IsStructTypeObject(JSObject &type)
+IsStructTypeDescriptor(JSObject &type)
 {
     return type.hasClass(&StructType::class_);
 }
 
 static inline bool
-IsTypeObject(JSObject &type)
+IsTypeDescriptor(JSObject &type)
 {
-    return IsScalarTypeObject(type) || IsArrayTypeObject(type) ||
-           IsStructTypeObject(type) || IsReferenceTypeObject(type);
+    return IsScalarTypeDescriptor(type) || IsArrayTypeDescriptor(type) ||
+           IsStructTypeDescriptor(type) || IsReferenceTypeDescriptor(type);
 }
 
 static inline bool
-IsTypeObjectOfKind(JSObject &type, TypeRepresentation::Kind kind)
+IsTypeDescriptorOfKind(JSObject &type, TypeRepresentation::Kind kind)
 {
-    if (!IsTypeObject(type))
+    if (!IsTypeDescriptor(type))
         return false;
 
     return typeRepresentation(type)->kind() == kind;
 }
 
 static inline bool
-IsSizedTypeObject(JSObject &type)
+IsSizedTypeDescriptor(JSObject &type)
 {
-    if (!IsTypeObject(type))
+    if (!IsTypeDescriptor(type))
         return false;
 
     return typeRepresentation(type)->isSized();
@@ -163,12 +163,12 @@ GetType(JSObject &datum)
 }
 
 static bool
-TypeObjectToSource(JSContext *cx, unsigned int argc, Value *vp)
+TypeDescriptorToSource(JSContext *cx, unsigned int argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
 
     RootedObject thisObj(cx, ToObjectIfObject(args.thisv()));
-    if (!thisObj || !IsTypeObject(*thisObj)) {
+    if (!thisObj || !IsTypeDescriptor(*thisObj)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage,
                              nullptr, JSMSG_TYPEDOBJECT_HANDLE_BAD_ARGS,
                              "this", "type object");
@@ -189,7 +189,7 @@ TypeObjectToSource(JSContext *cx, unsigned int argc, Value *vp)
 
 /*
  * Overwrites the contents of `datum` at offset `offset` with `val`
- * converted to the type `typeObj`. This is done by delegating to
+ * converted to the type `typeDescriptor`. This is done by delegating to
  * self-hosted code. This is used for assignments and initializations.
  *
  * For example, consider the final assignment in this snippet:
@@ -201,7 +201,7 @@ TypeObjectToSource(JSContext *cx, unsigned int argc, Value *vp)
  *
  * This would result in a call to `ConvertAndCopyTo`
  * where:
- * - typeObj = Point
+ * - typeDescriptor = Point
  * - datum = line
  * - offset = sizeof(Point) == 8
  * - val = {x: 22, y: 44}
@@ -209,17 +209,17 @@ TypeObjectToSource(JSContext *cx, unsigned int argc, Value *vp)
  * it to a float32, and hen storing it at the appropriate offset,
  * and then doing the same for `y`.
  *
- * Note that the type of `typeObj` may not be the
+ * Note that the type of `typeDescriptor` may not be the
  * type of `datum` but rather some subcomponent of `datum`.
  */
 static bool
 ConvertAndCopyTo(JSContext *cx,
-                 HandleObject typeObj,
+                 HandleObject typeDescriptor,
                  HandleObject datum,
                  int32_t offset,
                  HandleValue val)
 {
-    JS_ASSERT(IsTypeObject(*typeObj));
+    JS_ASSERT(IsTypeDescriptor(*typeDescriptor));
     JS_ASSERT(IsTypedDatum(*datum));
 
     RootedFunction func(
@@ -232,8 +232,8 @@ ConvertAndCopyTo(JSContext *cx,
         return false;
 
     args.setCallee(ObjectValue(*func));
-    args[0].setObject(*typeRepresentationOwnerObj(*typeObj));
-    args[1].setObject(*typeObj);
+    args[0].setObject(*typeRepresentationOwnerObj(*typeDescriptor));
+    args[1].setObject(*typeDescriptor);
     args[2].setObject(*datum);
     args[3].setInt32(offset);
     args[4].set(val);
@@ -250,7 +250,7 @@ ConvertAndCopyTo(JSContext *cx, HandleObject datum, HandleValue val)
 
 /*
  * Overwrites the contents of `datum` at offset `offset` with `val`
- * converted to the type `typeObj`
+ * converted to the type `typeDescriptor`
  */
 static bool
 Reify(JSContext *cx,
@@ -260,7 +260,7 @@ Reify(JSContext *cx,
       size_t offset,
       MutableHandleValue to)
 {
-    JS_ASSERT(IsTypeObject(*type));
+    JS_ASSERT(IsTypeDescriptor(*type));
     JS_ASSERT(IsTypedDatum(*datum));
 
     RootedFunction func(cx, SelfHostedFunction(cx, cx->names().Reify));
@@ -302,8 +302,8 @@ DatumLength(JSObject &val)
 static inline size_t
 DatumSize(JSObject &val)
 {
-    JSObject *typeObj = GetType(val);
-    TypeRepresentation *typeRepr = typeRepresentation(*typeObj);
+    JSObject *typeDescriptor = GetType(val);
+    TypeRepresentation *typeRepr = typeRepresentation(*typeDescriptor);
     switch (typeRepr->kind()) {
       case TypeRepresentation::Scalar:
       case TypeRepresentation::Reference:
@@ -355,12 +355,12 @@ Prototype(JSContext *cx, HandleObject obj)
 }
 
 /***************************************************************************
- * Scalar type objects
+ * Scalar type descriptors
  *
- * Scalar type objects like `uint8`, `uint16`, are all instances of
- * the ScalarType class. Like all type objects, they have a reserved
+ * Scalar type descriptors like `uint8`, `uint16`, are all instances of
+ * the ScalarType class. Like all type descriptors, they have a reserved
  * slot pointing to a TypeRepresentation object, which is used to
- * distinguish which scalar type object this actually is.
+ * distinguish which scalar type descriptor this actually is.
  */
 
 const Class js::ScalarType::class_ = {
@@ -381,11 +381,11 @@ const Class js::ScalarType::class_ = {
     nullptr
 };
 
-const JSFunctionSpec js::ScalarType::typeObjectMethods[] = {
-    JS_FN("toSource", TypeObjectToSource, 0, 0),
+const JSFunctionSpec js::ScalarType::typeDescriptorMethods[] = {
+    JS_FN("toSource", TypeDescriptorToSource, 0, 0),
     {"handle", {nullptr, nullptr}, 2, 0, "HandleCreate"},
     {"array", {nullptr, nullptr}, 1, 0, "ArrayShorthand"},
-    {"equivalent", {nullptr, nullptr}, 1, 0, "TypeObjectEquivalent"},
+    {"equivalent", {nullptr, nullptr}, 1, 0, "TypeDescriptorEquivalent"},
     JS_FS_END
 };
 
@@ -439,13 +439,13 @@ ScalarType::call(JSContext *cx, unsigned argc, Value *vp)
 }
 
 /***************************************************************************
- * Reference type objects
+ * Reference type descriptors
  *
- * Reference type objects like `Any` or `Object` basically work the
- * same way that the scalar type objects do. There is one class with
+ * Reference type descriptors like `Any` or `Object` basically work the
+ * same way that the scalar type descriptors do. There is one class with
  * many instances, and each instance has a reserved slot with a
  * TypeRepresentation object, which is used to distinguish which
- * reference type object this actually is.
+ * reference type descriptor this actually is.
  */
 
 const Class js::ReferenceType::class_ = {
@@ -466,11 +466,11 @@ const Class js::ReferenceType::class_ = {
     nullptr
 };
 
-const JSFunctionSpec js::ReferenceType::typeObjectMethods[] = {
-    JS_FN("toSource", TypeObjectToSource, 0, 0),
+const JSFunctionSpec js::ReferenceType::typeDescriptorMethods[] = {
+    JS_FN("toSource", TypeDescriptorToSource, 0, 0),
     {"handle", {nullptr, nullptr}, 2, 0, "HandleCreate"},
     {"array", {nullptr, nullptr}, 1, 0, "ArrayShorthand"},
-    {"equivalent", {nullptr, nullptr}, 1, 0, "TypeObjectEquivalent"},
+    {"equivalent", {nullptr, nullptr}, 1, 0, "TypeDescriptorEquivalent"},
     JS_FS_END
 };
 
@@ -479,7 +479,7 @@ js::ReferenceType::call(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
 
-    JS_ASSERT(IsReferenceTypeObject(args.callee()));
+    JS_ASSERT(IsReferenceTypeDescriptor(args.callee()));
     ReferenceTypeRepresentation *typeRepr =
         typeRepresentation(args.callee())->asReference();
 
@@ -557,7 +557,7 @@ js::ReferenceType::call(JSContext *cx, unsigned argc, Value *vp)
  * object with the .prototype.prototype object as its [[Prototype]].
  */
 static JSObject *
-CreatePrototypeObjectForComplexTypeInstance(JSContext *cx,
+CreatePrototypeDescriptorForComplexTypeInstance(JSContext *cx,
                                             HandleObject ctorPrototype)
 {
     RootedObject ctorPrototypePrototype(cx, Prototype(cx, ctorPrototype));
@@ -586,16 +586,16 @@ const Class ArrayType::class_ = {
     nullptr
 };
 
-const JSPropertySpec ArrayType::typeObjectProperties[] = {
+const JSPropertySpec ArrayType::typeDescriptorProperties[] = {
     JS_PS_END
 };
 
-const JSFunctionSpec ArrayType::typeObjectMethods[] = {
+const JSFunctionSpec ArrayType::typeDescriptorMethods[] = {
     {"handle", {nullptr, nullptr}, 2, 0, "HandleCreate"},
     {"array", {nullptr, nullptr}, 1, 0, "ArrayShorthand"},
     JS_FN("dimension", ArrayType::dimension, 1, 0),
-    JS_FN("toSource", TypeObjectToSource, 0, 0),
-    {"equivalent", {nullptr, nullptr}, 1, 0, "TypeObjectEquivalent"},
+    JS_FN("toSource", TypeDescriptorToSource, 0, 0),
+    {"equivalent", {nullptr, nullptr}, 1, 0, "TypeDescriptorEquivalent"},
     JS_FS_END
 };
 
@@ -612,7 +612,7 @@ const JSFunctionSpec ArrayType::typedObjectMethods[] = {
 static JSObject *
 ArrayElementType(JSObject &array)
 {
-    JS_ASSERT(IsArrayTypeObject(array));
+    JS_ASSERT(IsArrayTypeDescriptor(array));
     return &array.getReservedSlot(JS_TYPEOBJ_SLOT_ARRAY_ELEM_TYPE).toObject();
 }
 
@@ -669,7 +669,7 @@ ArrayType::create(JSContext *cx,
                   HandleObject elementType)
 {
     JS_ASSERT(TypeRepresentation::isOwnerObject(*arrayTypeReprObj));
-    JS_ASSERT(IsTypeObject(*elementType));
+    JS_ASSERT(IsTypeDescriptor(*elementType));
 
     RootedObject obj(
         cx, NewObjectWithClassProto(cx, &ArrayType::class_,
@@ -692,7 +692,7 @@ ArrayType::create(JSContext *cx,
         return nullptr;
 
     RootedObject prototypeObj(
-        cx, CreatePrototypeObjectForComplexTypeInstance(cx, arrayTypePrototype));
+        cx, CreatePrototypeDescriptorForComplexTypeInstance(cx, arrayTypePrototype));
     if (!prototypeObj)
         return nullptr;
 
@@ -715,10 +715,10 @@ ArrayType::construct(JSContext *cx, unsigned argc, Value *vp)
 
     RootedObject arrayTypeGlobal(cx, &args.callee());
 
-    // Expect one argument which is a sized type object
+    // Expect one argument which is a sized type descriptor
     if (args.length() != 1 ||
         !args[0].isObject() ||
-        !IsSizedTypeObject(args[0].toObject()))
+        !IsSizedTypeDescriptor(args[0].toObject()))
     {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                              JSMSG_TYPEDOBJECT_ARRAYTYPE_BAD_ARGS);
@@ -757,7 +757,7 @@ ArrayType::dimension(JSContext *cx, unsigned int argc, jsval *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     if (args.length() != 1 ||
         !args.thisv().isObject() ||
-        !IsTypeObjectOfKind(args.thisv().toObject(), TypeRepresentation::UnsizedArray) ||
+        !IsTypeDescriptorOfKind(args.thisv().toObject(), TypeRepresentation::UnsizedArray) ||
         !args[0].isInt32() ||
         args[0].toInt32() < 0)
     {
@@ -779,7 +779,7 @@ ArrayType::dimension(JSContext *cx, unsigned int argc, jsval *vp)
     if (!sizedTypeReprObj)
         return false;
 
-    // Create the sized type object.
+    // Create the sized type descriptor.
     RootedObject elementType(cx, ArrayElementType(*unsizedTypeObj));
     RootedObject obj(
         cx, create(cx, unsizedTypeObj, sizedTypeReprObj, elementType));
@@ -827,15 +827,15 @@ const Class StructType::class_ = {
     nullptr  /* trace */
 };
 
-const JSPropertySpec StructType::typeObjectProperties[] = {
+const JSPropertySpec StructType::typeDescriptorProperties[] = {
     JS_PS_END
 };
 
-const JSFunctionSpec StructType::typeObjectMethods[] = {
+const JSFunctionSpec StructType::typeDescriptorMethods[] = {
     {"handle", {nullptr, nullptr}, 2, 0, "HandleCreate"},
     {"array", {nullptr, nullptr}, 1, 0, "ArrayShorthand"},
-    JS_FN("toSource", TypeObjectToSource, 0, 0),
-    {"equivalent", {nullptr, nullptr}, 1, 0, "TypeObjectEquivalent"},
+    JS_FN("toSource", TypeDescriptorToSource, 0, 0),
+    {"equivalent", {nullptr, nullptr}, 1, 0, "TypeDescriptorEquivalent"},
     JS_FS_END
 };
 
@@ -878,7 +878,7 @@ StructType::layout(JSContext *cx, HandleObject structType, HandleObject fields)
         }
 
         RootedObject fieldType(cx, ToObjectIfObject(fieldTypeVal));
-        if (!fieldType || !IsSizedTypeObject(*fieldType)) {
+        if (!fieldType || !IsSizedTypeDescriptor(*fieldType)) {
             ReportCannotConvertTo(cx, fieldTypeVal, "StructType field specifier");
             return false;
         }
@@ -904,7 +904,7 @@ StructType::layout(JSContext *cx, HandleObject structType, HandleObject fields)
     structType->initReservedSlot(JS_TYPEOBJ_SLOT_TYPE_REPR,
                                  ObjectValue(*typeReprObj));
 
-    // Construct for internal use an array with the type object for each field.
+    // Construct for internal use an array with the type descriptor for each field.
     RootedObject fieldTypeVec(
         cx, NewDenseCopiedArray(cx, fieldTypeObjs.length(),
                                 fieldTypeObjs.begin()));
@@ -951,7 +951,7 @@ StructType::layout(JSContext *cx, HandleObject structType, HandleObject fields)
                                      JSPROP_READONLY | JSPROP_PERMANENT))
             return false;
 
-        // fieldTypes[id] = typeObj
+        // fieldTypes[id] = typeDescriptor
         if (!JSObject::defineGeneric(cx, fieldTypes, fieldId,
                                      fieldTypeObjs.handleAt(i), nullptr, nullptr,
                                      JSPROP_READONLY | JSPROP_PERMANENT))
@@ -975,10 +975,10 @@ StructType::layout(JSContext *cx, HandleObject structType, HandleObject fields)
 
 JSObject *
 StructType::create(JSContext *cx,
-                   HandleObject metaTypeObject,
+                   HandleObject metaTypeDescriptor,
                    HandleObject fields)
 {
-    RootedObject structTypePrototype(cx, Prototype(cx, metaTypeObject));
+    RootedObject structTypePrototype(cx, Prototype(cx, metaTypeDescriptor));
     if (!structTypePrototype)
         return nullptr;
 
@@ -1000,7 +1000,7 @@ StructType::create(JSContext *cx,
         return nullptr;
 
     RootedObject prototypeObj(
-        cx, CreatePrototypeObjectForComplexTypeInstance(cx, structTypePrototype));
+        cx, CreatePrototypeDescriptorForComplexTypeInstance(cx, structTypePrototype));
     if (!prototypeObj)
         return nullptr;
 
@@ -1021,19 +1021,19 @@ StructType::construct(JSContext *cx, unsigned int argc, Value *vp)
         return false;
     }
 
-    if (args.length() >= 1 && args[0].isObject()) {
-        RootedObject metaTypeObject(cx, &args.callee());
-        RootedObject fields(cx, &args[0].toObject());
-        RootedObject obj(cx, create(cx, metaTypeObject, fields));
-        if (!obj)
-            return false;
-        args.rval().setObject(*obj);
-        return true;
+    if (args.length() < 1 || !args[0].isObject()) {
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
+                             JSMSG_TYPEDOBJECT_STRUCTTYPE_BAD_ARGS);
+        return false;
     }
 
-    JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
-                         JSMSG_TYPEDOBJECT_STRUCTTYPE_BAD_ARGS);
-    return false;
+    RootedObject metaTypeDescriptor(cx, &args.callee());
+    RootedObject fields(cx, &args[0].toObject());
+    RootedObject obj(cx, create(cx, metaTypeDescriptor, fields));
+    if (!obj)
+        return false;
+    args.rval().setObject(*obj);
+    return true;
 }
 
 /******************************************************************************
@@ -1051,7 +1051,7 @@ StructType::construct(JSContext *cx, unsigned int argc, Value *vp)
  * JSFunctions but rather instances of their own respective JSClasses
  * which override the call and construct operations).
  *
- * Each type object also has its own `prototype` field. Therefore,
+ * Each type descriptor also has its own `prototype` field. Therefore,
  * using `StructType` as an example, the basic setup is:
  *
  *   StructType --__proto__--> Function.__proto__
@@ -1061,7 +1061,7 @@ StructType::construct(JSContext *cx, unsigned int argc, Value *vp)
  *        v
  *       { } -----__proto__--> Function.__proto__
  *
- * When a new type object (e.g., an instance of StructType) is created,
+ * When a new type descriptor (e.g., an instance of StructType) is created,
  * it will look as follows:
  *
  *   MyStruct -__proto__-> StructType.prototype -__proto__-> Function.__proto__
@@ -1086,11 +1086,11 @@ StructType::construct(JSContext *cx, unsigned int argc, Value *vp)
 // Here `T` is either `ScalarType` or `ReferenceType`
 template<typename T>
 static bool
-DefineSimpleTypeObject(JSContext *cx,
-                       HandleObject global,
-                       HandleObject module,
-                       typename T::TypeRepr::Type type,
-                       HandlePropertyName className)
+DefineSimpleTypeDescriptor(JSContext *cx,
+                           HandleObject global,
+                           HandleObject module,
+                           typename T::TypeRepr::Type type,
+                           HandlePropertyName className)
 {
     RootedObject funcProto(cx, JS_GetFunctionPrototype(cx, global));
     JS_ASSERT(funcProto);
@@ -1109,7 +1109,7 @@ DefineSimpleTypeObject(JSContext *cx,
     if (!InitializeCommonTypeDescriptorProperties(cx, numFun, typeReprObj))
         return false;
 
-    if (!JS_DefineFunctions(cx, numFun, T::typeObjectMethods))
+    if (!JS_DefineFunctions(cx, numFun, T::typeDescriptorMethods))
         return false;
 
     RootedValue numFunValue(cx, ObjectValue(*numFun));
@@ -1124,8 +1124,8 @@ DefineSimpleTypeObject(JSContext *cx,
 
 template<typename T>
 static JSObject *
-DefineMetaTypeObject(JSContext *cx,
-                     Handle<GlobalObject*> global)
+DefineMetaTypeDescriptor(JSContext *cx,
+                         Handle<GlobalObject*> global)
 {
     RootedAtom className(cx, Atomize(cx, T::class_.name,
                                      strlen(T::class_.name)));
@@ -1169,8 +1169,8 @@ DefineMetaTypeObject(JSContext *cx,
     if (!ctor ||
         !LinkConstructorAndPrototype(cx, ctor, proto) ||
         !DefinePropertiesAndBrand(cx, proto,
-                                  T::typeObjectProperties,
-                                  T::typeObjectMethods) ||
+                                  T::typeDescriptorProperties,
+                                  T::typeDescriptorMethods) ||
         !DefinePropertiesAndBrand(cx, protoProto,
                                   T::typedObjectProperties,
                                   T::typedObjectMethods))
@@ -1223,22 +1223,22 @@ js_InitTypedObjectClass(JSContext *cx, HandleObject obj)
     // uint8, uint16, any, etc
 
 #define BINARYDATA_SCALAR_DEFINE(constant_, type_, name_)                       \
-    if (!DefineSimpleTypeObject<ScalarType>(cx, global, module, constant_,      \
-                                            cx->names().name_))                 \
+    if (!DefineSimpleTypeDescriptor<ScalarType>(cx, global, module, constant_,  \
+                                                cx->names().name_))             \
         return nullptr;
     JS_FOR_EACH_SCALAR_TYPE_REPR(BINARYDATA_SCALAR_DEFINE)
 #undef BINARYDATA_SCALAR_DEFINE
 
-#define BINARYDATA_REFERENCE_DEFINE(constant_, type_, name_)                    \
-    if (!DefineSimpleTypeObject<ReferenceType>(cx, global, module, constant_,   \
-                                               cx->names().name_))              \
+#define BINARYDATA_REFERENCE_DEFINE(constant_, type_, name_)                            \
+    if (!DefineSimpleTypeDescriptor<ReferenceType>(cx, global, module, constant_,       \
+                                                   cx->names().name_))                  \
         return nullptr;
     JS_FOR_EACH_REFERENCE_TYPE_REPR(BINARYDATA_REFERENCE_DEFINE)
 #undef BINARYDATA_REFERENCE_DEFINE
 
     // ArrayType.
 
-    RootedObject arrayType(cx, DefineMetaTypeObject<ArrayType>(cx, global));
+    RootedObject arrayType(cx, DefineMetaTypeDescriptor<ArrayType>(cx, global));
     if (!arrayType)
         return nullptr;
 
@@ -1251,7 +1251,7 @@ js_InitTypedObjectClass(JSContext *cx, HandleObject obj)
 
     // StructType.
 
-    RootedObject structType(cx, DefineMetaTypeObject<StructType>(cx, global));
+    RootedObject structType(cx, DefineMetaTypeDescriptor<StructType>(cx, global));
     if (!structType)
         return nullptr;
 
@@ -1319,7 +1319,7 @@ TypedDatum::createUnattached(JSContext *cx,
                              int32_t length)
 {
     JS_STATIC_ASSERT(T::IsTypedDatumClass);
-    JS_ASSERT(IsTypeObject(*type));
+    JS_ASSERT(IsTypeDescriptor(*type));
 
     RootedObject obj(
         cx, createUnattachedWithClass(cx, &T::class_, type, length));
@@ -1335,13 +1335,13 @@ TypedDatum::createUnattachedWithClass(JSContext *cx,
                                       HandleObject type,
                                       int32_t length)
 {
-    JS_ASSERT(IsTypeObject(*type));
+    JS_ASSERT(IsTypeDescriptor(*type));
     JS_ASSERT(clasp == &TypedObject::class_ || clasp == &TypedHandle::class_);
     JS_ASSERT(JSCLASS_RESERVED_SLOTS(clasp) == JS_DATUM_SLOTS);
     JS_ASSERT(clasp->hasPrivate());
 
     RootedObject proto(cx);
-    if (IsSimpleTypeObject(*type)) {
+    if (IsSimpleTypeDescriptor(*type)) {
         // FIXME Bug 929651 -- What prototype to use?
         proto = type->global().getOrCreateObjectPrototype(cx);
     } else {
@@ -1364,9 +1364,9 @@ TypedDatum::createUnattachedWithClass(JSContext *cx,
     obj->initReservedSlot(JS_DATUM_SLOT_OWNER, NullValue());
     obj->initReservedSlot(JS_DATUM_SLOT_LENGTH, Int32Value(length));
 
-    // Tag the type object for this instance with the type
+    // Tag the type descriptor for this instance with the type
     // representation, if that has not been done already.
-    if (cx->typeInferenceEnabled() && !IsSimpleTypeObject(*type)) {
+    if (cx->typeInferenceEnabled() && !IsSimpleTypeDescriptor(*type)) {
         // FIXME Bug 929651           ^~~~~~~~~~~~~~~~~~~~~~~~~~~
         RootedTypeObject typeObj(cx, obj->getType(cx));
         if (typeObj) {
@@ -1425,7 +1425,7 @@ LengthForType(JSObject &type)
 TypedDatum::createDerived(JSContext *cx, HandleObject type,
                           HandleObject datum, size_t offset)
 {
-    JS_ASSERT(IsTypeObject(*type));
+    JS_ASSERT(IsTypeDescriptor(*type));
     JS_ASSERT(IsTypedDatum(*datum));
     JS_ASSERT(offset <= DatumSize(*datum));
     JS_ASSERT(offset + TypeSize(*type) <= DatumSize(*datum));
@@ -1547,7 +1547,7 @@ TypedDatum::obj_lookupGeneric(JSContext *cx, HandleObject obj, HandleId id,
       case TypeRepresentation::Struct:
       {
         RootedObject type(cx, GetType(*obj));
-        JS_ASSERT(IsStructTypeObject(*type));
+        JS_ASSERT(IsStructTypeDescriptor(*type));
         StructTypeRepresentation *typeRepr =
             typeRepresentation(*type)->asStruct();
         const StructField *field = typeRepr->fieldNamed(id);
@@ -1661,9 +1661,9 @@ StructFieldType(JSContext *cx,
                 HandleObject type,
                 int32_t fieldIndex)
 {
-    JS_ASSERT(IsStructTypeObject(*type));
+    JS_ASSERT(IsStructTypeDescriptor(*type));
 
-    // Recover the original type object here (`field` contains
+    // Recover the original type descriptor here (`field` contains
     // only its canonical form). The difference is observable,
     // e.g. in a program like:
     //
@@ -2179,7 +2179,7 @@ TypedObject::construct(JSContext *cx, unsigned int argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
 
     RootedObject callee(cx, &args.callee());
-    JS_ASSERT(IsTypeObject(*callee));
+    JS_ASSERT(IsTypeDescriptor(*callee));
     TypeRepresentation *typeRepr = typeRepresentation(*callee);
 
     // Determine the length based on the target type.
@@ -2343,12 +2343,12 @@ js::NewTypedHandle(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
     JS_ASSERT(argc == 1);
-    JS_ASSERT(args[0].isObject() && IsTypeObject(args[0].toObject()));
+    JS_ASSERT(args[0].isObject() && IsTypeDescriptor(args[0].toObject()));
 
-    RootedObject typeObj(cx, &args[0].toObject());
-    int32_t length = LengthForType(*typeObj);
+    RootedObject typeDescriptor(cx, &args[0].toObject());
+    int32_t length = LengthForType(*typeDescriptor);
     Rooted<TypedHandle*> obj(
-        cx, TypedDatum::createUnattached<TypedHandle>(cx, typeObj, length));
+        cx, TypedDatum::createUnattached<TypedHandle>(cx, typeDescriptor, length));
     if (!obj)
         return false;
     args.rval().setObject(*obj);
@@ -2360,16 +2360,16 @@ js::NewDerivedTypedDatum(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
     JS_ASSERT(argc == 3);
-    JS_ASSERT(args[0].isObject() && IsTypeObject(args[0].toObject()));
+    JS_ASSERT(args[0].isObject() && IsTypeDescriptor(args[0].toObject()));
     JS_ASSERT(args[1].isObject() && IsTypedDatum(args[1].toObject()));
     JS_ASSERT(args[2].isInt32());
 
-    RootedObject typeObj(cx, &args[0].toObject());
+    RootedObject typeDescriptor(cx, &args[0].toObject());
     RootedObject datum(cx, &args[1].toObject());
     int32_t offset = args[2].toInt32();
 
     Rooted<TypedDatum*> obj(
-        cx, TypedDatum::createDerived(cx, typeObj, datum, offset));
+        cx, TypedDatum::createDerived(cx, typeDescriptor, datum, offset));
     if (!obj)
         return false;
 
@@ -2396,18 +2396,18 @@ const JSJitInfo js::AttachHandleJitInfo =
         JSParallelNativeThreadSafeWrapper<js::AttachHandle>);
 
 bool
-js::ObjectIsTypeObject(ThreadSafeContext *, unsigned argc, Value *vp)
+js::ObjectIsTypeDescriptor(ThreadSafeContext *, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
     JS_ASSERT(argc == 1);
     JS_ASSERT(args[0].isObject());
-    args.rval().setBoolean(IsTypeObject(args[0].toObject()));
+    args.rval().setBoolean(IsTypeDescriptor(args[0].toObject()));
     return true;
 }
 
-const JSJitInfo js::ObjectIsTypeObjectJitInfo =
+const JSJitInfo js::ObjectIsTypeDescriptorJitInfo =
     JS_JITINFO_NATIVE_PARALLEL(
-        JSParallelNativeThreadSafeWrapper<js::ObjectIsTypeObject>);
+        JSParallelNativeThreadSafeWrapper<js::ObjectIsTypeDescriptor>);
 
 bool
 js::ObjectIsTypeRepresentation(ThreadSafeContext *, unsigned argc, Value *vp)

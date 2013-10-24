@@ -3,7 +3,7 @@
 ///////////////////////////////////////////////////////////////////////////
 // Getters and setters for various slots.
 
-// Type object slots
+// type descriptor slots
 
 #define TYPE_TYPE_REPR(obj) \
     UnsafeGetReservedSlot(obj, JS_TYPEOBJ_SLOT_TYPE_REPR)
@@ -44,7 +44,7 @@ function DATUM_TYPE_REPR(obj) {
 // TypedObjectPointers are internal structs used to represent a
 // pointer into typed object memory. They pull together:
 // - typeRepr: the internal type representation
-// - typeObj: the user-visible type object
+// - typeDescriptor: the user-visible type descriptor
 // - datum: the typed object that contains the allocated block of memory
 // - offset: an offset into that typed object
 //
@@ -58,9 +58,9 @@ function DATUM_TYPE_REPR(obj) {
 // they mutate the receiver in place, because it makes for prettier
 // code.
 
-function TypedObjectPointer(typeRepr, typeObj, datum, offset) {
+function TypedObjectPointer(typeRepr, typeDescriptor, datum, offset) {
   this.typeRepr = typeRepr;
-  this.typeObj = typeObj;
+  this.typeDescriptor = typeDescriptor;
   this.datum = datum;
   this.offset = offset;
 }
@@ -76,18 +76,18 @@ TypedObjectPointer.fromTypedDatum = function(typed) {
 
 #ifdef DEBUG
 TypedObjectPointer.prototype.toString = function() {
-  return "Ptr(" + this.typeObj.toSource() + " @ " + this.offset + ")";
+  return "Ptr(" + this.typeDescriptor.toSource() + " @ " + this.offset + ")";
 };
 #endif
 
 TypedObjectPointer.prototype.copy = function() {
-  return new TypedObjectPointer(this.typeRepr, this.typeObj,
+  return new TypedObjectPointer(this.typeRepr, this.typeDescriptor,
                                 this.datum, this.offset);
 };
 
 TypedObjectPointer.prototype.reset = function(inPtr) {
   this.typeRepr = inPtr.typeRepr;
-  this.typeObj = inPtr.typeObj;
+  this.typeDescriptor = inPtr.typeDescriptor;
   this.datum = inPtr.datum;
   this.offset = inPtr.offset;
   return this;
@@ -127,7 +127,7 @@ TypedObjectPointer.prototype.moveTo = function(propName) {
   case JS_TYPEREPR_UNSIZED_ARRAY_KIND:
     // For an array, property must be an element. Note that we use the
     // length as loaded from the type *representation* as opposed to
-    // the type *object*; this is because some type objects represent
+    // the type *object*; this is because some type descriptors represent
     // unsized arrays and hence do not have a length.
     var index = TO_INT32(propName);
     if (index === propName && index >= 0 && index < this.length())
@@ -135,7 +135,7 @@ TypedObjectPointer.prototype.moveTo = function(propName) {
     break;
 
   case JS_TYPEREPR_STRUCT_KIND:
-    if (HAS_PROPERTY(this.typeObj.fieldTypes, propName))
+    if (HAS_PROPERTY(this.typeDescriptor.fieldTypes, propName))
       return this.moveToField(propName);
     break;
   }
@@ -155,10 +155,10 @@ TypedObjectPointer.prototype.moveToElem = function(index) {
   assert(index >= 0 && index < this.length(),
          "moveToElem invoked with out-of-bounds index");
 
-  var elementTypeObj = this.typeObj.elementType;
+  var elementTypeObj = this.typeDescriptor.elementType;
   var elementTypeRepr = TYPE_TYPE_REPR(elementTypeObj);
   this.typeRepr = elementTypeRepr;
-  this.typeObj = elementTypeObj;
+  this.typeDescriptor = elementTypeObj;
   var elementSize = REPR_SIZE(elementTypeRepr);
 
   // Note: we do not allow construction of arrays where the offset
@@ -174,12 +174,12 @@ TypedObjectPointer.prototype.moveToElem = function(index) {
 TypedObjectPointer.prototype.moveToField = function(propName) {
   assert(this.kind() == JS_TYPEREPR_STRUCT_KIND,
          "moveToField invoked on non-struct");
-  assert(HAS_PROPERTY(this.typeObj.fieldTypes, propName),
+  assert(HAS_PROPERTY(this.typeDescriptor.fieldTypes, propName),
          "moveToField invoked with undefined field");
 
-  var fieldTypeObj = this.typeObj.fieldTypes[propName];
-  var fieldOffset = TO_INT32(this.typeObj.fieldOffsets[propName]);
-  this.typeObj = fieldTypeObj;
+  var fieldTypeObj = this.typeDescriptor.fieldTypes[propName];
+  var fieldOffset = TO_INT32(this.typeDescriptor.fieldOffsets[propName]);
+  this.typeDescriptor = fieldTypeObj;
   this.typeRepr = TYPE_TYPE_REPR(fieldTypeObj);
 
   // Note: we do not allow construction of structs where the
@@ -212,10 +212,10 @@ TypedObjectPointer.prototype.get = function() {
     return this.getReference();
 
   case JS_TYPEREPR_SIZED_ARRAY_KIND:
-    return NewDerivedTypedDatum(this.typeObj, this.datum, this.offset);
+    return NewDerivedTypedDatum(this.typeDescriptor, this.datum, this.offset);
 
   case JS_TYPEREPR_STRUCT_KIND:
-    return NewDerivedTypedDatum(this.typeObj, this.datum, this.offset);
+    return NewDerivedTypedDatum(this.typeDescriptor, this.datum, this.offset);
 
   case JS_TYPEREPR_UNSIZED_ARRAY_KIND:
     assert(false, "Unhandled repr kind: " + REPR_KIND(this.typeRepr));
@@ -333,7 +333,7 @@ TypedObjectPointer.prototype.set = function(fromValue) {
 
     // Adapt each field.
     var tempPtr = this.copy();
-    var fieldNames = this.typeObj.fieldNames;
+    var fieldNames = this.typeDescriptor.fieldNames;
     for (var i = 0; i < fieldNames.length; i++) {
       var fieldName = fieldNames[i];
       tempPtr.reset(this).moveToField(fieldName).set(fromValue[fieldName]);
@@ -422,7 +422,7 @@ function ConvertAndCopyTo(destTypeRepr,
 {
   assert(IsObject(destTypeRepr) && ObjectIsTypeRepresentation(destTypeRepr),
          "ConvertAndCopyTo: not type repr");
-  assert(IsObject(destTypeObj) && ObjectIsTypeObject(destTypeObj),
+  assert(IsObject(destTypeObj) && ObjectIsTypeDescriptor(destTypeObj),
          "ConvertAndCopyTo: not type obj");
   assert(IsObject(destDatum) && ObjectIsTypedDatum(destDatum),
          "ConvertAndCopyTo: not type datum");
@@ -442,7 +442,7 @@ function Reify(sourceTypeRepr,
                sourceOffset) {
   assert(IsObject(sourceTypeRepr) && ObjectIsTypeRepresentation(sourceTypeRepr),
          "Reify: not type repr");
-  assert(IsObject(sourceTypeObj) && ObjectIsTypeObject(sourceTypeObj),
+  assert(IsObject(sourceTypeObj) && ObjectIsTypeDescriptor(sourceTypeObj),
          "Reify: not type obj");
   assert(IsObject(sourceDatum) && ObjectIsTypedDatum(sourceDatum),
          "Reify: not type datum");
@@ -475,10 +475,10 @@ function FillTypedArrayWithValue(destArray, fromValue) {
 }
 
 // Warning: user exposed!
-function TypeObjectEquivalent(otherTypeObj) {
-  if (!IsObject(this) || !ObjectIsTypeObject(this))
+function TypeDescriptorEquivalent(otherTypeObj) {
+  if (!IsObject(this) || !ObjectIsTypeDescriptor(this))
     ThrowError(JSMSG_TYPEDOBJECT_HANDLE_BAD_ARGS, "this", "type object");
-  if (!IsObject(otherTypeObj) || !ObjectIsTypeObject(otherTypeObj))
+  if (!IsObject(otherTypeObj) || !ObjectIsTypeDescriptor(otherTypeObj))
     ThrowError(JSMSG_TYPEDOBJECT_HANDLE_BAD_ARGS, "1", "type object");
   return TYPE_TYPE_REPR(this) === TYPE_TYPE_REPR(otherTypeObj);
 }
@@ -507,7 +507,7 @@ function TypedArrayRedimension(newArrayType) {
   if (!IsObject(this) || !ObjectIsTypedDatum(this))
     ThrowError(JSMSG_TYPEDOBJECT_HANDLE_BAD_ARGS, "this", "typed array");
 
-  if (!IsObject(newArrayType) || !ObjectIsTypeObject(newArrayType))
+  if (!IsObject(newArrayType) || !ObjectIsTypeDescriptor(newArrayType))
     ThrowError(JSMSG_TYPEDOBJECT_HANDLE_BAD_ARGS, 1, "type object");
 
   // Peel away the outermost array layers from the type of `this` to find
@@ -569,12 +569,12 @@ function TypedArrayRedimension(newArrayType) {
 // Note: these methods are directly invokable by users and so must be
 // defensive.
 
-// This is the `handle([obj, [...path]])` method on type objects.
+// This is the `handle([obj, [...path]])` method on type descriptors.
 // User exposed!
 //
 // FIXME bug 929656 -- label algorithms with steps from the spec
 function HandleCreate(obj, ...path) {
-  if (!IsObject(this) || !ObjectIsTypeObject(this))
+  if (!IsObject(this) || !ObjectIsTypeDescriptor(this))
     ThrowError(JSMSG_INCOMPATIBLE_PROTO, "Type", "handle", "value");
 
   // Only relevant for sized arrays, for other types yields 0
@@ -653,7 +653,7 @@ function HandleTest(obj) {
 //
 // Warning: user exposed!
 function ArrayShorthand(...dims) {
-  if (!IsObject(this) || !ObjectIsTypeObject(this))
+  if (!IsObject(this) || !ObjectIsTypeDescriptor(this))
     ThrowError(JSMSG_TYPEDOBJECT_HANDLE_BAD_ARGS,
                "this", "typed object");
 
@@ -673,7 +673,7 @@ function TypeOfTypedDatum(obj) {
 
   // Note: Do not create bindings for `Any`, `String`, etc in
   // Utilities.js, but rather access them through
-  // `StandardTypeObjectDescriptors()`. The reason is that bindings
+  // `StandardTypeDescriptorDescriptors()`. The reason is that bindings
   // you create in Utilities.js are part of the self-hosted global,
   // vs the user-accessible global, and hence should not escape to
   // user script.

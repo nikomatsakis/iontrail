@@ -441,6 +441,18 @@ class AssemblerX86Shared
     void movss(const FloatRegister &src, const BaseIndex &dest) {
         masm.movss_rm(src.code(), dest.offset, dest.base.code(), dest.index.code(), dest.scale);
     }
+    void movps(const Address &src, const FloatRegister &dest) {
+        masm.movups_mr(src.offset, src.base.code(), dest.code());
+    }
+    void movps(const BaseIndex &src, const FloatRegister &dest) {
+        masm.movups_mr(src.offset, src.base.code(), src.index.code(), src.scale, dest.code());
+    }
+    void movps(const FloatRegister &src, const Address &dest) {
+        masm.movups_rm(src.code(), dest.offset, dest.base.code());
+    }
+    void movps(const FloatRegister &src, const BaseIndex &dest) {
+        masm.movups_rm(src.code(), dest.offset, dest.base.code(), dest.index.code(), dest.scale);
+    }
     void movdqa(const Operand &src, const FloatRegister &dest) {
         JS_ASSERT(HasSSE2());
         switch (src.kind()) {

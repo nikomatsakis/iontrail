@@ -387,6 +387,9 @@ class MacroAssemblerX86Shared : public Assembler
     void addDouble(FloatRegister src, FloatRegister dest) {
         addsd(src, dest);
     }
+    void addFloatx4(FloatRegister src, FloatRegister dest) {
+        addps(src, dest);
+    }
     void subDouble(FloatRegister src, FloatRegister dest) {
         subsd(src, dest);
     }

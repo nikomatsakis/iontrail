@@ -294,7 +294,9 @@ private:
         OP2_UCOMISD_VsdWsd  = 0x2E,
         OP2_MOVMSKPD_EdVd   = 0x50,
         OP2_ADDSD_VsdWsd    = 0x58,
+        OP2_ADDPS_VsdWsd    = 0x58,
         OP2_MULSD_VsdWsd    = 0x59,
+        OP2_MULPS_VsdWsd    = 0x59,
         OP2_CVTSS2SD_VsdEd  = 0x5A,
         OP2_CVTSD2SS_VsdEd  = 0x5A,
         OP2_SUBSD_VsdWsd    = 0x5C,
@@ -2299,6 +2301,27 @@ public:
              address, nameFPReg(dst));
         m_formatter.prefix(PRE_SSE_F3);
         m_formatter.twoByteOp(OP2_ADDSD_VsdWsd, (RegisterID)dst, address);
+    }
+
+    void addps_rr(XMMRegisterID src, XMMRegisterID dst)
+    {
+        spew("addps      %s, %s",
+             nameFPReg(src), nameFPReg(dst));
+        m_formatter.twoByteOp(OP2_ADDPS_VsdWsd, (RegisterID)dst, (RegisterID)src);
+    }
+
+    void addps_mr(int offset, RegisterID base, XMMRegisterID dst)
+    {
+        spew("addps      %s0x%x(%s), %s",
+             PRETTY_PRINT_OFFSET(offset), nameIReg(base), nameFPReg(dst));
+        m_formatter.twoByteOp(OP2_ADDPS_VsdWsd, (RegisterID)dst, base, offset);
+    }
+
+    void addps_mr(const void* address, XMMRegisterID dst)
+    {
+        spew("addps      %p, %s",
+             address, nameFPReg(dst));
+        m_formatter.twoByteOp(OP2_ADDPS_VsdWsd, (RegisterID)dst, address);
     }
 
     void cvtss2sd_rr(XMMRegisterID src, XMMRegisterID dst)

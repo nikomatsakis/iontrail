@@ -553,6 +553,18 @@ public:
         m_assembler.movsd_mr(address.offset, address.base, address.index, address.scale, dest);
     }
 
+    void loadFloatx4(ImplicitAddress address, FPRegisterID dest)
+    {
+        ASSERT(isSSE2Present());
+        m_assembler.movups_mr(address.offset, address.base, dest);
+    }
+
+    void loadFloatx4(BaseIndex address, FPRegisterID dest)
+    {
+        ASSERT(isSSE2Present());
+        m_assembler.movups_mr(address.offset, address.base, address.index, address.scale, dest);
+    }
+
     void storeFloat(ImmDouble imm, Address address)
     {
         union {
@@ -573,16 +585,22 @@ public:
         store32(Imm32(u.u32), address);
     }
 
-    void storeDouble(FPRegisterID src, ImplicitAddress address)
-    {
-        ASSERT(isSSE2Present());
-        m_assembler.movsd_rm(src, address.offset, address.base);
-    }
-
     void storeFloat(FPRegisterID src, ImplicitAddress address)
     {
         ASSERT(isSSE2Present());
         m_assembler.movss_rm(src, address.offset, address.base);
+    }
+
+    void storeFloat(FPRegisterID src, BaseIndex address)
+    {
+        ASSERT(isSSE2Present());
+        m_assembler.movss_rm(src, address.offset, address.base, address.index, address.scale);
+    }
+
+    void storeDouble(FPRegisterID src, ImplicitAddress address)
+    {
+        ASSERT(isSSE2Present());
+        m_assembler.movsd_rm(src, address.offset, address.base);
     }
 
     void storeDouble(FPRegisterID src, BaseIndex address)
@@ -591,10 +609,16 @@ public:
         m_assembler.movsd_rm(src, address.offset, address.base, address.index, address.scale);
     }
 
-    void storeFloat(FPRegisterID src, BaseIndex address)
+    void storeFloatx4(FPRegisterID src, ImplicitAddress address)
     {
         ASSERT(isSSE2Present());
-        m_assembler.movss_rm(src, address.offset, address.base, address.index, address.scale);
+        m_assembler.movups_rm(src, address.offset, address.base);
+    }
+
+    void storeFloatx4(FPRegisterID src, BaseIndex address)
+    {
+        ASSERT(isSSE2Present());
+        m_assembler.movups_rm(src, address.offset, address.base, address.index, address.scale);
     }
 
     void addDouble(FPRegisterID src, FPRegisterID dest)
@@ -607,6 +631,18 @@ public:
     {
         ASSERT(isSSE2Present());
         m_assembler.addsd_mr(src.offset, src.base, dest);
+    }
+
+    void addFloatx4(FPRegisterID src, FPRegisterID dest)
+    {
+        ASSERT(isSSE2Present());
+        m_assembler.addps_rr(src, dest);
+    }
+
+    void addFloatx4(Address src, FPRegisterID dest)
+    {
+        ASSERT(isSSE2Present());
+        m_assembler.addps_mr(src.offset, src.base, dest);
     }
 
     void divDouble(FPRegisterID src, FPRegisterID dest)

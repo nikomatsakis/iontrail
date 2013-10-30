@@ -119,9 +119,7 @@ bool
 LIRGeneratorShared::defineReturn(LInstruction *lir, MDefinition *mir)
 {
     lir->setMir(mir);
-
     JS_ASSERT(lir->isCall());
-
     uint32_t vreg = getVirtualRegister();
     if (vreg >= MAX_VIRTUAL_REGISTERS)
         return false;
@@ -144,6 +142,9 @@ LIRGeneratorShared::defineReturn(LInstruction *lir, MDefinition *mir)
       case MIRType_Double:
         lir->setDef(0, LDefinition(vreg, LDefinition::DOUBLE, LFloatReg(ReturnFloatReg)));
         break;
+      case MIRType_Float32x4:
+    	lir->setDef(0, LDefinition(vreg, LDefinition::SIMD, LFloatReg(ReturnFloatReg)));
+    	break;
       default:
         LDefinition::Type type = LDefinition::TypeFrom(mir->type());
         JS_ASSERT(type != LDefinition::DOUBLE);

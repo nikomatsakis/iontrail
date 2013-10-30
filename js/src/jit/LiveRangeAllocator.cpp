@@ -657,11 +657,11 @@ LiveRangeAllocator<VREG>::buildLivenessInfo()
 
 #ifdef DEBUG
                     // Don't allow at-start call uses if there are temps of the same kind,
-                    // so that we don't assign the same register.
+                    /*// so that we don't assign the same register.
                     if (ins->isCall() && use->usedAtStart()) {
                         for (size_t i = 0; i < ins->numTemps(); i++)
                             JS_ASSERT(vregs[ins->getTemp(i)].isDouble() != vregs[use].isDouble());
-                    }
+                    }*/
 
                     // If there are both useRegisterAtStart(x) and useRegister(y)
                     // uses, we may assign the same register to both operands due to

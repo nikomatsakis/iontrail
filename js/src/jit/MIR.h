@@ -2256,7 +2256,8 @@ class MUnbox : public MUnaryInstruction, public BoxInputsPolicy
                   type == MIRType_Int32   ||
                   type == MIRType_Double  ||
                   type == MIRType_String  ||
-                  type == MIRType_Object);
+                  type == MIRType_Object  ||
+                  type == MIRType_Float32x4);
 
         setResultType(type);
         setResultTypeSet(ins->resultTypeSet());

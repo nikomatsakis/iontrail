@@ -289,6 +289,11 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
         cmpl(tag, ImmTag(JSVAL_TAG_OBJECT));
         return cond;
     }
+    Condition testSIMD(Condition cond, const Register &tag) {
+        JS_ASSERT(cond == Equal || cond == NotEqual);
+        //TODO: IVAN
+        return cond;
+    }
     Condition testDouble(Condition cond, Register tag) {
         JS_ASSERT(cond == Equal || cond == NotEqual);
         cmpl(tag, Imm32(JSVAL_TAG_MAX_DOUBLE));
@@ -351,6 +356,10 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
         splitTag(src, ScratchReg);
         return testObject(cond, ScratchReg);
     }
+    Condition testSIMD(Condition cond, const ValueOperand &src) {
+        splitTag(src, ScratchReg);
+        return testSIMD(cond, ScratchReg);
+    }
     Condition testGCThing(Condition cond, const ValueOperand &src) {
         splitTag(src, ScratchReg);
         return testGCThing(cond, ScratchReg);
@@ -392,6 +401,10 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
     Condition testObject(Condition cond, const BaseIndex &src) {
         splitTag(src, ScratchReg);
         return testObject(cond, ScratchReg);
+    }
+    Condition testSIMD(Condition cond, const BaseIndex &src) {
+        splitTag(src, ScratchReg);
+        return testSIMD(cond, ScratchReg);
     }
     Condition testDouble(Condition cond, const BaseIndex &src) {
         splitTag(src, ScratchReg);
@@ -968,6 +981,9 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
 
     void unboxObject(const ValueOperand &src, const Register &dest) { unboxNonDouble(src, dest); }
     void unboxObject(const Operand &src, const Register &dest) { unboxNonDouble(src, dest); }
+
+    void unboxSIMD(const ValueOperand &src, const FloatRegister &dest) { return; }
+    void unboxSIMD(const Operand &src, const FloatRegister &dest) { return; }
 
     // Extended unboxing API. If the payload is already in a register, returns
     // that register. Otherwise, provides a move to the given scratch register,

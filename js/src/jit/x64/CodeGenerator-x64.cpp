@@ -119,6 +119,9 @@ CodeGeneratorX64::visitUnbox(LUnbox *unbox)
           case MIRType_String:
             cond = masm.testString(Assembler::NotEqual, value);
             break;
+          case MIRType_Float32x4:
+            cond = masm.testSIMD(Assembler::NotEqual, value);
+        	break;
           default:
             MOZ_ASSUME_UNREACHABLE("Given MIRType cannot be unboxed.");
         }
@@ -139,6 +142,8 @@ CodeGeneratorX64::visitUnbox(LUnbox *unbox)
       case MIRType_String:
         masm.unboxString(value, ToRegister(result));
         break;
+      case MIRType_Float32x4:
+        masm.unboxSIMD(value, ToFloatRegister(result));
       default:
         MOZ_ASSUME_UNREACHABLE("Given MIRType cannot be unboxed.");
     }
@@ -174,7 +179,8 @@ CodeGeneratorX64::loadUnboxedValue(Operand source, MIRType type, const LDefiniti
       case MIRType_Boolean:
         masm.movl(source, ToRegister(dest));
         break;
-
+      case MIRType_Float32x4:
+        masm.unboxSIMD(source, ToFloatRegister(dest));
       default:
         MOZ_ASSUME_UNREACHABLE("unexpected type");
     }

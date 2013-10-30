@@ -299,6 +299,11 @@ class MacroAssemblerX86 : public MacroAssemblerX86Shared
         cmpl(tag, ImmTag(JSVAL_TAG_OBJECT));
         return cond;
     }
+    Condition testSIMD(Condition cond, const Register &tag) {
+        JS_ASSERT(cond == Equal || cond == NotEqual);
+        //TODO: IVAN
+        return cond;
+    }
     Condition testNumber(Condition cond, const Register &tag) {
         JS_ASSERT(cond == Equal || cond == NotEqual);
         cmpl(tag, ImmTag(JSVAL_UPPER_INCL_TAG_OF_NUMBER_SET));
@@ -377,6 +382,9 @@ class MacroAssemblerX86 : public MacroAssemblerX86Shared
     Condition testObject(Condition cond, const ValueOperand &value) {
         return testObject(cond, value.typeReg());
     }
+    Condition testSIMD(Condition cond, const ValueOperand &value) {
+            return testSIMD(cond, value.typeReg());
+        }
     Condition testMagic(Condition cond, const ValueOperand &value) {
         return testMagic(cond, value.typeReg());
     }
@@ -422,6 +430,11 @@ class MacroAssemblerX86 : public MacroAssemblerX86Shared
     Condition testObject(Condition cond, const BaseIndex &address) {
         JS_ASSERT(cond == Equal || cond == NotEqual);
         cmpl(tagOf(address), ImmTag(JSVAL_TAG_OBJECT));
+        return cond;
+    }
+    Condition testSIMD(Condition cond, const BaseIndex &address) {
+        JS_ASSERT(cond == Equal || cond == NotEqual);
+        //TODO IVAN
         return cond;
     }
     Condition testDouble(Condition cond, const BaseIndex &address) {
@@ -780,6 +793,10 @@ class MacroAssemblerX86 : public MacroAssemblerX86Shared
         if (src.payloadReg() != dest)
             movl(src.payloadReg(), dest);
     }
+    void unboxSIMD(const ValueOperand &payload, const FloatRegister &dest){
+    	return;
+    }
+
     void unboxDouble(const ValueOperand &src, const FloatRegister &dest) {
         JS_ASSERT(dest != ScratchFloatReg);
         if (Assembler::HasSSE41()) {
@@ -870,7 +887,7 @@ class MacroAssemblerX86 : public MacroAssemblerX86Shared
         convertInt32ToDouble(operand.payloadReg(), dest);
     }
     void int32ValueToFloat32(const ValueOperand &operand, const FloatRegister &dest) {
-        convertInt32ToFloat32(operand.payloadReg(), dest);
+        	(operand.payloadReg(), dest);
     }
 
     void loadConstantDouble(double d, const FloatRegister &dest);

@@ -222,14 +222,22 @@ IonBuilder::inlineSIMDaddFunction(CallInfo &callInfo)
     if (callInfo.constructing() || callInfo.argc() != 2)
         return InliningStatus_NotInlined;
 
+    if(getInlineReturnType() == MIRType_Object)
+    	printf("getInlineReturnType() = MIRType_Object\n");
+    if(getInlineReturnType() == MIRType_Value)
+    	printf("getInlineReturnType() = MIRType_Value\n");
+
     if (getInlineReturnType() != MIRType_Float32x4)
         return InliningStatus_NotInlined;
 
     if (callInfo.getArg(0)->resultTypeSet()->getKnownClass() != &(Float32x4::class_) && callInfo.getArg(1)->resultTypeSet()->getKnownClass() != &(Float32x4::class_))
         return InliningStatus_NotInlined;
 
+
     callInfo.unwrapArgs();
 
+    callInfo.getArg(0)->setResultType(MIRType_Float32x4);
+    callInfo.getArg(1)->setResultType(MIRType_Float32x4);
     MAddf32 *addf32 = MAddf32::New(callInfo.getArg(0), callInfo.getArg(1));
     current->add(addf32);
     current->push(addf32);

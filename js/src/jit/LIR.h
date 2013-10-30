@@ -445,6 +445,7 @@ class LDefinition
         OBJECT,     // Pointer that may be collected as garbage (GPR).
         SLOTS,      // Slots/elements pointer that may be moved by minor GCs (GPR).
         DOUBLE,     // 64-bit point value (FPU).
+        SIMD,
 #ifdef JS_NUNBOX32
         // A type virtual register must be followed by a payload virtual
         // register, as both will be tracked as a single gcthing.
@@ -551,6 +552,8 @@ class LDefinition
             return LDefinition::GENERAL;
           case MIRType_ForkJoinSlice:
             return LDefinition::GENERAL;
+          case MIRType_Float32x4:
+            return LDefinition::SIMD;
           default:
             MOZ_ASSUME_UNREACHABLE("unexpected type");
         }

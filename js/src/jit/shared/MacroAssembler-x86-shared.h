@@ -387,6 +387,9 @@ class MacroAssemblerX86Shared : public Assembler
     void addDouble(FloatRegister src, FloatRegister dest) {
         addsd(src, dest);
     }
+    void addFloatx4(FloatRegister src, FloatRegister dest) {
+        addps(src, dest);
+    }
     void subDouble(FloatRegister src, FloatRegister dest) {
         subsd(src, dest);
     }
@@ -436,6 +439,24 @@ class MacroAssemblerX86Shared : public Assembler
             MOZ_ASSUME_UNREACHABLE("unexpected operand kind");
         }
     }
+    void loadFloatx4(const Address &src, FloatRegister dest) {
+        movps(src, dest);
+    }
+    void loadFloatx4(const BaseIndex &src, FloatRegister dest) {
+        movps(src, dest);
+    }
+    void loadFloatx4(const Operand &src, FloatRegister dest) {
+        switch (src.kind()) {
+          case Operand::MEM_REG_DISP:
+            loadFloatx4(src.toAddress(), dest);
+            break;
+          case Operand::MEM_SCALE:
+            loadFloatx4(src.toBaseIndex(), dest);
+            break;
+          default:
+            MOZ_ASSUME_UNREACHABLE("unexpected operand kind");
+        }
+    }
     void storeFloat(FloatRegister src, const Address &dest) {
         movss(src, dest);
     }
@@ -449,6 +470,24 @@ class MacroAssemblerX86Shared : public Assembler
             break;
           case Operand::MEM_SCALE:
             storeFloat(src, dest.toBaseIndex());
+            break;
+          default:
+            MOZ_ASSUME_UNREACHABLE("unexpected operand kind");
+        }
+    }
+    void storeFloatx4(FloatRegister src, const Address &dest) {
+        movps(src, dest);
+    }
+    void storeFloatx4(FloatRegister src, const BaseIndex &dest) {
+        movps(src, dest);
+    }
+    void storeFloatx4(FloatRegister src, const Operand &dest) {
+        switch (dest.kind()) {
+          case Operand::MEM_REG_DISP:
+            storeFloatx4(src, dest.toAddress());
+            break;
+          case Operand::MEM_SCALE:
+            storeFloatx4(src, dest.toBaseIndex());
             break;
           default:
             MOZ_ASSUME_UNREACHABLE("unexpected operand kind");

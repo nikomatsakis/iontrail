@@ -26,11 +26,12 @@ extern JSObject *
 js_InitTypedArrayClasses(JSContext *cx, js::HandleObject obj);
 
 extern JSObject *
-js_InitTypedObjectClass(JSContext *cx, js::HandleObject obj);
+js_InitTypedObjectModuleClass(JSContext *cx, js::HandleObject obj);
 
 namespace js {
 
 class Debugger;
+class TypedObjectModule;
 
 /*
  * Global object slots are reserved as follows:
@@ -418,16 +419,11 @@ class GlobalObject : public JSObject
         return getOrCreateObject(cx, APPLICATION_SLOTS + JSProto_Intl, initIntlObject);
     }
 
-    JSObject *getOrCreateTypedObject(JSContext *cx) {
-        return getOrCreateObject(cx, APPLICATION_SLOTS + JSProto_TypedObject, initTypedObject);
+    JSObject *getOrCreateTypedObjectModule(JSContext *cx) {
+        return getOrCreateObject(cx, APPLICATION_SLOTS + JSProto_TypedObject, initTypedObjectModule);
     }
 
-    JSObject &getTypedObject() {
-        Value v = getSlotRef(APPLICATION_SLOTS + JSProto_TypedObject);
-        // only gets called from contexts where TypedObject must be initialized
-        JS_ASSERT(v.isObject());
-        return v.toObject();
-    }
+    TypedObjectModule &getTypedObjectModule() const;
 
     JSObject *getIteratorPrototype() {
         return &getPrototype(JSProto_Iterator).toObject();
@@ -608,7 +604,7 @@ class GlobalObject : public JSObject
     static bool initDateTimeFormatProto(JSContext *cx, Handle<GlobalObject*> global);
 
     // Implemented in builtin/TypedObject.cpp
-    static bool initTypedObject(JSContext *cx, Handle<GlobalObject*> global);
+    static bool initTypedObjectModule(JSContext *cx, Handle<GlobalObject*> global);
 
     static bool initStandardClasses(JSContext *cx, Handle<GlobalObject*> global);
 

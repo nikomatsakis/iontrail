@@ -29,8 +29,9 @@ using mozilla::DebugOnly;
 
 using namespace js;
 
-const Class js::TypedObjectClass = {
+const Class js::TypedObjectModule::class_ = {
     "TypedObject",
+    JSCLASS_HAS_RESERVED_SLOTS(SlotCount) |
     JSCLASS_HAS_CACHED_PROTO(JSProto_TypedObject),
     JS_PropertyStub,         /* addProperty */
     JS_DeletePropertyStub,   /* delProperty */
@@ -859,6 +860,7 @@ StructType::layout(JSContext *cx, HandleObject structType, HandleObject fields)
     if (!GetPropertyNames(cx, fields, JSITER_OWNONLY, &ids))
         return false;
 
+    AutoPropertyNameVector fieldNames(cx);
     AutoValueVector fieldTypeObjs(cx);
     AutoObjectVector fieldTypeReprObjs(cx);
 
@@ -867,15 +869,21 @@ StructType::layout(JSContext *cx, HandleObject structType, HandleObject fields)
     for (unsigned int i = 0; i < ids.length(); i++) {
         id = ids[i];
 
-        if (!JSObject::getGeneric(cx, fields, fields, id, &fieldTypeVal))
-            return false;
-
-        uint32_t index;
-        if (js_IdIsIndex(id, &index)) {
+        // Check that all the property names are non-numeric strings.
+        uint32_t unused;
+        if (!JSID_IS_ATOM(id) || JSID_TO_ATOM(id)->isIndex(&unused)) {
             RootedValue idValue(cx, IdToJsval(id));
             ReportCannotConvertTo(cx, idValue, "StructType field name");
             return false;
         }
+
+        if (!fieldNames.append(JSID_TO_ATOM(id)->asPropertyName())) {
+            js_ReportOutOfMemory(cx);
+            return false;
+        }
+
+        if (!JSObject::getGeneric(cx, fields, fields, id, &fieldTypeVal))
+            return false;
 
         RootedObject fieldType(cx, ToObjectIfObject(fieldTypeVal));
         if (!fieldType || !IsSizedTypeDescriptor(*fieldType)) {
@@ -895,8 +903,8 @@ StructType::layout(JSContext *cx, HandleObject structType, HandleObject fields)
     }
 
     // Construct the `TypeRepresentation*`.
-    RootedObject typeReprObj(
-        cx, StructTypeRepresentation::Create(cx, ids, fieldTypeReprObjs));
+    RootedObject typeReprObj(cx);
+    typeReprObj = StructTypeRepresentation::Create(cx, fieldNames, fieldTypeReprObjs);
     if (!typeReprObj)
         return false;
     StructTypeRepresentation *typeRepr =
@@ -942,7 +950,7 @@ StructType::layout(JSContext *cx, HandleObject structType, HandleObject fields)
         cx, NewObjectWithClassProto(cx, &JSObject::class_, nullptr, nullptr));
     for (size_t i = 0; i < typeRepr->fieldCount(); i++) {
         const StructField &field = typeRepr->field(i);
-        RootedId fieldId(cx, field.id);
+        RootedId fieldId(cx, NameToId(field.propertyName));
 
         // fieldOffsets[id] = offset
         RootedValue offset(cx, NumberValue(field.offset));
@@ -1125,7 +1133,9 @@ DefineSimpleTypeDescriptor(JSContext *cx,
 template<typename T>
 static JSObject *
 DefineMetaTypeDescriptor(JSContext *cx,
-                         Handle<GlobalObject*> global)
+                         Handle<GlobalObject*> global,
+                         HandleObject module,
+                         TypedObjectModule::Slot protoSlot)
 {
     RootedAtom className(cx, Atomize(cx, T::class_.name,
                                      strlen(T::class_.name)));
@@ -1178,15 +1188,18 @@ DefineMetaTypeDescriptor(JSContext *cx,
         return nullptr;
     }
 
+    module->initReservedSlot(protoSlot, ObjectValue(*proto));
+
     return ctor;
 }
 
 bool
-GlobalObject::initTypedObject(JSContext *cx, Handle<GlobalObject*> global)
+GlobalObject::initTypedObjectModule(JSContext *cx, Handle<GlobalObject*> global)
 {
     RootedObject TypedObject(cx);
-    TypedObject = NewObjectWithGivenProto(cx, &TypedObjectClass, global->getOrCreateObjectPrototype(cx),
-                                   global, SingletonObject);
+    TypedObject = NewObjectWithGivenProto(cx, &TypedObjectModule::class_,
+                                          global->getOrCreateObjectPrototype(cx),
+                                          global, SingletonObject);
     if (!TypedObject)
         return false;
 
@@ -1199,7 +1212,7 @@ GlobalObject::initTypedObject(JSContext *cx, Handle<GlobalObject*> global)
 }
 
 JSObject *
-js_InitTypedObjectClass(JSContext *cx, HandleObject obj)
+js_InitTypedObjectModuleClass(JSContext *cx, HandleObject obj)
 {
     /*
      * The initialization strategy for TypedObjects is mildly unusual
@@ -1212,7 +1225,7 @@ js_InitTypedObjectClass(JSContext *cx, HandleObject obj)
     JS_ASSERT(obj->is<GlobalObject>());
     Rooted<GlobalObject *> global(cx, &obj->as<GlobalObject>());
 
-    RootedObject module(cx, global->getOrCreateTypedObject(cx));
+    RootedObject module(cx, global->getOrCreateTypedObjectModule(cx));
     if (!module)
         return nullptr;
 
@@ -1238,7 +1251,9 @@ js_InitTypedObjectClass(JSContext *cx, HandleObject obj)
 
     // ArrayType.
 
-    RootedObject arrayType(cx, DefineMetaTypeDescriptor<ArrayType>(cx, global));
+    RootedObject arrayType(cx);
+    arrayType = DefineMetaTypeDescriptor<ArrayType>(
+        cx, global, module, TypedObjectModule::ArrayTypePrototype);
     if (!arrayType)
         return nullptr;
 
@@ -1251,7 +1266,9 @@ js_InitTypedObjectClass(JSContext *cx, HandleObject obj)
 
     // StructType.
 
-    RootedObject structType(cx, DefineMetaTypeDescriptor<StructType>(cx, global));
+    RootedObject structType(cx);
+    structType = DefineMetaTypeDescriptor<StructType>(
+        cx, global, module, TypedObjectModule::StructTypePrototype);
     if (!structType)
         return nullptr;
 
@@ -1288,7 +1305,7 @@ js_InitTypedObjectClass(JSContext *cx, HandleObject obj)
     }
 
     global->setArrayType(arrayType);
-    global->markStandardClassInitializedNoProto(&TypedObjectClass);
+    global->markStandardClassInitializedNoProto(&TypedObjectModule::class_);
 
     return module;
 }
@@ -1303,6 +1320,42 @@ js_InitTypedObjectDummy(JSContext *cx, HandleObject obj)
      */
 
     MOZ_ASSUME_UNREACHABLE("shouldn't be initializing TypedObject via the JSProtoKey initializer mechanism");
+}
+
+bool
+TypedObjectModule::getSuitableClaspAndProto(JSContext *cx,
+                                            TypeRepresentation::Kind kind,
+                                            const Class **clasp,
+                                            MutableHandleObject proto)
+{
+    switch (kind) {
+      case TypeRepresentation::Scalar:
+        *clasp = &ScalarType::class_;
+        proto.set(global().getOrCreateFunctionPrototype(cx));
+        break;
+
+      case TypeRepresentation::Reference:
+        *clasp = &ReferenceType::class_;
+        proto.set(global().getOrCreateFunctionPrototype(cx));
+        break;
+
+      case TypeRepresentation::Struct:
+        *clasp = &StructType::class_;
+        proto.set(&getSlot(StructTypePrototype).toObject());
+        break;
+
+      case TypeRepresentation::SizedArray:
+        *clasp = &ArrayType::class_;
+        proto.set(&getSlot(ArrayTypePrototype).toObject());
+        break;
+
+      case TypeRepresentation::UnsizedArray:
+        *clasp = &ArrayType::class_;
+        proto.set(&getSlot(ArrayTypePrototype).toObject());
+        break;
+    }
+
+    return !!proto;
 }
 
 /******************************************************************************
@@ -1371,8 +1424,12 @@ TypedDatum::createUnattachedWithClass(JSContext *cx,
         RootedTypeObject typeObj(cx, obj->getType(cx));
         if (typeObj) {
             TypeRepresentation *typeRepr = typeRepresentation(*type);
-            if (!typeObj->addTypedObjectAddendum(cx, typeRepr))
+            if (!typeObj->addTypedObjectAddendum(cx,
+                                                 types::TypeTypedObject::Datum,
+                                                 typeRepr))
+            {
                 return nullptr;
+            }
         }
     }
 
@@ -2096,7 +2153,7 @@ TypedDatum::obj_enumerate(JSContext *cx, HandleObject obj, JSIterateOp enum_op,
             index = static_cast<uint32_t>(statep.toInt32());
 
             if (index < typeRepr->asStruct()->fieldCount()) {
-                idp.set(typeRepr->asStruct()->field(index).id);
+                idp.set(NameToId(typeRepr->asStruct()->field(index).propertyName));
                 statep.setInt32(index + 1);
             } else {
                 statep.setNull();
@@ -2184,7 +2241,7 @@ TypedObject::construct(JSContext *cx, unsigned int argc, Value *vp)
 
     // Determine the length based on the target type.
     uint32_t nextArg = 0;
-    uint32_t length;
+    int32_t length = 0;
     switch (typeRepr->kind()) {
       case TypeRepresentation::Scalar:
       case TypeRepresentation::Reference:
@@ -2502,11 +2559,11 @@ const JSJitInfo js::MemcpyJitInfo =
         JSParallelNativeThreadSafeWrapper<js::Memcpy>);
 
 bool
-js::StandardTypeObjectDescriptors(JSContext *cx, unsigned argc, Value *vp)
+js::GetTypedObjectModule(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
     Rooted<GlobalObject*> global(cx, cx->global());
-    args.rval().setObject(global->getTypedObject());
+    args.rval().setObject(global->getTypedObjectModule());
     return true;
 }
 

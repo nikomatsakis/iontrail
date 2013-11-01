@@ -21,6 +21,7 @@
 #include "builtin/MapObject.h"
 #include "builtin/Object.h"
 #include "builtin/RegExp.h"
+#include "builtin/TypedObject.h"
 #include "vm/RegExpStatics.h"
 
 #include "jscompartmentinlines.h"
@@ -30,6 +31,17 @@
 #include "vm/ObjectImpl-inl.h"
 
 using namespace js;
+
+// This method is not in the header file to avoid having to include
+// TypedObject.h from GlobalObject.h. It is not generally perf
+// sensitive.
+TypedObjectModule&
+js::GlobalObject::getTypedObjectModule() const {
+    Value v = getSlot(APPLICATION_SLOTS + JSProto_TypedObject);
+    // only gets called from contexts where TypedObject must be initialized
+    JS_ASSERT(v.isObject());
+    return v.toObject().as<TypedObjectModule>();
+}
 
 JSObject *
 js_InitObjectClass(JSContext *cx, HandleObject obj)
@@ -486,7 +498,7 @@ GlobalObject::initStandardClasses(JSContext *cx, Handle<GlobalObject*> global)
            js_InitIntlClass(cx, global) &&
 #endif
 #if ENABLE_BINARYDATA
-           js_InitTypedObjectClass(cx, global) &&
+           js_InitTypedObjectModuleClass(cx, global) &&
 #endif
            true;
 }

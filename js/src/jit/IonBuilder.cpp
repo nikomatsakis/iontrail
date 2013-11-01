@@ -9525,8 +9525,17 @@ IonBuilder::lookupTypeRepresentationSet(MDefinition *typedObj,
         return true;
     }
 
-    // Extract TypeRepresentationSet directly if we can
     types::TemporaryTypeSet *types = typedObj->resultTypeSet();
+    return typeSetToTypeRepresentationSet(types, out,
+                                          types::TypeTypedObject::Datum);
+}
+
+bool
+IonBuilder::typeSetToTypeRepresentationSet(types::TemporaryTypeSet *types,
+                                           TypeRepresentationSet *out,
+                                           types::TypeTypedObject::Kind kind)
+{
+    // Extract TypeRepresentationSet directly if we can
     if (!types || types->getKnownTypeTag() != JSVAL_TYPE_OBJECT)
         return true;
 
@@ -9541,6 +9550,9 @@ IonBuilder::lookupTypeRepresentationSet(MDefinition *typedObj,
             return true;
 
         if (!type->hasTypedObject())
+            return true;
+
+        if (type->typedObject()->kind != kind)
             return true;
 
         TypeRepresentation *typeRepr = type->typedObject()->typeRepr;

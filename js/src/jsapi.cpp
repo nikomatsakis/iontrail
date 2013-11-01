@@ -1216,7 +1216,7 @@ static const JSStdName standard_class_atoms[] = {
     {js_InitIntlClass,                  EAGER_ATOM_AND_CLASP(Intl)},
 #endif
 #ifdef ENABLE_BINARYDATA
-    {js_InitTypedObjectClass,           EAGER_ATOM_AND_CLASP(TypedObject)},
+    {js_InitTypedObjectModuleClass,     EAGER_CLASS_ATOM(TypedObject), &TypedObjectModule::class_},
 #endif
     {nullptr,                           0, nullptr}
 };

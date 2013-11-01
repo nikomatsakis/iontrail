@@ -39,7 +39,7 @@
  * Currently, all "globals" related to typed objects are packaged
  * within a single "module" object `TypedObject`. This module has its
  * own js::Class and when that class is initialized, we also create
- * and define all other values (in `js_InitTypedObjectClass()`).
+ * and define all other values (in `js_InitTypedObjectModuleClass()`).
  *
  * - type descriptors, meta type descriptors, and type representations:
  *
@@ -103,7 +103,21 @@ namespace js {
  * somewhat, rather than sticking them all into the global object.
  * Eventually it will go away and become a module.
  */
-extern const Class TypedObjectClass;
+class TypedObjectModule : public JSObject {
+  public:
+    enum Slot {
+        ArrayTypePrototype,
+        StructTypePrototype,
+        SlotCount
+    };
+
+    static const Class class_;
+
+    bool getSuitableClaspAndProto(JSContext *cx,
+                                  TypeRepresentation::Kind kind,
+                                  const Class **clasp,
+                                  MutableHandleObject proto);
+};
 
 // Type for scalar type constructors like `uint8`
 class ScalarType
@@ -308,6 +322,7 @@ class TypedDatum : public JSObject
     //
     // Arguments:
     // - type: type descriptor for resulting object
+    // - length: 0 unless this is an array, otherwise the length
     template<class T>
     static T *createUnattached(JSContext *cx, HandleObject type, int32_t length);
 
@@ -437,15 +452,15 @@ bool Memcpy(ThreadSafeContext *cx, unsigned argc, Value *vp);
 extern const JSJitInfo MemcpyJitInfo;
 
 /*
- * Usage: StandardTypeObjectDescriptors()
+ * Usage: GetTypedObjectModule()
  *
- * Returns the global "typed object" object, which provides access
+ * Returns the global "typed object" module, which provides access
  * to the various builtin type descriptors. These are currently
  * exported as immutable properties so it is safe for self-hosted code
  * to access them; eventually this should be linked into the module
  * system.
  */
-bool StandardTypeObjectDescriptors(JSContext *cx, unsigned argc, Value *vp);
+bool GetTypedObjectModule(JSContext *cx, unsigned argc, Value *vp);
 
 /*
  * Usage: StoreScalar(targetDatum, targetOffset, value)

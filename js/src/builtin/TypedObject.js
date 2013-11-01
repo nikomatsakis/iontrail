@@ -675,11 +675,11 @@ function TypeOfTypedDatum(obj) {
 
   // Note: Do not create bindings for `Any`, `String`, etc in
   // Utilities.js, but rather access them through
-  // `StandardTypeDescriptorDescriptors()`. The reason is that bindings
+  // `GetTypedObjectModule()`. The reason is that bindings
   // you create in Utilities.js are part of the self-hosted global,
   // vs the user-accessible global, and hence should not escape to
   // user script.
-  var T = StandardTypeObjectDescriptors();
+  var T = GetTypedObjectModule();
   switch (typeof obj) {
     case "object": return T.Object;
     case "function": return T.Object;

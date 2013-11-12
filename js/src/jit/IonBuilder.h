@@ -403,6 +403,12 @@ class IonBuilder : public MIRGenerator
                                 types::TemporaryTypeSet *objTypes);
     bool setPropTryTypedObject(bool *emitted, MDefinition *obj,
                                PropertyName *name, MDefinition *value);
+    bool setPropTryComplexPropOfTypedObject(bool *emitted,
+                                            MDefinition *typedObj,
+                                            int32_t fieldOffset,
+                                            size_t fieldIndex,
+                                            MDefinition *value,
+                                            TypeRepresentationSet fieldTypeReprs);
     bool setPropTryScalarPropOfTypedObject(bool *emitted,
                                            MDefinition *obj,
                                            int32_t fieldOffset,
@@ -415,7 +421,7 @@ class IonBuilder : public MIRGenerator
     // binary data lookup helpers.
     bool lookupTypeRepresentationSet(MDefinition *typedObj,
                                      TypeRepresentationSet *out);
-    bool typeSetToTypeRepresentationSet(types::TemporaryTypeSet *types,
+    bool typeSetToTypeRepresentationSet(types::TypeSet *types,
                                         TypeRepresentationSet *out,
                                         types::TypeTypedObject::Kind kind);
     bool lookupTypedObjectField(MDefinition *typedObj,
@@ -436,6 +442,33 @@ class IonBuilder : public MIRGenerator
     MDefinition *typeObjectForElementFromArrayStructType(MDefinition *typedObj);
     MDefinition *typeObjectForFieldFromStructType(MDefinition *type,
                                                   size_t fieldIndex);
+    bool tryGetConvertAndCopyTo(JSFunction **out);
+    bool tryOptimizedConvertAndCopyTo(TypeRepresentationSet destTypeReprSet,
+                                      MDefinition *destDatum,
+                                      MDefinition *destOffset,
+                                      MDefinition *fromValue,
+                                      bool *optimized);
+    MCall *callConvertAndCopyTo(JSFunction &convertAndCopyToFunc,
+                                TypeRepresentationSet destTypeReprSet,
+                                MDefinition *destTypeDescriptor,
+                                MDefinition *destDatum,
+                                MDefinition *destOffset,
+                                MDefinition *fromValue);
+    bool canMemcopyConvertAndCopyTo(SizedTypeRepresentation *destTypeRepr,
+                                    types::TypeSet *fromValueTypes,
+                                    bool *legal);
+    bool canExpandConvertAndCopyTo(SizedTypeRepresentation *destTypeRepr,
+                                   types::TypeSet *fromValueTypes,
+                                   bool *legal);
+    bool expandConvertAndCopyTo(SizedTypeRepresentation *destTypeRepr,
+                                MDefinition *destDatum,
+                                MDefinition *destOffset,
+                                MDefinition *fromValue,
+                                types::TypeSet *fromValueTypes);
+    bool memcopyConvertAndCopyTo(SizedTypeRepresentation *destTypeRepr,
+                                 MDefinition *destDatum,
+                                 MDefinition *destOffset,
+                                 MDefinition *fromValue);
     bool storeScalarTypedObjectValue(MDefinition *typedObj,
                                      MDefinition *offset,
                                      ScalarTypeRepresentation *typeRepr,

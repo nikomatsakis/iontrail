@@ -416,14 +416,11 @@ TypedObjectPointer.prototype.setReference = function(fromValue) {
 // These helpers are invoked by C++ code or used as method bodies.
 
 // Wrapper for use from C++ code.
-function ConvertAndCopyTo(destTypeRepr,
-                          destTypeObj,
+function ConvertAndCopyTo(destTypeObj,
                           destDatum,
                           destOffset,
                           fromValue)
 {
-  assert(IsObject(destTypeRepr) && ObjectIsTypeRepresentation(destTypeRepr),
-         "ConvertAndCopyTo: not type repr");
   assert(IsObject(destTypeObj) && ObjectIsTypeDescriptor(destTypeObj),
          "ConvertAndCopyTo: not type obj");
   assert(IsObject(destDatum) && ObjectIsTypedDatum(destDatum),
@@ -432,6 +429,7 @@ function ConvertAndCopyTo(destTypeRepr,
   if (!ObjectIsAttached(destDatum))
     ThrowError(JSMSG_TYPEDOBJECT_HANDLE_UNATTACHED);
 
+  var destTypeRepr = TYPE_TYPE_REPR(destTypeObj);
   var ptr = new TypedObjectPointer(destTypeRepr, destTypeObj,
                                    destDatum, destOffset);
   ptr.set(fromValue);

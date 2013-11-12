@@ -8719,8 +8719,9 @@ IonBuilder::setPropTryTypedObject(bool *emitted, MDefinition *obj,
       case TypeRepresentation::Struct:
       case TypeRepresentation::SizedArray:
       case TypeRepresentation::UnsizedArray:
-        // For now, only optimize storing scalars.
-        return true;
+        return setPropTryComplexPropOfTypedObject(emitted, obj, fieldOffset,
+                                                  fieldIndex, value,
+                                                  fieldTypeReprs);
 
       case TypeRepresentation::Scalar:
         return setPropTryScalarPropOfTypedObject(emitted, obj, fieldOffset,
@@ -8728,6 +8729,74 @@ IonBuilder::setPropTryTypedObject(bool *emitted, MDefinition *obj,
     }
 
     MOZ_ASSUME_UNREACHABLE("Unknown kind");
+}
+
+bool
+IonBuilder::setPropTryComplexPropOfTypedObject(bool *emitted,
+                                               MDefinition *typedObj,
+                                               int32_t fieldOffset,
+                                               size_t fieldIndex,
+                                               MDefinition *value,
+                                               TypeRepresentationSet fieldTypeReprs)
+{
+    // Must know the field index so that we can load the new type
+    // object for the derived value
+    if (fieldIndex == SIZE_MAX)
+        return true;
+
+    // Load the `ConvertAndCopyTo` helper from self-hosted code.
+    JSFunction *convertAndCopyToFunc = NULL;
+    if (!tryGetConvertAndCopyTo(&convertAndCopyToFunc))
+        return false;
+    if (!convertAndCopyToFunc)
+        return true;
+
+    // OK, perform the optimization:
+
+    // Identify the type object for the field.
+    MDefinition *type = loadTypedObjectType(typedObj);
+    MDefinition *fieldType = typeObjectForFieldFromStructType(type, fieldIndex);
+
+    // Hack: if a bailout should occur as part of `convertAndCopyTo`,
+    // we need to `resumeAt` the current PC. In that case, the stack
+    // must be "as it was" on entry to the current PC.  Annoyingly in
+    // this case, we have already popped off two values from the stack
+    // in `jsop_setprop()`, so we temporarily push those values back
+    // on and then pop them off below.
+    current->push(typedObj);
+    current->push(value);
+
+    MConstant *destOffset = constantInt(fieldOffset);
+
+    bool optimized = false;
+    if (!tryOptimizedConvertAndCopyTo(fieldTypeReprs, typedObj, destOffset,
+                                      value, &optimized))
+    {
+        return false;
+    }
+
+    current->pop(); // see pushes above
+    current->pop();
+
+    if (optimized) {
+        *emitted = true;
+        current->push(value);
+        return true;
+    }
+
+    MCall *callInstr =
+        callConvertAndCopyTo(*convertAndCopyToFunc, fieldTypeReprs,
+                             fieldType, typedObj, destOffset, value);
+    if (!callInstr)
+        return false;
+
+    current->push(value);
+
+    if (!resumeAfter(callInstr))
+        return false;
+
+    *emitted = true;
+    return true;
 }
 
 bool
@@ -9531,16 +9600,12 @@ IonBuilder::lookupTypeRepresentationSet(MDefinition *typedObj,
 }
 
 bool
-IonBuilder::typeSetToTypeRepresentationSet(types::TemporaryTypeSet *types,
+IonBuilder::typeSetToTypeRepresentationSet(types::TypeSet *types,
                                            TypeRepresentationSet *out,
                                            types::TypeTypedObject::Kind kind)
 {
-    // Extract TypeRepresentationSet directly if we can
-    if (!types || types->getKnownTypeTag() != JSVAL_TYPE_OBJECT)
-        return true;
-
-    // And only known objects.
-    if (types->unknownObject())
+    // Type set must only have known objects, no primitives.
+    if (!types || types->hasAnyFlag(types::TYPE_FLAG_PRIMITIVE) || types->unknownObject())
         return true;
 
     TypeRepresentationSetBuilder set;
@@ -9570,13 +9635,22 @@ IonBuilder::loadTypedObjectType(MDefinition *typedObj)
     // objects created to represent `a.b` in an expression like
     // `a.b.c`. In that case, the type object can be simply pulled
     // from the operands of that instruction.
+
     if (typedObj->isNewDerivedTypedObject())
         return typedObj->toNewDerivedTypedObject()->type();
+
+    // Otherwise, load the reserved field containing the type
+    // descriptor.  This is always an object so we can just unbox it
+    // without fear of bailout.
 
     MInstruction *load = MLoadFixedSlot::New(typedObj,
                                              JS_DATUM_SLOT_TYPE_OBJ);
     current->add(load);
-    return load;
+
+    MInstruction *unbox = MUnbox::New(load, MIRType_Object, MUnbox::Infallible);
+    current->add(unbox);
+
+    return unbox;
 }
 
 // Given a typed object `typedObj` and an offset `offset` into that
@@ -9724,6 +9798,503 @@ IonBuilder::typeObjectForFieldFromStructType(MDefinition *typeObj,
     current->add(unboxFieldType);
 
     return unboxFieldType;
+}
+
+// Creates and returns a call to the ConvertAndCopyTo helper
+// from the self-hosted code, but only if it has already
+// been cloned (otherwise *call is not modified). The call
+// is not added to the MIR graph in any case.
+//
+// Note that `ConvertAndCopyTo` has almost always been cloned
+// before during the interpreter or baseline runs, but in
+// ion-eager mode it might not be.
+bool
+IonBuilder::tryGetConvertAndCopyTo(JSFunction **out)
+{
+    GlobalObject &global = script()->function()->global();
+    Value convertAndCopyToValue;
+    if (!global.maybeGetIntrinsicValue(names().ConvertAndCopyTo, &convertAndCopyToValue))
+        return false;
+
+    if (convertAndCopyToValue.isUndefined()) {
+        *out = NULL;
+        return true;
+    }
+
+    JS_ASSERT(convertAndCopyToValue.isObject());
+    JS_ASSERT(convertAndCopyToValue.toObject().is<JSFunction>());
+
+    *out = &convertAndCopyToValue.toObject().as<JSFunction>();
+    return true;
+}
+
+// Generates (and adds) a call to the self-hosted helper
+// `ConvertAndCopyTo`.  The call is returned so that the caller can
+// setup the resume point appropriately in case of bailout.
+MCall *
+IonBuilder::callConvertAndCopyTo(JSFunction &convertAndCopyToFunc,
+                                 TypeRepresentationSet destTypeReprSet,
+                                 MDefinition *destTypeDescriptor,
+                                 MDefinition *destDatum,
+                                 MDefinition *destOffset,
+                                 MDefinition *fromValue)
+{
+    // Construct a call to ConvertAndCopyTo. This involves a bit of
+    // ceremony:
+    //
+    //     ConvertAndCopyTo(destTypeObj, destDatum, destOffset, fromValue)
+
+    MDefinition *args[] = { destTypeDescriptor, destDatum,
+                            destOffset, fromValue };
+    const size_t numArgs = sizeof(args) / sizeof(args[0]);
+
+    MCall *call = MCall::New(&convertAndCopyToFunc, numArgs+1, numArgs, false);
+
+    MPrepareCall *start = new MPrepareCall;
+    current->add(start);
+    call->initPrepareCall(start);
+
+    MConstant *convertAndCopyToConstant =
+        MConstant::New(ObjectValue(convertAndCopyToFunc));
+    current->add(convertAndCopyToConstant);
+    call->initFunction(convertAndCopyToConstant);
+
+    for (uint32_t i = numArgs; i > 0; i--) {
+        MPassArg *arg = MPassArg::New(args[i - 1]);
+        current->add(arg);
+        call->addArg(i, arg);
+    }
+
+    MConstant *undefined = MConstant::New(UndefinedValue());
+    current->add(undefined);
+    MPassArg *thisArg = MPassArg::New(undefined);
+    current->add(thisArg);
+    call->addArg(0, thisArg);
+    current->add(call);
+
+    return call;
+}
+
+// Attempts to generate MIR to perform an optimized
+// convert-and-copy-to operation, storing the converted data from
+// `fromValue` into the memory owner by `destDatum` at `destOffset`,
+// which has the type `destTypeDescriptor`. When possible, we will
+// generate optimized stores based on the statically known type. For
+// example, given a snippet of code like the following:
+//
+//    var PointType = new StructType({x: int32, y: int32});
+//    var LineType = new StructType({from: PointType,
+//                                   to: PointType});
+//    var line = new LineType();
+//    var tmp = {x: 22, y: 44};
+//    line.to = tmp;
+//
+// In the final line, `convertAndCopyTo` would be invoked for the
+// assignment to `to` with the following parameters:
+//
+// - `destTypeReprSet`: a singleton set containing type repr for `PointType`
+// - `destTypeDescriptor`: `PointType` object
+// - `destDatum`: `line`
+// - `destOffset`: 8
+// - `fromValue`: `tmp`
+//
+// The naive fallback is always to generate a call to
+// `ConvertAndCopyTo()` from `builtin/TypedObject.js`. However,
+// because we know the specific type being assigned to, in this case
+// we can "unroll" a series of assignments equivalent to:
+//
+//    line.to.x = int32(tmp.x)
+//    line.to.y = int32(tmp.y)
+//
+// For this to be possible, we must validate that none of the property
+// accesses (e.g., `tmp.x`) have observable side-effects. To this end,
+// we rely on TI to ensure for us that all properties are simply data
+// properties, and that the prototype of `fromValue` is not some crazy
+// C++-like native thing-y.
+//
+// Another important case is optimizing assignments between typed
+// objects of the same type, e.g.
+//
+//     line.to = line.from
+//
+// For this we can directly copy the bytes of memory involved.
+//
+// The `resumeAfterInstr` out pointer will be set to non-NULL if
+// there is
+bool
+IonBuilder::tryOptimizedConvertAndCopyTo(TypeRepresentationSet destTypeReprSet,
+                                         MDefinition *destDatum,
+                                         MDefinition *destOffset,
+                                         MDefinition *fromValue,
+                                         bool *optimized)
+{
+    if (!destTypeReprSet.singleton())
+        return true;
+    TypeRepresentation *destTypeRepr1 = destTypeReprSet.getTypeRepresentation();
+
+    // We don't invoke ConvertAndCopyTo except for sized types
+    JS_ASSERT(destTypeRepr1->isSized());
+    SizedTypeRepresentation *destTypeRepr = destTypeRepr1->asSized();
+
+    types::TemporaryTypeSet *fromValueTypes = fromValue->resultTypeSet();
+
+    // Expand to individual assignments and/or memcpy
+    bool legal = false;
+    if (!canExpandConvertAndCopyTo(destTypeRepr, fromValueTypes, &legal))
+        return true;
+    if (!legal)
+        return true;
+    if (!expandConvertAndCopyTo(destTypeRepr, destDatum, destOffset,
+                                fromValue, fromValueTypes))
+        return false;
+    *optimized = true;
+    return true;
+}
+
+bool
+IonBuilder::canMemcopyConvertAndCopyTo(SizedTypeRepresentation *destTypeRepr,
+                                       types::TypeSet *fromValueTypes,
+                                       bool *legal)
+{
+    TypeRepresentationSet fromValueTypeReprSet;
+    if (!typeSetToTypeRepresentationSet(fromValueTypes,
+                                        &fromValueTypeReprSet,
+                                        types::TypeTypedObject::Datum))
+    {
+        return false;
+    }
+
+    *legal = (fromValueTypeReprSet.singleton() &&
+              destTypeRepr == fromValueTypeReprSet.getTypeRepresentation());
+    return true;
+}
+
+static bool
+CouldBeObject(types::TypeSet *types)
+{
+    // Value we are reading from must be known to be an object
+    return types->unknown() ||
+           types->hasAnyFlag(types::TYPE_FLAG_ANYOBJECT) ||
+           types->getObjectCount() > 0;
+}
+
+// Takes the type set `fromValueTypes` for a value that is being
+// assigned to a typed object of struct/array type. Checks for scary
+// properties of this type set that would prevent optimization and
+// returns NULL if any such are found. Otherwise, returns the
+// TypeObjectKey for the value being assigned.
+static types::TypeObjectKey*
+ConvertAndCopyToOptimizableTypeObjKey(types::TypeSet *fromValueTypes)
+{
+    // Value we are reading from must be known to be an object
+    if (fromValueTypes->hasAnyFlag(types::TYPE_FLAG_PRIMITIVE))
+        return NULL;
+    if (fromValueTypes->unknown())
+        return NULL;
+
+    // For now, only optimie the case of a singleton type set.
+    // This is suboptimal but likely adequate for realistic programs.
+    if (fromValueTypes->getObjectCount() != 1)
+        return NULL;
+    types::TypeObjectKey *fromValueTypeObjKey = fromValueTypes->getObject(0);
+    if (!fromValueTypeObjKey)
+        return NULL;
+
+    // Only optimize loads from native classes for now, for fear
+    // of side-effects
+    const Class *clasp = fromValueTypeObjKey->clasp();
+    if (!clasp || !clasp->isNative())
+        return NULL;
+
+    // Avoid scary sounding flags.
+    if (fromValueTypeObjKey->unknownProperties())
+        return NULL;
+
+    return fromValueTypeObjKey;
+}
+
+// Determines whether expanding out an assignment to a value of type
+// `destTypeRepr` is safe. The problem is that if we bailout, we will
+// resume from before the assignment began, and hence we might repeat
+// some of the assignments. This repeat cannot be observable. Our
+// basic goal then is to ensure that no user code runs during any of
+// the coercions or property accesses (no getters permitted, etc).
+//
+// NOTE: Even though we inspect properties of heap type sets, we don't
+// freeze any type sets at this point. We wait to freeze until we are
+// certain that we will perform the optimization.
+bool
+IonBuilder::canExpandConvertAndCopyTo(SizedTypeRepresentation *destTypeRepr,
+                                      types::TypeSet *fromValueTypes,
+                                      bool *legal)
+{
+    JS_ASSERT(!*legal); // initial value on entry must be false
+
+    // If `fromValue` is a typed object of compatible type, we can
+    // just do a memcpy here.
+    if (!canMemcopyConvertAndCopyTo(destTypeRepr, fromValueTypes, legal) || *legal)
+        return *legal;
+
+    // Otherwise, we'll pick it apart and convert as needed.
+    switch (destTypeRepr->kind()) {
+      case TypeRepresentation::Scalar:
+        // Value we are converting from must not be an object or else
+        // we'll have to call toString():
+        *legal = !CouldBeObject(fromValueTypes);
+        return true;
+
+      case TypeRepresentation::Reference:
+        *legal = false; // FIXME
+        return true;
+
+        //switch (destTypeRepr->asReference()->type()) {
+        //  case ReferenceTypeRepresentation::TYPE_ANY:
+        //    // Any kind of value is ok, but we must be wary of the
+        //    // unknown flag, because that indicates a getter or other
+        //    // scary situation.
+        //    *legal = !fromValueTypes->unknown();
+        //    return true;
+        //
+        //  case ReferenceTypeRepresentation::TYPE_OBJECT:
+        //    // If the value is not already an object, we just
+        //    // create a wrapper, that's side-effect free.
+        //    //
+        //    // However -- we must be wary of the unknown flag,
+        //    // because that indicates a getter or other scary situation.
+        //    *legal = !fromValueTypes->unknown();
+        //    return true;
+        //
+        //  case ReferenceTypeRepresentation::TYPE_STRING:
+        //    // Value we are converting from must not be an object or else
+        //    // we'll have to call toString():
+        //    *legal = !CouldBeObject(fromValueTypes);
+        //    return true;
+        //}
+        //MOZ_ASSUME_UNREACHABLE("Invalid type");
+
+      case TypeRepresentation::Struct:
+      {
+        types::TypeObjectKey *fromValueTypeObjKey =
+            ConvertAndCopyToOptimizableTypeObjKey(fromValueTypes);
+        if (!fromValueTypeObjKey)
+            return true;
+
+        size_t fieldCount = destTypeRepr->asStruct()->fieldCount();
+        for (size_t i = 0; i < fieldCount; i++) {
+            const StructField &field = destTypeRepr->asStruct()->field(i);
+            jsid fieldId = NameToId(field.propertyName);
+            types::HeapTypeSet *fieldTypeSet =
+                fromValueTypeObjKey->property(fieldId).maybeTypes();
+            if (!fieldTypeSet)
+                return true;
+            bool fieldLegal = false;
+            if (!canExpandConvertAndCopyTo(field.typeRepr, fieldTypeSet, &fieldLegal))
+                return false;
+            if (!fieldLegal)
+                return true;
+        }
+
+        *legal = true;
+        return true;
+      }
+
+      case TypeRepresentation::SizedArray:
+      {
+        // Since we are going to unroll the array assignments, impose
+        // an arbitrary limit on how bug we're willing to allow the
+        // array to get.
+        if (destTypeRepr->asSizedArray()->length() > 16)
+            return true;
+
+        types::TypeObjectKey *fromValueTypeObjKey =
+            ConvertAndCopyToOptimizableTypeObjKey(fromValueTypes);
+        if (!fromValueTypeObjKey)
+            return true;
+
+        // Load the type set for elements.
+        types::HeapTypeSet *elemTypeSet =
+            fromValueTypeObjKey->property(JSID_VOID).maybeTypes();
+        if (!elemTypeSet)
+            return true;
+
+        SizedTypeRepresentation *elementTypeRepr =
+            destTypeRepr->asSizedArray()->element();
+        return canExpandConvertAndCopyTo(elementTypeRepr, elemTypeSet, legal);
+      }
+
+      case TypeRepresentation::UnsizedArray:
+        MOZ_ASSUME_UNREACHABLE("Unsized array");
+    }
+
+    MOZ_ASSUME_UNREACHABLE("Invalid kind");
+}
+
+// Expands a call to `ConvertAndCopyTo` into individual assignments.
+// Assumes that `canExpandConvertAndCopyTo` returned true. Freezes all
+// relevant heap type sets to prevent later changes from invalidating
+// this optimized code.
+bool
+IonBuilder::expandConvertAndCopyTo(SizedTypeRepresentation *destTypeRepr,
+                                   MDefinition *destDatum,
+                                   MDefinition *destOffset,
+                                   MDefinition *fromValue,
+                                   types::TypeSet *fromValueTypes)
+{
+    // Invariant: fromValueTypes is either a temporary type set
+    // or a frozen heap set.
+
+    // Check whether we can memcopy the value and, if so, do it.
+    bool canMemcopy = false;
+    if (!canMemcopyConvertAndCopyTo(destTypeRepr, fromValueTypes, &canMemcopy))
+        return false;
+    if (canMemcopy)
+        return memcopyConvertAndCopyTo(destTypeRepr, destDatum,
+                                       destOffset, fromValue);
+
+    // Otherwise we'll have to pick it apart field by field.
+    switch (destTypeRepr->kind()) {
+      case TypeRepresentation::Scalar:
+        JS_ASSERT(!CouldBeObject(fromValueTypes));
+        return storeScalarTypedObjectValue(destDatum, destOffset,
+                                           destTypeRepr->asScalar(), fromValue);
+
+      case TypeRepresentation::Reference:
+        switch (destTypeRepr->asReference()->type()) {
+          case ReferenceTypeRepresentation::TYPE_ANY:
+            JS_ASSERT(!fromValueTypes->unknown());
+            break;
+
+          case ReferenceTypeRepresentation::TYPE_OBJECT:
+            JS_ASSERT(!fromValueTypes->unknown());
+            break;
+
+          case ReferenceTypeRepresentation::TYPE_STRING:
+            JS_ASSERT(!CouldBeObject(fromValueTypes));
+            break;
+        }
+        break;
+
+      case TypeRepresentation::Struct:
+      {
+        types::TypeObjectKey *fromValueTypeObjKey =
+            ConvertAndCopyToOptimizableTypeObjKey(fromValueTypes);
+        JS_ASSERT(fromValueTypeObjKey);
+
+        size_t fieldCount = destTypeRepr->asStruct()->fieldCount();
+        for (size_t i = 0; i < fieldCount; i++) {
+            const StructField &field = destTypeRepr->asStruct()->field(i);
+            jsid fieldId = NameToId(field.propertyName);
+            types::HeapTypeSetKey fieldTypeSetKey =
+                fromValueTypeObjKey->property(fieldId);
+            fieldTypeSetKey.freeze(constraints());
+            types::HeapTypeSet *fieldTypeSet = fieldTypeSetKey.maybeTypes();
+            JS_ASSERT(fieldTypeSet);
+
+            JS_ASSERT(destOffset->type() == MIRType_Int32);
+            MAdd *fieldOffset =
+                MAdd::NewAsmJS(destOffset, constantInt(field.offset),
+                               MIRType_Int32);
+            current->add(fieldOffset);
+
+            // This is not (always) the best way to evaluate `a.x`,
+            // but it's the simplest. And we expect these to be
+            // optimized away in many cases by a later pass.
+            MCallGetProperty *fieldFromValue =
+                MCallGetProperty::New(fromValue, field.propertyName, false);
+            current->add(fieldFromValue);
+
+            if (!resumeAt(fieldFromValue, pc))
+                return false;
+
+            if (!expandConvertAndCopyTo(field.typeRepr, destDatum, fieldOffset,
+                                        fieldFromValue, fieldTypeSet))
+            {
+                return false;
+            }
+        }
+        return true;
+      }
+
+      case TypeRepresentation::SizedArray:
+      {
+        types::TypeObjectKey *fromValueTypeObjKey =
+            ConvertAndCopyToOptimizableTypeObjKey(fromValueTypes);
+        if (!fromValueTypeObjKey)
+            return false;
+
+        // Load the type set for elements.
+        types::HeapTypeSetKey elemTypeSetKey = fromValueTypeObjKey->property(JSID_VOID);
+        elemTypeSetKey.freeze(constraints());
+        types::HeapTypeSet *elemTypeSet = elemTypeSetKey.maybeTypes();
+        JS_ASSERT(elemTypeSet);
+
+        SizedTypeRepresentation *elementTypeRepr =
+            destTypeRepr->asSizedArray()->element();
+
+        for (uint32_t i = 0; i < destTypeRepr->asSizedArray()->length(); i++) {
+            JS_ASSERT(destOffset->type() == MIRType_Int32);
+
+            MAdd *elemOffset =
+                MAdd::NewAsmJS(destOffset,
+                               constantInt(i * elementTypeRepr->size()),
+                               MIRType_Int32);
+            current->add(elemOffset);
+
+            // This is not (always) the best way to evaluate `a.x`,
+            // but it's the simplest. And we expect these to be
+            // optimized away in many cases by a later pass.
+            MCallGetElement *elemFromValue =
+                MCallGetElement::New(fromValue, constantInt(i));
+            current->add(elemFromValue);
+
+            if (!resumeAt(elemFromValue, pc))
+                return false;
+
+            if (!expandConvertAndCopyTo(elementTypeRepr, destDatum, elemOffset,
+                                        elemFromValue, elemTypeSet))
+            {
+                return false;
+            }
+        }
+
+        return true;
+      }
+
+      case TypeRepresentation::UnsizedArray:
+        MOZ_ASSUME_UNREACHABLE("Unsized array");
+    }
+
+    MOZ_ASSUME_UNREACHABLE("Invalid kind");
+}
+
+bool
+IonBuilder::memcopyConvertAndCopyTo(SizedTypeRepresentation *destTypeRepr,
+                                    MDefinition *destDatum,
+                                    MDefinition *destOffset,
+                                    MDefinition *fromValue)
+{
+    MDefinition *destElements, *destScaledOffset;
+    loadTypedObjectElements(destDatum, destOffset, 1,
+                            &destElements, &destScaledOffset);
+
+    MInstruction *destElementsOffset =
+        MPointerAdd::New(destElements, destScaledOffset);
+    current->add(destElementsOffset);
+
+    MDefinition *sourceElements, *sourceScaledOffset;
+    loadTypedObjectElements(fromValue, constantInt(0), 1,
+                            &sourceElements, &sourceScaledOffset);
+
+    MInstruction *sourceElementsOffset =
+        MPointerAdd::New(sourceElements, sourceScaledOffset);
+    current->add(sourceElementsOffset);
+
+    MMemcopyTypedObject *m = MMemcopyTypedObject::New(destTypeRepr,
+                                                      destElementsOffset,
+                                                      sourceElementsOffset);
+    current->add(m);
+
+    return true;
 }
 
 bool

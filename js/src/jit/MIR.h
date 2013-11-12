@@ -1525,10 +1525,7 @@ class MNewPar : public MUnaryInstruction
 // so `MNewDerivedTypedObject` instructions can be reordered or pruned
 // as dead code.
 class MNewDerivedTypedObject
-  : public MTernaryInstruction,
-    public Mix3Policy<ObjectPolicy<0>,
-                      ObjectPolicy<1>,
-                      IntPolicy<2> >
+  : public MTernaryInstruction
 {
   private:
     TypeRepresentationSet set_;
@@ -1543,6 +1540,9 @@ class MNewDerivedTypedObject
       : MTernaryInstruction(type, owner, offset),
         set_(set)
     {
+        JS_ASSERT(type->type() == MIRType_Object);
+        JS_ASSERT(owner->type() == MIRType_Object);
+        JS_ASSERT(offset->type() == MIRType_Int32);
         setMovable();
         setResultType(MIRType_Object);
     }
@@ -1563,12 +1563,100 @@ class MNewDerivedTypedObject
         return getOperand(2);
     }
 
-    TypePolicy *typePolicy() {
-        return this;
+    virtual AliasSet getAliasSet() const {
+        return AliasSet::None();
+    }
+};
+
+// Adjusts an elements pointer by a given number of bytes.
+// Basically an MAdd but without all the JS-related semantics.
+class MPointerAdd
+  : public MBinaryInstruction
+{
+  private:
+    SizedTypeRepresentation *typeRepr_;
+
+    MPointerAdd(MDefinition *elements,
+                MDefinition *offset)
+      : MBinaryInstruction(elements, offset)
+    {
+        JS_ASSERT(elements->type() == MIRType_Elements);
+        JS_ASSERT(offset->type() == MIRType_Int32);
+        setMovable();
+        setResultType(MIRType_Elements);
+    }
+
+  public:
+    INSTRUCTION_HEADER(PointerAdd);
+
+    static MPointerAdd *New(MDefinition *elements,
+                            MDefinition *offset)
+    {
+        return new MPointerAdd(elements, offset);
+    }
+
+    MDefinition *elements() const {
+        return getOperand(0);
+    }
+
+    MDefinition *offset() const {
+        return getOperand(1);
+    }
+
+    bool congruentTo(MDefinition *ins) const {
+        return congruentIfOperandsEqual(ins);
     }
 
     virtual AliasSet getAliasSet() const {
         return AliasSet::None();
+    }
+};
+
+// Copies memory from the sourceObject (at the specified sourceOffset)
+// into the destObject (at the specified destOffset).
+//
+// Offsets are specified in bytes.
+class MMemcopyTypedObject
+  : public MBinaryInstruction
+{
+  private:
+    SizedTypeRepresentation *typeRepr_;
+
+    MMemcopyTypedObject(SizedTypeRepresentation *typeRepr,
+                        MDefinition *destElements,
+                        MDefinition *sourceElements)
+      : MBinaryInstruction(destElements, sourceElements),
+        typeRepr_(typeRepr)
+    {
+        JS_ASSERT(destElements->type() == MIRType_Elements);
+        JS_ASSERT(sourceElements->type() == MIRType_Elements);
+        setResultType(MIRType_Undefined);
+    }
+
+  public:
+    INSTRUCTION_HEADER(MemcopyTypedObject);
+
+    static MMemcopyTypedObject *New(SizedTypeRepresentation *typeRepr,
+                                    MDefinition *destElements,
+                                    MDefinition *sourceElements)
+    {
+        return new MMemcopyTypedObject(typeRepr, destElements, sourceElements);
+    }
+
+    SizedTypeRepresentation *typeRepr() const {
+        return typeRepr_;
+    }
+
+    int32_t size() const {
+        return typeRepr()->size();
+    }
+
+    MDefinition *destElements() const {
+        return getOperand(0);
+    }
+
+    MDefinition *sourceElements() const {
+        return getOperand(1);
     }
 };
 

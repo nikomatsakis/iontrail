@@ -229,15 +229,14 @@ ConvertAndCopyTo(JSContext *cx,
         return false;
 
     InvokeArgs args(cx);
-    if (!args.init(5))
+    if (!args.init(4))
         return false;
 
     args.setCallee(ObjectValue(*func));
-    args[0].setObject(*typeRepresentationOwnerObj(*typeDescriptor));
-    args[1].setObject(*typeDescriptor);
-    args[2].setObject(*datum);
-    args[3].setInt32(offset);
-    args[4].set(val);
+    args[0].setObject(*typeDescriptor);
+    args[1].setObject(*datum);
+    args[2].setInt32(offset);
+    args[3].set(val);
 
     return Invoke(cx, args);
 }

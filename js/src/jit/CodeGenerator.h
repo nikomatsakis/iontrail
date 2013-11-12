@@ -140,6 +140,9 @@ class CodeGenerator : public CodeGeneratorSpecific
     bool visitNewPar(LNewPar *lir);
     bool visitNewDenseArrayPar(LNewDenseArrayPar *lir);
     bool visitNewDerivedTypedObject(LNewDerivedTypedObject *lir);
+    bool visitPointerAdd(LPointerAdd *lir);
+    bool visitMemcopyInline(LMemcopyInline *ins);
+    bool visitMemcopyCall(LMemcopyCall *ins);
     bool visitAbortPar(LAbortPar *lir);
     bool visitInitElem(LInitElem *lir);
     bool visitInitElemGetterSetter(LInitElemGetterSetter *lir);

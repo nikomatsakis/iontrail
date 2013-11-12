@@ -218,6 +218,44 @@ LIRGenerator::visitNewDerivedTypedObject(MNewDerivedTypedObject *ins)
 }
 
 bool
+LIRGenerator::visitPointerAdd(MPointerAdd *ins)
+{
+    LPointerAdd *lir =
+        new LPointerAdd(useRegisterAtStart(ins->elements()),
+                        useRegisterAtStart(ins->offset()));
+    return define(lir, ins);
+}
+
+bool
+LIRGenerator::visitMemcopyTypedObject(MMemcopyTypedObject *ins)
+{
+    // Copying to/from the same place has no effect.
+    if (ins->sourceElements() == ins->destElements())
+        return true;
+
+    // We prefer to generate inline code to do the copy...
+    const size_t inlineThreshold = 64;
+    if (ins->size() < inlineThreshold && (ins->size() % 4) == 0) {
+        LMemcopyInline *lir =
+            new LMemcopyInline(useRegister(ins->destElements()),
+                               useRegister(ins->sourceElements()),
+                               temp(),
+                               ins->size());
+        return add(lir, ins);
+    } else {
+        // ...but if the object's too big, it's not worth it.
+        // In truth, this path should probably be improved.
+        LMemcopyCall *lir =
+            new LMemcopyCall(useRegister(ins->destElements()),
+                             useRegister(ins->sourceElements()),
+                             temp(),
+                             temp(),
+                             ins->size());
+        return add(lir, ins);
+    }
+}
+
+bool
 LIRGenerator::visitNewCallObjectPar(MNewCallObjectPar *ins)
 {
     const LAllocation &parThreadContext = useRegister(ins->forkJoinSlice());

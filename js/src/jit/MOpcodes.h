@@ -205,6 +205,8 @@ namespace jit {
     _(NewPar)                                                               \
     _(NewDenseArrayPar)                                                     \
     _(NewDerivedTypedObject)                                                \
+    _(MemcopyTypedObject)                                                   \
+    _(PointerAdd)                                                           \
     _(AbortPar)                                                             \
     _(LambdaPar)                                                            \
     _(RestPar)                                                              \

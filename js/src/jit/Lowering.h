@@ -88,6 +88,8 @@ class LIRGenerator : public LIRGeneratorSpecific
     bool visitNewCallObject(MNewCallObject *ins);
     bool visitNewStringObject(MNewStringObject *ins);
     bool visitNewDerivedTypedObject(MNewDerivedTypedObject *ins);
+    bool visitPointerAdd(MPointerAdd *ins);
+    bool visitMemcopyTypedObject(MMemcopyTypedObject *ins);
     bool visitNewPar(MNewPar *ins);
     bool visitNewCallObjectPar(MNewCallObjectPar *ins);
     bool visitNewDenseArrayPar(MNewDenseArrayPar *ins);

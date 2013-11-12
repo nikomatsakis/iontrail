@@ -530,6 +530,105 @@ class LNewDerivedTypedObject : public LCallInstructionHelper<1, 3, 0>
     }
 };
 
+class LPointerAdd : public LInstructionHelper<1, 2, 0>
+{
+  public:
+    LIR_HEADER(PointerAdd);
+
+    LPointerAdd(const LAllocation &elements,
+                const LAllocation &offset)
+    {
+        setOperand(0, elements);
+        setOperand(1, offset);
+    }
+
+    const LAllocation *elements() {
+        return getOperand(0);
+    }
+
+    const LAllocation *offset() {
+        return getOperand(1);
+    }
+};
+
+// Generates inlined instructions to do the copy
+class LMemcopyInline : public LInstructionHelper<0, 2, 1>
+{
+    const int32_t size_;
+
+  public:
+    LIR_HEADER(MemcopyInline);
+
+    LMemcopyInline(const LAllocation &destElements,
+                   const LAllocation &sourceElements,
+                   const LDefinition &temp1,
+                   int32_t size)
+      : size_(size)
+    {
+        setOperand(0, destElements);
+        setOperand(1, sourceElements);
+        setTemp(0, temp1);
+    }
+
+    const LAllocation *destElements() {
+        return getOperand(0);
+    }
+
+    const LAllocation *sourceElements() {
+        return getOperand(1);
+    }
+
+    const LDefinition *temp1() {
+        return getTemp(0);
+    }
+
+    int32_t size() const {
+        return size_;
+    }
+};
+
+// Generates a call to a C helper
+class LMemcopyCall : public LCallInstructionHelper<0, 2, 2>
+{
+    const int32_t size_;
+
+  public:
+    LIR_HEADER(MemcopyCall);
+
+    LMemcopyCall(const LAllocation &destElements,
+                 const LAllocation &sourceElements,
+                 const LDefinition &temp1,
+                 const LDefinition &temp2,
+                 int32_t size)
+      : size_(size)
+    {
+        setOperand(0, destElements);
+        setOperand(1, sourceElements);
+        setTemp(0, temp1);
+        setTemp(1, temp2);
+    }
+
+    const LAllocation *destElements() {
+        return getOperand(0);
+    }
+
+    const LAllocation *sourceElements() {
+        return getOperand(1);
+    }
+
+    const LDefinition *temp1() {
+        return getTemp(0);
+    }
+
+    const LDefinition *temp2() {
+        return getTemp(1);
+    }
+
+    int32_t size() const {
+        return size_;
+    }
+};
+
 class LNewStringObject : public LInstructionHelper<1, 1, 1>
 {
   public:

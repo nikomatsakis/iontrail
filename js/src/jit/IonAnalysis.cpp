@@ -432,6 +432,8 @@ class TypeAnalyzer
 static MIRType
 GuessPhiType(MPhi *phi)
 {
+    JS_ASSERT(phi->numOperands() > 0);
+
     MIRType type = MIRType_None;
     bool convertibleToFloat32 = false;
     for (size_t i = 0, e = phi->numOperands(); i < e; i++) {
@@ -446,6 +448,11 @@ GuessPhiType(MPhi *phi)
                 continue;
             }
         }
+
+        // Ignore operands which we've never observed.
+        if (in->resultTypeSet() && in->resultTypeSet()->empty())
+            continue;
+
         if (type == MIRType_None) {
             type = in->type();
             if (in->isConstant())
@@ -453,10 +460,6 @@ GuessPhiType(MPhi *phi)
             continue;
         }
         if (type != in->type()) {
-            // Ignore operands which we've never observed.
-            if (in->resultTypeSet() && in->resultTypeSet()->empty())
-                continue;
-
             if (IsFloatType(type) && IsFloatType(in->type())) {
                 // Specialize phis with int32 and float32 operands as float32.
                 type = MIRType_Float32;
@@ -473,6 +476,11 @@ GuessPhiType(MPhi *phi)
             }
         }
     }
+
+    // if no input had a non-empty typeset, default to Value
+    if (type == MIRType_None)
+        type = MIRType_Value;
+
     return type;
 }
 
@@ -538,6 +546,7 @@ TypeAnalyzer::specializePhis()
 
         for (MPhiIterator phi(block->phisBegin()); phi != block->phisEnd(); phi++) {
             MIRType type = GuessPhiType(*phi);
+
             phi->specialize(type);
             if (type == MIRType_None) {
                 // We tried to guess the type but failed because all operands are

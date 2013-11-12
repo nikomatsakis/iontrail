@@ -33,6 +33,9 @@
     _(NewDenseArrayPar)             \
     _(NewCallObjectPar)             \
     _(NewDerivedTypedObject)        \
+    _(PointerAdd)                   \
+    _(MemcopyInline)                \
+    _(MemcopyCall)                  \
     _(AbortPar)                     \
     _(InitElem)                     \
     _(InitElemGetterSetter)         \

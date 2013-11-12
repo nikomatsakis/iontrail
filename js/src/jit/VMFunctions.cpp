@@ -916,12 +916,18 @@ InitBaselineFrameForOsr(BaselineFrame *frame, StackFrame *interpFrame, uint32_t 
     return frame->initForOsr(interpFrame, numStackValues);
 }
 
-JSObject *CreateDerivedTypedObj(JSContext *cx, HandleObject type,
-                                HandleObject owner, int32_t offset)
+JSObject *
+CreateDerivedTypedObj(JSContext *cx, HandleObject type,
+                      HandleObject owner, int32_t offset)
 {
     return TypedObject::createDerived(cx, type, owner, offset);
 }
 
+void
+Memcopy(void *dest, const void *source, int32_t n)
+{
+    memcpy(dest, source, n);
+}
 
 } // namespace jit
 } // namespace js

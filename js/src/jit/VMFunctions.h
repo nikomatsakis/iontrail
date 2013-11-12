@@ -661,6 +661,8 @@ bool InitBaselineFrameForOsr(BaselineFrame *frame, StackFrame *interpFrame,
 JSObject *CreateDerivedTypedObj(JSContext *cx, HandleObject type,
                                 HandleObject owner, int32_t offset);
 
+void Memcopy(void *dest, const void *source, int32_t n);
+
 } // namespace jit
 } // namespace js
 

@@ -2964,6 +2964,60 @@ CodeGenerator::visitNewDerivedTypedObject(LNewDerivedTypedObject *lir)
 }
 
 bool
+CodeGenerator::visitPointerAdd(LPointerAdd *lir)
+{
+    Register elements = ToRegister(lir->elements());
+    Register offset = ToRegister(lir->offset());
+    Register output = ToRegister(lir->output());
+
+    if (output == elements) {
+        masm.addPtr(offset, output);
+    } else if (output == offset) {
+        masm.addPtr(elements, output);
+    } else {
+        masm.movePtr(elements, output);
+        masm.addPtr(offset, output);
+    }
+    return true;
+}
+
+bool
+CodeGenerator::visitMemcopyInline(LMemcopyInline *lir)
+{
+    Register destElements = ToRegister(lir->destElements());
+    Register sourceElements = ToRegister(lir->sourceElements());
+    Register temp1 = ToRegister(lir->temp1());
+
+    int32_t size = lir->size();
+    JS_ASSERT((size % 4) == 0);
+
+    for (int32_t i = 0; i < size; i += 4) {
+        masm.loadPtr(Address(sourceElements, i), temp1);
+        masm.storePtr(temp1, Address(destElements, i));
+    }
+
+    return true;
+}
+
+bool
+CodeGenerator::visitMemcopyCall(LMemcopyCall *lir)
+{
+    Register destElements = ToRegister(lir->destElements());
+    Register sourceElements = ToRegister(lir->sourceElements());
+    Register temp1 = ToRegister(lir->temp1());
+    Register temp2 = ToRegister(lir->temp2());
+
+    masm.move32(Imm32(lir->size()), temp1);
+
+    masm.setupUnalignedABICall(3, temp2);
+    masm.passABIArg(destElements);
+    masm.passABIArg(sourceElements);
+    masm.passABIArg(temp1);
+    masm.callWithABI(JS_FUNC_TO_DATA_PTR(void *, Memcopy));
+    return true;
+}
+
+bool
 CodeGenerator::visitNewSlots(LNewSlots *lir)
 {
     Register temp1 = ToRegister(lir->temp1());

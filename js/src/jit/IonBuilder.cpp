@@ -6497,15 +6497,19 @@ IonBuilder::getElemTryTypedObject(bool *emitted, MDefinition *obj, MDefinition *
         return true;
 
     switch (elemTypeReprs.kind()) {
-    case TypeRepresentation::Struct:
-    case TypeRepresentation::Array:
+      case TypeRepresentation::Float32x4:
+        // FIXME -- load float32x4 into a MIRType_float32x4
+        return true;
+
+      case TypeRepresentation::Struct:
+      case TypeRepresentation::Array:
         return getElemTryComplexElemOfTypedObject(emitted,
                                                   obj,
                                                   index,
                                                   objTypeReprs,
                                                   elemTypeReprs,
                                                   elemSize);
-    case TypeRepresentation::Scalar:
+      case TypeRepresentation::Scalar:
         return getElemTryScalarElemOfTypedObject(emitted,
                                                  obj,
                                                  index,
@@ -8165,6 +8169,10 @@ IonBuilder::getPropTryTypedObject(bool *emitted, PropertyName *name,
         return true;
 
     switch (fieldTypeReprs.kind()) {
+      case TypeRepresentation::Float32x4:
+        // FIXME -- load float32x4 into a MIRType_float32x4
+        return true;
+
       case TypeRepresentation::Struct:
       case TypeRepresentation::Array:
         return getPropTryComplexPropOfTypedObject(emitted,
@@ -8698,6 +8706,10 @@ IonBuilder::setPropTryTypedObject(bool *emitted, MDefinition *obj,
         return true;
 
     switch (fieldTypeReprs.kind()) {
+      case TypeRepresentation::Float32x4:
+        // FIXME -- store float32x4 into a MIRType_float32x4
+        return true;
+
       case TypeRepresentation::Struct:
       case TypeRepresentation::Array:
         // For now, only optimize storing scalars.

@@ -1003,3 +1003,24 @@ js::SelfHostedFunction(JSContext *cx, HandlePropertyName propName)
     JS_ASSERT(func.toObject().is<JSFunction>());
     return &func.toObject().as<JSFunction>();
 }
+
+bool
+js::DefineSelfHostedGetter(JSContext *cx,
+                           HandleObject obj,
+                           HandlePropertyName propName,
+                           unsigned attrs,
+                           unsigned flags,
+                           HandlePropertyName selfHostedName)
+{
+    RootedValue funcValue(cx);
+    if (!cx->global()->getSelfHostedFunction(cx, selfHostedName, propName,
+                                             0, &funcValue))
+        return false;
+
+    JS_ASSERT(funcValue.isObject() && funcValue.toObject().is<JSFunction>());
+    RootedFunction func(cx, &funcValue.toObject().as<JSFunction>());
+    RootedValue value(cx, UndefinedValue());
+    return DefineNativeProperty(cx, obj, propName, value,
+                                JS_DATA_TO_FUNC_PTR(PropertyOp, func.get()),
+                                nullptr, attrs, flags, /*shortid*/ 0);
+}

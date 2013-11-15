@@ -59,6 +59,7 @@ namespace js {
 
 class TypeRepresentation;
 class ScalarTypeRepresentation;
+class Float32x4TypeRepresentation;
 class ArrayTypeRepresentation;
 class StructTypeRepresentation;
 
@@ -73,11 +74,14 @@ struct TypeRepresentationHasher
 
   private:
     static HashNumber hashScalar(ScalarTypeRepresentation *key);
+    static HashNumber hashFloat32x4(Float32x4TypeRepresentation *key);
     static HashNumber hashStruct(StructTypeRepresentation *key);
     static HashNumber hashArray(ArrayTypeRepresentation *key);
 
     static bool matchScalars(ScalarTypeRepresentation *key1,
                              ScalarTypeRepresentation *key2);
+    static bool matchFloat32x4s(Float32x4TypeRepresentation *key1,
+                                Float32x4TypeRepresentation *key2);
     static bool matchStructs(StructTypeRepresentation *key1,
                              StructTypeRepresentation *key2);
     static bool matchArrays(ArrayTypeRepresentation *key1,
@@ -88,16 +92,22 @@ typedef js::HashSet<TypeRepresentation *,
                     TypeRepresentationHasher,
                     RuntimeAllocPolicy> TypeRepresentationHash;
 
+class TypeRepresentationHelper;
+
 class TypeRepresentation {
   public:
     enum Kind {
         Scalar = JS_TYPEREPR_SCALAR_KIND,
+        Float32x4 = JS_TYPEREPR_FLOAT32X4_KIND,
         Struct = JS_TYPEREPR_STRUCT_KIND,
         Array = JS_TYPEREPR_ARRAY_KIND
     };
 
   protected:
     TypeRepresentation(Kind kind, size_t size, size_t align);
+
+    // in order to call addToTableOrFree()
+    friend class TypeRepresentationHelper;
 
     size_t size_;
     size_t alignment_;
@@ -133,6 +143,15 @@ class TypeRepresentation {
     ScalarTypeRepresentation *asScalar() {
         JS_ASSERT(isScalar());
         return (ScalarTypeRepresentation*) this;
+    }
+
+    bool isFloat32x4() const {
+        return kind() == Float32x4;
+    }
+
+    Float32x4TypeRepresentation *asFloat32x4() {
+        JS_ASSERT(isFloat32x4());
+        return (Float32x4TypeRepresentation*) this;
     }
 
     bool isArray() const {
@@ -180,6 +199,8 @@ class ScalarTypeRepresentation : public TypeRepresentation {
   private:
     // so TypeRepresentation can call appendStringScalar() etc
     friend class TypeRepresentation;
+    // in order to call constructorb
+    friend class TypeRepresentationHelper;
 
     Type type_;
 
@@ -216,6 +237,28 @@ class ScalarTypeRepresentation : public TypeRepresentation {
 #define JS_FOR_EACH_SCALAR_TYPE_REPR(macro_)                                    \
     JS_FOR_EACH_UNIQUE_SCALAR_TYPE_REPR_CTYPE(macro_)                           \
     macro_(ScalarTypeRepresentation::TYPE_UINT8_CLAMPED, uint8_t, uint8Clamped)
+
+// Layout of a float32x4 in memory as a C struct
+struct Float32x4 {
+    float x;
+    float y;
+    float z;
+    float w;
+};
+
+class Float32x4TypeRepresentation : public TypeRepresentation {
+  private:
+    // so TypeRepresentation can call appendStringScalar() etc
+    friend class TypeRepresentation;
+
+    explicit Float32x4TypeRepresentation();
+
+    // See TypeRepresentation::appendString()
+    bool appendStringFloat32x4(JSContext *cx, StringBuffer &buffer);
+
+  public:
+    static JSObject *Create(JSContext *cx);
+};
 
 class ArrayTypeRepresentation : public TypeRepresentation {
   private:

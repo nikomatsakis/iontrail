@@ -753,6 +753,19 @@ enum ErrorArgumentsType {
 JSFunction *
 SelfHostedFunction(JSContext *cx, HandlePropertyName propName);
 
+/*
+ * Creates a native getter on obj that links to self-hosted code.
+ *
+ * Defined in SelfHosting.cpp.
+ */
+bool
+DefineSelfHostedGetter(JSContext *cx,
+                       HandleObject obj,
+                       HandlePropertyName propName,
+                       unsigned attrs,
+                       unsigned flags,
+                       HandlePropertyName selfHostedName);
+
 } /* namespace js */
 
 #ifdef va_start

@@ -106,6 +106,7 @@ TypedObjectPointer.prototype.kind = function() {
 TypedObjectPointer.prototype.moveTo = function(propName) {
   switch (this.kind()) {
   case JS_TYPEREPR_SCALAR_KIND:
+  case JS_TYPEREPR_FLOAT32X4_KIND:
     break;
 
   case JS_TYPEREPR_ARRAY_KIND:
@@ -188,9 +189,19 @@ TypedObjectPointer.prototype.moveToField = function(propName) {
 TypedObjectPointer.prototype.get = function() {
   assert(ObjectIsAttached(this.datum), "get() called with unattached datum");
 
-  if (REPR_KIND(this.typeRepr) == JS_TYPEREPR_SCALAR_KIND)
+  switch (REPR_KIND(this.typeRepr)) {
+  case JS_TYPEREPR_SCALAR_KIND:
     return this.getScalar();
 
+  case JS_TYPEREPR_FLOAT32X4_KIND:
+    return this.getFloat32X4();
+
+  case JS_TYPEREPR_ARRAY_KIND:
+  case JS_TYPEREPR_STRUCT_KIND:
+    return NewDerivedTypedDatum(this.typeObj, this.datum, this.offset);
+  }
+
+  assert(false, "Unhandled kind: " + REPR_KIND(this.typeRepr));
   return NewDerivedTypedDatum(this.typeObj, this.datum, this.offset);
 }
 
@@ -226,6 +237,14 @@ TypedObjectPointer.prototype.getScalar = function() {
   assert(false, "Unhandled scalar type: " + type);
 }
 
+TypedObjectPointer.prototype.getFloat32X4 = function() {
+  var x = Load_float32(this.datum, this.offset + 0);
+  var y = Load_float32(this.datum, this.offset + 4);
+  var z = Load_float32(this.datum, this.offset + 8);
+  var w = Load_float32(this.datum, this.offset + 12);
+  return global.TypedObject.float32x4(x, y, z, w); // FIXME FIXME
+}
+
 ///////////////////////////////////////////////////////////////////////////
 // Setting values
 //
@@ -256,6 +275,10 @@ TypedObjectPointer.prototype.set = function(fromValue) {
   switch (REPR_KIND(typeRepr)) {
   case JS_TYPEREPR_SCALAR_KIND:
     this.setScalar(fromValue);
+    return;
+
+  case JS_TYPEREPR_FLOAT32X4_KIND:
+    this.setFloat32x4(fromValue);
     return;
 
   case JS_TYPEREPR_ARRAY_KIND:
@@ -338,6 +361,17 @@ TypedObjectPointer.prototype.setScalar = function(fromValue) {
   }
 
   assert(false, "Unhandled scalar type: " + type);
+}
+
+// Sets `fromValue` to `this` assuming that `this` is a scalar type.
+TypedObjectPointer.prototype.setFloat32x4 = function(fromValue) {
+  // It is only permitted to set a float32x4 value from another
+  // float32x4; in that case, the "fast path" that uses memcopy will
+  // have already matched. So if we get to this point, we're supposed
+  // to "adapt" fromValue, but there are no legal adaptions.
+  ThrowError(JSMSG_CANT_CONVERT_TO,
+             typeof(fromValue),
+             this.typeRepr.toSource())
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -561,6 +595,59 @@ function HandleSet(handle, value) {
 // FIXME bug 929656 -- label algorithms with steps from the spec
 function HandleTest(obj) {
   return IsObject(obj) && ObjectIsTypedHandle(obj);
+}
+
+///////////////////////////////////////////////////////////////////////////
+// float32x4
+
+function Float32x4GetLane(datum, lane, laneString) {
+  if (!IsObject(datum) || !ObjectIsTypedDatum(datum))
+    ThrowError(JSMSG_INCOMPATIBLE_PROTO, "float32x4", laneString, typeof this);
+
+  var repr = DATUM_TYPE_REPR(datum);
+  if (REPR_KIND(repr) != JS_TYPEREPR_FLOAT32X4_KIND)
+    ThrowError(JSMSG_INCOMPATIBLE_PROTO, "float32x4", laneString, typeof this);
+
+  return Load_float32(datum, lane * 4);
+}
+
+// Getter for lane x of a float32x4
+//
+// Warning: user exposed!
+function Float32x4GetX() {
+  return Float32x4GetLane(this, 0, "x");
+}
+
+// Getter for lane y of a float32x4
+//
+// Warning: user exposed!
+function Float32x4GetY() {
+  return Float32x4GetLane(this, 1, "y");
+}
+
+// Getter for lane z of a float32x4
+//
+// Warning: user exposed!
+function Float32x4GetZ() {
+  return Float32x4GetLane(this, 2, "z");
+}
+
+// Getter for lane w of a float32x4
+//
+// Warning: user exposed!
+function Float32x4GetW() {
+  return Float32x4GetLane(this, 3, "w");
+}
+
+function Float32x4ToSource() {
+  if (!IsObject(this) || !ObjectIsTypedDatum(this))
+    ThrowError(JSMSG_INCOMPATIBLE_PROTO, "float32x4", "toSource", typeof this);
+
+  var repr = DATUM_TYPE_REPR(this);
+  if (REPR_KIND(repr) != JS_TYPEREPR_FLOAT32X4_KIND)
+    ThrowError(JSMSG_INCOMPATIBLE_PROTO, "float32x4", "toSource", typeof this);
+
+  return "float32x4("+this.x+", "+this.y+", "+this.z+", "+this.w+")";
 }
 
 ///////////////////////////////////////////////////////////////////////////

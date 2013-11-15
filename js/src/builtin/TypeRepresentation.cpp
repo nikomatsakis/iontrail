@@ -59,6 +59,9 @@ TypeRepresentationHasher::match(TypeRepresentation *key1,
       case TypeRepresentation::Scalar:
         return matchScalars(key1->asScalar(), key2->asScalar());
 
+      case TypeRepresentation::Float32x4:
+        return matchFloat32x4s(key1->asFloat32x4(), key2->asFloat32x4());
+
       case TypeRepresentation::Struct:
         return matchStructs(key1->asStruct(), key2->asStruct());
 
@@ -74,6 +77,13 @@ TypeRepresentationHasher::matchScalars(ScalarTypeRepresentation *key1,
                                        ScalarTypeRepresentation *key2)
 {
     return key1->type() == key2->type();
+}
+
+bool
+TypeRepresentationHasher::matchFloat32x4s(Float32x4TypeRepresentation *key1,
+                                          Float32x4TypeRepresentation *key2)
+{
+    return true;
 }
 
 bool
@@ -109,6 +119,9 @@ TypeRepresentationHasher::hash(TypeRepresentation *key) {
       case TypeRepresentation::Scalar:
         return hashScalar(key->asScalar());
 
+      case TypeRepresentation::Float32x4:
+        return hashFloat32x4(key->asFloat32x4());
+
       case TypeRepresentation::Struct:
         return hashStruct(key->asStruct());
 
@@ -123,6 +136,12 @@ HashNumber
 TypeRepresentationHasher::hashScalar(ScalarTypeRepresentation *key)
 {
     return HashGeneric(key->kind(), key->type());
+}
+
+HashNumber
+TypeRepresentationHasher::hashFloat32x4(Float32x4TypeRepresentation *key)
+{
+    return HashGeneric(key->kind());
 }
 
 HashNumber
@@ -151,32 +170,22 @@ TypeRepresentation::TypeRepresentation(Kind kind, size_t size, size_t align)
     kind_(kind)
 {}
 
+static size_t ScalarSizes[] = {
+#define SCALAR_SIZE(_kind, _type, _name)                        \
+    sizeof(_type),
+    JS_FOR_EACH_SCALAR_TYPE_REPR(SCALAR_SIZE) 0
+#undef SCALAR_SIZE
+};
+
 ScalarTypeRepresentation::ScalarTypeRepresentation(Type type)
-  : TypeRepresentation(Scalar, 0, 1),
+  : TypeRepresentation(Scalar, ScalarSizes[type], ScalarSizes[type]),
     type_(type)
 {
-    switch (type) {
-      case TYPE_INT8:
-      case TYPE_UINT8:
-      case TYPE_UINT8_CLAMPED:
-        size_ = alignment_ = 1;
-        break;
+}
 
-      case TYPE_INT16:
-      case TYPE_UINT16:
-        size_ = alignment_ = 2;
-        break;
-
-      case TYPE_INT32:
-      case TYPE_UINT32:
-      case TYPE_FLOAT32:
-        size_ = alignment_ = 4;
-        break;
-
-      case TYPE_FLOAT64:
-        size_ = alignment_ = 8;
-        break;
-    }
+Float32x4TypeRepresentation::Float32x4TypeRepresentation()
+  : TypeRepresentation(Float32x4, sizeof(js::Float32x4), sizeof(js::Float32x4))
+{
 }
 
 ArrayTypeRepresentation::ArrayTypeRepresentation(TypeRepresentation *element,
@@ -305,6 +314,9 @@ TypeRepresentation::addToTableOrFree(JSContext *cx,
                                       Int32Value(asScalar()->type()));
         break;
 
+      case Float32x4:
+        break;
+
       case Struct:
         break;
     }
@@ -313,27 +325,58 @@ TypeRepresentation::addToTableOrFree(JSContext *cx,
     return &*ownerObject;
 }
 
+namespace js {
+class TypeRepresentationHelper {
+  public:
+    template<typename T>
+    static JSObject *CreateSimple(JSContext *cx, typename T::Type type) {
+        JSCompartment *comp = cx->compartment();
+
+        T sample(type);
+        TypeRepresentationHash::AddPtr p = comp->typeReprs.lookupForAdd(&sample);
+        if (p)
+            return (*p)->ownerObject();
+
+        // Note: cannot use cx->new_ because constructor is private.
+        T *ptr = (T *) cx->malloc_(sizeof(T));
+        if (!ptr)
+            return nullptr;
+        new(ptr) T(type);
+
+        return ptr->addToTableOrFree(cx, p);
+    }
+};
+} // namespace js
+
 /*static*/
 JSObject *
 ScalarTypeRepresentation::Create(JSContext *cx,
                                  ScalarTypeRepresentation::Type type)
 {
-    JSCompartment *comp = cx->compartment();
+    return TypeRepresentationHelper::CreateSimple<ScalarTypeRepresentation>
+           (cx, type);
+}
 
-    ScalarTypeRepresentation sample(type);
-    TypeRepresentationHash::AddPtr p = comp->typeReprs.lookupForAdd(&sample);
-    if (p)
-        return (*p)->ownerObject();
+/*static*/
+JSObject *
+Float32x4TypeRepresentation::Create(JSContext *cx)
+{
+        JSCompartment *comp = cx->compartment();
 
-    // Note: cannot use cx->new_ because constructor is private.
-    ScalarTypeRepresentation *ptr =
-        (ScalarTypeRepresentation *) cx->malloc_(
-            sizeof(ScalarTypeRepresentation));
-    if (!ptr)
-        return nullptr;
-    new(ptr) ScalarTypeRepresentation(type);
+        Float32x4TypeRepresentation sample;
+        TypeRepresentationHash::AddPtr p = comp->typeReprs.lookupForAdd(&sample);
+        if (p)
+            return (*p)->ownerObject();
 
-    return ptr->addToTableOrFree(cx, p);
+        // Note: cannot use cx->new_ because constructor is private.
+        Float32x4TypeRepresentation *ptr =
+            (Float32x4TypeRepresentation *)
+                cx->malloc_(sizeof(Float32x4TypeRepresentation));
+        if (!ptr)
+            return nullptr;
+        new(ptr) Float32x4TypeRepresentation();
+
+        return ptr->addToTableOrFree(cx, p);
 }
 
 /*static*/
@@ -422,6 +465,7 @@ TypeRepresentation::traceFields(JSTracer *trace)
 
     switch (kind()) {
       case Scalar:
+      case Float32x4:
         break;
 
       case Struct:
@@ -472,6 +516,9 @@ TypeRepresentation::appendString(JSContext *cx, StringBuffer &contents)
       case Scalar:
         return asScalar()->appendStringScalar(cx, contents);
 
+      case Float32x4:
+        return asFloat32x4()->appendStringFloat32x4(cx, contents);
+
       case Array:
         return asArray()->appendStringArray(cx, contents);
 
@@ -503,6 +550,12 @@ ScalarTypeRepresentation::appendStringScalar(JSContext *cx, StringBuffer &conten
         JS_FOR_EACH_SCALAR_TYPE_REPR(NUMERIC_TYPE_APPEND_STRING)
     }
     MOZ_ASSUME_UNREACHABLE("Invalid type");
+}
+
+bool
+Float32x4TypeRepresentation::appendStringFloat32x4(JSContext *cx, StringBuffer &contents)
+{
+    return contents.append("float32x4");
 }
 
 bool

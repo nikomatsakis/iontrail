@@ -73,6 +73,11 @@
     macro(Float32x4GetX, Float32x4GetX, "Float32x4GetX") \
     macro(Float32x4GetY, Float32x4GetY, "Float32x4GetY") \
     macro(Float32x4GetZ, Float32x4GetZ, "Float32x4GetZ") \
+    macro(int32x4, int32x4, "int32x4") \
+    macro(Int32x4GetW, Int32x4GetW, "Int32x4GetW") \
+    macro(Int32x4GetX, Int32x4GetX, "Int32x4GetX") \
+    macro(Int32x4GetY, Int32x4GetY, "Int32x4GetY") \
+    macro(Int32x4GetZ, Int32x4GetZ, "Int32x4GetZ") \
     macro(float64, float64, "float64") \
     macro(format, format, "format") \
     macro(from, from, "from") \

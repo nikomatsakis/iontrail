@@ -107,6 +107,7 @@ TypedObjectPointer.prototype.moveTo = function(propName) {
   switch (this.kind()) {
   case JS_TYPEREPR_SCALAR_KIND:
   case JS_TYPEREPR_FLOAT32X4_KIND:
+  case JS_TYPEREPR_INT32X4_KIND:
     break;
 
   case JS_TYPEREPR_ARRAY_KIND:
@@ -196,6 +197,9 @@ TypedObjectPointer.prototype.get = function() {
   case JS_TYPEREPR_FLOAT32X4_KIND:
     return this.getFloat32X4();
 
+  case JS_TYPEREPR_INT32X4_KIND:
+    return this.getInt32X4();
+
   case JS_TYPEREPR_ARRAY_KIND:
   case JS_TYPEREPR_STRUCT_KIND:
     return NewDerivedTypedDatum(this.typeObj, this.datum, this.offset);
@@ -245,6 +249,14 @@ TypedObjectPointer.prototype.getFloat32X4 = function() {
   return global.TypedObject.float32x4(x, y, z, w); // FIXME FIXME
 }
 
+TypedObjectPointer.prototype.getInt32X4 = function() {
+  var x = Load_int32(this.datum, this.offset + 0);
+  var y = Load_int32(this.datum, this.offset + 4);
+  var z = Load_int32(this.datum, this.offset + 8);
+  var w = Load_int32(this.datum, this.offset + 12);
+  return global.TypedObject.int32x4(x, y, z, w); // FIXME FIXME
+}
+
 ///////////////////////////////////////////////////////////////////////////
 // Setting values
 //
@@ -279,6 +291,10 @@ TypedObjectPointer.prototype.set = function(fromValue) {
 
   case JS_TYPEREPR_FLOAT32X4_KIND:
     this.setFloat32x4(fromValue);
+    return;
+
+  case JS_TYPEREPR_INT32X4_KIND:
+    this.setInt32x4(fromValue);
     return;
 
   case JS_TYPEREPR_ARRAY_KIND:
@@ -365,6 +381,17 @@ TypedObjectPointer.prototype.setScalar = function(fromValue) {
 
 // Sets `fromValue` to `this` assuming that `this` is a scalar type.
 TypedObjectPointer.prototype.setFloat32x4 = function(fromValue) {
+  // It is only permitted to set a float32x4 value from another
+  // float32x4; in that case, the "fast path" that uses memcopy will
+  // have already matched. So if we get to this point, we're supposed
+  // to "adapt" fromValue, but there are no legal adaptions.
+  ThrowError(JSMSG_CANT_CONVERT_TO,
+             typeof(fromValue),
+             this.typeRepr.toSource())
+}
+
+// Sets `fromValue` to `this` assuming that `this` is a scalar type.
+TypedObjectPointer.prototype.setInt32x4 = function(fromValue) {
   // It is only permitted to set a float32x4 value from another
   // float32x4; in that case, the "fast path" that uses memcopy will
   // have already matched. So if we get to this point, we're supposed
@@ -648,6 +675,59 @@ function Float32x4ToSource() {
     ThrowError(JSMSG_INCOMPATIBLE_PROTO, "float32x4", "toSource", typeof this);
 
   return "float32x4("+this.x+", "+this.y+", "+this.z+", "+this.w+")";
+}
+
+///////////////////////////////////////////////////////////////////////////
+// int32x4
+
+function Int32x4GetLane(datum, lane, laneString) {
+  if (!IsObject(datum) || !ObjectIsTypedDatum(datum))
+    ThrowError(JSMSG_INCOMPATIBLE_PROTO, "int32x4", laneString, typeof this);
+
+  var repr = DATUM_TYPE_REPR(datum);
+  if (REPR_KIND(repr) != JS_TYPEREPR_INT32X4_KIND)
+    ThrowError(JSMSG_INCOMPATIBLE_PROTO, "int32x4", laneString, typeof this);
+
+  return Load_int32(datum, lane * 4);
+}
+
+// Getter for lane x of a int32x4
+//
+// Warning: user exposed!
+function Int32x4GetX() {
+  return Int32x4GetLane(this, 0, "x");
+}
+
+// Getter for lane y of a int32x4
+//
+// Warning: user exposed!
+function Int32x4GetY() {
+  return Int32x4GetLane(this, 1, "y");
+}
+
+// Getter for lane z of a int32x4
+//
+// Warning: user exposed!
+function Int32x4GetZ() {
+  return Int32x4GetLane(this, 2, "z");
+}
+
+// Getter for lane w of a int32x4
+//
+// Warning: user exposed!
+function Int32x4GetW() {
+  return Int32x4GetLane(this, 3, "w");
+}
+
+function Int32x4ToSource() {
+  if (!IsObject(this) || !ObjectIsTypedDatum(this))
+    ThrowError(JSMSG_INCOMPATIBLE_PROTO, "int32x4", "toSource", typeof this);
+
+  var repr = DATUM_TYPE_REPR(this);
+  if (REPR_KIND(repr) != JS_TYPEREPR_INT32X4_KIND)
+    ThrowError(JSMSG_INCOMPATIBLE_PROTO, "int32x4", "toSource", typeof this);
+
+  return "int32x4("+this.x+", "+this.y+", "+this.z+", "+this.w+")";
 }
 
 ///////////////////////////////////////////////////////////////////////////

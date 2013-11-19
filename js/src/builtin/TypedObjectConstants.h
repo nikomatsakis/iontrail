@@ -26,6 +26,9 @@
 // Slots on float32x4s
 #define JS_TYPEOBJ_FLOAT32X4_SLOTS         1  // Maximum number
 
+// Slots on int32x4s
+#define JS_TYPEOBJ_INT32X4_SLOTS           1  // Maximum number
+
 // Slots on arrays
 #define JS_TYPEOBJ_SLOT_ARRAY_ELEM_TYPE    1
 #define JS_TYPEOBJ_ARRAY_SLOTS             2  // Maximum number
@@ -62,8 +65,9 @@
 // write a switch which will receive a warning if you omit a case.
 #define JS_TYPEREPR_SCALAR_KIND    0
 #define JS_TYPEREPR_FLOAT32X4_KIND 1
-#define JS_TYPEREPR_STRUCT_KIND    2
-#define JS_TYPEREPR_ARRAY_KIND     3
+#define JS_TYPEREPR_INT32X4_KIND   2
+#define JS_TYPEREPR_STRUCT_KIND    3
+#define JS_TYPEREPR_ARRAY_KIND     4
 
 // These constants are for use exclusively in JS code.  In C++ code,
 // prefer ScalarTypeRepresentation::TYPE_INT8 etc, since that allows
@@ -84,6 +88,7 @@
 // you to write a switch which will receive a warning if you omit a
 // case.
 #define JS_BIGSCALARTYPEREPR_FLOAT32X4  0
+#define JS_BIGSCALARTYPEREPR_INT32X4    0
 
 ///////////////////////////////////////////////////////////////////////////
 // Slots for typed objects (actually, any TypedContents objects)

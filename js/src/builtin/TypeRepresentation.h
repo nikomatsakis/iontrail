@@ -60,6 +60,7 @@ namespace js {
 class TypeRepresentation;
 class ScalarTypeRepresentation;
 class Float32x4TypeRepresentation;
+class Int32x4TypeRepresentation;
 class ArrayTypeRepresentation;
 class StructTypeRepresentation;
 
@@ -75,6 +76,7 @@ struct TypeRepresentationHasher
   private:
     static HashNumber hashScalar(ScalarTypeRepresentation *key);
     static HashNumber hashFloat32x4(Float32x4TypeRepresentation *key);
+    static HashNumber hashInt32x4(Int32x4TypeRepresentation *key);
     static HashNumber hashStruct(StructTypeRepresentation *key);
     static HashNumber hashArray(ArrayTypeRepresentation *key);
 
@@ -82,6 +84,8 @@ struct TypeRepresentationHasher
                              ScalarTypeRepresentation *key2);
     static bool matchFloat32x4s(Float32x4TypeRepresentation *key1,
                                 Float32x4TypeRepresentation *key2);
+    static bool matchInt32x4s(Int32x4TypeRepresentation *key1,
+                              Int32x4TypeRepresentation *key2);
     static bool matchStructs(StructTypeRepresentation *key1,
                              StructTypeRepresentation *key2);
     static bool matchArrays(ArrayTypeRepresentation *key1,
@@ -99,6 +103,7 @@ class TypeRepresentation {
     enum Kind {
         Scalar = JS_TYPEREPR_SCALAR_KIND,
         Float32x4 = JS_TYPEREPR_FLOAT32X4_KIND,
+        Int32x4 = JS_TYPEREPR_INT32X4_KIND,
         Struct = JS_TYPEREPR_STRUCT_KIND,
         Array = JS_TYPEREPR_ARRAY_KIND
     };
@@ -152,6 +157,15 @@ class TypeRepresentation {
     Float32x4TypeRepresentation *asFloat32x4() {
         JS_ASSERT(isFloat32x4());
         return (Float32x4TypeRepresentation*) this;
+    }
+
+    bool isInt32x4() const {
+        return kind() == Int32x4;
+    }
+
+    Int32x4TypeRepresentation *asInt32x4() {
+        JS_ASSERT(isInt32x4());
+        return (Int32x4TypeRepresentation*) this;
     }
 
     bool isArray() const {
@@ -255,6 +269,28 @@ class Float32x4TypeRepresentation : public TypeRepresentation {
 
     // See TypeRepresentation::appendString()
     bool appendStringFloat32x4(JSContext *cx, StringBuffer &buffer);
+
+  public:
+    static JSObject *Create(JSContext *cx);
+};
+
+// Layout of a int32x4 in memory as a C struct
+struct Int32x4 {
+    int32_t x;
+    int32_t y;
+    int32_t z;
+    int32_t w;
+};
+
+class Int32x4TypeRepresentation : public TypeRepresentation {
+  private:
+    // so TypeRepresentation can call appendStringScalar() etc
+    friend class TypeRepresentation;
+
+    explicit Int32x4TypeRepresentation();
+
+    // See TypeRepresentation::appendString()
+    bool appendStringInt32x4(JSContext *cx, StringBuffer &buffer);
 
   public:
     static JSObject *Create(JSContext *cx);

@@ -143,6 +143,28 @@ class Float32x4Type : public JSObject
 };
 
 /*
+ * Type descriptor `int32x4`
+ */
+class Int32x4Type : public JSObject
+{
+  private:
+  public:
+    static const Class class_;
+
+    // Properties and methods to be installed on float32x4,
+    // and hence inherited by the float32x4 constructor function:
+    static const JSPropertySpec typeObjectProperties[];
+    static const JSFunctionSpec typeObjectMethods[];
+
+    // Properties and methods to be installed on float32x4.prototype,
+    // and hence inherited by the float32x4 wrappers:
+    static const JSPropertySpec typedObjectProperties[];
+    static const JSFunctionSpec typedObjectMethods[];
+
+    static bool call(JSContext *cx, unsigned argc, Value *vp);
+};
+
+/*
  * Type descriptor created by `new ArrayType(...)`
  */
 class ArrayType : public JSObject

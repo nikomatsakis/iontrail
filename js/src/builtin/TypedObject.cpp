@@ -131,10 +131,17 @@ IsFloat32x4TypeObject(JSObject &type)
 }
 
 static inline bool
+IsInt32x4TypeObject(JSObject &type)
+{
+    return type.hasClass(&Int32x4Type::class_);
+}
+
+static inline bool
 IsTypeObject(JSObject &type)
 {
     return IsNumericTypeObject(type) ||
            IsFloat32x4TypeObject(type) ||
+           IsInt32x4TypeObject(type) ||
            IsComplexTypeObject(type);
 }
 
@@ -1324,6 +1331,149 @@ Float32x4Type::call(JSContext *cx, unsigned argc, Value *vp)
 }
 
 ///////////////////////////////////////////////////////////////////////////
+// int32x4
+
+
+const Class Int32x4Type::class_ = {
+    "int32x4",
+    JSCLASS_HAS_RESERVED_SLOTS(JS_TYPEOBJ_INT32X4_SLOTS),
+    JS_PropertyStub,
+    JS_DeletePropertyStub,
+    JS_PropertyStub,
+    JS_StrictPropertyStub,
+    JS_EnumerateStub,
+    JS_ResolveStub,
+    JS_ConvertStub,
+    nullptr,
+    nullptr,
+    call,
+    nullptr,
+    nullptr,
+    nullptr
+};
+
+const JSPropertySpec Int32x4Type::typeObjectProperties[] = {
+    JS_PS_END
+};
+
+const JSFunctionSpec Int32x4Type::typeObjectMethods[] = {
+    JS_FS_END
+};
+
+const JSPropertySpec Int32x4Type::typedObjectProperties[] = {
+    // The x, y, z, and w properties are self-hosted and sadly
+    // there is no nice macro for declaring that here.
+    JS_PS_END
+};
+
+const JSFunctionSpec Int32x4Type::typedObjectMethods[] = {
+    JS_SELF_HOSTED_FN("toSource", "Int32x4ToSource", 0, 0),
+    JS_SELF_HOSTED_FN("toString", "Int32x4ToSource", 0, 0),
+    JS_FS_END
+};
+
+static JSObject *
+CreateInt32x4Class(JSContext *cx, Handle<GlobalObject*> global)
+{
+    RootedObject funcProto(cx, global->getOrCreateFunctionPrototype(cx));
+    if (!funcProto)
+        return nullptr;
+
+    // Create int32x4 type representation
+
+    RootedObject typeReprObj(cx, Int32x4TypeRepresentation::Create(cx));
+    if (!typeReprObj)
+        return nullptr;
+
+    // Create int32x4.prototype, which inherits from Object.prototype
+
+    RootedObject objProto(cx, global->getOrCreateObjectPrototype(cx));
+    if (!objProto)
+        return nullptr;
+    RootedObject proto(cx);
+    proto = NewObjectWithGivenProto(cx, &JSObject::class_, objProto, global, SingletonObject);
+    if (!proto)
+        return nullptr;
+
+    // Create int32x4 itself
+
+    RootedObject int32x4(cx);
+    int32x4 = NewObjectWithClassProto(cx, &Int32x4Type::class_, funcProto, global);
+    if (!int32x4 ||
+        !InitializeCommonTypeDescriptorProperties(cx, int32x4, typeReprObj) ||
+        !DefinePropertiesAndBrand(cx, proto,
+                                  Int32x4Type::typeObjectProperties,
+                                  Int32x4Type::typeObjectMethods))
+    {
+        return nullptr;
+    }
+
+    // Link int32x4 to the type representation
+
+    int32x4->initReservedSlot(JS_TYPEOBJ_SLOT_TYPE_REPR, ObjectValue(*typeReprObj));
+
+    // Link int32x4 to int32x4.prototype and install properties
+
+    if (!LinkConstructorAndPrototype(cx, int32x4, proto) ||
+        !DefinePropertiesAndBrand(cx, proto,
+                                  Int32x4Type::typedObjectProperties,
+                                  Int32x4Type::typedObjectMethods))
+    {
+        return nullptr;
+    }
+
+    // Install self-hosted getters, which are currently rather annoying,
+    // on int32x4.prototype
+
+    unsigned attrs = JSPROP_READONLY | JSPROP_PERMANENT | JSPROP_GETTER;
+    if (!DefineSelfHostedGetter(cx, proto, cx->names().x, attrs, 0,
+                                cx->names().Int32x4GetX) ||
+        !DefineSelfHostedGetter(cx, proto, cx->names().y, attrs, 0,
+                                cx->names().Int32x4GetY) ||
+        !DefineSelfHostedGetter(cx, proto, cx->names().z, attrs, 0,
+                                cx->names().Int32x4GetZ) ||
+        !DefineSelfHostedGetter(cx, proto, cx->names().w, attrs, 0,
+                                cx->names().Int32x4GetW))
+    {
+        return nullptr;
+    }
+
+    return int32x4;
+}
+
+bool
+Int32x4Type::call(JSContext *cx, unsigned argc, Value *vp)
+{
+    CallArgs args = CallArgsFromVp(argc, vp);
+    const uint32_t LANES = 4;
+
+    if (args.length() < LANES) {
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MORE_ARGS_NEEDED,
+                             args.callee().getClass()->name, "3", "s");
+        return false;
+    }
+
+    double values[LANES];
+    for (uint32_t i = 0; i < LANES; i++) {
+        if (!ToNumber(cx, args[i], &values[i]))
+            return false;
+    }
+
+    RootedObject typeObj(cx, &args.callee());
+    RootedObject result(cx, TypedObject::createZeroed(cx, typeObj));
+    if (!result)
+        return false;
+
+    int32_t *mem = (int32_t*) TypedMem(*result);
+    for (uint32_t i = 0; i < LANES; i++) {
+        mem[i] = values[i];
+    }
+
+    args.rval().setObject(*result);
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////
 // Creating the TypedObject "module"
@@ -1425,6 +1575,21 @@ js_InitTypedObjectClass(JSContext *cx, HandleObject obj)
     RootedValue float32x4Value(cx, ObjectValue(*float32x4Object));
     if (!JSObject::defineProperty(cx, module, cx->names().float32x4,
                                   float32x4Value,
+                                  nullptr, nullptr,
+                                  JSPROP_READONLY | JSPROP_PERMANENT))
+    {
+        return nullptr;
+    }
+
+    // int32x4
+
+    RootedObject int32x4Object(cx, CreateInt32x4Class(cx, global));
+    if (!int32x4Object)
+        return nullptr;
+
+    RootedValue int32x4Value(cx, ObjectValue(*int32x4Object));
+    if (!JSObject::defineProperty(cx, module, cx->names().int32x4,
+                                  int32x4Value,
                                   nullptr, nullptr,
                                   JSPROP_READONLY | JSPROP_PERMANENT))
     {
@@ -1722,6 +1887,7 @@ TypedDatum::obj_lookupGeneric(JSContext *cx, HandleObject obj, HandleId id,
         break;
 
       case TypeRepresentation::Float32x4:
+      case TypeRepresentation::Int32x4:
         break;
 
       case TypeRepresentation::Array: {
@@ -1898,6 +2064,7 @@ TypedDatum::obj_getGeneric(JSContext *cx, HandleObject obj, HandleObject receive
         break;
 
       case TypeRepresentation::Float32x4:
+      case TypeRepresentation::Int32x4:
         break;
 
       case TypeRepresentation::Array:
@@ -1957,6 +2124,7 @@ TypedDatum::obj_getElementIfPresent(JSContext *cx, HandleObject obj,
     switch (typeRepr->kind()) {
       case TypeRepresentation::Scalar:
       case TypeRepresentation::Float32x4:
+      case TypeRepresentation::Int32x4:
       case TypeRepresentation::Struct:
         break;
 
@@ -2010,6 +2178,7 @@ TypedDatum::obj_setGeneric(JSContext *cx, HandleObject obj, HandleId id,
         break;
 
       case ScalarTypeRepresentation::Float32x4:
+      case ScalarTypeRepresentation::Int32x4:
         break;
 
       case ScalarTypeRepresentation::Array:
@@ -2055,6 +2224,7 @@ TypedDatum::obj_setElement(JSContext *cx, HandleObject obj, uint32_t index,
     switch (typeRepr->kind()) {
       case ScalarTypeRepresentation::Scalar:
       case ScalarTypeRepresentation::Float32x4:
+      case ScalarTypeRepresentation::Int32x4:
       case ScalarTypeRepresentation::Struct:
         break;
 
@@ -2098,6 +2268,7 @@ TypedDatum::obj_getGenericAttributes(JSContext *cx, HandleObject obj,
         break;
 
       case TypeRepresentation::Float32x4:
+      case TypeRepresentation::Int32x4:
         break;
 
       case TypeRepresentation::Array:
@@ -2138,6 +2309,7 @@ IsOwnId(JSContext *cx, HandleObject obj, HandleId id)
     switch (typeRepr->kind()) {
       case TypeRepresentation::Scalar:
       case TypeRepresentation::Float32x4:
+      case TypeRepresentation::Int32x4:
         return false;
 
       case TypeRepresentation::Array:
@@ -2230,6 +2402,7 @@ TypedDatum::obj_enumerate(JSContext *cx, HandleObject obj, JSIterateOp enum_op,
     switch (typeRepr->kind()) {
       case TypeRepresentation::Scalar:
       case TypeRepresentation::Float32x4:
+      case TypeRepresentation::Int32x4:
         switch (enum_op) {
           case JSENUMERATE_INIT_ALL:
           case JSENUMERATE_INIT:

@@ -6500,6 +6500,9 @@ IonBuilder::getElemTryTypedObject(bool *emitted, MDefinition *obj, MDefinition *
       case TypeRepresentation::Float32x4:
         // FIXME -- load float32x4 into a MIRType_float32x4
         return true;
+      case TypeRepresentation::Int32x4:
+        // FIXME -- load int32x4 into a MIRType_int32x4
+        return true;
 
       case TypeRepresentation::Struct:
       case TypeRepresentation::Array:
@@ -8172,6 +8175,9 @@ IonBuilder::getPropTryTypedObject(bool *emitted, PropertyName *name,
       case TypeRepresentation::Float32x4:
         // FIXME -- load float32x4 into a MIRType_float32x4
         return true;
+      case TypeRepresentation::Int32x4:
+        // FIXME -- load int32x4 into a MIRType_int32x4
+        return true;
 
       case TypeRepresentation::Struct:
       case TypeRepresentation::Array:
@@ -8708,6 +8714,9 @@ IonBuilder::setPropTryTypedObject(bool *emitted, MDefinition *obj,
     switch (fieldTypeReprs.kind()) {
       case TypeRepresentation::Float32x4:
         // FIXME -- store float32x4 into a MIRType_float32x4
+        return true;
+      case TypeRepresentation::Int32x4:
+        // FIXME -- store int32x4 into a MIRType_int32x4
         return true;
 
       case TypeRepresentation::Struct:

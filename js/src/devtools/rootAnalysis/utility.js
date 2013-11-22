@@ -41,11 +41,11 @@ function xprint(x, padding)
 function sameBlockId(id0, id1)
 {
     if (id0.Kind != id1.Kind)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!sameVariable(id0.Variable, id1.Variable))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (id0.Kind == "Loop" && id0.Loop != id1.Loop)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return true;
 }
 

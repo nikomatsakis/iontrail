@@ -2,7 +2,7 @@
 // This code is governed by the BSD license found in the LICENSE file.
 
 /**
- * If x is NaN, return false (if result in 11.8.5 is undefined, return false)
+ * If x is NaN, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false) (if result in 11.8.5 is undefined, return false)
  *
  * @path ch11/11.8/11.8.2/S11.8.2_A4.1.js
  * @description y is number primitive

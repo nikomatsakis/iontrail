@@ -182,12 +182,12 @@ bool
 Start()
 {
     if (!shark_port && !(shark_port = CreatePort()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!connected && Connect(shark_port))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     connected = true;
     if (!running && ::Start(shark_port, 0xdeadbeef))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return running = true;
 }
 

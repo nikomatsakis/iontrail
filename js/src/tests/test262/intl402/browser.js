@@ -379,7 +379,7 @@ function isCanonicalizedStructurallyValidLanguageTag(locale) {
      */
     function isStructurallyValidLanguageTag(locale) {
         if (!languageTagRE.test(locale)) {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         locale = locale.split(/-x-/)[0];
         return !duplicateSingletonRE.test(locale) && !duplicateVariantRE.test(locale);

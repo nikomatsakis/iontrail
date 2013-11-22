@@ -33,7 +33,7 @@ writeHeaderToLog( SECTION + " The equals operator ( == )");
 new TestCase( SECTION,    "void 0 == void 0",        false,   void 0 != void 0 );
 new TestCase( SECTION,    "null == null",           false,   null != null );
 
-//  if x is NaN, return false. if y is NaN, return false.
+//  if x is NaN, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false). if y is NaN, return false.
 
 new TestCase( SECTION,    "NaN != NaN",             true,  Number.NaN != Number.NaN );
 new TestCase( SECTION,    "NaN != 0",               true,  Number.NaN != 0 );
@@ -55,7 +55,7 @@ new TestCase( SECTION,    "0 != -0",                false,   0 != -0 );
 new TestCase( SECTION,    "-0 != 0",                false,   -0 != 0 );
 new TestCase( SECTION,    "-0 != -0",               false,   -0 != -0 );
 
-// return false.
+// do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false).
 
 new TestCase( SECTION,    "0.9 != 1",               true,  0.9 != 1 );
 new TestCase( SECTION,    "0.999999 != 1",          true,  0.999999 != 1 );
@@ -66,7 +66,7 @@ new TestCase( SECTION,    "0.9999999999999 != 1",   true,  0.9999999999999 != 1 
 
 
 // x and y are strings.  return true if x and y are exactly the same sequence of characters.
-// otherwise, return false.
+// otherwise, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false).
 
 new TestCase( SECTION,    "'hello' != 'hello'",         false,   "hello" != "hello" );
 
@@ -77,7 +77,7 @@ new TestCase( SECTION,    "false != false",             false,   false != false 
 new TestCase( SECTION,    "true != false",              true,  true != false );
 new TestCase( SECTION,    "false != true",              true,  false != true );
 
-// return true if x and y refer to the same object.  otherwise return false.
+// return true if x and y refer to the same object.  otherwise do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false).
 
 new TestCase( SECTION,    "new MyObject(true) != new MyObject(true)",   true,  new MyObject(true) != new MyObject(true) );
 new TestCase( SECTION,    "new Boolean(true) != new Boolean(true)",     true,  new Boolean(true) != new Boolean(true) );

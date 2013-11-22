@@ -111,7 +111,7 @@ str_escape(JSContext *cx, unsigned argc, Value *vp)
 
     JSLinearString *str = ArgToRootedString(cx, args, 0);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     size_t length = str->length();
     const jschar *chars = str->chars();
@@ -155,18 +155,18 @@ str_escape(JSContext *cx, unsigned argc, Value *vp)
          */
         if (newlength < length) {
             js_ReportAllocationOverflow(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
     if (newlength >= ~(size_t)0 / sizeof(jschar)) {
         js_ReportAllocationOverflow(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     jschar *newchars = cx->pod_malloc<jschar>(newlength + 1);
     if (!newchars)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     size_t i, ni;
     for (i = 0, ni = 0; i < length; i++) {
         jschar ch = chars[i];
@@ -191,7 +191,7 @@ str_escape(JSContext *cx, unsigned argc, Value *vp)
     JSString *retstr = js_NewString<CanGC>(cx, newchars, newlength);
     if (!retstr) {
         js_free(newchars);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args.rval().setString(retstr);
@@ -207,7 +207,7 @@ Unhex4(const jschar *chars, jschar *result)
            d = chars[3];
 
     if (!(JS7_ISHEX(a) && JS7_ISHEX(b) && JS7_ISHEX(c) && JS7_ISHEX(d)))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *result = (((((JS7_UNHEX(a) << 4) + JS7_UNHEX(b)) << 4) + JS7_UNHEX(c)) << 4) + JS7_UNHEX(d);
     return true;
@@ -220,7 +220,7 @@ Unhex2(const jschar *chars, jschar *result)
            b = chars[1];
 
     if (!(JS7_ISHEX(a) && JS7_ISHEX(b)))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *result = (JS7_UNHEX(a) << 4) + JS7_UNHEX(b);
     return true;
@@ -235,7 +235,7 @@ str_unescape(JSContext *cx, unsigned argc, Value *vp)
     /* Step 1. */
     JSLinearString *str = ArgToRootedString(cx, args, 0);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * NB: use signed integers for length/index to allow simple length
@@ -266,7 +266,7 @@ str_unescape(JSContext *cx, unsigned argc, Value *vp)
             if (building) {
                 result = sb.finishString();
                 if (!result)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else {
                 result = str;
             }
@@ -295,7 +295,7 @@ str_unescape(JSContext *cx, unsigned argc, Value *vp)
         if (!building) {                            \
             building = true;                        \
             if (!sb.reserve(length))                \
-                return false;                       \
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                       \
             sb.infallibleAppend(chars, chars + k);  \
         }                                           \
     JS_END_MACRO
@@ -335,7 +335,7 @@ str_uneval(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     JSString *str = ValueToSource(cx, args.get(0));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setString(str);
     return true;
@@ -369,13 +369,13 @@ str_enumerate(JSContext *cx, HandleObject obj)
     for (size_t i = 0, length = str->length(); i < length; i++) {
         JSString *str1 = js_NewDependentString(cx, str, i, 1);
         if (!str1)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         value.setString(str1);
         if (!JSObject::defineElement(cx, obj, i, value,
                                      JS_PropertyStub, JS_StrictPropertyStub,
                                      STRING_ELEMENT_ATTRS))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -395,12 +395,12 @@ js::str_resolve(JSContext *cx, HandleObject obj, HandleId id, unsigned flags,
     if ((size_t)slot < str->length()) {
         JSString *str1 = cx->runtime()->staticStrings.getUnitStringForElement(cx, str, size_t(slot));
         if (!str1)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         RootedValue value(cx, StringValue(str1));
         if (!JSObject::defineElement(cx, obj, uint32_t(slot), value, nullptr, nullptr,
                                      STRING_ELEMENT_ATTRS))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         objp.set(obj);
     }
@@ -476,10 +476,10 @@ str_quote(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedString str(cx, ThisToStringForStringProto(cx, args));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     str = js_QuoteString(cx, str, '"');
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setString(str);
     return true;
 }
@@ -491,19 +491,19 @@ str_toSource_impl(JSContext *cx, CallArgs args)
 
     Rooted<JSString*> str(cx, ToString<CanGC>(cx, args.thisv()));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     str = js_QuoteString(cx, str, '"');
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     StringBuffer sb(cx);
     if (!sb.append("(new String(") || !sb.append(str) || !sb.append("))"))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     str = sb.finishString();
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setString(str);
     return true;
 }
@@ -547,7 +547,7 @@ ValueToIntegerRange(JSContext *cx, HandleValue v, int32_t *out)
     } else {
         double d;
         if (!ToInteger(cx, v, &d))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (d > INT32_MAX)
             *out = INT32_MAX;
         else if (d < INT32_MIN)
@@ -620,7 +620,7 @@ str_substring(JSContext *cx, unsigned argc, Value *vp)
 
     JSString *str = ThisToStringForStringProto(cx, args);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     int32_t length, begin, end;
     if (args.length() > 0) {
@@ -631,7 +631,7 @@ str_substring(JSContext *cx, unsigned argc, Value *vp)
         } else {
             RootedString strRoot(cx, str);
             if (!ValueToIntegerRange(cx, args[0], &begin))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             str = strRoot;
         }
 
@@ -646,7 +646,7 @@ str_substring(JSContext *cx, unsigned argc, Value *vp)
             } else {
                 RootedString strRoot(cx, str);
                 if (!ValueToIntegerRange(cx, args[1], &end))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 str = strRoot;
             }
 
@@ -665,7 +665,7 @@ str_substring(JSContext *cx, unsigned argc, Value *vp)
 
         str = DoSubstr(cx, str, size_t(begin), size_t(end - begin));
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args.rval().setString(str);
@@ -699,11 +699,11 @@ ToLowerCaseHelper(JSContext *cx, CallReceiver call)
 {
     RootedString str(cx, ThisToStringForStringProto(cx, call));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     str = js_toLowerCase(cx, str);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     call.rval().setString(str);
     return true;
@@ -727,11 +727,11 @@ str_toLocaleLowerCase(JSContext *cx, unsigned argc, Value *vp)
     if (cx->runtime()->localeCallbacks && cx->runtime()->localeCallbacks->localeToLowerCase) {
         RootedString str(cx, ThisToStringForStringProto(cx, args));
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         RootedValue result(cx);
         if (!cx->runtime()->localeCallbacks->localeToLowerCase(cx, str, &result))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         args.rval().set(result);
         return true;
@@ -766,11 +766,11 @@ ToUpperCaseHelper(JSContext *cx, CallReceiver call)
 {
     RootedString str(cx, ThisToStringForStringProto(cx, call));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     str = js_toUpperCase(cx, str);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     call.rval().setString(str);
     return true;
@@ -794,11 +794,11 @@ str_toLocaleUpperCase(JSContext *cx, unsigned argc, Value *vp)
     if (cx->runtime()->localeCallbacks && cx->runtime()->localeCallbacks->localeToUpperCase) {
         RootedString str(cx, ThisToStringForStringProto(cx, args));
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         RootedValue result(cx);
         if (!cx->runtime()->localeCallbacks->localeToUpperCase(cx, str, &result))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         args.rval().set(result);
         return true;
@@ -814,16 +814,16 @@ str_localeCompare(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedString str(cx, ThisToStringForStringProto(cx, args));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedString thatStr(cx, ToString<CanGC>(cx, args.get(0)));
     if (!thatStr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (cx->runtime()->localeCallbacks && cx->runtime()->localeCallbacks->localeCompare) {
         RootedValue result(cx);
         if (!cx->runtime()->localeCallbacks->localeCompare(cx, str, thatStr, &result))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         args.rval().set(result);
         return true;
@@ -831,7 +831,7 @@ str_localeCompare(JSContext *cx, unsigned argc, Value *vp)
 
     int32_t result;
     if (!CompareStrings(cx, str, thatStr, &result))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setInt32(result);
     return true;
@@ -853,11 +853,11 @@ js_str_charAt(JSContext *cx, unsigned argc, Value *vp)
     } else {
         str = ThisToStringForStringProto(cx, args);
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         double d = 0.0;
         if (args.length() > 0 && !ToInteger(cx, args[0], &d))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (d < 0 || str->length() <= d)
             goto out_of_range;
@@ -866,7 +866,7 @@ js_str_charAt(JSContext *cx, unsigned argc, Value *vp)
 
     str = cx->runtime()->staticStrings.getUnitStringForElement(cx, str, i);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setString(str);
     return true;
 
@@ -890,11 +890,11 @@ js_str_charCodeAt(JSContext *cx, unsigned argc, Value *vp)
     } else {
         str = ThisToStringForStringProto(cx, args);
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         double d = 0.0;
         if (args.length() > 0 && !ToInteger(cx, args[0], &d))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (d < 0 || str->length() <= d)
             goto out_of_range;
@@ -903,7 +903,7 @@ js_str_charCodeAt(JSContext *cx, unsigned argc, Value *vp)
 
     jschar c;
     if (!str->getChar(cx, i, &c))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setInt32(c);
     return true;
 
@@ -970,7 +970,7 @@ struct ManualCmp {
     static JS_ALWAYS_INLINE bool match(const jschar *p, const jschar *t, Extent extent) {
         for (; p != extent; ++p, ++t) {
             if (*p != *t)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         return true;
     }
@@ -1102,7 +1102,7 @@ class StringSegmentRange
         while (str->isRope()) {
             JSRope &rope = str->asRope();
             if (!stack.append(rope.rightChild()))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             str = rope.leftChild();
         }
         cur = &str->asLinear();
@@ -1175,17 +1175,17 @@ RopeMatch(JSContext *cx, JSString *textstr, const jschar *pat, uint32_t patlen, 
         size_t threshold = textstrlen >> sRopeMatchThresholdRatioLog2;
         StringSegmentRange r(cx);
         if (!r.init(textstr))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         while (!r.empty()) {
             if (threshold-- == 0 || !strs.append(r.front())) {
                 const jschar *chars = textstr->getChars(cx);
                 if (!chars)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 *match = StringMatch(chars, textstrlen, pat, patlen);
                 return true;
             }
             if (!r.popFront())
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -1252,12 +1252,12 @@ str_contains(JSContext *cx, unsigned argc, Value *vp)
     // Steps 1, 2, and 3
     RootedString str(cx, ThisToStringForStringProto(cx, args));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Steps 4 and 5
     Rooted<JSLinearString*> searchStr(cx, ArgToRootedString(cx, args, 0));
     if (!searchStr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Steps 6 and 7
     uint32_t pos = 0;
@@ -1268,7 +1268,7 @@ str_contains(JSContext *cx, unsigned argc, Value *vp)
         } else {
             double d;
             if (!ToInteger(cx, args[1], &d))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             pos = uint32_t(Min(Max(d, 0.0), double(UINT32_MAX)));
         }
     }
@@ -1277,7 +1277,7 @@ str_contains(JSContext *cx, unsigned argc, Value *vp)
     uint32_t textLen = str->length();
     const jschar *textChars = str->getChars(cx);
     if (!textChars)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Step 9
     uint32_t start = Min(Max(pos, 0U), textLen);
@@ -1303,12 +1303,12 @@ str_indexOf(JSContext *cx, unsigned argc, Value *vp)
     // Steps 1, 2, and 3
     RootedString str(cx, ThisToStringForStringProto(cx, args));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Steps 4 and 5
     Rooted<JSLinearString*> searchStr(cx, ArgToRootedString(cx, args, 0));
     if (!searchStr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Steps 6 and 7
     uint32_t pos = 0;
@@ -1319,7 +1319,7 @@ str_indexOf(JSContext *cx, unsigned argc, Value *vp)
         } else {
             double d;
             if (!ToInteger(cx, args[1], &d))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             pos = uint32_t(Min(Max(d, 0.0), double(UINT32_MAX)));
         }
     }
@@ -1328,7 +1328,7 @@ str_indexOf(JSContext *cx, unsigned argc, Value *vp)
     uint32_t textLen = str->length();
     const jschar *textChars = str->getChars(cx);
     if (!textChars)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Step 9
     uint32_t start = Min(Max(pos, 0U), textLen);
@@ -1351,13 +1351,13 @@ str_lastIndexOf(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedString textstr(cx, ThisToStringForStringProto(cx, args));
     if (!textstr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     size_t textlen = textstr->length();
 
     Rooted<JSLinearString*> patstr(cx, ArgToRootedString(cx, args, 0));
     if (!patstr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     size_t patlen = patstr->length();
 
@@ -1377,7 +1377,7 @@ str_lastIndexOf(JSContext *cx, unsigned argc, Value *vp)
         } else {
             double d;
             if (!ToNumber(cx, args[1], &d))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!IsNaN(d)) {
                 d = ToInteger(d);
                 if (d <= 0)
@@ -1395,7 +1395,7 @@ str_lastIndexOf(JSContext *cx, unsigned argc, Value *vp)
 
     const jschar *text = textstr->getChars(cx);
     if (!text)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     const jschar *pat = patstr->chars();
 
@@ -1431,12 +1431,12 @@ str_startsWith(JSContext *cx, unsigned argc, Value *vp)
     // Steps 1, 2, and 3
     RootedString str(cx, ThisToStringForStringProto(cx, args));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Steps 4 and 5
     Rooted<JSLinearString*> searchStr(cx, ArgToRootedString(cx, args, 0));
     if (!searchStr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Steps 6 and 7
     uint32_t pos = 0;
@@ -1447,7 +1447,7 @@ str_startsWith(JSContext *cx, unsigned argc, Value *vp)
         } else {
             double d;
             if (!ToInteger(cx, args[1], &d))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             pos = uint32_t(Min(Max(d, 0.0), double(UINT32_MAX)));
         }
     }
@@ -1456,7 +1456,7 @@ str_startsWith(JSContext *cx, unsigned argc, Value *vp)
     uint32_t textLen = str->length();
     const jschar *textChars = str->getChars(cx);
     if (!textChars)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Step 9
     uint32_t start = Min(Max(pos, 0U), textLen);
@@ -1485,12 +1485,12 @@ str_endsWith(JSContext *cx, unsigned argc, Value *vp)
     // Steps 1, 2, and 3
     RootedString str(cx, ThisToStringForStringProto(cx, args));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Steps 4 and 5
     Rooted<JSLinearString *> searchStr(cx, ArgToRootedString(cx, args, 0));
     if (!searchStr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Step 6
     uint32_t textLen = str->length();
@@ -1504,7 +1504,7 @@ str_endsWith(JSContext *cx, unsigned argc, Value *vp)
         } else {
             double d;
             if (!ToInteger(cx, args[1], &d))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             pos = uint32_t(Min(Max(d, 0.0), double(UINT32_MAX)));
         }
     }
@@ -1512,7 +1512,7 @@ str_endsWith(JSContext *cx, unsigned argc, Value *vp)
     // Step 6
     const jschar *textChars = str->getChars(cx);
     if (!textChars)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Step 9
     uint32_t end = Min(Max(pos, 0U), textLen);
@@ -1541,11 +1541,11 @@ js_TrimString(JSContext *cx, Value *vp, bool trimLeft, bool trimRight)
     CallReceiver call = CallReceiverFromVp(vp);
     RootedString str(cx, ThisToStringForStringProto(cx, call));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     size_t length = str->length();
     const jschar *chars = str->getChars(cx);
     if (!chars)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     size_t begin = 0;
     size_t end = length;
@@ -1562,7 +1562,7 @@ js_TrimString(JSContext *cx, Value *vp, bool trimLeft, bool trimRight)
 
     str = js_NewDependentString(cx, str, begin, end - begin);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     call.rval().setString(str);
     return true;
@@ -1626,7 +1626,7 @@ IsRegExpMetaChar(jschar c)
       case '}': case '|':
         return true;
       default:
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 }
 
@@ -1637,7 +1637,7 @@ HasRegExpMetaChars(const jschar *chars, size_t length)
         if (IsRegExpMetaChar(chars[i]))
             return true;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 namespace {
@@ -1693,7 +1693,7 @@ class MOZ_STACK_CLASS StringRegExpGuard
         if (args.length() != 0 && IsObjectWithClass(args[0], ESClass_RegExp, cx)) {
             obj_ = &args[0].toObject();
             if (!RegExpToShared(cx, obj_, &re_))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             if (convertVoid && !args.hasDefined(0)) {
                 fm.patstr = cx->runtime()->emptyString;
@@ -1702,11 +1702,11 @@ class MOZ_STACK_CLASS StringRegExpGuard
 
             JSString *arg = ArgToRootedString(cx, args, 0);
             if (!arg)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             fm.patstr = AtomizeString(cx, arg);
             if (!fm.patstr)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         return true;
     }
@@ -1766,7 +1766,7 @@ class MOZ_STACK_CLASS StringRegExpGuard
         if (optarg < args.length()) {
             opt = ToString<CanGC>(cx, args[optarg]);
             if (!opt)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             opt = nullptr;
         }
@@ -1775,7 +1775,7 @@ class MOZ_STACK_CLASS StringRegExpGuard
         if (flat) {
             patstr = flattenPattern(cx, fm.patstr);
             if (!patstr)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             patstr = fm.patstr;
         }
@@ -1826,7 +1826,7 @@ DoMatchLocal(JSContext *cx, CallArgs args, RegExpStatics *res, Handle<JSLinearSt
     ScopedMatchPairs matches(&cx->tempLifoAlloc());
     RegExpRunStatus status = re.execute(cx, chars, charsLen, &i, matches);
     if (status == RegExpRunStatus_Error)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (status == RegExpRunStatus_Success_NotFound) {
         args.rval().setNull();
@@ -1837,7 +1837,7 @@ DoMatchLocal(JSContext *cx, CallArgs args, RegExpStatics *res, Handle<JSLinearSt
 
     RootedValue rval(cx);
     if (!CreateRegExpMatchResult(cx, input, chars, charsLen, matches, &rval))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().set(rval);
     return true;
@@ -1884,7 +1884,7 @@ DoMatchGlobal(JSContext *cx, CallArgs args, RegExpStatics *res, Handle<JSLinearS
     // In short: it's okay to cheat (by setting .lastIndex to 0, once) because
     // we can't get caught.
     if (!g.zeroLastIndex(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Step 8b.
     AutoValueVector elements(cx);
@@ -1901,13 +1901,13 @@ DoMatchGlobal(JSContext *cx, CallArgs args, RegExpStatics *res, Handle<JSLinearS
     RegExpShared &re = g.regExp();
     for (size_t searchIndex = 0; searchIndex <= charsLen; ) {
         if (!JS_CHECK_OPERATION_LIMIT(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         // Steps 8f(i-ii), minus "lastIndex" updates (see above).
         size_t nextSearchIndex = searchIndex;
         RegExpRunStatus status = re.executeMatchOnly(cx, chars, charsLen, &nextSearchIndex, match);
         if (status == RegExpRunStatus_Error)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         // Step 8f(ii).
         if (status == RegExpRunStatus_Success_NotFound)
@@ -1921,9 +1921,9 @@ DoMatchGlobal(JSContext *cx, CallArgs args, RegExpStatics *res, Handle<JSLinearS
         // Step 8f(iii)(4-5).
         JSLinearString *str = js_NewDependentString(cx, input, match.start, match.length());
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!elements.append(StringValue(str)))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // Step 8g.
@@ -1940,7 +1940,7 @@ DoMatchGlobal(JSContext *cx, CallArgs args, RegExpStatics *res, Handle<JSLinearS
     // Steps 8b, 8f(iii)(5-6), 8h.
     JSObject *array = NewDenseCopiedArray(cx, elements.length(), elements.begin());
     if (!array)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setObject(*array);
     return true;
@@ -1957,7 +1957,7 @@ BuildFlatMatchArray(JSContext *cx, HandleString textstr, const FlatMatch &fm, Ca
     /* For this non-global match, produce a RegExp.exec-style array. */
     RootedObject obj(cx, NewDenseEmptyArray(cx));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue patternVal(cx, StringValue(fm.pattern()));
     RootedValue matchVal(cx, Int32Value(fm.match()));
@@ -1967,7 +1967,7 @@ BuildFlatMatchArray(JSContext *cx, HandleString textstr, const FlatMatch &fm, Ca
         !JSObject::defineProperty(cx, obj, cx->names().index, matchVal) ||
         !JSObject::defineProperty(cx, obj, cx->names().input, textVal))
     {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args->rval().setObject(*obj);
@@ -1983,12 +1983,12 @@ js::str_match(JSContext *cx, unsigned argc, Value *vp)
     /* Steps 1-2. */
     RootedString str(cx, ThisToStringForStringProto(cx, args));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Steps 3-4, plus the trailing-argument "flags" extension. */
     StringRegExpGuard g(cx);
     if (!g.init(cx, args, true))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Fast path when the search pattern can be searched for as a string. */
     if (const FlatMatch *fm = g.tryFlatMatch(cx, str, 1, args.length()))
@@ -1996,16 +1996,16 @@ js::str_match(JSContext *cx, unsigned argc, Value *vp)
 
     /* Return if there was an error in tryFlatMatch. */
     if (cx->isExceptionPending())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Create regular-expression internals as needed to perform the match. */
     if (!g.normalizeRegExp(cx, false, 1, args))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RegExpStatics *res = cx->global()->getRegExpStatics();
     Rooted<JSLinearString*> linearStr(cx, str->ensureLinear(cx));
     if (!linearStr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Steps 5-6, 7. */
     if (!g.regExp().global())
@@ -2021,25 +2021,25 @@ js::str_search(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedString str(cx, ThisToStringForStringProto(cx, args));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     StringRegExpGuard g(cx);
     if (!g.init(cx, args, true))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (const FlatMatch *fm = g.tryFlatMatch(cx, str, 1, args.length())) {
         args.rval().setInt32(fm->match());
         return true;
     }
 
     if (cx->isExceptionPending())  /* from tryFlatMatch */
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!g.normalizeRegExp(cx, false, 1, args))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     Rooted<JSLinearString*> linearStr(cx, str->ensureLinear(cx));
     if (!linearStr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     const jschar *chars = linearStr->chars();
     size_t length = linearStr->length();
@@ -2051,7 +2051,7 @@ js::str_search(JSContext *cx, unsigned argc, Value *vp)
 
     RegExpRunStatus status = g.regExp().executeMatchOnly(cx, chars, length, &i, match);
     if (status == RegExpRunStatus_Error)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (status == RegExpRunStatus_Success)
         res->updateLazily(cx, linearStr, &g.regExp(), 0);
@@ -2124,7 +2124,7 @@ DoMatchForReplaceLocal(JSContext *cx, RegExpStatics *res, Handle<JSLinearString*
     ScopedMatchPairs matches(&cx->tempLifoAlloc());
     RegExpRunStatus status = re.execute(cx, linearStr->chars(), charsLen, &i, matches);
     if (status == RegExpRunStatus_Error)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (status == RegExpRunStatus_Success_NotFound)
         return true;
@@ -2141,11 +2141,11 @@ DoMatchForReplaceGlobal(JSContext *cx, RegExpStatics *res, Handle<JSLinearString
     ScopedMatchPairs matches(&cx->tempLifoAlloc());
     for (size_t count = 0, i = 0; i <= charsLen; ++count) {
         if (!JS_CHECK_OPERATION_LIMIT(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         RegExpRunStatus status = re.execute(cx, linearStr->chars(), charsLen, &i, matches);
         if (status == RegExpRunStatus_Error)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (status == RegExpRunStatus_Success_NotFound)
             break;
@@ -2153,7 +2153,7 @@ DoMatchForReplaceGlobal(JSContext *cx, RegExpStatics *res, Handle<JSLinearString
         res->updateFromMatchPairs(cx, linearStr, matches);
 
         if (!ReplaceRegExp(cx, res, rdata))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!res->matched())
             ++i;
     }
@@ -2169,7 +2169,7 @@ InterpretDollar(RegExpStatics *res, const jschar *dp, const jschar *ep,
 
     /* If there is only a dollar, bail now */
     if (dp + 1 >= ep)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Interpret all Perl match-induced dollar variables. */
     jschar dc = dp[1];
@@ -2177,7 +2177,7 @@ InterpretDollar(RegExpStatics *res, const jschar *dp, const jschar *ep,
         /* ECMA-262 Edition 3: 1-9 or 01-99 */
         unsigned num = JS7_UNDEC(dc);
         if (num > res->getMatches().parenCount())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         const jschar *cp = dp + 2;
         if (cp < ep && (dc = *cp, JS7_ISDEC(dc))) {
@@ -2188,7 +2188,7 @@ InterpretDollar(RegExpStatics *res, const jschar *dp, const jschar *ep,
             }
         }
         if (num == 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         *skip = cp - dp;
 
@@ -2222,7 +2222,7 @@ InterpretDollar(RegExpStatics *res, const jschar *dp, const jschar *ep,
         res->getRightContext(out);
         return true;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static bool
@@ -2241,16 +2241,16 @@ FindReplaceLength(JSContext *cx, RegExpStatics *res, ReplaceData &rdata, size_t 
 
         RootedValue match(cx);
         if (!res->createLastMatch(cx, &match))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         JSAtom *atom = ToAtom<CanGC>(cx, match);
         if (!atom)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         RootedValue v(cx);
         if (HasDataProperty(cx, rdata.elembase, AtomToId(atom), v.address()) && v.isString()) {
             rdata.repstr = v.toString()->ensureLinear(cx);
             if (!rdata.repstr)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             *sizep = rdata.repstr->length();
             return true;
         }
@@ -2266,7 +2266,7 @@ FindReplaceLength(JSContext *cx, RegExpStatics *res, ReplaceData &rdata, size_t 
         RootedObject lambda(cx, rdata.lambda);
         PreserveRegExpStatics staticsGuard(cx, res);
         if (!staticsGuard.init(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /*
          * In the lambda case, not only do we find the replacement string's
@@ -2281,7 +2281,7 @@ FindReplaceLength(JSContext *cx, RegExpStatics *res, ReplaceData &rdata, size_t 
 
         InvokeArgs &args = rdata.fig.args();
         if (!args.init(argc))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         args.setCallee(ObjectValue(*lambda));
         args.setThis(UndefinedValue());
@@ -2289,11 +2289,11 @@ FindReplaceLength(JSContext *cx, RegExpStatics *res, ReplaceData &rdata, size_t 
         /* Push $&, $1, $2, ... */
         unsigned argi = 0;
         if (!res->createLastMatch(cx, args[argi++]))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         for (size_t i = 0; i < res->getMatches().parenCount(); ++i) {
             if (!res->createParen(cx, i + 1, args[argi++]))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         /* Push match index and input string. */
@@ -2301,15 +2301,15 @@ FindReplaceLength(JSContext *cx, RegExpStatics *res, ReplaceData &rdata, size_t 
         args[argi].setString(rdata.str);
 
         if (!rdata.fig.invoke(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* root repstr: rdata is on the stack, so scanned by conservative gc. */
         JSString *repstr = ToString<CanGC>(cx, args.rval());
         if (!repstr)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         rdata.repstr = repstr->ensureLinear(cx);
         if (!rdata.repstr)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         *sizep = rdata.repstr->length();
         return true;
     }
@@ -2333,7 +2333,7 @@ FindReplaceLength(JSContext *cx, RegExpStatics *res, ReplaceData &rdata, size_t 
 
     if (!replen.isValid()) {
         js_ReportAllocationOverflow(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     *sizep = replen.value();
@@ -2388,17 +2388,17 @@ ReplaceRegExp(JSContext *cx, RegExpStatics *res, ReplaceData &rdata)
 
     size_t replen = 0;  /* silence 'unused' warning */
     if (!FindReplaceLength(cx, res, rdata, &replen))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     CheckedInt<uint32_t> newlen(rdata.sb.length());
     newlen += leftlen;
     newlen += replen;
     if (!newlen.isValid()) {
         js_ReportAllocationOverflow(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (!rdata.sb.reserve(newlen.value()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSLinearString &str = rdata.str->asLinear();  /* flattened for regexp */
     const jschar *left = str.chars() + leftoff;
@@ -2423,7 +2423,7 @@ BuildFlatReplacement(JSContext *cx, HandleString textstr, HandleString repstr,
          */
         StringSegmentRange r(cx);
         if (!r.init(textstr))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         size_t pos = 0;
         while (!r.empty()) {
             RootedString str(cx, r.front());
@@ -2445,7 +2445,7 @@ BuildFlatReplacement(JSContext *cx, HandleString textstr, HandleString repstr,
                     if (!leftSide ||
                         !builder.append(leftSide) ||
                         !builder.append(repstr)) {
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     }
                 }
 
@@ -2457,20 +2457,20 @@ BuildFlatReplacement(JSContext *cx, HandleString textstr, HandleString repstr,
                     RootedString rightSide(cx, js_NewDependentString(cx, str, matchEnd - pos,
                                                                      strEnd - matchEnd));
                     if (!rightSide || !builder.append(rightSide))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             } else {
                 if (!builder.append(str))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             pos += str->length();
             if (!r.popFront())
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     } else {
         RootedString leftSide(cx, js_NewDependentString(cx, textstr, 0, match));
         if (!leftSide)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         RootedString rightSide(cx);
         rightSide = js_NewDependentString(cx, textstr, match + fm.patternLength(),
                                           textstr->length() - match - fm.patternLength());
@@ -2478,7 +2478,7 @@ BuildFlatReplacement(JSContext *cx, HandleString textstr, HandleString repstr,
             !builder.append(leftSide) ||
             !builder.append(repstr) ||
             !builder.append(rightSide)) {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -2498,7 +2498,7 @@ BuildDollarReplacement(JSContext *cx, JSString *textstrArg, JSLinearString *reps
 {
     Rooted<JSLinearString*> textstr(cx, textstrArg->ensureLinear(cx));
     if (!textstr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_ASSERT(repstr->chars() <= firstDollar && firstDollar < repstr->chars() + repstr->length());
     size_t matchStart = fm.match();
@@ -2513,13 +2513,13 @@ BuildDollarReplacement(JSContext *cx, JSString *textstrArg, JSLinearString *reps
      */
     StringBuffer newReplaceChars(cx);
     if (!newReplaceChars.reserve(textstr->length() - fm.patternLength() + repstr->length()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Move the pre-dollar chunk in bulk. */
     newReplaceChars.infallibleAppend(repstr->chars(), firstDollar);
 
     /* Move the rest char-by-char, interpreting dollars as we encounter them. */
-#define ENSURE(__cond) if (!(__cond)) return false;
+#define ENSURE(__cond) if (!(__cond)) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     const jschar *repstrLimit = repstr->chars() + repstr->length();
     for (const jschar *it = firstDollar; it < repstrLimit; ++it) {
         if (*it != '$' || it == repstrLimit - 1) {
@@ -2656,7 +2656,7 @@ str_replace_regexp_remove(JSContext *cx, CallArgs args, HandleString str, RegExp
 {
     Rooted<JSStableString*> stableStr(cx, str->ensureStable(cx));
     if (!stableStr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     Vector<StringRange, 16, SystemAllocPolicy> ranges;
 
@@ -2671,18 +2671,18 @@ str_replace_regexp_remove(JSContext *cx, CallArgs args, HandleString str, RegExp
     /* Accumulate StringRanges for unmatched substrings. */
     while (startIndex <= charsLen) {
         if (!JS_CHECK_OPERATION_LIMIT(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         RegExpRunStatus status = re.executeMatchOnly(cx, chars.get(), charsLen, &startIndex, match);
         if (status == RegExpRunStatus_Error)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (status == RegExpRunStatus_Success_NotFound)
             break;
 
         /* Include the latest unmatched substring. */
         if (size_t(match.start) > lastIndex) {
             if (!ranges.append(StringRange(lastIndex, match.start - lastIndex)))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         lazyIndex = lastIndex;
@@ -2710,7 +2710,7 @@ str_replace_regexp_remove(JSContext *cx, CallArgs args, HandleString str, RegExp
     /* Include any remaining part of the string. */
     if (lastIndex < charsLen) {
         if (!ranges.append(StringRange(lastIndex, charsLen - lastIndex)))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Handle the empty string before calling .begin(). */
@@ -2721,7 +2721,7 @@ str_replace_regexp_remove(JSContext *cx, CallArgs args, HandleString str, RegExp
 
     JSString *result = AppendSubstrings(cx, stableStr, ranges.begin(), ranges.length());
     if (!result)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setString(result);
     return true;
@@ -2731,7 +2731,7 @@ static inline bool
 str_replace_regexp(JSContext *cx, CallArgs args, ReplaceData &rdata)
 {
     if (!rdata.g.normalizeRegExp(cx, true, 2, args))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     rdata.leftIndex = 0;
     rdata.calledBack = false;
@@ -2746,7 +2746,7 @@ str_replace_regexp(JSContext *cx, CallArgs args, ReplaceData &rdata)
     // of DoMatchGlobal explaining why we can zero the the RegExp object's
     // lastIndex property here.
     if (re.global() && !rdata.g.zeroLastIndex(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Optimize removal. */
     if (rdata.repstr && rdata.repstr->length() == 0) {
@@ -2756,14 +2756,14 @@ str_replace_regexp(JSContext *cx, CallArgs args, ReplaceData &rdata)
 
     Rooted<JSLinearString*> linearStr(cx, rdata.str->ensureLinear(cx));
     if (!linearStr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (re.global()) {
         if (!DoMatchForReplaceGlobal(cx, res, linearStr, re, rdata))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         if (!DoMatchForReplaceLocal(cx, res, linearStr, re, rdata))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!rdata.calledBack) {
@@ -2775,11 +2775,11 @@ str_replace_regexp(JSContext *cx, CallArgs args, ReplaceData &rdata)
     JSSubString sub;
     res->getRightContext(&sub);
     if (!rdata.sb.append(sub.chars, sub.length))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSString *retstr = rdata.sb.finishString();
     if (!retstr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setString(retstr);
     return true;
@@ -2792,12 +2792,12 @@ str_replace_flat_lambda(JSContext *cx, CallArgs outerArgs, ReplaceData &rdata, c
 
     RootedString matchStr(cx, js_NewDependentString(cx, rdata.str, fm.match(), fm.patternLength()));
     if (!matchStr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* lambda(matchStr, matchStart, textstr) */
     static const uint32_t lambdaArgc = 3;
     if (!rdata.fig.args().init(lambdaArgc))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     CallArgs &args = rdata.fig.args();
     args.setCallee(ObjectValue(*rdata.lambda));
@@ -2809,27 +2809,27 @@ str_replace_flat_lambda(JSContext *cx, CallArgs outerArgs, ReplaceData &rdata, c
     sp[2].setString(rdata.str);
 
     if (!rdata.fig.invoke(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedString repstr(cx, ToString<CanGC>(cx, args.rval()));
     if (!repstr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedString leftSide(cx, js_NewDependentString(cx, rdata.str, 0, fm.match()));
     if (!leftSide)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     size_t matchLimit = fm.match() + fm.patternLength();
     RootedString rightSide(cx, js_NewDependentString(cx, rdata.str, matchLimit,
                                                         rdata.str->length() - matchLimit));
     if (!rightSide)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RopeBuilder builder(cx);
     if (!(builder.append(leftSide) &&
           builder.append(repstr) &&
           builder.append(rightSide))) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     outerArgs.rval().setString(builder.result());
@@ -2857,7 +2857,7 @@ LambdaIsGetElem(JSContext *cx, JSObject &lambda, MutableHandleObject pobj)
 
     JSScript *script = fun->getOrCreateScript(cx);
     if (!script)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     jsbytecode *pc = script->code;
 
@@ -2910,10 +2910,10 @@ js::str_replace(JSContext *cx, unsigned argc, Value *vp)
     ReplaceData rdata(cx);
     rdata.str = ThisToStringForStringProto(cx, args);
     if (!rdata.str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!rdata.g.init(cx, args))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Extract replacement string/function. */
     if (args.length() >= ReplaceOptArg && js_IsCallable(args[1])) {
@@ -2923,13 +2923,13 @@ js::str_replace(JSContext *cx, unsigned argc, Value *vp)
         rdata.dollar = rdata.dollarEnd = nullptr;
 
         if (!LambdaIsGetElem(cx, *rdata.lambda, &rdata.elembase))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         rdata.lambda = nullptr;
         rdata.elembase = nullptr;
         rdata.repstr = ArgToRootedString(cx, args, 1);
         if (!rdata.repstr)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* We're about to store pointers into the middle of our string. */
         JSLinearString *linear = rdata.repstr;
@@ -2952,7 +2952,7 @@ js::str_replace(JSContext *cx, unsigned argc, Value *vp)
     const FlatMatch *fm = rdata.g.tryFlatMatch(cx, rdata.str, ReplaceOptArg, args.length(), false);
     if (!fm) {
         if (cx->isExceptionPending())  /* oom in RopeMatch in tryFlatMatch */
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         return str_replace_regexp(cx, args, rdata);
     }
 
@@ -3160,7 +3160,7 @@ class SplitRegExpMatcher
         ScopedMatchPairs matches(&cx->tempLifoAlloc());
         RegExpRunStatus status = re.execute(cx, chars, length, &index, matches);
         if (status == RegExpRunStatus_Error)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (status == RegExpRunStatus_Success_NotFound) {
             result->setFailure();
@@ -3213,11 +3213,11 @@ js::str_split(JSContext *cx, unsigned argc, Value *vp)
     /* Steps 1-2. */
     RootedString str(cx, ThisToStringForStringProto(cx, args));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedTypeObject type(cx, GetTypeCallerInitObject(cx, JSProto_Array));
     if (!type)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     AddTypeProperty(cx, type, nullptr, Type::StringType());
 
     /* Step 5: Use the second argument as the split limit, if given. */
@@ -3225,7 +3225,7 @@ js::str_split(JSContext *cx, unsigned argc, Value *vp)
     if (args.hasDefined(1)) {
         double d;
         if (!ToNumber(cx, args[1], &d))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         limit = ToUint32(d);
     } else {
         limit = UINT32_MAX;
@@ -3239,11 +3239,11 @@ js::str_split(JSContext *cx, unsigned argc, Value *vp)
         if (IsObjectWithClass(args[0], ESClass_RegExp, cx)) {
             RootedObject obj(cx, &args[0].toObject());
             if (!RegExpToShared(cx, obj, &re))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             sepstr = ArgToRootedString(cx, args, 0);
             if (!sepstr)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -3251,7 +3251,7 @@ js::str_split(JSContext *cx, unsigned argc, Value *vp)
     if (limit == 0) {
         JSObject *aobj = NewDenseEmptyArray(cx);
         if (!aobj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         aobj->setType(type);
         args.rval().setObject(*aobj);
         return true;
@@ -3262,14 +3262,14 @@ js::str_split(JSContext *cx, unsigned argc, Value *vp)
         RootedValue v(cx, StringValue(str));
         JSObject *aobj = NewDenseCopiedArray(cx, 1, v.address());
         if (!aobj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         aobj->setType(type);
         args.rval().setObject(*aobj);
         return true;
     }
     Rooted<JSLinearString*> linearStr(cx, str->ensureLinear(cx));
     if (!linearStr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Steps 11-15. */
     RootedObject aobj(cx);
@@ -3281,7 +3281,7 @@ js::str_split(JSContext *cx, unsigned argc, Value *vp)
         aobj = SplitHelper(cx, linearStr, limit, matcher, type);
     }
     if (!aobj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 16. */
     aobj->setType(type);
@@ -3317,13 +3317,13 @@ str_substr(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedString str(cx, ThisToStringForStringProto(cx, args));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     int32_t length, len, begin;
     if (args.length() > 0) {
         length = int32_t(str->length());
         if (!ValueToIntegerRange(cx, args[0], &begin))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (begin >= length) {
             args.rval().setString(cx->runtime()->emptyString);
@@ -3337,7 +3337,7 @@ str_substr(JSContext *cx, unsigned argc, Value *vp)
 
         if (args.hasDefined(1)) {
             if (!ValueToIntegerRange(cx, args[1], &len))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             if (len <= 0) {
                 args.rval().setString(cx->runtime()->emptyString);
@@ -3352,7 +3352,7 @@ str_substr(JSContext *cx, unsigned argc, Value *vp)
 
         str = DoSubstr(cx, str, size_t(begin), size_t(len));
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args.rval().setString(str);
@@ -3368,7 +3368,7 @@ str_concat(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     JSString *str = ThisToStringForStringProto(cx, args);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (unsigned i = 0; i < args.length(); i++) {
         JSString *argStr = ToString<NoGC>(cx, args[i]);
@@ -3376,7 +3376,7 @@ str_concat(JSContext *cx, unsigned argc, Value *vp)
             RootedString strRoot(cx, str);
             argStr = ToString<CanGC>(cx, args[i]);
             if (!argStr)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             str = strRoot;
         }
 
@@ -3387,7 +3387,7 @@ str_concat(JSContext *cx, unsigned argc, Value *vp)
             RootedString strRoot(cx, str), argStrRoot(cx, argStr);
             str = ConcatStrings<CanGC>(cx, strRoot, argStrRoot);
             if (!str)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -3413,7 +3413,7 @@ str_slice(JSContext *cx, unsigned argc, Value *vp)
                       ? cx->runtime()->staticStrings.getUnitStringForElement(cx, str, begin)
                       : js_NewDependentString(cx, str, begin, length);
                 if (!str)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             args.rval().setString(str);
             return true;
@@ -3422,13 +3422,13 @@ str_slice(JSContext *cx, unsigned argc, Value *vp)
 
     RootedString str(cx, ThisToStringForStringProto(cx, args));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (args.length() != 0) {
         double begin, end, length;
 
         if (!ToInteger(cx, args[0], &begin))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         length = str->length();
         if (begin < 0) {
             begin += length;
@@ -3440,7 +3440,7 @@ str_slice(JSContext *cx, unsigned argc, Value *vp)
 
         if (args.hasDefined(1)) {
             if (!ToInteger(cx, args[1], &end))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (end < 0) {
                 end += length;
                 if (end < 0)
@@ -3458,7 +3458,7 @@ str_slice(JSContext *cx, unsigned argc, Value *vp)
                                     (size_t)begin,
                                     (size_t)(end - begin));
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     args.rval().setString(str);
     return true;
@@ -3474,11 +3474,11 @@ tagify(JSContext *cx, const char *begin, HandleLinearString param, const char *e
 {
     JSString *thisstr = ThisToStringForStringProto(cx, call);
     if (!thisstr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSLinearString *str = thisstr->ensureLinear(cx);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!end)
         end = begin;
@@ -3500,7 +3500,7 @@ tagify(JSContext *cx, const char *begin, HandleLinearString param, const char *e
 
     StringBuffer sb(cx);
     if (!sb.reserve(taglen))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     sb.infallibleAppend('<');
 
@@ -3533,7 +3533,7 @@ tagify(JSContext *cx, const char *begin, HandleLinearString param, const char *e
 
     JSFlatString *retstr = sb.finishString();
     if (!retstr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     call.rval().setString(retstr);
     return true;
@@ -3544,7 +3544,7 @@ tagify_value(JSContext *cx, CallArgs args, const char *begin, const char *end)
 {
     RootedLinearString param(cx, ArgToRootedString(cx, args, 0));
     if (!param)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return tagify(cx, begin, param, end, args);
 }
@@ -3699,7 +3699,7 @@ js_String(JSContext *cx, unsigned argc, Value *vp)
     if (args.length() > 0) {
         str = ToString<CanGC>(cx, args[0]);
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         str = cx->runtime()->emptyString;
     }
@@ -3707,7 +3707,7 @@ js_String(JSContext *cx, unsigned argc, Value *vp)
     if (args.isConstructing()) {
         StringObject *strobj = StringObject::create(cx, str);
         if (!strobj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args.rval().setObject(*strobj);
         return true;
     }
@@ -3725,7 +3725,7 @@ js::str_fromCharCode(JSContext *cx, unsigned argc, Value *vp)
     if (args.length() == 1) {
         uint16_t code;
         if (!ToUint16(cx, args[0], &code))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (StaticStrings::hasUnit(code)) {
             args.rval().setString(cx->runtime()->staticStrings.getUnit(code));
             return true;
@@ -3734,12 +3734,12 @@ js::str_fromCharCode(JSContext *cx, unsigned argc, Value *vp)
     }
     jschar *chars = cx->pod_malloc<jschar>(args.length() + 1);
     if (!chars)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     for (unsigned i = 0; i < args.length(); i++) {
         uint16_t code;
         if (!ToUint16(cx, args[i], &code)) {
             js_free(chars);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         chars[i] = (jschar)code;
     }
@@ -3747,7 +3747,7 @@ js::str_fromCharCode(JSContext *cx, unsigned argc, Value *vp)
     JSString *str = js_NewString<CanGC>(cx, chars, args.length());
     if (!str) {
         js_free(chars);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args.rval().setString(str);
@@ -4052,10 +4052,10 @@ js::EqualStrings(JSContext *cx, JSString *str1, JSString *str2, bool *result)
 
     JSLinearString *linear1 = str1->ensureLinear(cx);
     if (!linear1)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JSLinearString *linear2 = str2->ensureLinear(cx);
     if (!linear2)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *result = PodEqual(linear1->chars(), linear2->chars(), length1);
     return true;
@@ -4069,7 +4069,7 @@ js::EqualStrings(JSLinearString *str1, JSLinearString *str2)
 
     size_t length1 = str1->length();
     if (length1 != str2->length())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return PodEqual(str1->chars(), str2->chars(), length1);
 }
@@ -4087,11 +4087,11 @@ CompareStringsImpl(JSContext *cx, JSString *str1, JSString *str2, int32_t *resul
 
     const jschar *s1 = str1->getChars(cx);
     if (!s1)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     const jschar *s2 = str2->getChars(cx);
     if (!s2)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return CompareChars(s1, str1->length(), s2, str2->length(), result);
 }
@@ -4111,11 +4111,11 @@ js::StringEqualsAscii(JSLinearString *str, const char *asciiBytes)
         JS_ASSERT(unsigned(asciiBytes[i]) <= 127);
 #endif
     if (length != str->length())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     const jschar *chars = str->chars();
     for (size_t i = 0; i != length; ++i) {
         if (unsigned(asciiBytes[i]) != unsigned(chars[i]))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -4190,7 +4190,7 @@ js::DeflateStringToBuffer(JSContext *maybecx, const jschar *src, size_t srclen,
             JS_ReportErrorNumber(maybecx, js_GetErrorMessage, nullptr,
                                  JSMSG_BUFFER_TOO_SMALL);
         }
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     for (size_t i = 0; i < srclen; i++)
         dst[i] = (char) src[i];
@@ -4339,7 +4339,7 @@ TransferBufferToString(StringBuffer &sb, MutableHandleValue rval)
 {
     JSString *str = sb.finishString();
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     rval.setString(str);
     return true;
 }
@@ -4366,7 +4366,7 @@ Encode(JSContext *cx, Handle<JSLinearString*> str, const bool *unescapedSet,
     const jschar *chars = str->chars();
     StringBuffer sb(cx);
     if (!sb.reserve(length))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     jschar hexBuf[4];
     hexBuf[0] = '%';
     hexBuf[3] = 0;
@@ -4374,11 +4374,11 @@ Encode(JSContext *cx, Handle<JSLinearString*> str, const bool *unescapedSet,
         jschar c = chars[k];
         if (c < 128 && (unescapedSet[c] || (unescapedSet2 && unescapedSet2[c]))) {
             if (!sb.append(c))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             if ((c >= 0xDC00) && (c <= 0xDFFF)) {
                 JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_BAD_URI, nullptr);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             uint32_t v;
             if (c < 0xD800 || c > 0xDBFF) {
@@ -4388,13 +4388,13 @@ Encode(JSContext *cx, Handle<JSLinearString*> str, const bool *unescapedSet,
                 if (k == length) {
                     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                                      JSMSG_BAD_URI, nullptr);
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
                 jschar c2 = chars[k];
                 if ((c2 < 0xDC00) || (c2 > 0xDFFF)) {
                     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                                      JSMSG_BAD_URI, nullptr);
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
                 v = ((c - 0xD800) << 10) + (c2 - 0xDC00) + 0x10000;
             }
@@ -4404,7 +4404,7 @@ Encode(JSContext *cx, Handle<JSLinearString*> str, const bool *unescapedSet,
                 hexBuf[1] = HexDigits[utf8buf[j] >> 4];
                 hexBuf[2] = HexDigits[utf8buf[j] & 0xf];
                 if (!sb.append(hexBuf, 3))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
     }
@@ -4465,21 +4465,21 @@ Decode(JSContext *cx, Handle<JSLinearString*> str, const bool *reservedSet, Muta
                     c = (jschar)((v & 0x3FF) + 0xDC00);
                     jschar H = (jschar)((v >> 10) + 0xD800);
                     if (!sb.append(H))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 } else {
                     c = (jschar)v;
                 }
             }
             if (c < 128 && reservedSet && reservedSet[c]) {
                 if (!sb.append(chars + start, k - start + 1))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else {
                 if (!sb.append(c))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         } else {
             if (!sb.append(c))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -4489,7 +4489,7 @@ Decode(JSContext *cx, Handle<JSLinearString*> str, const bool *reservedSet, Muta
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_BAD_URI);
     /* FALL THROUGH */
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static bool
@@ -4498,7 +4498,7 @@ str_decodeURI(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     Rooted<JSLinearString*> str(cx, ArgToRootedString(cx, args, 0));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return Decode(cx, str, js_isUriReservedPlusPound, args.rval());
 }
@@ -4509,7 +4509,7 @@ str_decodeURI_Component(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     Rooted<JSLinearString*> str(cx, ArgToRootedString(cx, args, 0));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return Decode(cx, str, nullptr, args.rval());
 }
@@ -4520,7 +4520,7 @@ str_encodeURI(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     Rooted<JSLinearString*> str(cx, ArgToRootedString(cx, args, 0));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return Encode(cx, str, js_isUriUnescaped, js_isUriReservedPlusPound, args.rval());
 }
@@ -4531,7 +4531,7 @@ str_encodeURI_Component(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     Rooted<JSLinearString*> str(cx, ArgToRootedString(cx, args, 0));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return Encode(cx, str, js_isUriUnescaped, nullptr, args.rval());
 }

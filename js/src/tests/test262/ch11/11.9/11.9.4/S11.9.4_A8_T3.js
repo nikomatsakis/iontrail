@@ -2,7 +2,7 @@
 // This code is governed by the BSD license found in the LICENSE file.
 
 /**
- * If Type(x) is different from Type(y), return false
+ * If Type(x) is different from Type(y), do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
  *
  * @path ch11/11.9/11.9.4/S11.9.4_A8_T3.js
  * @description x or y is primitive string

@@ -227,7 +227,7 @@ function SplitMatch(R, S, q)
   if (R.constructor == RegExp) {			// 1
     var reResult = R.match(S, q);		// 8
     if (reResult == undefined)
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     else {
       a = new Array(reResult.length - 1);
       for (var i = 1; i < reResult.length; i++)
@@ -238,11 +238,11 @@ function SplitMatch(R, S, q)
   else {
     var r = R.length;					// 2
     s = S.length;						// 3
-    if ((q + r) > s) return false;		// 4
+    if ((q + r) > s) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);		// 4
     for (var i = 0; i < r; i++) {
 //print("S.charAt(", q + i, ") = ", S.charAt(q + i), ", R.charAt(", i, ") = ", R.charAt(i));
       if (S.charAt(q + i) != R.charAt(i))			// 5
-	return false;
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     cap = new Array();								// 6
     return { endIndex : q + r, captures : cap };	// 7

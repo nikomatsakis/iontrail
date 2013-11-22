@@ -49,7 +49,7 @@ class BitArray {
     bool isAllClear() const {
         for (size_t i = 0; i < numSlots; i++) {
             if (map[i])
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         return true;
     }

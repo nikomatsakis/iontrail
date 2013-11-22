@@ -84,7 +84,7 @@ NewKeyValuePair(JSContext *cx, jsid id, const Value &val, MutableHandleValue rva
 
     JSObject *aobj = NewDenseCopiedArray(cx, 2, vec);
     if (!aobj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     rval.setObject(*aobj);
     return true;
 }
@@ -116,7 +116,7 @@ Enumerate(JSContext *cx, HandleObject pobj, jsid id,
          * duplicated properties, so always add in such cases.
          */
         if ((pobj->is<ProxyObject>() || pobj->getProto() || pobj->getOps()->enumerate) && !ht.add(p, id))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (enumerable || (flags & JSITER_HIDDEN))
@@ -136,7 +136,7 @@ EnumerateNativeProperties(JSContext *cx, HandleObject pobj, unsigned flags, IdSe
         if (!vp->isMagic(JS_ELEMENTS_HOLE)) {
             /* Dense arrays never get so large that i would not fit into an integer id. */
             if (!Enumerate(cx, pobj, INT_TO_JSID(i), true, flags, ht, props))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -148,7 +148,7 @@ EnumerateNativeProperties(JSContext *cx, HandleObject pobj, unsigned flags, IdSe
         Shape &shape = r.front();
 
         if (!Enumerate(cx, pobj, shape.propid(), shape.enumerable(), flags, ht, props))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     ::Reverse(props->begin() + initialLength, props->end());
@@ -169,14 +169,14 @@ struct SortComparatorIds
         /* Pick an arbitrary total order on jsids that is stable across executions. */
         RootedString astr(cx, IdToString(cx, a));
 	if (!astr)
-	    return false;
+	    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         RootedString bstr(cx, IdToString(cx, b));
         if (!bstr)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         int32_t result;
         if (!CompareStrings(cx, astr, bstr, &result))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         *lessOrEqualp = (result <= 0);
         return true;
@@ -190,7 +190,7 @@ Snapshot(JSContext *cx, JSObject *pobj_, unsigned flags, AutoIdVector *props)
 {
     IdSet ht(cx);
     if (!ht.init(32))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedObject pobj(cx, pobj_);
 
@@ -200,27 +200,27 @@ Snapshot(JSContext *cx, JSObject *pobj_, unsigned flags, AutoIdVector *props)
             !pobj->getOps()->enumerate &&
             !(clasp->flags & JSCLASS_NEW_ENUMERATE)) {
             if (!clasp->enumerate(cx, pobj))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!EnumerateNativeProperties(cx, pobj, flags, ht, props))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             if (pobj->is<ProxyObject>()) {
                 AutoIdVector proxyProps(cx);
                 if (flags & JSITER_OWNONLY) {
                     if (flags & JSITER_HIDDEN) {
                         if (!Proxy::getOwnPropertyNames(cx, pobj, proxyProps))
-                            return false;
+                            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     } else {
                         if (!Proxy::keys(cx, pobj, proxyProps))
-                            return false;
+                            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     }
                 } else {
                     if (!Proxy::enumerate(cx, pobj, proxyProps))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
                 for (size_t n = 0, len = proxyProps.length(); n < len; n++) {
                     if (!Enumerate(cx, pobj, proxyProps[n], true, flags, ht, props))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
                 /* Proxy objects enumerate the prototype on their own, so we are done here. */
                 break;
@@ -229,19 +229,19 @@ Snapshot(JSContext *cx, JSObject *pobj_, unsigned flags, AutoIdVector *props)
             RootedId id(cx);
             JSIterateOp op = (flags & JSITER_HIDDEN) ? JSENUMERATE_INIT_ALL : JSENUMERATE_INIT;
             if (!JSObject::enumerate(cx, pobj, op, &state, &id))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (state.isMagic(JS_NATIVE_ENUMERATE)) {
                 if (!EnumerateNativeProperties(cx, pobj, flags, ht, props))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else {
                 while (true) {
                     RootedId id(cx);
                     if (!JSObject::enumerate(cx, pobj, JSENUMERATE_NEXT, &state, &id))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     if (state.isNull())
                         break;
                     if (!Enumerate(cx, pobj, id, true, flags, ht, props))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
         }
@@ -273,11 +273,11 @@ Snapshot(JSContext *cx, JSObject *pobj_, unsigned flags, AutoIdVector *props)
 
     AutoIdVector tmp(cx);
     if (!tmp.resize(n))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     PodCopy(tmp.begin(), ids, n);
 
     if (!MergeSort(ids, n, tmp.begin(), SortComparatorIds(cx)))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #endif /* JS_MORE_DETERMINISTIC */
 
@@ -293,7 +293,7 @@ js::VectorToIdArray(JSContext *cx, AutoIdVector &props, JSIdArray **idap)
     size_t sz = (sizeof(JSIdArray) - sizeof(jsid)) + idsz;
     JSIdArray *ida = static_cast<JSIdArray *>(cx->malloc_(sz));
     if (!ida)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ida->length = static_cast<int>(len);
     jsid *v = props.begin();
@@ -314,12 +314,12 @@ size_t sCustomIteratorCount = 0;
 static inline bool
 GetCustomIterator(JSContext *cx, HandleObject obj, unsigned flags, MutableHandleValue vp)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     /* Check whether we have a valid __iterator__ method. */
     HandlePropertyName name = cx->names().iteratorIntrinsic;
     if (!JSObject::getProperty(cx, obj, obj, name, vp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* If there is no custom __iterator__ method, we are done here. */
     if (!vp.isObject()) {
@@ -333,7 +333,7 @@ GetCustomIterator(JSContext *cx, HandleObject obj, unsigned flags, MutableHandle
     /* Otherwise call it and return that object. */
     Value arg = BooleanValue((flags & JSITER_FOREACH) == 0);
     if (!Invoke(cx, ObjectValue(*obj), vp, 1, &arg, vp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (vp.isPrimitive()) {
         /*
          * We are always coming from js::ValueToIterator, and we are no longer on
@@ -341,11 +341,11 @@ GetCustomIterator(JSContext *cx, HandleObject obj, unsigned flags, MutableHandle
          */
         JSAutoByteString bytes;
         if (!AtomToPrintableString(cx, name, &bytes))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         RootedValue val(cx, ObjectValue(*obj));
         js_ReportValueError2(cx, JSMSG_BAD_TRAP_RETURN_VALUE,
                              -1, val, NullPtr(), bytes.ptr());
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -356,14 +356,14 @@ Compare(T *a, T *b, size_t c)
 {
     size_t n = (c + size_t(7)) / size_t(8);
     switch (c % 8) {
-      case 0: do { if (*a++ != *b++) return false;
-      case 7:      if (*a++ != *b++) return false;
-      case 6:      if (*a++ != *b++) return false;
-      case 5:      if (*a++ != *b++) return false;
-      case 4:      if (*a++ != *b++) return false;
-      case 3:      if (*a++ != *b++) return false;
-      case 2:      if (*a++ != *b++) return false;
-      case 1:      if (*a++ != *b++) return false;
+      case 0: do { if (*a++ != *b++) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
+      case 7:      if (*a++ != *b++) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
+      case 6:      if (*a++ != *b++) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
+      case 5:      if (*a++ != *b++) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
+      case 4:      if (*a++ != *b++) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
+      case 3:      if (*a++ != *b++) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
+      case 2:      if (*a++ != *b++) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
+      case 1:      if (*a++ != *b++) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
               } while (--n > 0);
     }
     return true;
@@ -470,17 +470,17 @@ VectorToKeyIterator(JSContext *cx, HandleObject obj, unsigned flags, AutoIdVecto
 
     if (obj) {
         if (obj->hasSingletonType() && !obj->setIteratedSingleton(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         types::MarkTypeObjectFlags(cx, obj, types::OBJECT_FLAG_ITERATED);
     }
 
     Rooted<PropertyIteratorObject *> iterobj(cx, NewPropertyIteratorObject(cx, flags));
     if (!iterobj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     NativeIterator *ni = NativeIterator::allocateIterator(cx, slength, keys);
     if (!ni)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     ni->init(obj, iterobj, flags, slength, key);
 
     if (slength) {
@@ -522,17 +522,17 @@ js::VectorToValueIterator(JSContext *cx, HandleObject obj, unsigned flags, AutoI
 
     if (obj) {
         if (obj->hasSingletonType() && !obj->setIteratedSingleton(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         types::MarkTypeObjectFlags(cx, obj, types::OBJECT_FLAG_ITERATED);
     }
 
     Rooted<PropertyIteratorObject*> iterobj(cx, NewPropertyIteratorObject(cx, flags));
     if (!iterobj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     NativeIterator *ni = NativeIterator::allocateIterator(cx, 0, keys);
     if (!ni)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     ni->init(obj, iterobj, flags, 0, 0);
 
     iterobj->setNativeIterator(ni);
@@ -572,7 +572,7 @@ js::GetIterator(JSContext *cx, HandleObject obj, unsigned flags, MutableHandleVa
         if (JSIteratorOp op = obj->getClass()->ext.iteratorObject) {
             JSObject *iterobj = op(cx, obj, !(flags & JSITER_FOREACH));
             if (!iterobj)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             vp.setObject(*iterobj);
             return true;
         }
@@ -626,7 +626,7 @@ js::GetIterator(JSContext *cx, HandleObject obj, unsigned flags, MutableHandleVa
                     Shape *shape = pobj->lastProperty();
                     key = (key + (key << 16)) ^ (uintptr_t(shape) >> 3);
                     if (!shapes.append(shape))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     pobj = pobj->getProto();
                 } while (pobj);
             }
@@ -654,7 +654,7 @@ js::GetIterator(JSContext *cx, HandleObject obj, unsigned flags, MutableHandleVa
             return Proxy::iterate(cx, obj, flags, vp);
 
         if (!GetCustomIterator(cx, obj, flags, vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!vp.isUndefined())
             return true;
     }
@@ -664,15 +664,15 @@ js::GetIterator(JSContext *cx, HandleObject obj, unsigned flags, MutableHandleVa
     AutoIdVector keys(cx);
     if (flags & JSITER_FOREACH) {
         if (JS_LIKELY(obj != nullptr) && !Snapshot(cx, obj, flags, &keys))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         JS_ASSERT(shapes.empty());
         if (!VectorToValueIterator(cx, obj, flags, keys, vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         if (JS_LIKELY(obj != nullptr) && !Snapshot(cx, obj, flags, &keys))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!VectorToKeyIterator(cx, obj, flags, keys, shapes.length(), key, vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     PropertyIteratorObject *iterobj = &vp.toObject().as<PropertyIteratorObject>();
@@ -726,7 +726,7 @@ js_ThrowStopIteration(JSContext *cx)
     RootedValue v(cx);
     if (js_FindClassObject(cx, JSProto_StopIteration, &v))
         cx->setPendingException(v);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /*** Iterator objects ****************************************************************************/
@@ -737,7 +737,7 @@ js::IteratorConstructor(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     if (args.length() == 0) {
         js_ReportMissingArg(cx, args.calleev(), 0);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool keyonly = false;
@@ -746,7 +746,7 @@ js::IteratorConstructor(JSContext *cx, unsigned argc, Value *vp)
     unsigned flags = JSITER_OWNONLY | (keyonly ? 0 : (JSITER_FOREACH | JSITER_KEYVALUE));
 
     if (!ValueToIterator(cx, flags, args[0]))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().set(args[0]);
     return true;
 }
@@ -765,11 +765,11 @@ iterator_next_impl(JSContext *cx, CallArgs args)
     RootedObject thisObj(cx, &args.thisv().toObject());
 
     if (!js_IteratorMore(cx, thisObj, args.rval()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!args.rval().toBoolean()) {
         js_ThrowStopIteration(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return js_IteratorNext(cx, thisObj, args.rval());
@@ -935,7 +935,7 @@ js::ValueToIterator(JSContext *cx, unsigned flags, MutableHandleValue vp)
         if (!(flags & JSITER_ENUMERATE) || !vp.isNullOrUndefined()) {
             obj = ToObject(cx, vp);
             if (!obj)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -975,7 +975,7 @@ js::UnwindIteratorForException(JSContext *cx, HandleObject obj)
     RootedValue v(cx, cx->getPendingException());
     cx->clearPendingException();
     if (!CloseIterator(cx, obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     cx->setPendingException(v);
     return true;
 }
@@ -1029,22 +1029,22 @@ SuppressDeletedPropertyHelper(JSContext *cx, HandleObject obj, StringPredicate p
                      */
                     RootedObject proto(cx);
                     if (!JSObject::getProto(cx, obj, &proto))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     if (proto) {
                         RootedObject obj2(cx);
                         RootedShape prop(cx);
                         RootedId id(cx);
                         RootedValue idv(cx, StringValue(*idp));
                         if (!ValueToId<CanGC>(cx, idv, &id))
-                            return false;
+                            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                         if (!JSObject::lookupGeneric(cx, proto, id, &obj2, &prop))
-                            return false;
+                            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                         if (prop) {
                             unsigned attrs;
                             if (obj2->isNative())
                                 attrs = GetShapeAttributes(prop);
                             else if (!JSObject::getGenericAttributes(cx, obj2, id, &attrs))
-                                return false;
+                                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                             if (attrs & JSPROP_ENUMERATE)
                                 continue;
@@ -1109,7 +1109,7 @@ js_SuppressDeletedProperty(JSContext *cx, HandleObject obj, jsid id)
 {
     Rooted<JSFlatString*> str(cx, IdToString(cx, id));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return SuppressDeletedPropertyHelper(cx, obj, SingleStringPredicate(str));
 }
 
@@ -1118,7 +1118,7 @@ js_SuppressDeletedElement(JSContext *cx, HandleObject obj, uint32_t index)
 {
     RootedId id(cx);
     if (!IndexToId(cx, index, id.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return js_SuppressDeletedProperty(cx, obj, id);
 }
 
@@ -1135,7 +1135,7 @@ class IndexRangePredicate {
         return str->isIndex(&index) && begin <= index && index < end;
     }
 
-    bool matchesAtMostOne() { return false; }
+    bool matchesAtMostOne() { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
 };
 
 } /* anonymous namespace */
@@ -1168,7 +1168,7 @@ js_IteratorMore(JSContext *cx, HandleObject iterobj, MutableHandleValue rval)
     }
 
     /* We're reentering below and can call anything. */
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     /* Fetch and cache the next value from the iterator. */
     if (ni) {
@@ -1176,21 +1176,21 @@ js_IteratorMore(JSContext *cx, HandleObject iterobj, MutableHandleValue rval)
         RootedId id(cx);
         RootedValue current(cx, StringValue(*ni->current()));
         if (!ValueToId<CanGC>(cx, current, &id))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         ni->incCursor();
         RootedObject obj(cx, ni->obj);
         if (!JSObject::getGeneric(cx, obj, obj, id, rval))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if ((ni->flags & JSITER_KEYVALUE) && !NewKeyValuePair(cx, id, rval, rval))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         /* Call the iterator object's .next method. */
         if (!JSObject::getProperty(cx, iterobj, iterobj, cx->names().next, rval))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!Invoke(cx, ObjectValue(*iterobj), rval, 0, nullptr, rval)) {
             /* Check for StopIteration. */
             if (!cx->isExceptionPending() || !JS_IsStopIteration(cx->getPendingException()))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             cx->clearPendingException();
             cx->iterValue.setMagic(JS_NO_ITER_VALUE);
@@ -1261,17 +1261,17 @@ ForOfIterator::init(HandleValue iterable)
 {
     RootedObject iterableObj(cx, ToObject(cx, iterable));
     if (!iterableObj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // The iterator is the result of calling obj[@@iterator]().
     InvokeArgs args(cx);
     if (!args.init(0))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.setThis(ObjectValue(*iterableObj));
 
     RootedValue callee(cx);
     if (!JSObject::getProperty(cx, iterableObj, iterableObj, cx->names().std_iterator, &callee))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Throw if obj[@@iterator] isn't callable. js::Invoke is about to check
     // for this kind of error anyway, but it would throw an inscrutable
@@ -1279,19 +1279,19 @@ ForOfIterator::init(HandleValue iterable)
     if (!callee.isObject() || !callee.toObject().isCallable()) {
         char *bytes = DecompileValueGenerator(cx, JSDVG_SEARCH_STACK, iterable, NullPtr());
         if (!bytes)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_NOT_ITERABLE, bytes);
         js_free(bytes);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args.setCallee(callee);
     if (!Invoke(cx, args))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     iterator = ToObject(cx, args.rval());
     if (!iterator)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }
@@ -1303,23 +1303,23 @@ ForOfIterator::next(MutableHandleValue vp, bool *done)
 
     RootedValue method(cx);
     if (!JSObject::getProperty(cx, iterator, iterator, cx->names().next, &method))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     InvokeArgs args(cx);
     if (!args.init(1))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.setCallee(method);
     args.setThis(ObjectValue(*iterator));
     args[0].setUndefined();
     if (!Invoke(cx, args))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedObject resultObj(cx, ToObject(cx, args.rval()));
     if (!resultObj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedValue doneVal(cx);
     if (!JSObject::getProperty(cx, resultObj, resultObj, cx->names().done, &doneVal))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *done = ToBoolean(doneVal);
     if (*done) {
         vp.setUndefined();
@@ -1613,7 +1613,7 @@ SendToGenerator(JSContext *cx, JSGeneratorOp op, HandleObject obj,
 
     if (gen->state == JSGEN_RUNNING || gen->state == JSGEN_CLOSING) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_NESTING_GENERATOR);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JSGeneratorState futureState;
@@ -1652,7 +1652,7 @@ SendToGenerator(JSContext *cx, JSGeneratorOp op, HandleObject obj,
         GeneratorState state(cx, gen, futureState);
         ok = RunScript(cx, state);
         if (!ok && gen->state == JSGEN_CLOSED)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (gen->fp->isYielding()) {
@@ -1696,14 +1696,14 @@ star_generator_next(JSContext *cx, CallArgs args)
 
     if (gen->state == JSGEN_CLOSED) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_GENERATOR_FINISHED);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (gen->state == JSGEN_NEWBORN && args.hasDefined(0)) {
         RootedValue val(cx, args[0]);
         js_ReportValueError(cx, JSMSG_BAD_GENERATOR_SEND,
                             JSDVG_SEARCH_STACK, val, NullPtr());
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return SendToGenerator(cx, JSGENOP_SEND, thisObj, gen, args.get(0), StarGenerator,
@@ -1718,7 +1718,7 @@ star_generator_throw(JSContext *cx, CallArgs args)
     JSGenerator *gen = thisObj->as<StarGeneratorObject>().getGenerator();
     if (gen->state == JSGEN_CLOSED) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_GENERATOR_FINISHED);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return SendToGenerator(cx, JSGENOP_THROW, thisObj, gen, args.get(0), StarGenerator,
@@ -1738,7 +1738,7 @@ legacy_generator_next(JSContext *cx, CallArgs args)
         RootedValue val(cx, args[0]);
         js_ReportValueError(cx, JSMSG_BAD_GENERATOR_SEND,
                             JSDVG_SEARCH_STACK, val, NullPtr());
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return SendToGenerator(cx, JSGENOP_SEND, thisObj, gen, args.get(0), LegacyGenerator,
@@ -1753,7 +1753,7 @@ legacy_generator_throw(JSContext *cx, CallArgs args)
     JSGenerator *gen = thisObj->as<LegacyGeneratorObject>().getGenerator();
     if (gen->state == JSGEN_CLOSED) {
         cx->setPendingException(args.length() >= 1 ? args[0] : UndefinedValue());
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return SendToGenerator(cx, JSGENOP_THROW, thisObj, gen, args.get(0), LegacyGenerator,
@@ -1860,12 +1860,12 @@ GlobalObject::initIteratorClasses(JSContext *cx, Handle<GlobalObject *> global)
     } else {
         iteratorProto = global->createBlankPrototype(cx, &PropertyIteratorObject::class_);
         if (!iteratorProto)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         AutoIdVector blank(cx);
         NativeIterator *ni = NativeIterator::allocateIterator(cx, 0, blank);
         if (!ni)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         ni->init(nullptr, nullptr, 0 /* flags */, 0, 0);
 
         iteratorProto->as<PropertyIteratorObject>().setNativeIterator(ni);
@@ -1873,13 +1873,13 @@ GlobalObject::initIteratorClasses(JSContext *cx, Handle<GlobalObject *> global)
         Rooted<JSFunction*> ctor(cx);
         ctor = global->createConstructor(cx, IteratorConstructor, cx->names().Iterator, 2);
         if (!ctor)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!LinkConstructorAndPrototype(cx, ctor, iteratorProto))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!DefinePropertiesAndBrand(cx, iteratorProto, nullptr, iterator_methods))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!DefineConstructorAndPrototype(cx, global, JSProto_Iterator, ctor, iteratorProto))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedObject proto(cx);
@@ -1887,7 +1887,7 @@ GlobalObject::initIteratorClasses(JSContext *cx, Handle<GlobalObject *> global)
         const Class *cls = &ArrayIteratorObject::class_;
         proto = global->createBlankPrototypeInheriting(cx, cls, *iteratorProto);
         if (!proto || !DefinePropertiesAndBrand(cx, proto, nullptr, array_iterator_methods))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         global->setReservedSlot(ARRAY_ITERATOR_PROTO, ObjectValue(*proto));
     }
 
@@ -1895,41 +1895,41 @@ GlobalObject::initIteratorClasses(JSContext *cx, Handle<GlobalObject *> global)
         const Class *cls = &StringIteratorPrototypeClass;
         proto = global->createBlankPrototype(cx, cls);
         if (!proto || !DefinePropertiesAndBrand(cx, proto, nullptr, string_iterator_methods))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         global->setReservedSlot(STRING_ITERATOR_PROTO, ObjectValue(*proto));
     }
 
     if (global->getSlot(LEGACY_GENERATOR_OBJECT_PROTO).isUndefined()) {
         proto = NewSingletonObjectWithObjectPrototype(cx, global);
         if (!proto || !DefinePropertiesAndBrand(cx, proto, nullptr, legacy_generator_methods))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         global->setReservedSlot(LEGACY_GENERATOR_OBJECT_PROTO, ObjectValue(*proto));
     }
 
     if (global->getSlot(STAR_GENERATOR_OBJECT_PROTO).isUndefined()) {
         RootedObject genObjectProto(cx, NewSingletonObjectWithObjectPrototype(cx, global));
         if (!genObjectProto)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!DefinePropertiesAndBrand(cx, genObjectProto, nullptr, star_generator_methods))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         RootedObject genFunctionProto(cx, NewSingletonObjectWithFunctionPrototype(cx, global));
         if (!genFunctionProto)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!LinkConstructorAndPrototype(cx, genFunctionProto, genObjectProto))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         RootedValue function(cx, global->getConstructor(JSProto_Function));
         if (!function.toObjectOrNull())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         RootedAtom name(cx, cx->names().GeneratorFunction);
         RootedObject genFunction(cx, NewFunctionWithProto(cx, NullPtr(), Generator, 1,
                                                           JSFunction::NATIVE_CTOR, global, name,
                                                           &function.toObject()));
         if (!genFunction)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!LinkConstructorAndPrototype(cx, genFunction, genFunctionProto))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         global->setSlot(STAR_GENERATOR_OBJECT_PROTO, ObjectValue(*genObjectProto));
         global->setConstructor(JSProto_GeneratorFunction, ObjectValue(*genFunction));
@@ -1939,11 +1939,11 @@ GlobalObject::initIteratorClasses(JSContext *cx, Handle<GlobalObject *> global)
     if (global->getPrototype(JSProto_StopIteration).isUndefined()) {
         proto = global->createBlankPrototype(cx, &StopIterationObject::class_);
         if (!proto || !JSObject::freeze(cx, proto))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* This should use a non-JSProtoKey'd slot, but this is easier for now. */
         if (!DefineConstructorAndPrototype(cx, global, JSProto_StopIteration, proto, proto))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         global->markStandardClassInitializedNoProto(&StopIterationObject::class_);
     }

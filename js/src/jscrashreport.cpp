@@ -28,9 +28,9 @@ GetStack(uint64_t *stack, uint64_t *stack_len, CrashRegisters *regs, char *buffe
     char dummy;
     MEMORY_BASIC_INFORMATION info;
     if (VirtualQuery(reinterpret_cast<LPCVOID>(&dummy), &info, sizeof(info)) == 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (info.State != MEM_COMMIT)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* 256 is a fudge factor to account for the rest of GetStack's frame. */
     uint64_t p = uint64_t(&dummy) - 256;
@@ -114,7 +114,7 @@ GetStack(uint64_t *stack, uint64_t *stack_len, CrashRegisters *regs, char *buffe
     /* Get the register state. */
     ucontext_t context;
     if (getcontext(&context) != 0)
-	return false;
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #if defined(__x86_64__)
     regs->sp = (uint64_t)context.uc_mcontext.gregs[REG_RSP];
@@ -138,7 +138,7 @@ GetStack(uint64_t *stack, uint64_t *stack_len, CrashRegisters *regs, char *buffe
 static bool
 GetStack(uint64_t *stack, uint64_t *stack_len, CrashRegisters *regs, char *buffer, size_t size)
 {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 #endif

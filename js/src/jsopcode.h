@@ -260,7 +260,7 @@ BytecodeFallsThrough(JSOp op)
       case JSOP_RETRVAL:
       case JSOP_THROW:
       case JSOP_TABLESWITCH:
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       case JSOP_GOSUB:
         /* These fall through indirectly, after executing a 'finally'. */
         return true;
@@ -532,7 +532,7 @@ BytecodeFlowsToBitop(jsbytecode *pc)
         next += GetBytecodeLength(next);
         if (*next == JSOP_BITAND)
             return true;
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (*next == JSOP_ONE) {
         next += GetBytecodeLength(next);
@@ -541,15 +541,15 @@ BytecodeFlowsToBitop(jsbytecode *pc)
             if (*next == JSOP_BITAND)
                 return true;
         }
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (*next == JSOP_ZERO) {
         next += GetBytecodeLength(next);
         if (*next == JSOP_BITOR)
             return true;
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 extern bool

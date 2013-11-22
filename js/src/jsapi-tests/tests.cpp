@@ -16,14 +16,14 @@ bool JSAPITest::init()
 {
     rt = createRuntime();
     if (!rt)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     cx = createContext();
     if (!cx)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JS_BeginRequest(cx);
     JS::RootedObject global(cx, createGlobal());
     if (!global)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JS_EnterCompartment(cx, global);
     return true;
 }

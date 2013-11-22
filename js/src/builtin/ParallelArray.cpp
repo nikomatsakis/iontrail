@@ -74,13 +74,13 @@ ParallelArrayObject::initProps(JSContext *cx, HandleObject obj)
     RootedValue zero(cx, Int32Value(0));
 
     if (!JSObject::defineProperty(cx, obj, cx->names().buffer, undef))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!JSObject::defineProperty(cx, obj, cx->names().offset, zero))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!JSObject::defineProperty(cx, obj, cx->names().shape, undef))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!JSObject::defineProperty(cx, obj, cx->names().get, undef))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }
@@ -90,7 +90,7 @@ ParallelArrayObject::construct(JSContext *cx, unsigned argc, Value *vp)
 {
     RootedFunction ctor(cx, getConstructor(cx, argc));
     if (!ctor)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     CallArgs args = CallArgsFromVp(argc, vp);
     return constructHelper(cx, &ctor, args);
 }
@@ -137,7 +137,7 @@ ParallelArrayObject::constructHelper(JSContext *cx, MutableHandleFunction ctor, 
 {
     RootedObject result(cx, newInstance(cx, TenuredObject));
     if (!result)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (cx->typeInferenceEnabled()) {
         jsbytecode *pc;
@@ -146,7 +146,7 @@ ParallelArrayObject::constructHelper(JSContext *cx, MutableHandleFunction ctor, 
             if (ctor->nonLazyScript()->shouldCloneAtCallsite) {
                 ctor.set(CloneFunctionAtCallsite(cx, ctor, script, pc));
                 if (!ctor)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             // Create the type object for the PA.  Add in the current
@@ -158,10 +158,10 @@ ParallelArrayObject::constructHelper(JSContext *cx, MutableHandleFunction ctor, 
             types::TypeObject *paTypeObject =
                 types::TypeScript::InitObject(cx, script, pc, JSProto_ParallelArray);
             if (!paTypeObject)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (paTypeObject->getPropertyCount() == 0 && !paTypeObject->unknownProperties()) {
                 if (!paTypeObject->addDefiniteProperties(cx, result))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 // addDefiniteProperties() above should have added one
                 // property for each of the fixed slots:
@@ -173,7 +173,7 @@ ParallelArrayObject::constructHelper(JSContext *cx, MutableHandleFunction ctor, 
 
     InvokeArgs args(cx);
     if (!args.init(args0.length()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.setCallee(ObjectValue(*ctor));
     args.setThis(ObjectValue(*result));
@@ -182,7 +182,7 @@ ParallelArrayObject::constructHelper(JSContext *cx, MutableHandleFunction ctor, 
         args[i].set(args0[i]);
 
     if (!Invoke(cx, args))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args0.rval().setObject(*result);
     return true;

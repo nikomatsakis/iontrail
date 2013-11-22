@@ -2,7 +2,7 @@
 // This code is governed by the BSD license found in the LICENSE file.
 
 /**
- * If y is a prefix of x and x !== y, return false
+ * If y is a prefix of x and x !== y, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
  *
  * @path ch11/11.8/11.8.3/S11.8.3_A4.10.js
  * @description x and y are string primitives

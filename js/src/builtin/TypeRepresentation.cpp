@@ -53,7 +53,7 @@ TypeRepresentationHasher::match(TypeRepresentation *key1,
                                 TypeRepresentation *key2)
 {
     if (key1->kind() != key2->kind())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     switch (key1->kind()) {
       case TypeRepresentation::Scalar:
@@ -91,14 +91,14 @@ TypeRepresentationHasher::matchStructs(StructTypeRepresentation *key1,
                                        StructTypeRepresentation *key2)
 {
     if (key1->fieldCount() != key2->fieldCount())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (size_t i = 0; i < key1->fieldCount(); i++) {
         if (key1->field(i).id != key2->field(i).id)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (key1->field(i).typeRepr != key2->field(i).typeRepr)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -277,7 +277,7 @@ StructTypeRepresentation::init(JSContext *cx,
         if (alignedSize < totalSize) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                                  JSMSG_TYPEDOBJECT_TOO_BIG);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         new(fields() + i) StructField(i, ids[i], fieldTypeRepr, alignedSize);
@@ -287,7 +287,7 @@ StructTypeRepresentation::init(JSContext *cx,
         if (incrementedSize < alignedSize) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                                  JSMSG_TYPEDOBJECT_TOO_BIG);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         totalSize = incrementedSize;
@@ -297,7 +297,7 @@ StructTypeRepresentation::init(JSContext *cx,
     if (alignedSize < totalSize) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                              JSMSG_TYPEDOBJECT_TOO_BIG);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     size_ = alignedSize;
@@ -560,7 +560,7 @@ TypeRepresentation::appendString(JSContext *cx, StringBuffer &contents)
     }
 
     MOZ_ASSUME_UNREACHABLE("Invalid kind");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /*static*/ const char *
@@ -611,19 +611,19 @@ bool
 ArrayTypeRepresentation::appendStringArray(JSContext *cx, StringBuffer &contents)
 {
     if (!contents.append("ArrayType("))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!element()->appendString(cx, contents))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!contents.append(", "))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!NumberValueToStringBuffer(cx, NumberValue(length()), contents))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!contents.append(")"))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }
@@ -632,7 +632,7 @@ bool
 StructTypeRepresentation::appendStringStruct(JSContext *cx, StringBuffer &contents)
 {
     if (!contents.append("StructType({"))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (size_t i = 0; i < fieldCount(); i++) {
         const StructField &fld = field(i);
@@ -642,20 +642,20 @@ StructTypeRepresentation::appendStringStruct(JSContext *cx, StringBuffer &conten
 
         RootedString idString(cx, IdToString(cx, fld.id));
         if (!idString)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!contents.append(idString))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!contents.append(": "))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!fld.typeRepr->appendString(cx, contents))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!contents.append("})"))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }

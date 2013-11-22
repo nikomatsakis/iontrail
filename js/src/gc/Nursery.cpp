@@ -32,7 +32,7 @@ js::Nursery::init()
     JS_ASSERT(start() == 0);
 
     if (!hugeSlots.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     void *heap = MapAlignedPages(runtime(), NurserySize, Alignment);
 #ifdef JSGC_ROOT_ANALYSIS
@@ -49,7 +49,7 @@ js::Nursery::init()
         heap = MapAlignedPages(runtime(), NurserySize, Alignment);
 #endif
     if (!heap)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSRuntime *rt = runtime();
     rt->gcNurseryStart_ = uintptr_t(heap);

@@ -301,7 +301,7 @@ InterpreterStack::pushInlineFrame(JSContext *cx, FrameRegs &regs, const CallArgs
     Value *argv;
     StackFrame *fp = getCallFrame(cx, args, script, &flags, &argv);
     if (!fp)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     fp->mark_ = mark;
 
@@ -551,21 +551,21 @@ AbstractFramePtr::useNewType() const
 {
     if (isStackFrame())
         return asStackFrame()->useNewType();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 inline bool
 AbstractFramePtr::isGeneratorFrame() const
 {
     if (isStackFrame())
         return asStackFrame()->isGeneratorFrame();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 inline bool
 AbstractFramePtr::isYielding() const
 {
     if (isStackFrame())
         return asStackFrame()->isYielding();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 inline bool
 AbstractFramePtr::isFunctionFrame() const
@@ -888,7 +888,7 @@ InterpreterActivation::pushInlineFrame(const CallArgs &args, HandleScript script
                                        InitialFrameFlags initial)
 {
     if (!cx_->runtime()->interpreterStack().pushInlineFrame(cx_, regs_, args, script, initial))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JS_ASSERT(regs_.fp()->script()->compartment() == compartment_);
     return true;
 }

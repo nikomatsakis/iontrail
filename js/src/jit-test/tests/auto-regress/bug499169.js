@@ -47,7 +47,7 @@ function $mixin(e) {
 }
 function $type(a) {
     if (a == undefined) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (a.$family) {
     }

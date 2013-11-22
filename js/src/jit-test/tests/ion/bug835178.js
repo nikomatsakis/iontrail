@@ -6,14 +6,14 @@ function test(a,b,c) { return inlined(a,b,c) }
 assertEq(test(1,2,3), 1);
 assertEq(test(0,2,3), 2);
 
-function g(a) { if (g.arguments[1]) return true; return false; };
+function g(a) { if (g.arguments[1]) return true; do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); };
 function f() { return g(false, true); };
 function h() { return f(false, false); }
 
 assertEq(h(false, false), true);
 assertEq(h(false, false), true);
 
-function g2(a) { if (a) { if (g2.arguments[1]) return true; return false; } return true; };
+function g2(a) { if (a) { if (g2.arguments[1]) return true; do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); } return true; };
 function f2(a) { return g2(a, true); };
 function h2(a) { return f2(a, false); }
 

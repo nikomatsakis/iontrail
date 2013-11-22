@@ -98,7 +98,7 @@ static bool InferSpewActive(SpewChannel channel)
         PodArrayZero(active);
         const char *env = getenv("INFERFLAGS");
         if (!env)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (strstr(env, "ops"))
             active[ISpewOps] = true;
         if (strstr(env, "result"))
@@ -120,7 +120,7 @@ static bool InferSpewColorable()
         checked = true;
         const char *env = getenv("TERM");
         if (!env)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (strcmp(env, "xterm-color") == 0 || strcmp(env, "xterm-256color") == 0)
             colorable = true;
     }
@@ -331,7 +331,7 @@ bool
 TypeSet::isSubset(TypeSet *other)
 {
     if ((baseFlags() & other->baseFlags()) != baseFlags())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (unknownObject()) {
         JS_ASSERT(other->unknownObject());
@@ -341,7 +341,7 @@ TypeSet::isSubset(TypeSet *other)
             if (!obj)
                 continue;
             if (!other->hasType(Type::ObjectType(obj)))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -360,7 +360,7 @@ TypeSet::enumerateTypes(TypeList *list)
         if (flags & flag) {
             Type type = Type::PrimitiveType(TypeFlagPrimitive(flag));
             if (!list->append(type))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -374,7 +374,7 @@ TypeSet::enumerateTypes(TypeList *list)
         TypeObjectKey *object = getObject(i);
         if (object) {
             if (!list->append(Type::ObjectType(object)))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -479,7 +479,7 @@ TypeSet::clone(LifoAlloc *alloc, TemporaryTypeSet *result) const
     if (capacity) {
         newSet = alloc->newArray<TypeObjectKey*>(capacity);
         if (!newSet)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         PodCopy(newSet, objectSet, capacity);
     }
 
@@ -693,12 +693,12 @@ TypeScript::FreezeTypeSets(CompilerConstraintList *constraints, JSScript *script
     size_t count = NumTypeSets(script);
     TemporaryTypeSet *types = alloc->newArrayUninitialized<TemporaryTypeSet>(count);
     if (!types)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     PodZero(types, count);
 
     for (size_t i = 0; i < count; i++) {
         if (!existing[i].clone(alloc, &types[i]))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     *pThisTypes = types + (ThisTypes(script) - existing);
@@ -766,13 +766,13 @@ bool
 CompilerConstraintInstance<T>::generateTypeConstraint(JSContext *cx, RecompileInfo recompileInfo)
 {
     if (property.object()->unknownProperties())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!property.instantiate(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!data.constraintHolds(cx, property, expected))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     property.maybeTypes()->add(cx, cx->typeLifoAlloc().new_<TypeCompilerConstraint<T> >(recompileInfo, data),
                                /* callExisting = */ false);
@@ -825,7 +825,7 @@ TypeObjectKey::unknownProperties()
 {
     if (TypeObject *type = maybeType())
         return type->unknownProperties();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 HeapTypeSetKey
@@ -865,7 +865,7 @@ HeapTypeSetKey::instantiate(JSContext *cx)
     if (maybeTypes())
         return true;
     if (object()->isSingleObject() && !object()->asSingleObject()->getType(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     maybeTypes_ = object()->maybeType()->getProperty(cx, id());
     return maybeTypes_ != nullptr;
 }
@@ -880,7 +880,7 @@ CheckFrozenTypeSet(JSContext *cx, TemporaryTypeSet *frozen, StackTypeSet *actual
     // more tolerant of potential new types.
 
     if (!actual->isSubset(frozen))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!frozen->isSubset(actual)) {
         TypeSet::TypeList list;
@@ -930,7 +930,7 @@ types::FinishCompilation(JSContext *cx, HandleScript script, ExecutionMode execu
                          CompilerConstraintList *constraints, RecompileInfo *precompileInfo)
 {
     if (constraints->failed())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     CompilerOutput co(script, executionMode);
 
@@ -938,12 +938,12 @@ types::FinishCompilation(JSContext *cx, HandleScript script, ExecutionMode execu
     if (!types.constrainedOutputs) {
         types.constrainedOutputs = cx->new_< Vector<CompilerOutput> >(cx);
         if (!types.constrainedOutputs)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     uint32_t index = types.constrainedOutputs->length();
     if (!types.constrainedOutputs->append(co))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *precompileInfo = RecompileInfo(index);
 
@@ -987,7 +987,7 @@ types::FinishCompilation(JSContext *cx, HandleScript script, ExecutionMode execu
     if (!succeeded || types.constrainedOutputs->back().pendingInvalidation()) {
         types.constrainedOutputs->back().invalidate();
         script->resetUseCount();
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -1005,7 +1005,7 @@ class ConstraintDataFreeze
 
     bool invalidateOnNewType(Type type) { return true; }
     bool invalidateOnNewPropertyState(TypeSet *property) { return true; }
-    bool invalidateOnNewObjectState(TypeObject *object) { return false; }
+    bool invalidateOnNewObjectState(TypeObject *object) { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
 
     bool constraintHolds(JSContext *cx,
                          const HeapTypeSetKey &property, TemporaryTypeSet *expected)
@@ -1114,7 +1114,7 @@ HeapTypeSetKey::isOwnProperty(CompilerConstraintList *constraints)
             return true;
     }
     freeze(constraints);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -1125,7 +1125,7 @@ HeapTypeSetKey::knownSubset(CompilerConstraintList *constraints, const HeapTypeS
         return true;
     }
     if (!other.maybeTypes() || !maybeTypes()->isSubset(other.maybeTypes()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     freeze(constraints);
     return true;
 }
@@ -1160,7 +1160,7 @@ HeapTypeSetKey::needsBarrier(CompilerConstraintList *constraints)
 {
     TypeSet *types = maybeTypes();
     if (!types)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     bool result = types->unknownObject()
                || types->getObjectCount() > 0
                || types->hasAnyFlag(TYPE_FLAG_STRING);
@@ -1186,8 +1186,8 @@ class ConstraintDataFreezeObjectFlags
 
     const char *kind() { return "freezeObjectFlags"; }
 
-    bool invalidateOnNewType(Type type) { return false; }
-    bool invalidateOnNewPropertyState(TypeSet *property) { return false; }
+    bool invalidateOnNewType(Type type) { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
+    bool invalidateOnNewPropertyState(TypeSet *property) { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
     bool invalidateOnNewObjectState(TypeObject *object) {
         return object->hasAnyFlags(flags);
     }
@@ -1213,7 +1213,7 @@ TypeObjectKey::hasFlags(CompilerConstraintList *constraints, TypeObjectFlags fla
 
     HeapTypeSetKey objectProperty = property(JSID_EMPTY);
     constraints->add(IonAlloc()->new_<CompilerConstraintInstance<ConstraintDataFreezeObjectFlags> >(objectProperty, ConstraintDataFreezeObjectFlags(flags)));
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -1236,7 +1236,7 @@ TemporaryTypeSet::hasObjectFlags(CompilerConstraintList *constraints, TypeObject
             return true;
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 namespace {
@@ -1253,8 +1253,8 @@ class ConstraintDataFreezeObjectForInlinedCall
 
     const char *kind() { return "freezeObjectForInlinedCall"; }
 
-    bool invalidateOnNewType(Type type) { return false; }
-    bool invalidateOnNewPropertyState(TypeSet *property) { return false; }
+    bool invalidateOnNewType(Type type) { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
+    bool invalidateOnNewPropertyState(TypeSet *property) { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
     bool invalidateOnNewObjectState(TypeObject *object) {
         // We don't keep track of the exact dependencies the caller has on its
         // inlined scripts' type sets, so always invalidate the caller.
@@ -1281,8 +1281,8 @@ class ConstraintDataFreezeObjectForNewScriptTemplate
 
     const char *kind() { return "freezeObjectForNewScriptTemplate"; }
 
-    bool invalidateOnNewType(Type type) { return false; }
-    bool invalidateOnNewPropertyState(TypeSet *property) { return false; }
+    bool invalidateOnNewType(Type type) { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
+    bool invalidateOnNewPropertyState(TypeSet *property) { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
     bool invalidateOnNewObjectState(TypeObject *object) {
         return !object->hasNewScript() || object->newScript()->templateObject != templateObject;
     }
@@ -1307,8 +1307,8 @@ class ConstraintDataFreezeObjectForTypedArrayBuffer
 
     const char *kind() { return "freezeObjectForTypedArrayBuffer"; }
 
-    bool invalidateOnNewType(Type type) { return false; }
-    bool invalidateOnNewPropertyState(TypeSet *property) { return false; }
+    bool invalidateOnNewType(Type type) { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
+    bool invalidateOnNewPropertyState(TypeSet *property) { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
     bool invalidateOnNewObjectState(TypeObject *object) {
         return object->singleton->as<TypedArrayObject>().viewData() != viewData;
     }
@@ -1387,11 +1387,11 @@ class ConstraintDataFreezeConfiguredProperty
 
     const char *kind() { return "freezeConfiguredProperty"; }
 
-    bool invalidateOnNewType(Type type) { return false; }
+    bool invalidateOnNewType(Type type) { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
     bool invalidateOnNewPropertyState(TypeSet *property) {
         return property->configuredProperty();
     }
-    bool invalidateOnNewObjectState(TypeObject *object) { return false; }
+    bool invalidateOnNewObjectState(TypeObject *object) { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
 
     bool constraintHolds(JSContext *cx,
                          const HeapTypeSetKey &property, TemporaryTypeSet *expected)
@@ -1427,7 +1427,7 @@ HeapTypeSetKey::configured(CompilerConstraintList *constraints, TypeObjectKey *t
         return true;
 
     constraints->add(IonAlloc()->new_<CompilerConstraintInstance<ConstraintDataFreezeConfiguredProperty> >(*this, ConstraintDataFreezeConfiguredProperty(type)));
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -1437,7 +1437,7 @@ TypeObject::incrementTenureCount()
     JS_ASSERT(count <= OBJECT_FLAG_TENURE_COUNT_LIMIT);
 
     if (count >= OBJECT_FLAG_TENURE_COUNT_LIMIT)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     flags = (flags & ~OBJECT_FLAG_TENURE_COUNT_MASK)
           | ((count + 1) << OBJECT_FLAG_TENURE_COUNT_SHIFT);
@@ -1454,7 +1454,7 @@ TemporaryTypeSet::filtersType(const TemporaryTypeSet *other, Type filteredType) 
     for (TypeFlags flag = 1; flag < TYPE_FLAG_ANYOBJECT; flag <<= 1) {
         Type type = Type::PrimitiveType(TypeFlagPrimitive(flag));
         if (type != filteredType && other->hasType(type) && !hasType(type))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (other->unknownObject())
@@ -1465,7 +1465,7 @@ TemporaryTypeSet::filtersType(const TemporaryTypeSet *other, Type filteredType) 
         if (key) {
             Type type = Type::ObjectType(key);
             if (type != filteredType && !hasType(type))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -1567,13 +1567,13 @@ bool
 TemporaryTypeSet::isDOMClass()
 {
     if (unknownObject())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     unsigned count = getObjectCount();
     for (unsigned i = 0; i < count; i++) {
         const Class *clasp = getObjectClass(i);
         if (clasp && !(clasp->flags & JSCLASS_IS_DOMJSCLASS))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -1583,7 +1583,7 @@ bool
 TemporaryTypeSet::maybeCallable()
 {
     if (!maybeObject())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (unknownObject())
         return true;
@@ -1595,14 +1595,14 @@ TemporaryTypeSet::maybeCallable()
             return true;
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
 TemporaryTypeSet::maybeEmulatesUndefined()
 {
     if (!maybeObject())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (unknownObject())
         return true;
@@ -1617,7 +1617,7 @@ TemporaryTypeSet::maybeEmulatesUndefined()
             return true;
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 JSObject *
@@ -1670,7 +1670,7 @@ TemporaryTypeSet::propertyNeedsBarrier(CompilerConstraintList *constraints, jsid
             return true;
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -1892,14 +1892,14 @@ types::UseNewType(JSContext *cx, JSScript *script, jsbytecode *pc)
     else if (JSOp(*pc) == JSOP_SPREADNEW)
         pc += JSOP_SPREADNEW_LENGTH;
     else
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (JSOp(*pc) == JSOP_SETPROP) {
         jsid id = GetAtomId(cx, script, pc, 0);
         if (id == id_prototype(cx))
             return true;
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 NewObjectKind
@@ -1971,7 +1971,7 @@ PrototypeHasIndexedProperty(CompilerConstraintList *constraints, JSObject *obj)
         obj = obj->getProto();
     } while (obj);
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -2011,7 +2011,7 @@ TypeCompartment::growPendingArray(JSContext *cx)
     PendingWork *newArray = js_pod_calloc<PendingWork>(newCapacity);
     if (!newArray) {
         cx->compartment()->types.setPendingNukeTypes(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     PodCopy(newArray, pendingArray, pendingCount);
@@ -2404,10 +2404,10 @@ struct types::ObjectTableKey
 
     static inline bool match(const ObjectTableKey &v, const Lookup &lookup) {
         if (lookup.nproperties != v.nproperties || lookup.nfixed != v.nfixed)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         for (size_t i = 0; i < lookup.nproperties; i++) {
             if (lookup.properties[i].id != v.properties[i])
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         return true;
     }
@@ -2647,7 +2647,7 @@ TypeObject::addProperty(ExclusiveContext *cx, jsid id, Property **pprop)
     Property *base = cx->typeLifoAlloc().new_<Property>(id);
     if (!base) {
         cx->compartment()->types.setPendingNukeTypes(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (singleton && singleton->isNative()) {
@@ -2716,7 +2716,7 @@ TypeObject::addDefiniteProperties(ExclusiveContext *cx, JSObject *obj)
         if (!JSID_IS_VOID(id) && obj->isFixedSlot(shape->slot())) {
             TypeSet *types = getProperty(cx, id);
             if (!types)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             types->setDefinite(shape->slot());
         }
         shape = shape->previous();
@@ -2746,7 +2746,7 @@ TypeObject::matchDefiniteProperties(HandleObject obj)
                 shape = shape->previous();
             }
             if (!found)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -2821,7 +2821,7 @@ TypeObject::isPropertyConfigured(jsid id)
     TypeSet *types = maybeGetProperty(id);
     if (types)
         return types->configuredProperty();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 void
@@ -3138,10 +3138,10 @@ types::AddClearDefiniteGetterSetterForPrototypeChain(JSContext *cx, TypeObject *
     while (parent) {
         TypeObject *parentObject = parent->getType(cx);
         if (!parentObject || parentObject->unknownProperties())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         HeapTypeSet *parentTypes = parentObject->getProperty(cx, id);
         if (!parentTypes || parentTypes->configuredProperty())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         parentTypes->add(cx, cx->typeLifoAlloc().new_<TypeConstraintClearDefiniteGetterSetter>(type));
         parent = parent->getProto();
     }
@@ -3377,16 +3377,16 @@ bool
 types::UseNewTypeForClone(JSFunction *fun)
 {
     if (!fun->isInterpreted())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (fun->hasScript() && fun->nonLazyScript()->shouldCloneAtCallsite)
         return true;
 
     if (fun->isArrow())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (fun->hasSingletonType())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * When a function is being used as a wrapper for another function, it
@@ -3415,12 +3415,12 @@ types::UseNewTypeForClone(JSFunction *fun)
     uint32_t begin, end;
     if (fun->hasScript()) {
         if (!fun->nonLazyScript()->usesArgumentsAndApply)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         begin = fun->nonLazyScript()->sourceStart;
         end = fun->nonLazyScript()->sourceEnd;
     } else {
         if (!fun->lazyScript()->usesArgumentsAndApply())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         begin = fun->lazyScript()->begin();
         end = fun->lazyScript()->end();
     }
@@ -3440,7 +3440,7 @@ JSScript::makeTypes(JSContext *cx)
         types = cx->pod_calloc<TypeScript>();
         if (!types) {
             js_ReportOutOfMemory(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         new(types) TypeScript();
         return analyzedArgsUsage() || ensureRanAnalysis(cx);
@@ -3453,7 +3453,7 @@ JSScript::makeTypes(JSContext *cx)
     types = (TypeScript *) cx->calloc_(sizeof(TypeScript) + (sizeof(StackTypeSet) * count));
     if (!types) {
         cx->compartment()->types.setPendingNukeTypes(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     new(types) TypeScript();
@@ -3494,7 +3494,7 @@ JSScript::makeAnalysis(JSContext *cx)
     types->analysis = cx->typeLifoAlloc().new_<ScriptAnalysis>(this);
 
     if (!types->analysis)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedScript self(cx, this);
 
@@ -3502,7 +3502,7 @@ JSScript::makeAnalysis(JSContext *cx)
 
     if (self->types->analysis->OOM()) {
         self->types->analysis = nullptr;
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -3517,13 +3517,13 @@ JSFunction::setTypeForScriptedFunction(ExclusiveContext *cx, HandleFunction fun,
 
     if (singleton) {
         if (!setSingletonType(cx, fun))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         RootedObject funProto(cx, fun->getProto());
         TypeObject *type =
             cx->compartment()->types.newTypeObject(cx, &JSFunction::class_, funProto);
         if (!type)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         fun->setType(type);
         type->interpretedFunction = fun;
@@ -3548,7 +3548,7 @@ JSObject::shouldSplicePrototype(JSContext *cx)
      * has had its __proto__ set after creation.
      */
     if (getProto() != nullptr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return !cx->typeInferenceEnabled() || hasSingletonType();
 }
 
@@ -3576,18 +3576,18 @@ JSObject::splicePrototype(JSContext *cx, const Class *clasp, Handle<TaggedProto>
      */
     Rooted<TypeObject*> type(cx, self->getType(cx));
     if (!type)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     Rooted<TypeObject*> protoType(cx, nullptr);
     if (proto.isObject()) {
         protoType = proto.toObject()->getType(cx);
         if (!protoType)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!cx->typeInferenceEnabled()) {
         TypeObject *type = cx->getNewType(clasp, proto);
         if (!type)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         self->type_ = type;
         return true;
     }
@@ -3675,7 +3675,7 @@ JSObject::hasNewType(const Class *clasp, TypeObject *type)
     TypeObjectSet &table = compartment()->newTypeObjects;
 
     if (!table.initialized())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     TypeObjectSet::Ptr p = table.lookup(TypeObjectSet::Lookup(clasp, this));
     return p && *p == type;
@@ -3686,7 +3686,7 @@ JSObject::hasNewType(const Class *clasp, TypeObject *type)
 JSObject::setNewTypeUnknown(JSContext *cx, const Class *clasp, HandleObject obj)
 {
     if (!obj->setFlag(cx, js::BaseShape::NEW_TYPE_UNKNOWN))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * If the object already has a new type, mark that type as unknown. It will
@@ -4413,7 +4413,7 @@ TypeObject::addTypedObjectAddendum(JSContext *cx, TypeRepresentation *repr)
 
     TypeTypedObject *typedObject = js_new<TypeTypedObject>(repr);
     if (!typedObject)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     addendum = typedObject;
     return true;
 }

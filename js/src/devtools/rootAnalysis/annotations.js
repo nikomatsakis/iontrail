@@ -48,7 +48,7 @@ function indirectCallCannotGC(caller, name)
         return true;
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 // Ignore calls through functions pointers with these types
@@ -88,7 +88,7 @@ function fieldCallCannotGC(csu, fullfield)
         return true;
     if (fullfield in ignoreCallees)
         return true;
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 function shouldSuppressGC(name)
@@ -117,7 +117,7 @@ function ignoreEdgeUse(edge, variable)
         }
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 function ignoreEdgeAddressTaken(edge)
@@ -135,7 +135,7 @@ function ignoreEdgeAddressTaken(edge)
         }
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 // Ignore calls of these functions (so ignore any stack containing these)
@@ -182,7 +182,7 @@ function ignoreGCFunction(fun)
     // XXX modify refillFreeList<NoGC> to not need data flow analysis to understand it cannot GC.
     if (/refillFreeList/.test(fun) && /\(js::AllowGC\)0u/.test(fun))
         return true;
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 function isRootedTypeName(name)
@@ -196,7 +196,7 @@ function isRootedTypeName(name)
     {
         return true;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 function isRootedPointerTypeName(name)

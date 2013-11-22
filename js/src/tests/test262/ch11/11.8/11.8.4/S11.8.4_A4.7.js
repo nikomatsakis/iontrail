@@ -2,7 +2,7 @@
 // This code is governed by the BSD license found in the LICENSE file.
 
 /**
- * If x is -Infinity and x !== y, return false
+ * If x is -Infinity and x !== y, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
  *
  * @path ch11/11.8/11.8.4/S11.8.4_A4.7.js
  * @description y is number primitive

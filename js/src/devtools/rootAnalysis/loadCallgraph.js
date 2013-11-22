@@ -11,17 +11,17 @@ var suppressedFunctions = {};
 function addGCFunction(caller, reason)
 {
     if (caller in suppressedFunctions)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (ignoreGCFunction(caller))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!(caller in gcFunctions)) {
         gcFunctions[caller] = reason;
         return true;
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 function addCallEdge(caller, callee, suppressed)

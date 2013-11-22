@@ -324,7 +324,7 @@ class StoreBuffer
         /* This is used by RemoveDuplicates as a unique pointer to this Edge. */
         void *location() const { return (void *)tenured; }
 
-        bool isNullEdge() const { return false; }
+        bool isNullEdge() const { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
 
         void mark(JSTracer *trc);
     };

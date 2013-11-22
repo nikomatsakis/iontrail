@@ -82,7 +82,7 @@ WeakMapBase::saveCompartmentWeakMapList(JSCompartment *c, WeakMapVector &vector)
     WeakMapBase *m = c->gcWeakMapList;
     while (m) {
         if (!vector.append(m))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         m = m->next;
     }
     return true;
@@ -137,11 +137,11 @@ WeakMap_has_impl(JSContext *cx, CallArgs args)
     if (args.length() < 1) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MORE_ARGS_NEEDED,
                              "WeakMap.has", "0", "s");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     JSObject *key = GetKeyArg(cx, args);
     if (!key)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (ObjectValueMap *map = args.thisv().toObject().as<WeakMapObject>().getMap()) {
         if (map->has(key)) {
@@ -190,11 +190,11 @@ WeakMap_get_impl(JSContext *cx, CallArgs args)
     if (args.length() < 1) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MORE_ARGS_NEEDED,
                              "WeakMap.get", "0", "s");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     JSObject *key = GetKeyArg(cx, args);
     if (!key)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (ObjectValueMap *map = args.thisv().toObject().as<WeakMapObject>().getMap()) {
         if (ObjectValueMap::Ptr ptr = map->lookup(key)) {
@@ -226,11 +226,11 @@ WeakMap_delete_impl(JSContext *cx, CallArgs args)
     if (args.length() < 1) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MORE_ARGS_NEEDED,
                              "WeakMap.delete", "0", "s");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     JSObject *key = GetKeyArg(cx, args);
     if (!key)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (ObjectValueMap *map = args.thisv().toObject().as<WeakMapObject>().getMap()) {
         if (ObjectValueMap::Ptr ptr = map->lookup(key)) {
@@ -262,7 +262,7 @@ TryPreserveReflector(JSContext *cx, HandleObject obj)
         JS_ASSERT(cx->runtime()->preserveWrapperCallback);
         if (!cx->runtime()->preserveWrapperCallback(cx, obj)) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_BAD_WEAKMAP_KEY);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
     return true;
@@ -276,11 +276,11 @@ WeakMap_set_impl(JSContext *cx, CallArgs args)
     if (args.length() < 1) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MORE_ARGS_NEEDED,
                              "WeakMap.set", "0", "s");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     RootedObject key(cx, GetKeyArg(cx, args));
     if (!key)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue value(cx, (args.length() > 1) ? args[1] : UndefinedValue());
 
@@ -291,26 +291,26 @@ WeakMap_set_impl(JSContext *cx, CallArgs args)
         if (!map->init()) {
             js_delete(map);
             JS_ReportOutOfMemory(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         thisObj->setPrivate(map);
     }
 
     // Preserve wrapped native keys to prevent wrapper optimization.
     if (!TryPreserveReflector(cx, key))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (JSWeakmapKeyDelegateOp op = key->getClass()->ext.weakmapKeyDelegateOp) {
         RootedObject delegate(cx, op(key));
         if (delegate && !TryPreserveReflector(cx, delegate))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JS_ASSERT(key->compartment() == thisObj->compartment());
     JS_ASSERT_IF(value.isObject(), value.toObject().compartment() == thisObj->compartment());
     if (!map->put(key, value)) {
         JS_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     HashTableWriteBarrierPost(cx->runtime(), map, key.get());
 
@@ -336,7 +336,7 @@ JS_NondeterministicGetWeakMapKeys(JSContext *cx, JSObject *objArg, JSObject **re
     }
     RootedObject arr(cx, NewDenseEmptyArray(cx));
     if (!arr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     ObjectValueMap *map = obj->as<WeakMapObject>().getMap();
     if (map) {
         // Prevent GC from mutating the weakmap while iterating.
@@ -344,9 +344,9 @@ JS_NondeterministicGetWeakMapKeys(JSContext *cx, JSObject *objArg, JSObject **re
         for (ObjectValueMap::Base::Range r = map->all(); !r.empty(); r.popFront()) {
             RootedObject key(cx, r.front().key);
             if (!cx->compartment()->wrap(cx, &key))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!js_NewbornArrayPush(cx, arr, ObjectValue(*key)))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
     *ret = arr;
@@ -380,7 +380,7 @@ WeakMap_construct(JSContext *cx, unsigned argc, Value *vp)
 {
     JSObject *obj = NewBuiltinClassInstance(cx, &WeakMapObject::class_);
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     vp->setObject(*obj);
     return true;

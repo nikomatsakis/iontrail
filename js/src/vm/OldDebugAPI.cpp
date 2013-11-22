@@ -176,7 +176,7 @@ JS_SetDebugModeForAllCompartments(JSContext *cx, bool debug)
         // Ignore special compartments (atoms, JSD compartments)
         if (c->principals) {
             if (!c->setDebugModeFromC(cx, !!debug, dmgc))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
     return true;
@@ -212,7 +212,7 @@ JS_SetSingleStepMode(JSContext *cx, JSScript *scriptArg, bool singleStep)
     assertSameCompartment(cx, script);
 
     if (!CheckDebugMode(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return script->setStepModeFlag(cx, singleStep);
 }
@@ -225,11 +225,11 @@ JS_SetTrap(JSContext *cx, JSScript *scriptArg, jsbytecode *pc, JSTrapHandler han
     assertSameCompartment(cx, script, closure);
 
     if (!CheckDebugMode(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     BreakpointSite *site = script->getOrCreateBreakpointSite(cx, pc);
     if (!site)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     site->setTrap(cx->runtime()->defaultFreeOp(), handler, closure);
     return true;
 }
@@ -298,7 +298,7 @@ JS_SetWatchPoint(JSContext *cx, JSObject *obj_, jsid id_,
     RootedObject origobj(cx, obj_), closure(cx, closure_);
     RootedObject obj(cx, GetInnerObject(cx, origobj));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue v(cx);
     unsigned attrs;
@@ -309,11 +309,11 @@ JS_SetWatchPoint(JSContext *cx, JSObject *obj_, jsid id_,
         propid = id;
     } else if (JSID_IS_OBJECT(id)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_WATCH_PROP);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         RootedValue val(cx, IdToValue(id));
         if (!ValueToId<CanGC>(cx, val, &propid))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /*
@@ -321,12 +321,12 @@ JS_SetWatchPoint(JSContext *cx, JSObject *obj_, jsid id_,
      * again to make sure that we're allowed to set a watch point.
      */
     if (origobj != obj && !CheckAccess(cx, obj, propid, JSACC_WATCH, &v, &attrs))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!obj->isNative()) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_WATCH,
                              obj->getClass()->name);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /*
@@ -334,7 +334,7 @@ JS_SetWatchPoint(JSContext *cx, JSObject *obj_, jsid id_,
      * to without checking the watchpoint map.
      */
     if (!JSObject::sparsifyDenseElements(cx, obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     types::MarkTypePropertyConfigured(cx, obj, propid);
 
@@ -343,7 +343,7 @@ JS_SetWatchPoint(JSContext *cx, JSObject *obj_, jsid id_,
         wpmap = cx->runtime()->new_<WatchpointMap>();
         if (!wpmap || !wpmap->init()) {
             js_ReportOutOfMemory(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         cx->compartment()->watchpointMap = wpmap;
     }
@@ -399,12 +399,12 @@ JS_GetLinePCs(JSContext *cx, JSScript *script,
     size_t len = (script->length > maxLines ? maxLines : script->length);
     unsigned *lines = cx->pod_malloc<unsigned>(len);
     if (!lines)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     jsbytecode **pcs = cx->pod_malloc<jsbytecode*>(len);
     if (!pcs) {
         js_free(lines);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     unsigned lineno = script->lineno;
@@ -670,11 +670,11 @@ JS_GetPropertyDescArray(JSContext *cx, JSObject *obj_, JSPropertyDescArray *pda)
     if (obj->is<DebugScopeObject>()) {
         AutoIdVector props(cx);
         if (!Proxy::enumerate(cx, obj, props))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         pd = cx->pod_calloc<JSPropertyDesc>(props.length());
         if (!pd)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         for (i = 0; i < props.length(); ++i) {
             pd[i].id = JSVAL_NULL;
@@ -698,10 +698,10 @@ JS_GetPropertyDescArray(JSContext *cx, JSObject *obj_, JSPropertyDescArray *pda)
     if (!obj->isNative() || (clasp->flags & JSCLASS_NEW_ENUMERATE)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                              JSMSG_CANT_DESCRIBE_PROPS, clasp->name);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (!clasp->enumerate(cx, obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Return an empty pda early if obj has no own properties. */
     if (obj->nativeEmpty()) {
@@ -712,7 +712,7 @@ JS_GetPropertyDescArray(JSContext *cx, JSObject *obj_, JSPropertyDescArray *pda)
 
     pd = cx->pod_malloc<JSPropertyDesc>(obj->propertyCount());
     if (!pd)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     {
         Shape::Range<CanGC> r(cx, obj->lastProperty());
@@ -743,7 +743,7 @@ bad:
     pda->length = i + 1;
     pda->array = pd;
     JS_PutPropertyDescArray(cx, pda);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 JS_PUBLIC_API(void)
@@ -949,10 +949,10 @@ js_CallContextDebugHandler(JSContext *cx)
     switch (CallContextDebugHandler(cx, script, iter.pc(), rval.address())) {
       case JSTRAP_ERROR:
         JS_ClearPendingException(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       case JSTRAP_THROW:
         JS_SetPendingException(cx, rval);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       case JSTRAP_RETURN:
       case JSTRAP_CONTINUE:
       default:
@@ -1286,7 +1286,7 @@ JSAbstractFramePtr::getThisValue(JSContext *cx, MutableHandleValue thisv)
     RootedObject scopeChain(cx, frame.scopeChain());
     js::AutoCompartment ac(cx, scopeChain);
     if (!ComputeThis(cx, frame))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     thisv.set(frame.thisValue());
     return true;
@@ -1306,12 +1306,12 @@ JSAbstractFramePtr::evaluateInStackFrame(JSContext *cx,
                                          MutableHandleValue rval)
 {
     if (!CheckDebugMode(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     size_t len = length;
     jschar *chars = InflateString(cx, bytes, &len);
     if (!chars)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     length = (unsigned) len;
 
     bool ok = evaluateUCInStackFrame(cx, chars, length, filename, lineno, rval);
@@ -1330,16 +1330,16 @@ JSAbstractFramePtr::evaluateUCInStackFrame(JSContext *cx,
     SkipRoot skipChars(cx, &chars);
 
     if (!CheckDebugMode(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedObject scope(cx, scopeChain(cx));
     Rooted<Env*> env(cx, scope);
     if (!env)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     AbstractFramePtr frame = Valueify(*this);
     if (!ComputeThis(cx, frame))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedValue thisv(cx, frame.thisValue());
 
     js::AutoCompartment ac(cx, env);

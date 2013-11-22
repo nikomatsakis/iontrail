@@ -840,7 +840,7 @@ js_strdup(js::ExclusiveContext *cx, const char *s);
 #endif
 
 /*
- * Invoke the operation callback and return false if the current execution
+ * Invoke the operation callback and do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false) if the current execution
  * is to be terminated.
  */
 extern bool

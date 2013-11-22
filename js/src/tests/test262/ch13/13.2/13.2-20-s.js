@@ -12,7 +12,7 @@
 
 
 function testcase() {
-            var foo = Function("'use strict'; for (var tempIndex in this) {if (tempIndex===\"arguments\") {return false;}}; return true;");
+            var foo = Function("'use strict'; for (var tempIndex in this) {if (tempIndex===\"arguments\") {do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}}; return true;");
             return foo();
 }
 runTestCase(testcase);

@@ -767,7 +767,7 @@ Object.extend(ObjectRange.prototype, {
 
   include: function(value) {
     if (value < this.start)
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (this.exclusive)
       return value < this.end;
     return value <= this.end;
@@ -1321,11 +1321,11 @@ Element.Methods = {
   hasClassName: function(element, className) {
     if (!(element = $(element))) return;
     var elementClassName = element.className;
-    if (elementClassName.length == 0) return false;
+    if (elementClassName.length == 0) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (elementClassName == className ||
         elementClassName.match(new RegExp("(^|\\s)" + className + "(\\s|$)")))
       return true;
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   },
 
   addClassName: function(element, className) {
@@ -1377,7 +1377,7 @@ Element.Methods = {
     element = $(element), ancestor = $(ancestor);
     while (element = element.parentNode)
       if (element == ancestor) return true;
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   },
 
   scrollTo: function(element) {
@@ -1844,7 +1844,7 @@ Selector.prototype = {
   },
 
   compileMatcher: function() {
-    this.match = new Function('element', 'if (!element.tagName) return false; \
+    this.match = new Function('element', 'if (!element.tagName) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); \
       element = $(element); \
       return ' + this.buildMatchExpression());
   },

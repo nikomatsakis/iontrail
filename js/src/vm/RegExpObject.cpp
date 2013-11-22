@@ -41,7 +41,7 @@ RegExpObjectBuilder::getOrCreate()
     // not strictly required, but simplifies embedding them in jitcode.
     JSObject *obj = NewBuiltinClassInstance(cx, &RegExpObject::class_, TenuredObject);
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     obj->initPrivate(nullptr);
 
     reobj_ = &obj->as<RegExpObject>();
@@ -58,7 +58,7 @@ RegExpObjectBuilder::getOrCreateClone(RegExpObject *proto)
     JSObject *clone = NewObjectWithGivenProto(cx, &RegExpObject::class_, proto, proto->getParent(),
                                               TenuredObject);
     if (!clone)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     clone->initPrivate(nullptr);
 
     reobj_ = &clone->as<RegExpObject>();
@@ -124,7 +124,7 @@ MatchPairs::initArray(size_t pairCount)
 
     /* Guarantee adequate space in buffer. */
     if (!allocOrExpandArray(pairCount))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Initialize all MatchPair objects to invalid locations. */
     for (size_t i = 0; i < pairCount; i++) {
@@ -141,7 +141,7 @@ MatchPairs::initArrayFrom(MatchPairs &copyFrom)
     JS_ASSERT(copyFrom.pairCount() > 0);
 
     if (!allocOrExpandArray(copyFrom.pairCount()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (size_t i = 0; i < pairCount_; i++) {
         JS_ASSERT(copyFrom[i].check());
@@ -178,7 +178,7 @@ ScopedMatchPairs::allocOrExpandArray(size_t pairCount)
     JS_ASSERT(!pairs_);
     pairs_ = (MatchPair *)lifoScope_.alloc().alloc(sizeof(MatchPair) * pairCount);
     if (!pairs_)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     pairCount_ = pairCount;
     return true;
@@ -188,7 +188,7 @@ bool
 VectorMatchPairs::allocOrExpandArray(size_t pairCount)
 {
     if (!vec_.resizeUninitialized(sizeof(MatchPair) * pairCount))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     pairs_ = &vec_[0];
     pairCount_ = pairCount;
@@ -266,7 +266,7 @@ RegExpObject::createShared(ExclusiveContext *cx, RegExpGuard *g)
 
     JS_ASSERT(!maybeShared());
     if (!cx->compartment()->regExps.get(cx, getSource(), getFlags(), g))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     self->setShared(cx, **g);
     return true;
@@ -312,11 +312,11 @@ RegExpObject::init(ExclusiveContext *cx, HandleAtom source, RegExpFlag flags)
     if (nativeEmpty()) {
         if (isDelegate()) {
             if (!assignInitialShape(cx))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             RootedShape shape(cx, assignInitialShape(cx));
             if (!shape)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             RootedObject proto(cx, self->getProto());
             EmptyShape::insertInitialShape(cx, shape, proto);
         }
@@ -435,7 +435,7 @@ RegExpShared::checkSyntax(ExclusiveContext *cx, TokenStream *tokenStream, JSLine
         return true;
 
     reportYarrError(cx, tokenStream, error);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -454,14 +454,14 @@ RegExpShared::compile(JSContext *cx, bool matchOnly)
     using mozilla::ArrayLength;
     StringBuffer sb(cx);
     if (!sb.reserve(ArrayLength(prefix) + source->length() + ArrayLength(postfix)))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     sb.infallibleAppend(prefix, ArrayLength(prefix));
     sb.infallibleAppend(source->chars(), source->length());
     sb.infallibleAppend(postfix, ArrayLength(postfix));
 
     JSAtom *fakeySource = sb.finishAtom();
     if (!fakeySource)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return compile(cx, *fakeySource, matchOnly);
 }
@@ -474,7 +474,7 @@ RegExpShared::compile(JSContext *cx, JSLinearString &pattern, bool matchOnly)
     YarrPattern yarrPattern(pattern, ignoreCase(), multiline(), &yarrError);
     if (yarrError) {
         reportYarrError(cx, nullptr, yarrError);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     this->parenCount = yarrPattern.m_numSubpatterns;
 
@@ -482,7 +482,7 @@ RegExpShared::compile(JSContext *cx, JSLinearString &pattern, bool matchOnly)
     if (isJITRuntimeEnabled(cx) && !yarrPattern.m_containsBackreferences) {
         JSC::ExecutableAllocator *execAlloc = cx->runtime()->getExecAlloc(cx);
         if (!execAlloc)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         JSGlobalData globalData(execAlloc);
         YarrJITCompileMode compileMode = matchOnly ? JSC::Yarr::MatchOnly
@@ -500,7 +500,7 @@ RegExpShared::compile(JSContext *cx, JSLinearString &pattern, bool matchOnly)
     WTF::BumpPointerAllocator *bumpAlloc = cx->runtime()->getBumpPointerAllocator(cx);
     if (!bumpAlloc) {
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bytecode = byteCompile(yarrPattern, bumpAlloc).get();
@@ -657,7 +657,7 @@ RegExpCompartment::init(JSContext *cx)
     if (!map_.init(0) || !inUse_.init(0)) {
         if (cx)
             js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -703,19 +703,19 @@ RegExpCompartment::get(ExclusiveContext *cx, JSAtom *source, RegExpFlag flags, R
     uint64_t gcNumber = cx->zone()->gcNumber();
     ScopedJSDeletePtr<RegExpShared> shared(cx->new_<RegExpShared>(source, flags, gcNumber));
     if (!shared)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Add to RegExpShared sharing hashmap. */
     if (!map_.add(p, key, shared)) {
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Add to list of all RegExpShared objects in this RegExpCompartment. */
     if (!inUse_.put(shared)) {
         map_.remove(key);
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Since error deletes |shared|, only guard |shared| on success. */
@@ -728,7 +728,7 @@ RegExpCompartment::get(JSContext *cx, HandleAtom atom, JSString *opt, RegExpGuar
 {
     RegExpFlag flags = RegExpFlag(0);
     if (opt && !ParseRegExpFlags(cx, opt, &flags))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return get(cx, atom, flags, g);
 }
@@ -759,7 +759,7 @@ js::ParseRegExpFlags(JSContext *cx, JSString *flagStr, RegExpFlag *flagsOut)
     size_t n = flagStr->length();
     const jschar *s = flagStr->getChars(cx);
     if (!s)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *flagsOut = RegExpFlag(0);
     for (size_t i = 0; i < n; i++) {
@@ -782,7 +782,7 @@ js::ParseRegExpFlags(JSContext *cx, JSString *flagStr, RegExpFlag *flagsOut)
             charBuf[1] = '\0';
             JS_ReportErrorFlagsAndNumber(cx, JSREPORT_ERROR, js_GetErrorMessage, nullptr,
                                          JSMSG_BAD_REGEXP_FLAG, charBuf);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
           }
         }
 #undef HANDLE_FLAG
@@ -806,12 +806,12 @@ js::XDRScriptRegExpObject(XDRState<mode> *xdr, HeapPtrObject *objp)
         flagsword = reobj.getFlags();
     }
     if (!XDRAtom(xdr, &source) || !xdr->codeUint32(&flagsword))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (mode == XDR_DECODE) {
         RegExpFlag flags = RegExpFlag(flagsword);
         RegExpObject *reobj = RegExpObject::createNoStatics(xdr->cx(), source, flags, nullptr);
         if (!reobj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         objp->init(reobj);
     }

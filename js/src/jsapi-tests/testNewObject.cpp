@@ -20,29 +20,29 @@ constructHook(JSContext *cx, unsigned argc, jsval *vp)
     JS::RootedObject obj(cx, JS_NewObject(cx, js::Jsvalify(&JSObject::class_), nullptr, nullptr));
     if (!obj) {
         JS_ReportError(cx, "test failed, could not construct object");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (strcmp(JS_GetClass(obj)->name, "Object") != 0) {
         JS_ReportError(cx, "test failed, wrong class for 'this'");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (args.length() != 3) {
         JS_ReportError(cx, "test failed, argc == %d", args.length());
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (!args[0].isInt32() || args[2].toInt32() != 2) {
         JS_ReportError(cx, "test failed, wrong value in args[2]");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (!args.isConstructing()) {
         JS_ReportError(cx, "test failed, not constructing");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // Perform a side-effect to indicate that this hook was actually called.
     JS::RootedValue value(cx, args[0]);
     if (!JS_SetElement(cx, &args.callee(), 0, &value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setObject(*obj);
 

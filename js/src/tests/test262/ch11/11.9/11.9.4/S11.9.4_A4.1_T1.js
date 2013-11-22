@@ -2,7 +2,7 @@
 // This code is governed by the BSD license found in the LICENSE file.
 
 /**
- * If x or y is NaN, return false
+ * If x or y is NaN, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
  *
  * @path ch11/11.9/11.9.4/S11.9.4_A4.1_T1.js
  * @description x is NaN

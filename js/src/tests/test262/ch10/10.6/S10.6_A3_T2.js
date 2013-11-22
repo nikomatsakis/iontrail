@@ -13,7 +13,7 @@
 function f1(){
   for(var x in arguments){
     if (x === "callee"){
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
   }
   return true;
@@ -32,7 +32,7 @@ catch(e){
 var f2 = function(){
   for(var x in arguments){
     if (x === "callee"){
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
   }
   return true;

@@ -32,7 +32,7 @@ var non_space_chars = [ "\u200b", "\u200c", "\u200d" ];
  
 var chars = [].concat(space_chars, non_space_chars);
 var is_space = [].concat(space_chars.map(function(ch) { return true; }),
-non_space_chars.map(function(ch) { return false; }));
+non_space_chars.map(function(ch) { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }));
 var expect = is_space.join(',');
  
 var actual = chars.map(function(ch) { return /\s/.test(ch); }).join(',');

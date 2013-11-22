@@ -322,11 +322,11 @@ class DefinitionList
     /*
      * If there are multiple Definitions in this list, remove the first and
      * return true. Otherwise there is exactly one Definition in the list; do
-     * nothing and return false.
+     * nothing and do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false).
      */
     bool popFront() {
         if (!isMultiple())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         Node *node = firstNode();
         Node *next = node->next;
@@ -340,7 +340,7 @@ class DefinitionList
     /*
      * Add a definition to the front of this list.
      *
-     * Return true on success. On OOM, report on cx and return false.
+     * Return true on success. On OOM, report on cx and do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false).
      */
     template <typename ParseHandler>
     bool pushFront(ExclusiveContext *cx, LifoAlloc &alloc,
@@ -351,12 +351,12 @@ class DefinitionList
         } else {
             tail = allocNode(cx, alloc, u.bits, nullptr);
             if (!tail)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         Node *node = allocNode(cx, alloc, ParseHandler::definitionToBits(defn), tail);
         if (!node)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         *this = DefinitionList(node);
         return true;
     }

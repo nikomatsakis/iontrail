@@ -15,7 +15,7 @@ function testcase() {
     var a = new RegExp();
     try {
         var b = delete RegExp.length;
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } catch (e) {
         return e instanceof TypeError;
     }

@@ -26,7 +26,7 @@ function testcase() {
         for (var j in descArray) {
             for (var i in descArray[j]) {
                 if (origDesc[i]!==newDesc[i]) {
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
         }

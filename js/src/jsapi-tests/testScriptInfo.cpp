@@ -27,7 +27,7 @@ static bool
 CharsMatch(const jschar *p, const char *q) {
     while (*q) {
         if (*p++ != *q++)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }

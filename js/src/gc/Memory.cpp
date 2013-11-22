@@ -393,7 +393,7 @@ bool
 gc::MarkPagesUnused(JSRuntime *rt, void *p, size_t size)
 {
     if (!DecommitEnabled(rt))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_ASSERT(uintptr_t(p) % rt->gcSystemPageSize == 0);
     int result = madvise(p, size, MADV_DONTNEED);

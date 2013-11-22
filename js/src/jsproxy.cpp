@@ -101,7 +101,7 @@ BaseProxyHandler::has(JSContext *cx, HandleObject proxy, HandleId id, bool *bp)
     assertEnteredPolicy(cx, proxy, id);
     Rooted<PropertyDescriptor> desc(cx);
     if (!getPropertyDescriptor(cx, proxy, id, &desc, 0))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *bp = !!desc.object();
     return true;
 }
@@ -112,7 +112,7 @@ BaseProxyHandler::hasOwn(JSContext *cx, HandleObject proxy, HandleId id, bool *b
     assertEnteredPolicy(cx, proxy, id);
     Rooted<PropertyDescriptor> desc(cx);
     if (!getOwnPropertyDescriptor(cx, proxy, id, &desc, 0))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *bp = !!desc.object();
     return true;
 }
@@ -125,7 +125,7 @@ BaseProxyHandler::get(JSContext *cx, HandleObject proxy, HandleObject receiver,
 
     Rooted<PropertyDescriptor> desc(cx);
     if (!getPropertyDescriptor(cx, proxy, id, &desc, 0))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!desc.object()) {
         vp.setUndefined();
         return true;
@@ -157,12 +157,12 @@ BaseProxyHandler::getElementIfPresent(JSContext *cx, HandleObject proxy, HandleO
 {
     RootedId id(cx);
     if (!IndexToId(cx, index, id.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     assertEnteredPolicy(cx, proxy, id);
 
     if (!has(cx, proxy, id, present))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!*present) {
         Debug_SetValueRangeToCrashOnTouch(vp.address(), 1);
@@ -180,7 +180,7 @@ BaseProxyHandler::set(JSContext *cx, HandleObject proxy, HandleObject receiver,
 
     Rooted<PropertyDescriptor> desc(cx);
     if (!getOwnPropertyDescriptor(cx, proxy, id, &desc, JSRESOLVE_ASSIGNING))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     /* The control-flow here differs from ::get() because of the fall-through case below. */
     if (desc.object()) {
         // Check for read-only properties.
@@ -193,7 +193,7 @@ BaseProxyHandler::set(JSContext *cx, HandleObject proxy, HandleObject receiver,
                 desc.setSetter(JS_StrictPropertyStub);
         } else if (desc.hasSetterObject() || desc.setter() != JS_StrictPropertyStub) {
             if (!CallSetter(cx, receiver, id, desc.setter(), desc.attributes(), desc.shortid(), strict, vp))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!proxy->is<ProxyObject>() || proxy->as<ProxyObject>().handler() != this)
                 return true;
             if (desc.isShared())
@@ -208,7 +208,7 @@ BaseProxyHandler::set(JSContext *cx, HandleObject proxy, HandleObject receiver,
         return defineProperty(cx, receiver, id, &desc);
     }
     if (!getPropertyDescriptor(cx, proxy, id, &desc, JSRESOLVE_ASSIGNING))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (desc.object()) {
         // Check for read-only properties.
         if (desc.isReadonly())
@@ -220,7 +220,7 @@ BaseProxyHandler::set(JSContext *cx, HandleObject proxy, HandleObject receiver,
                 desc.setSetter(JS_StrictPropertyStub);
         } else if (desc.hasSetterObject() || desc.setter() != JS_StrictPropertyStub) {
             if (!CallSetter(cx, receiver, id, desc.setter(), desc.attributes(), desc.shortid(), strict, vp))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!proxy->is<ProxyObject>() || proxy->as<ProxyObject>().handler() != this)
                 return true;
             if (desc.isShared())
@@ -251,7 +251,7 @@ BaseProxyHandler::keys(JSContext *cx, HandleObject proxy, AutoIdVector &props)
     JS_ASSERT(props.length() == 0);
 
     if (!getOwnPropertyNames(cx, proxy, props))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Select only the enumerable properties through in-place iteration. */
     Rooted<PropertyDescriptor> desc(cx);
@@ -262,7 +262,7 @@ BaseProxyHandler::keys(JSContext *cx, HandleObject proxy, AutoIdVector &props)
         id = props[j];
         AutoWaivePolicy policy(cx, proxy, id);
         if (!getOwnPropertyDescriptor(cx, proxy, id, &desc, 0))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (desc.object() && desc.isEnumerable())
             props[i++] = id;
     }
@@ -282,7 +282,7 @@ BaseProxyHandler::iterate(JSContext *cx, HandleObject proxy, unsigned flags, Mut
     if ((flags & JSITER_OWNONLY)
         ? !keys(cx, proxy, props)
         : !enumerate(cx, proxy, props)) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return EnumeratedIdVectorToIterator(cx, proxy, flags, props, vp);
@@ -333,7 +333,7 @@ bool
 BaseProxyHandler::nativeCall(JSContext *cx, IsAcceptableThis test, NativeImpl impl, CallArgs args)
 {
     ReportIncompatible(cx, args);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -343,13 +343,13 @@ BaseProxyHandler::hasInstance(JSContext *cx, HandleObject proxy, MutableHandleVa
     RootedValue val(cx, ObjectValue(*proxy.get()));
     js_ReportValueError(cx, JSMSG_BAD_INSTANCEOF_RHS,
                         JSDVG_SEARCH_STACK, val, NullPtr());
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
 BaseProxyHandler::objectClassIs(HandleObject proxy, ESClassValue classValue, JSContext *cx)
 {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 void
@@ -376,7 +376,7 @@ BaseProxyHandler::watch(JSContext *cx, HandleObject proxy, HandleId id, HandleOb
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_WATCH,
                          proxy->getClass()->name);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -405,7 +405,7 @@ GetOwnPropertyDescriptor(JSContext *cx, HandleObject obj, HandleId id, unsigned 
         return Proxy::getOwnPropertyDescriptor(cx, obj, id, desc, flags);
 
     if (!JS_GetPropertyDescriptorById(cx, obj, id, flags, desc))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (desc.object() != obj)
         desc.object().set(nullptr);
     return true;
@@ -482,7 +482,7 @@ DirectProxyHandler::nativeCall(JSContext *cx, IsAcceptableThis test, NativeImpl 
     args.setThis(ObjectValue(*args.thisv().toObject().as<ProxyObject>().target()));
     if (!test(args.thisv())) {
         ReportIncompatible(cx, args);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return CallNativeImpl(cx, impl, args);
@@ -496,7 +496,7 @@ DirectProxyHandler::hasInstance(JSContext *cx, HandleObject proxy, MutableHandle
     bool b;
     RootedObject target(cx, proxy->as<ProxyObject>().target());
     if (!JS_HasInstance(cx, target, v, &b))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *bp = !!b;
     return true;
 }
@@ -554,7 +554,7 @@ DirectProxyHandler::has(JSContext *cx, HandleObject proxy, HandleId id, bool *bp
     bool found;
     RootedObject target(cx, proxy->as<ProxyObject>().target());
     if (!JS_HasPropertyById(cx, target, id, &found))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *bp = !!found;
     return true;
 }
@@ -566,7 +566,7 @@ DirectProxyHandler::hasOwn(JSContext *cx, HandleObject proxy, HandleId id, bool 
     RootedObject target(cx, proxy->as<ProxyObject>().target());
     Rooted<PropertyDescriptor> desc(cx);
     if (!JS_GetPropertyDescriptorById(cx, target, id, 0, &desc))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *bp = (desc.object() == target);
     return true;
 }
@@ -625,7 +625,7 @@ static bool
 GetFundamentalTrap(JSContext *cx, HandleObject handler, HandlePropertyName name,
                    MutableHandleValue fvalp)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     return JSObject::getProperty(cx, handler, handler, name, fvalp);
 }
@@ -657,7 +657,7 @@ Trap1(JSContext *cx, HandleObject handler, HandleValue fval, HandleId id, Mutabl
     rval.set(IdToValue(id)); // Re-use out-param to avoid Rooted overhead.
     JSString *str = ToString<CanGC>(cx, rval);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     rval.setString(str);
     return Trap(cx, handler, fval, 1, rval.address(), rval);
 }
@@ -670,7 +670,7 @@ Trap2(JSContext *cx, HandleObject handler, HandleValue fval, HandleId id, Value 
     rval.set(IdToValue(id)); // Re-use out-param to avoid Rooted overhead.
     JSString *str = ToString<CanGC>(cx, rval);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     rval.setString(str);
     Value argv[2] = { rval.get(), v };
     AutoValueArray ava(cx, argv, 2);
@@ -684,7 +684,7 @@ ParsePropertyDescriptorObject(JSContext *cx, HandleObject obj, const Value &v,
     AutoPropDescArrayRooter descs(cx);
     PropDesc *d = descs.append();
     if (!d || !d->initialize(cx, v))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (complete)
         d->complete();
     desc.object().set(obj);
@@ -722,19 +722,19 @@ ArrayToIdVector(JSContext *cx, const Value &array, AutoIdVector &props)
     RootedObject obj(cx, &array.toObject());
     uint32_t length;
     if (!GetLengthProperty(cx, obj, &length))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue v(cx);
     for (uint32_t n = 0; n < length; ++n) {
         if (!JS_CHECK_OPERATION_LIMIT(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!JSObject::getElement(cx, obj, obj, n, &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         RootedId id(cx);
         if (!ValueToId<CanGC>(cx, v, &id))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!props.append(id))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -827,7 +827,7 @@ ScriptedIndirectProxyHandler::preventExtensions(JSContext *cx, HandleObject prox
 {
     // See above.
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_CHANGE_EXTENSIBILITY);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static bool
@@ -840,7 +840,7 @@ ReturnedValueMustNotBePrimitive(JSContext *cx, HandleObject proxy, JSAtom *atom,
             js_ReportValueError2(cx, JSMSG_BAD_TRAP_RETURN_VALUE,
                                  JSDVG_SEARCH_STACK, val, NullPtr(), bytes.ptr());
         }
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -927,7 +927,7 @@ ScriptedIndirectProxyHandler::has(JSContext *cx, HandleObject proxy, HandleId id
     RootedObject handler(cx, GetIndirectProxyHandlerObject(proxy));
     RootedValue fval(cx), value(cx);
     if (!GetDerivedTrap(cx, handler, cx->names().has, &fval))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!js_IsCallable(fval))
         return BaseProxyHandler::has(cx, proxy, id, bp);
     return Trap1(cx, handler, fval, id, &value) &&
@@ -940,7 +940,7 @@ ScriptedIndirectProxyHandler::hasOwn(JSContext *cx, HandleObject proxy, HandleId
     RootedObject handler(cx, GetIndirectProxyHandlerObject(proxy));
     RootedValue fval(cx), value(cx);
     if (!GetDerivedTrap(cx, handler, cx->names().hasOwn, &fval))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!js_IsCallable(fval))
         return BaseProxyHandler::hasOwn(cx, proxy, id, bp);
     return Trap1(cx, handler, fval, id, &value) &&
@@ -955,13 +955,13 @@ ScriptedIndirectProxyHandler::get(JSContext *cx, HandleObject proxy, HandleObjec
     RootedValue idv(cx, IdToValue(id));
     JSString *str = ToString<CanGC>(cx, idv);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedValue value(cx, StringValue(str));
     Value argv[] = { ObjectOrNullValue(receiver), value };
     AutoValueArray ava(cx, argv, 2);
     RootedValue fval(cx);
     if (!GetDerivedTrap(cx, handler, cx->names().get, &fval))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!js_IsCallable(fval))
         return BaseProxyHandler::get(cx, proxy, receiver, id, vp);
     return Trap(cx, handler, fval, 2, argv, vp);
@@ -975,13 +975,13 @@ ScriptedIndirectProxyHandler::set(JSContext *cx, HandleObject proxy, HandleObjec
     RootedValue idv(cx, IdToValue(id));
     JSString *str = ToString<CanGC>(cx, idv);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedValue value(cx, StringValue(str));
     Value argv[] = { ObjectOrNullValue(receiver), value, vp.get() };
     AutoValueArray ava(cx, argv, 3);
     RootedValue fval(cx);
     if (!GetDerivedTrap(cx, handler, cx->names().set, &fval))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!js_IsCallable(fval))
         return BaseProxyHandler::set(cx, proxy, receiver, id, strict, vp);
     return Trap(cx, handler, fval, 3, argv, &value);
@@ -993,7 +993,7 @@ ScriptedIndirectProxyHandler::keys(JSContext *cx, HandleObject proxy, AutoIdVect
     RootedObject handler(cx, GetIndirectProxyHandlerObject(proxy));
     RootedValue value(cx);
     if (!GetDerivedTrap(cx, handler, cx->names().keys, &value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!js_IsCallable(value))
         return BaseProxyHandler::keys(cx, proxy, props);
     return Trap(cx, handler, value, 0, nullptr, &value) &&
@@ -1007,7 +1007,7 @@ ScriptedIndirectProxyHandler::iterate(JSContext *cx, HandleObject proxy, unsigne
     RootedObject handler(cx, GetIndirectProxyHandlerObject(proxy));
     RootedValue value(cx);
     if (!GetDerivedTrap(cx, handler, cx->names().iterate, &value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!js_IsCallable(value))
         return BaseProxyHandler::iterate(cx, proxy, flags, vp);
     return Trap(cx, handler, value, 0, nullptr, vp) &&
@@ -1120,7 +1120,7 @@ FromGenericPropertyDescriptor(JSContext *cx, PropDesc *desc, MutableHandleValue 
 
     // steps 3-9
     if (!desc->makeObject(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     rval.set(desc->pd());
     return true;
 }
@@ -1143,7 +1143,7 @@ NormalizePropertyDescriptor(JSContext *cx, MutableHandleValue vp, bool complete 
     AutoPropDescArrayRooter descs(cx);
     PropDesc *desc = descs.append();
     if (!desc || !desc->initialize(cx, vp.get()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (complete)
         desc->complete();
     JS_ASSERT(!vp.isPrimitive()); // due to desc->initialize
@@ -1159,7 +1159,7 @@ NormalizePropertyDescriptor(JSContext *cx, MutableHandleValue vp, bool complete 
      * directly.
      */
     if (!FromGenericPropertyDescriptor(cx, desc, vp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (vp.isUndefined())
         return true;
     RootedObject descObj(cx, &vp.toObject());
@@ -1167,7 +1167,7 @@ NormalizePropertyDescriptor(JSContext *cx, MutableHandleValue vp, bool complete 
     // Aux.3 steps 4-5 / Aux.4 steps 5-6
     AutoIdVector props(cx);
     if (!GetPropertyNames(cx, attributes, 0, &props))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     size_t n = props.length();
     for (size_t i = 0; i < n; ++i) {
         RootedId id(cx, props[i]);
@@ -1184,9 +1184,9 @@ NormalizePropertyDescriptor(JSContext *cx, MutableHandleValue vp, bool complete 
 
         RootedValue v(cx);
         if (!JSObject::getGeneric(cx, descObj, attributes, id, &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!JSObject::defineGeneric(cx, descObj, id, v, nullptr, nullptr, JSPROP_ENUMERATE))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -1217,7 +1217,7 @@ ValidateProperty(JSContext *cx, HandleObject obj, HandleId id, PropDesc *desc, b
     // step 1
     Rooted<PropertyDescriptor> current(cx);
     if (!GetOwnPropertyDescriptor(cx, obj, id, 0, &current))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * steps 2-4 are redundant since ValidateProperty is never called unless
@@ -1246,7 +1246,7 @@ ValidateProperty(JSContext *cx, HandleObject obj, HandleId id, PropDesc *desc, b
         }
         bool same = false;
         if (!SameValue(cx, desc->value(), current.value(), &same))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (same) {
             *bp = true;
             return true;
@@ -1292,7 +1292,7 @@ ValidateProperty(JSContext *cx, HandleObject obj, HandleId id, PropDesc *desc, b
             if (desc->hasValue()) {
                 bool same;
                 if (!SameValue(cx, desc->value(), current.value(), &same))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (!same) {
                     *bp = false;
                     return true;
@@ -1320,7 +1320,7 @@ IsSealed(JSContext* cx, HandleObject obj, HandleId id, bool *bp)
     // step 1
     Rooted<PropertyDescriptor> desc(cx);
     if (!GetOwnPropertyDescriptor(cx, obj, id, 0, &desc))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // steps 2-3
     *bp = desc.object() && desc.isPermanent();
@@ -1332,7 +1332,7 @@ HasOwn(JSContext *cx, HandleObject obj, HandleId id, bool *bp)
 {
     Rooted<PropertyDescriptor> desc(cx);
     if (!JS_GetPropertyDescriptorById(cx, obj, id, 0, &desc))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *bp = (desc.object() == obj);
     return true;
 }
@@ -1343,7 +1343,7 @@ IdToValue(JSContext *cx, HandleId id, MutableHandleValue value)
     value.set(IdToValue(id)); // Re-use out-param to avoid Rooted overhead.
     JSString *name = ToString<CanGC>(cx, value);
     if (!name)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     value.set(StringValue(name));
     return true;
 }
@@ -1361,52 +1361,52 @@ TrapGetOwnProperty(JSContext *cx, HandleObject proxy, HandleId id, MutableHandle
     // step 3
     RootedValue trap(cx);
     if (!JSObject::getProperty(cx, handler, handler, cx->names().getOwnPropertyDescriptor, &trap))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 4
     if (trap.isUndefined()) {
         Rooted<PropertyDescriptor> desc(cx);
         if (!GetOwnPropertyDescriptor(cx, target, id, &desc))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         return NewPropertyDescriptorObject(cx, desc, rval);
     }
 
     // step 5
     RootedValue value(cx);
     if (!IdToValue(cx, id, &value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     Value argv[] = {
         ObjectValue(*target),
         value
     };
     RootedValue trapResult(cx);
     if (!Invoke(cx, ObjectValue(*handler), trap, ArrayLength(argv), argv, &trapResult))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 6
     if (!NormalizeAndCompletePropertyDescriptor(cx, &trapResult))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 7
     if (trapResult.isUndefined()) {
         bool sealed;
         if (!IsSealed(cx, target, id, &sealed))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (sealed) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_REPORT_NC_AS_NE);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         bool extensible;
         if (!JSObject::isExtensible(cx, target, &extensible))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!extensible) {
             bool found;
             if (!HasOwn(cx, target, id, &found))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (found) {
                 JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_REPORT_E_AS_NE);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
 
@@ -1417,38 +1417,38 @@ TrapGetOwnProperty(JSContext *cx, HandleObject proxy, HandleId id, MutableHandle
     // step 8
     bool isFixed;
     if (!HasOwn(cx, target, id, &isFixed))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 9
     bool extensible;
     if (!JSObject::isExtensible(cx, target, &extensible))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (extensible && !isFixed) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_REPORT_NEW);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     AutoPropDescArrayRooter descs(cx);
     PropDesc *desc = descs.append();
     if (!desc || !desc->initialize(cx, trapResult))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* step 10 */
     if (isFixed) {
         bool valid;
         if (!ValidateProperty(cx, target, id, desc, &valid))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!valid) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_REPORT_INVALID);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
     // step 11
     if (!desc->configurable() && !isFixed) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_REPORT_NE_AS_NC);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // step 12
@@ -1469,13 +1469,13 @@ TrapDefineOwnProperty(JSContext *cx, HandleObject proxy, HandleId id, MutableHan
     // step 3
     RootedValue trap(cx);
     if (!JSObject::getProperty(cx, handler, handler, cx->names().defineProperty, &trap))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 4
     if (trap.isUndefined()) {
         Rooted<PropertyDescriptor> desc(cx);
         if (!ParsePropertyDescriptorObject(cx, proxy, vp, &desc))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         return JS_DefinePropertyById(cx, target, id, desc.value(), desc.getter(), desc.setter(),
                                      desc.attributes());
     }
@@ -1483,12 +1483,12 @@ TrapDefineOwnProperty(JSContext *cx, HandleObject proxy, HandleId id, MutableHan
     // step 5
     RootedValue normalizedDesc(cx, vp);
     if (!NormalizePropertyDescriptor(cx, &normalizedDesc))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 6
     RootedValue value(cx);
     if (!IdToValue(cx, id, &value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     Value argv[] = {
         ObjectValue(*target),
         value,
@@ -1496,40 +1496,40 @@ TrapDefineOwnProperty(JSContext *cx, HandleObject proxy, HandleId id, MutableHan
     };
     RootedValue trapResult(cx);
     if (!Invoke(cx, ObjectValue(*handler), trap, ArrayLength(argv), argv, &trapResult))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // steps 7-8
     if (ToBoolean(trapResult)) {
         bool isFixed;
         if (!HasOwn(cx, target, id, &isFixed))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         bool extensible;
         if (!JSObject::isExtensible(cx, target, &extensible))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!extensible && !isFixed) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_DEFINE_NEW);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         AutoPropDescArrayRooter descs(cx);
         PropDesc *desc = descs.append();
         if (!desc || !desc->initialize(cx, normalizedDesc))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (isFixed) {
             bool valid;
             if (!ValidateProperty(cx, target, id, desc, &valid))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!valid) {
                 JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_DEFINE_INVALID);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
 
         if (!desc->configurable() && !isFixed) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_DEFINE_NE_AS_NC);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         vp.set(BooleanValue(true));
@@ -1565,51 +1565,51 @@ ArrayToIdVector(JSContext *cx, HandleObject proxy, HandleObject target, HandleVa
     // steps g-h
     uint32_t n;
     if (!GetLengthProperty(cx, array, &n))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // steps i-k
     for (uint32_t i = 0; i < n; ++i) {
         // step i
         RootedValue v(cx);
         if (!JSObject::getElement(cx, array, array, i, &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         // step ii
         RootedId id(cx);
         if (!ValueToId<CanGC>(cx, v, &id))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         // step iii
         for (uint32_t j = 0; j < i; ++j) {
             if (props[j] == id) {
                 ReportInvalidTrapResult(cx, proxy, trapName);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
 
         // step iv
         bool isFixed;
         if (!HasOwn(cx, target, id, &isFixed))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         // step v
         bool extensible;
         if (!JSObject::isExtensible(cx, target, &extensible))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!extensible && !isFixed) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_REPORT_NEW);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         // step vi
         if (!props.append(id))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // step l
     AutoIdVector ownProps(cx);
     if (!GetPropertyNames(cx, target, flags, &ownProps))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step m
     for (size_t i = 0; i < ownProps.length(); ++i) {
@@ -1628,24 +1628,24 @@ ArrayToIdVector(JSContext *cx, HandleObject proxy, HandleObject target, HandleVa
         // step i
         bool sealed;
         if (!IsSealed(cx, target, id, &sealed))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (sealed) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_SKIP_NC);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         // step ii
         bool isFixed;
         if (!HasOwn(cx, target, id, &isFixed))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         // step iii
         bool extensible;
         if (!JSObject::isExtensible(cx, target, &extensible))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!extensible && isFixed) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_REPORT_E_AS_NE);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -1674,7 +1674,7 @@ ScriptedDirectProxyHandler::preventExtensions(JSContext *cx, HandleObject proxy)
     // step c
     RootedValue trap(cx);
     if (!JSObject::getProperty(cx, handler, handler, cx->names().preventExtensions, &trap))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step d
     if (trap.isUndefined())
@@ -1686,7 +1686,7 @@ ScriptedDirectProxyHandler::preventExtensions(JSContext *cx, HandleObject proxy)
     };
     RootedValue trapResult(cx);
     if (!Invoke(cx, ObjectValue(*handler), trap, ArrayLength(argv), argv, &trapResult))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step f
     bool success = ToBoolean(trapResult);
@@ -1694,17 +1694,17 @@ ScriptedDirectProxyHandler::preventExtensions(JSContext *cx, HandleObject proxy)
         // step g
         bool extensible;
         if (!JSObject::isExtensible(cx, target, &extensible))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (extensible) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_REPORT_AS_NON_EXTENSIBLE);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         return true;
     }
 
     // step h
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_CHANGE_EXTENSIBILITY);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 // FIXME: Move to Proxy::getPropertyDescriptor once ScriptedIndirectProxy is removed
@@ -1713,15 +1713,15 @@ ScriptedDirectProxyHandler::getPropertyDescriptor(JSContext *cx, HandleObject pr
                                                   MutableHandle<PropertyDescriptor> desc,
                                                   unsigned flags)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     if (!GetOwnPropertyDescriptor(cx, proxy, id, desc))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (desc.object())
         return true;
     RootedObject proto(cx);
     if (!JSObject::getProto(cx, proxy, &proto))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!proto) {
         JS_ASSERT(!desc.object());
         return true;
@@ -1737,7 +1737,7 @@ ScriptedDirectProxyHandler::getOwnPropertyDescriptor(JSContext *cx, HandleObject
     // step 1
     RootedValue v(cx);
     if (!TrapGetOwnProperty(cx, proxy, id, &v))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 2
     if (v.isUndefined()) {
@@ -1759,7 +1759,7 @@ ScriptedDirectProxyHandler::defineProperty(JSContext *cx, HandleObject proxy, Ha
     d->initFromPropertyDescriptor(desc);
     RootedValue v(cx);
     if (!FromGenericPropertyDescriptor(cx, d, &v))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 2
     return TrapDefineOwnProperty(cx, proxy, id, &v);
@@ -1778,7 +1778,7 @@ ScriptedDirectProxyHandler::getOwnPropertyNames(JSContext *cx, HandleObject prox
     // step c
     RootedValue trap(cx);
     if (!JSObject::getProperty(cx, handler, handler, cx->names().getOwnPropertyNames, &trap))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step d
     if (trap.isUndefined())
@@ -1790,12 +1790,12 @@ ScriptedDirectProxyHandler::getOwnPropertyNames(JSContext *cx, HandleObject prox
     };
     RootedValue trapResult(cx);
     if (!Invoke(cx, ObjectValue(*handler), trap, ArrayLength(argv), argv, &trapResult))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step f
     if (trapResult.isPrimitive()) {
         ReportInvalidTrapResult(cx, proxy, cx->names().getOwnPropertyNames);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // steps g to n are shared
@@ -1816,7 +1816,7 @@ ScriptedDirectProxyHandler::delete_(JSContext *cx, HandleObject proxy, HandleId 
     // step 3
     RootedValue trap(cx);
     if (!JSObject::getProperty(cx, handler, handler, cx->names().deleteProperty, &trap))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 4
     if (trap.isUndefined())
@@ -1825,24 +1825,24 @@ ScriptedDirectProxyHandler::delete_(JSContext *cx, HandleObject proxy, HandleId 
     // step 5
     RootedValue value(cx);
     if (!IdToValue(cx, id, &value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     Value argv[] = {
         ObjectValue(*target),
         value
     };
     RootedValue trapResult(cx);
     if (!Invoke(cx, ObjectValue(*handler), trap, ArrayLength(argv), argv, &trapResult))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 6-7
     if (ToBoolean(trapResult)) {
         bool sealed;
         if (!IsSealed(cx, target, id, &sealed))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (sealed) {
             RootedValue v(cx, IdToValue(id));
             js_ReportValueError(cx, JSMSG_CANT_DELETE, JSDVG_IGNORE_STACK, v, NullPtr());
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         *bp = true;
@@ -1868,7 +1868,7 @@ ScriptedDirectProxyHandler::enumerate(JSContext *cx, HandleObject proxy, AutoIdV
     // step c
     RootedValue trap(cx);
     if (!JSObject::getProperty(cx, handler, handler, cx->names().enumerate, &trap))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step d
     if (trap.isUndefined())
@@ -1880,17 +1880,17 @@ ScriptedDirectProxyHandler::enumerate(JSContext *cx, HandleObject proxy, AutoIdV
     };
     RootedValue trapResult(cx);
     if (!Invoke(cx, ObjectValue(*handler), trap, ArrayLength(argv), argv, &trapResult))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step f
     if (trapResult.isPrimitive()) {
         JSAutoByteString bytes;
         if (!AtomToPrintableString(cx, cx->names().enumerate, &bytes))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         RootedValue v(cx, ObjectOrNullValue(proxy));
         js_ReportValueError2(cx, JSMSG_INVALID_TRAP_RESULT, JSDVG_SEARCH_STACK,
                              v, NullPtr(), bytes.ptr());
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // steps g-m are shared
@@ -1911,7 +1911,7 @@ ScriptedDirectProxyHandler::has(JSContext *cx, HandleObject proxy, HandleId id, 
     // step 3
     RootedValue trap(cx);
     if (!JSObject::getProperty(cx, handler, handler, cx->names().has, &trap))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 4
     if (trap.isUndefined())
@@ -1920,14 +1920,14 @@ ScriptedDirectProxyHandler::has(JSContext *cx, HandleObject proxy, HandleId id, 
     // step 5
     RootedValue value(cx);
     if (!IdToValue(cx, id, &value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     Value argv[] = {
         ObjectOrNullValue(target),
         value
     };
     RootedValue trapResult(cx);
     if (!Invoke(cx, ObjectValue(*handler), trap, ArrayLength(argv), argv, &trapResult))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 6
     bool success = ToBoolean(trapResult);;
@@ -1936,22 +1936,22 @@ ScriptedDirectProxyHandler::has(JSContext *cx, HandleObject proxy, HandleId id, 
     if (!success) {
         bool sealed;
         if (!IsSealed(cx, target, id, &sealed))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (sealed) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_REPORT_NC_AS_NE);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         bool extensible;
         if (!JSObject::isExtensible(cx, target, &extensible))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!extensible) {
             bool isFixed;
             if (!HasOwn(cx, target, id, &isFixed))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (isFixed) {
                 JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_REPORT_E_AS_NE);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
     }
@@ -1974,7 +1974,7 @@ ScriptedDirectProxyHandler::hasOwn(JSContext *cx, HandleObject proxy, HandleId i
     // step 3
     RootedValue trap(cx);
     if (!JSObject::getProperty(cx, handler, handler, cx->names().hasOwn, &trap))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 4
     if (trap.isUndefined())
@@ -1983,14 +1983,14 @@ ScriptedDirectProxyHandler::hasOwn(JSContext *cx, HandleObject proxy, HandleId i
     // step 5
     RootedValue value(cx);
     if (!IdToValue(cx, id, &value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     Value argv[] = {
         ObjectOrNullValue(target),
         value
     };
     RootedValue trapResult(cx);
     if (!Invoke(cx, ObjectValue(*handler), trap, ArrayLength(argv), argv, &trapResult))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 6
     bool success = ToBoolean(trapResult);
@@ -1999,35 +1999,35 @@ ScriptedDirectProxyHandler::hasOwn(JSContext *cx, HandleObject proxy, HandleId i
     if (!success) {
         bool sealed;
         if (!IsSealed(cx, target, id, &sealed))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (sealed) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_REPORT_NC_AS_NE);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         bool extensible;
         if (!JSObject::isExtensible(cx, target, &extensible))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!extensible) {
             bool isFixed;
             if (!HasOwn(cx, target, id, &isFixed))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (isFixed) {
                 JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_REPORT_E_AS_NE);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
     } else {
         bool extensible;
         if (!JSObject::isExtensible(cx, target, &extensible))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!extensible) {
             bool isFixed;
             if (!HasOwn(cx, target, id, &isFixed))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!isFixed) {
                 JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_REPORT_NEW);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
     }
@@ -2051,7 +2051,7 @@ ScriptedDirectProxyHandler::get(JSContext *cx, HandleObject proxy, HandleObject 
     // step 3
     RootedValue trap(cx);
     if (!JSObject::getProperty(cx, handler, handler, cx->names().get, &trap))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 4
     if (trap.isUndefined())
@@ -2060,7 +2060,7 @@ ScriptedDirectProxyHandler::get(JSContext *cx, HandleObject proxy, HandleObject 
     // step 5
     RootedValue value(cx);
     if (!IdToValue(cx, id, &value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     Value argv[] = {
         ObjectOrNullValue(target),
         value,
@@ -2068,29 +2068,29 @@ ScriptedDirectProxyHandler::get(JSContext *cx, HandleObject proxy, HandleObject 
     };
     RootedValue trapResult(cx);
     if (!Invoke(cx, ObjectValue(*handler), trap, ArrayLength(argv), argv, &trapResult))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 6
     Rooted<PropertyDescriptor> desc(cx);
     if (!GetOwnPropertyDescriptor(cx, target, id, &desc))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 7
     if (desc.object()) {
         if (IsDataDescriptor(desc) && desc.isPermanent() && desc.isReadonly()) {
             bool same;
             if (!SameValue(cx, vp, desc.value(), &same))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!same) {
                 JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MUST_REPORT_SAME_VALUE);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
 
         if (IsAccessorDescriptor(desc) && desc.isPermanent() && !desc.hasGetterObject()) {
             if (!trapResult.isUndefined()) {
                 JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MUST_REPORT_UNDEFINED);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
     }
@@ -2114,7 +2114,7 @@ ScriptedDirectProxyHandler::set(JSContext *cx, HandleObject proxy, HandleObject 
     // step 3
     RootedValue trap(cx);
     if (!JSObject::getProperty(cx, handler, handler, cx->names().set, &trap))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 4
     if (trap.isUndefined())
@@ -2123,7 +2123,7 @@ ScriptedDirectProxyHandler::set(JSContext *cx, HandleObject proxy, HandleObject 
     // step 5
     RootedValue value(cx);
     if (!IdToValue(cx, id, &value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     Value argv[] = {
         ObjectOrNullValue(target),
         value,
@@ -2132,7 +2132,7 @@ ScriptedDirectProxyHandler::set(JSContext *cx, HandleObject proxy, HandleObject 
     };
     RootedValue trapResult(cx);
     if (!Invoke(cx, ObjectValue(*handler), trap, ArrayLength(argv), argv, &trapResult))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 6
     bool success = ToBoolean(trapResult);
@@ -2141,22 +2141,22 @@ ScriptedDirectProxyHandler::set(JSContext *cx, HandleObject proxy, HandleObject 
     if (success) {
         Rooted<PropertyDescriptor> desc(cx);
         if (!GetOwnPropertyDescriptor(cx, target, id, &desc))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (desc.object()) {
             if (IsDataDescriptor(desc) && desc.isPermanent() && desc.isReadonly()) {
                 bool same;
                 if (!SameValue(cx, vp, desc.value(), &same))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (!same) {
                     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_SET_NW_NC);
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
 
             if (IsAccessorDescriptor(desc) && desc.isPermanent() && !desc.hasSetterObject()) {
                 JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_SET_WO_SETTER);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
     }
@@ -2179,7 +2179,7 @@ ScriptedDirectProxyHandler::keys(JSContext *cx, HandleObject proxy, AutoIdVector
     // step c
     RootedValue trap(cx);
     if (!JSObject::getProperty(cx, handler, handler, cx->names().keys, &trap))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step d
     if (trap.isUndefined())
@@ -2191,17 +2191,17 @@ ScriptedDirectProxyHandler::keys(JSContext *cx, HandleObject proxy, AutoIdVector
     };
     RootedValue trapResult(cx);
     if (!Invoke(cx, ObjectValue(*handler), trap, ArrayLength(argv), argv, &trapResult))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step f
     if (trapResult.isPrimitive()) {
         JSAutoByteString bytes;
         if (!AtomToPrintableString(cx, cx->names().keys, &bytes))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         RootedValue v(cx, ObjectOrNullValue(proxy));
         js_ReportValueError2(cx, JSMSG_INVALID_TRAP_RESULT, JSDVG_IGNORE_STACK,
                              v, NullPtr(), bytes.ptr());
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // steps g-n are shared
@@ -2233,12 +2233,12 @@ ScriptedDirectProxyHandler::call(JSContext *cx, HandleObject proxy, const CallAr
     // step 3
     RootedObject argsArray(cx, NewDenseCopiedArray(cx, args.length(), args.array()));
     if (!argsArray)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 4
     RootedValue trap(cx);
     if (!JSObject::getProperty(cx, handler, handler, cx->names().apply, &trap))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 5
     if (trap.isUndefined())
@@ -2271,12 +2271,12 @@ ScriptedDirectProxyHandler::construct(JSContext *cx, HandleObject proxy, const C
     // step 3
     RootedObject argsArray(cx, NewDenseCopiedArray(cx, args.length(), args.array()));
     if (!argsArray)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 4
     RootedValue trap(cx);
     if (!JSObject::getProperty(cx, handler, handler, cx->names().construct, &trap))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // step 5
     if (trap.isUndefined())
@@ -2297,7 +2297,7 @@ ScriptedDirectProxyHandler ScriptedDirectProxyHandler::singleton;
     JS_BEGIN_MACRO                                                           \
         RootedObject proto(cx);                                              \
         if (!handler->getPrototypeOf(cx, proxy, &proto))                     \
-            return false;                                                    \
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                                    \
         if (!proto)                                                          \
             return true;                                                     \
         assertSameCompartment(cx, proxy, proto);                             \
@@ -2308,7 +2308,7 @@ bool
 Proxy::getPropertyDescriptor(JSContext *cx, HandleObject proxy, HandleId id,
                              MutableHandle<PropertyDescriptor> desc, unsigned flags)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     BaseProxyHandler *handler = proxy->as<ProxyObject>().handler();
     desc.object().set(nullptr); // default result if we refuse to perform this action
     AutoEnterPolicy policy(cx, handler, proxy, id, BaseProxyHandler::GET, true);
@@ -2317,7 +2317,7 @@ Proxy::getPropertyDescriptor(JSContext *cx, HandleObject proxy, HandleId id,
     if (!handler->hasPrototype())
         return handler->getPropertyDescriptor(cx, proxy, id, desc, flags);
     if (!handler->getOwnPropertyDescriptor(cx, proxy, id, desc, flags))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (desc.object())
         return true;
     INVOKE_ON_PROTOTYPE(cx, handler, proxy, JS_GetPropertyDescriptorById(cx, proto, id, 0, desc));
@@ -2327,11 +2327,11 @@ bool
 Proxy::getPropertyDescriptor(JSContext *cx, HandleObject proxy, unsigned flags,
                              HandleId id, MutableHandleValue vp)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     Rooted<PropertyDescriptor> desc(cx);
     if (!Proxy::getPropertyDescriptor(cx, proxy, id, &desc, flags))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return NewPropertyDescriptorObject(cx, desc, vp);
 }
 
@@ -2339,7 +2339,7 @@ bool
 Proxy::getOwnPropertyDescriptor(JSContext *cx, HandleObject proxy, HandleId id,
                                 MutableHandle<PropertyDescriptor> desc, unsigned flags)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     BaseProxyHandler *handler = proxy->as<ProxyObject>().handler();
     desc.object().set(nullptr); // default result if we refuse to perform this action
@@ -2353,11 +2353,11 @@ bool
 Proxy::getOwnPropertyDescriptor(JSContext *cx, HandleObject proxy, unsigned flags, HandleId id,
                                 MutableHandleValue vp)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     Rooted<PropertyDescriptor> desc(cx);
     if (!Proxy::getOwnPropertyDescriptor(cx, proxy, id, &desc, flags))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return NewPropertyDescriptorObject(cx, desc, vp);
 }
 
@@ -2365,7 +2365,7 @@ bool
 Proxy::defineProperty(JSContext *cx, HandleObject proxy, HandleId id,
                       MutableHandle<PropertyDescriptor> desc)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     BaseProxyHandler *handler = proxy->as<ProxyObject>().handler();
     AutoEnterPolicy policy(cx, handler, proxy, id, BaseProxyHandler::SET, true);
     if (!policy.allowed())
@@ -2376,7 +2376,7 @@ Proxy::defineProperty(JSContext *cx, HandleObject proxy, HandleId id,
 bool
 Proxy::defineProperty(JSContext *cx, HandleObject proxy, HandleId id, HandleValue v)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     Rooted<PropertyDescriptor> desc(cx);
     return ParsePropertyDescriptorObject(cx, proxy, v, &desc) &&
            Proxy::defineProperty(cx, proxy, id, &desc);
@@ -2385,7 +2385,7 @@ Proxy::defineProperty(JSContext *cx, HandleObject proxy, HandleId id, HandleValu
 bool
 Proxy::getOwnPropertyNames(JSContext *cx, HandleObject proxy, AutoIdVector &props)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     BaseProxyHandler *handler = proxy->as<ProxyObject>().handler();
     AutoEnterPolicy policy(cx, handler, proxy, JSID_VOIDHANDLE, BaseProxyHandler::GET, true);
     if (!policy.allowed())
@@ -2396,7 +2396,7 @@ Proxy::getOwnPropertyNames(JSContext *cx, HandleObject proxy, AutoIdVector &prop
 bool
 Proxy::delete_(JSContext *cx, HandleObject proxy, HandleId id, bool *bp)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     BaseProxyHandler *handler = proxy->as<ProxyObject>().handler();
     *bp = true; // default result if we refuse to perform this action
     AutoEnterPolicy policy(cx, handler, proxy, id, BaseProxyHandler::SET, true);
@@ -2410,7 +2410,7 @@ js::AppendUnique(JSContext *cx, AutoIdVector &base, AutoIdVector &others)
 {
     AutoIdVector uniqueOthers(cx);
     if (!uniqueOthers.reserve(others.length()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     for (size_t i = 0; i < others.length(); ++i) {
         bool unique = true;
         for (size_t j = 0; j < base.length(); ++j) {
@@ -2428,7 +2428,7 @@ js::AppendUnique(JSContext *cx, AutoIdVector &base, AutoIdVector &others)
 bool
 Proxy::enumerate(JSContext *cx, HandleObject proxy, AutoIdVector &props)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     BaseProxyHandler *handler = proxy->as<ProxyObject>().handler();
     AutoEnterPolicy policy(cx, handler, proxy, JSID_VOIDHANDLE, BaseProxyHandler::GET, true);
     if (!policy.allowed())
@@ -2436,7 +2436,7 @@ Proxy::enumerate(JSContext *cx, HandleObject proxy, AutoIdVector &props)
     if (!handler->hasPrototype())
         return proxy->as<ProxyObject>().handler()->enumerate(cx, proxy, props);
     if (!handler->keys(cx, proxy, props))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     AutoIdVector protoProps(cx);
     INVOKE_ON_PROTOTYPE(cx, handler, proxy,
                         GetPropertyNames(cx, proto, 0, &protoProps) &&
@@ -2446,7 +2446,7 @@ Proxy::enumerate(JSContext *cx, HandleObject proxy, AutoIdVector &props)
 bool
 Proxy::has(JSContext *cx, HandleObject proxy, HandleId id, bool *bp)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     BaseProxyHandler *handler = proxy->as<ProxyObject>().handler();
     *bp = false; // default result if we refuse to perform this action
     AutoEnterPolicy policy(cx, handler, proxy, id, BaseProxyHandler::GET, true);
@@ -2455,7 +2455,7 @@ Proxy::has(JSContext *cx, HandleObject proxy, HandleId id, bool *bp)
     if (!handler->hasPrototype())
         return handler->has(cx, proxy, id, bp);
     if (!handler->hasOwn(cx, proxy, id, bp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (*bp)
         return true;
     bool Bp;
@@ -2467,7 +2467,7 @@ Proxy::has(JSContext *cx, HandleObject proxy, HandleId id, bool *bp)
 bool
 Proxy::hasOwn(JSContext *cx, HandleObject proxy, HandleId id, bool *bp)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     BaseProxyHandler *handler = proxy->as<ProxyObject>().handler();
     *bp = false; // default result if we refuse to perform this action
     AutoEnterPolicy policy(cx, handler, proxy, id, BaseProxyHandler::GET, true);
@@ -2480,7 +2480,7 @@ bool
 Proxy::get(JSContext *cx, HandleObject proxy, HandleObject receiver, HandleId id,
            MutableHandleValue vp)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     BaseProxyHandler *handler = proxy->as<ProxyObject>().handler();
     vp.setUndefined(); // default result if we refuse to perform this action
     AutoEnterPolicy policy(cx, handler, proxy, id, BaseProxyHandler::GET, true);
@@ -2491,7 +2491,7 @@ Proxy::get(JSContext *cx, HandleObject proxy, HandleObject receiver, HandleId id
         own = true;
     } else {
         if (!handler->hasOwn(cx, proxy, id, &own))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (own)
         return handler->get(cx, proxy, receiver, id, vp);
@@ -2505,12 +2505,12 @@ Proxy::callProp(JSContext *cx, HandleObject proxy, HandleObject receiver, Handle
     // The inline caches need an access point for JSOP_CALLPROP sites that accounts
     // for the possibility of __noSuchMethod__
     if (!Proxy::get(cx, proxy, receiver, id, vp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #if JS_HAS_NO_SUCH_METHOD
     if (JS_UNLIKELY(vp.isPrimitive())) {
         if (!OnUnknownMethod(cx, proxy, IdToValue(id), vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 #endif
 
@@ -2522,11 +2522,11 @@ bool
 Proxy::getElementIfPresent(JSContext *cx, HandleObject proxy, HandleObject receiver, uint32_t index,
                            MutableHandleValue vp, bool *present)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     RootedId id(cx);
     if (!IndexToId(cx, index, id.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     BaseProxyHandler *handler = proxy->as<ProxyObject>().handler();
     AutoEnterPolicy policy(cx, handler, proxy, id, BaseProxyHandler::GET, true);
@@ -2540,7 +2540,7 @@ Proxy::getElementIfPresent(JSContext *cx, HandleObject proxy, HandleObject recei
 
     bool hasOwn;
     if (!handler->hasOwn(cx, proxy, id, &hasOwn))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (hasOwn) {
         *present = true;
@@ -2556,7 +2556,7 @@ bool
 Proxy::set(JSContext *cx, HandleObject proxy, HandleObject receiver, HandleId id, bool strict,
            MutableHandleValue vp)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     BaseProxyHandler *handler = proxy->as<ProxyObject>().handler();
     AutoEnterPolicy policy(cx, handler, proxy, id, BaseProxyHandler::SET, true);
     if (!policy.allowed())
@@ -2566,15 +2566,15 @@ Proxy::set(JSContext *cx, HandleObject proxy, HandleObject receiver, HandleId id
         // we have a non-own property with a setter.
         bool hasOwn;
         if (!handler->hasOwn(cx, proxy, id, &hasOwn))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!hasOwn) {
             RootedObject proto(cx);
             if (!handler->getPrototypeOf(cx, proxy, &proto))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (proto) {
                 Rooted<PropertyDescriptor> desc(cx);
                 if (!JS_GetPropertyDescriptorById(cx, proto, id, 0, &desc))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (desc.object() && desc.setter())
                     return JSObject::setGeneric(cx, proto, receiver, id, vp, strict);
             }
@@ -2586,7 +2586,7 @@ Proxy::set(JSContext *cx, HandleObject proxy, HandleObject receiver, HandleId id
 bool
 Proxy::keys(JSContext *cx, HandleObject proxy, AutoIdVector &props)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     BaseProxyHandler *handler = proxy->as<ProxyObject>().handler();
     AutoEnterPolicy policy(cx, handler, proxy, JSID_VOIDHANDLE, BaseProxyHandler::GET, true);
     if (!policy.allowed())
@@ -2597,7 +2597,7 @@ Proxy::keys(JSContext *cx, HandleObject proxy, AutoIdVector &props)
 bool
 Proxy::iterate(JSContext *cx, HandleObject proxy, unsigned flags, MutableHandleValue vp)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     BaseProxyHandler *handler = proxy->as<ProxyObject>().handler();
     vp.setUndefined(); // default result if we refuse to perform this action
     if (!handler->hasPrototype()) {
@@ -2617,7 +2617,7 @@ Proxy::iterate(JSContext *cx, HandleObject proxy, unsigned flags, MutableHandleV
     if ((flags & JSITER_OWNONLY)
         ? !Proxy::keys(cx, proxy, props)
         : !Proxy::enumerate(cx, proxy, props)) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return EnumeratedIdVectorToIterator(cx, proxy, flags, props, vp);
 }
@@ -2625,14 +2625,14 @@ Proxy::iterate(JSContext *cx, HandleObject proxy, unsigned flags, MutableHandleV
 bool
 Proxy::isExtensible(JSContext *cx, HandleObject proxy, bool *extensible)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     return proxy->as<ProxyObject>().handler()->isExtensible(cx, proxy, extensible);
 }
 
 bool
 Proxy::preventExtensions(JSContext *cx, HandleObject proxy)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     BaseProxyHandler *handler = proxy->as<ProxyObject>().handler();
     return handler->preventExtensions(cx, proxy);
 }
@@ -2640,7 +2640,7 @@ Proxy::preventExtensions(JSContext *cx, HandleObject proxy)
 bool
 Proxy::call(JSContext *cx, HandleObject proxy, const CallArgs &args)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     BaseProxyHandler *handler = proxy->as<ProxyObject>().handler();
 
     // Because vp[0] is JS_CALLEE on the way in and JS_RVAL on the way out, we
@@ -2659,7 +2659,7 @@ Proxy::call(JSContext *cx, HandleObject proxy, const CallArgs &args)
 bool
 Proxy::construct(JSContext *cx, HandleObject proxy, const CallArgs &args)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     BaseProxyHandler *handler = proxy->as<ProxyObject>().handler();
 
     // Because vp[0] is JS_CALLEE on the way in and JS_RVAL on the way out, we
@@ -2678,7 +2678,7 @@ Proxy::construct(JSContext *cx, HandleObject proxy, const CallArgs &args)
 bool
 Proxy::nativeCall(JSContext *cx, IsAcceptableThis test, NativeImpl impl, CallArgs args)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     RootedObject proxy(cx, &args.thisv().toObject());
     // Note - we don't enter a policy here because our security architecture
     // guards against nativeCall by overriding the trap itself in the right
@@ -2689,7 +2689,7 @@ Proxy::nativeCall(JSContext *cx, IsAcceptableThis test, NativeImpl impl, CallArg
 bool
 Proxy::hasInstance(JSContext *cx, HandleObject proxy, MutableHandleValue v, bool *bp)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     BaseProxyHandler *handler = proxy->as<ProxyObject>().handler();
     *bp = false; // default result if we refuse to perform this action
     AutoEnterPolicy policy(cx, handler, proxy, JSID_VOIDHANDLE, BaseProxyHandler::GET, true);
@@ -2701,7 +2701,7 @@ Proxy::hasInstance(JSContext *cx, HandleObject proxy, MutableHandleValue v, bool
 bool
 Proxy::objectClassIs(HandleObject proxy, ESClassValue classValue, JSContext *cx)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     return proxy->as<ProxyObject>().handler()->objectClassIs(proxy, classValue, cx);
 }
 
@@ -2740,21 +2740,21 @@ Proxy::fun_toString(JSContext *cx, HandleObject proxy, unsigned indent)
 bool
 Proxy::regexp_toShared(JSContext *cx, HandleObject proxy, RegExpGuard *g)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     return proxy->as<ProxyObject>().handler()->regexp_toShared(cx, proxy, g);
 }
 
 bool
 Proxy::defaultValue(JSContext *cx, HandleObject proxy, JSType hint, MutableHandleValue vp)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     return proxy->as<ProxyObject>().handler()->defaultValue(cx, proxy, hint, vp);
 }
 
 bool
 Proxy::getPrototypeOf(JSContext *cx, HandleObject proxy, MutableHandleObject proto)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     return proxy->as<ProxyObject>().handler()->getPrototypeOf(cx, proxy, proto);
 }
 
@@ -2763,14 +2763,14 @@ JSObject * const Proxy::LazyProto = reinterpret_cast<JSObject *>(0x1);
 /* static */ bool
 Proxy::watch(JSContext *cx, JS::HandleObject proxy, JS::HandleId id, JS::HandleObject callable)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     return proxy->as<ProxyObject>().handler()->watch(cx, proxy, id, callable);
 }
 
 /* static */ bool
 Proxy::unwatch(JSContext *cx, JS::HandleObject proxy, JS::HandleId id)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     return proxy->as<ProxyObject>().handler()->unwatch(cx, proxy, id);
 }
 
@@ -2786,7 +2786,7 @@ proxy_LookupGeneric(JSContext *cx, HandleObject obj, HandleId id,
 {
     bool found;
     if (!Proxy::has(cx, obj, id, &found))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (found) {
         MarkNonNativePropertyFound(propp);
@@ -2812,7 +2812,7 @@ proxy_LookupElement(JSContext *cx, HandleObject obj, uint32_t index,
 {
     RootedId id(cx);
     if (!IndexToId(cx, index, id.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return proxy_LookupGeneric(cx, obj, id, objp, propp);
 }
 
@@ -2852,7 +2852,7 @@ proxy_DefineElement(JSContext *cx, HandleObject obj, uint32_t index, HandleValue
 {
     RootedId id(cx);
     if (!IndexToId(cx, index, id.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return proxy_DefineGeneric(cx, obj, id, value, getter, setter, attrs);
 }
 
@@ -2885,7 +2885,7 @@ proxy_GetElement(JSContext *cx, HandleObject obj, HandleObject receiver, uint32_
 {
     RootedId id(cx);
     if (!IndexToId(cx, index, id.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return proxy_GetGeneric(cx, obj, receiver, id, vp);
 }
 
@@ -2925,7 +2925,7 @@ proxy_SetElement(JSContext *cx, HandleObject obj, uint32_t index,
 {
     RootedId id(cx);
     if (!IndexToId(cx, index, id.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return proxy_SetGeneric(cx, obj, id, vp, strict);
 }
 
@@ -2942,7 +2942,7 @@ proxy_GetGenericAttributes(JSContext *cx, HandleObject obj, HandleId id, unsigne
 {
     Rooted<PropertyDescriptor> desc(cx);
     if (!Proxy::getOwnPropertyDescriptor(cx, obj, id, &desc, 0))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *attrsp = desc.attributes();
     return true;
 }
@@ -2953,7 +2953,7 @@ proxy_SetGenericAttributes(JSContext *cx, HandleObject obj, HandleId id, unsigne
     /* Lookup the current property descriptor so we have setter/getter/value. */
     Rooted<PropertyDescriptor> desc(cx);
     if (!Proxy::getOwnPropertyDescriptor(cx, obj, id, &desc, JSRESOLVE_ASSIGNING))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     desc.setAttributes(*attrsp & (~JSPROP_SHORTID));
     return Proxy::defineProperty(cx, obj, id, &desc);
 }
@@ -2963,7 +2963,7 @@ proxy_DeleteGeneric(JSContext *cx, HandleObject obj, HandleId id, bool *succeede
 {
     bool deleted;
     if (!Proxy::delete_(cx, obj, id, &deleted))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *succeeded = deleted;
     return js_SuppressDeletedProperty(cx, obj, id);
 }
@@ -2980,7 +2980,7 @@ proxy_DeleteElement(JSContext *cx, HandleObject obj, uint32_t index, bool *succe
 {
     RootedId id(cx);
     if (!IndexToId(cx, index, id.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return proxy_DeleteGeneric(cx, obj, id, succeeded);
 }
 
@@ -3050,7 +3050,7 @@ proxy_HasInstance(JSContext *cx, HandleObject proxy, MutableHandleValue v, bool 
 {
     bool b;
     if (!Proxy::hasInstance(cx, proxy, v, &b))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *bp = !!b;
     return true;
 }
@@ -3236,17 +3236,17 @@ proxy(JSContext *cx, unsigned argc, jsval *vp)
     if (args.length() < 2) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MORE_ARGS_NEEDED,
                              "Proxy", "1", "s");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     RootedObject target(cx, NonNullObject(cx, args[0]));
     if (!target)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedObject handler(cx, NonNullObject(cx, args[1]));
     if (!handler)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedObject proto(cx);
     if (!JSObject::getProto(cx, target, &proto))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedValue priv(cx, ObjectValue(*target));
     ProxyOptions options;
     options.setCallable(target->isCallable());
@@ -3255,7 +3255,7 @@ proxy(JSContext *cx, unsigned argc, jsval *vp)
                          priv, TaggedProto(proto), cx->global(),
                          options);
     if (!proxy)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     proxy->setExtra(0, ObjectOrNullValue(handler));
     vp->setObject(*proxy);
     return true;
@@ -3267,11 +3267,11 @@ proxy_create(JSContext *cx, unsigned argc, Value *vp)
     if (argc < 1) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MORE_ARGS_NEEDED,
                              "create", "0", "s");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     JSObject *handler = NonNullObject(cx, vp[2]);
     if (!handler)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JSObject *proto, *parent = nullptr;
     if (argc > 1 && vp[3].isObject()) {
         proto = &vp[3].toObject();
@@ -3286,7 +3286,7 @@ proxy_create(JSContext *cx, unsigned argc, Value *vp)
     JSObject *proxy = NewProxyObject(cx, &ScriptedIndirectProxyHandler::singleton,
                                      priv, proto, parent);
     if (!proxy)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     vp->setObject(*proxy);
     return true;
@@ -3298,26 +3298,26 @@ proxy_createFunction(JSContext *cx, unsigned argc, Value *vp)
     if (argc < 2) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MORE_ARGS_NEEDED,
                              "createFunction", "1", "");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     RootedObject handler(cx, NonNullObject(cx, vp[2]));
     if (!handler)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedObject proto(cx), parent(cx);
     parent = vp[0].toObject().getParent();
     proto = parent->global().getOrCreateFunctionPrototype(cx);
     if (!proto)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     parent = proto->getParent();
 
     RootedObject call(cx, ValueToCallable(cx, vp[3], argc - 2));
     if (!call)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedObject construct(cx, nullptr);
     if (argc > 2) {
         construct = ValueToCallable(cx, vp[4], argc - 3);
         if (!construct)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         construct = call;
     }
@@ -3327,7 +3327,7 @@ proxy_createFunction(JSContext *cx, unsigned argc, Value *vp)
     RootedObject ccHolder(cx, JS_NewObjectWithGivenProto(cx, Jsvalify(&CallConstructHolder),
                                                          nullptr, cx->global()));
     if (!ccHolder)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     ccHolder->setReservedSlot(0, ObjectValue(*call));
     ccHolder->setReservedSlot(1, ObjectValue(*construct));
 
@@ -3338,7 +3338,7 @@ proxy_createFunction(JSContext *cx, unsigned argc, Value *vp)
         ProxyObject::New(cx, &ScriptedIndirectProxyHandler::singleton,
                          priv, TaggedProto(proto), parent, options);
     if (!proxy)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     proxy->as<ProxyObject>().setExtra(0, ObjectValue(*ccHolder));
 
     vp->setObject(*proxy);

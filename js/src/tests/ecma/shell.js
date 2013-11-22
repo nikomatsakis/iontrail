@@ -116,7 +116,7 @@ function IgnoreDaylightSaving(t)
   if ((msPerYear <= t && t < 2*msPerYear) && !DST_1971) {
     return true;
   }
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /*

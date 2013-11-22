@@ -114,7 +114,7 @@ class XDRState {
         if (mode == XDR_ENCODE) {
             uint8_t *ptr = buf.write(sizeof *n);
             if (!ptr)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             *ptr = *n;
         } else {
             *n = *buf.read(sizeof *n);
@@ -126,7 +126,7 @@ class XDRState {
         if (mode == XDR_ENCODE) {
             uint8_t *ptr = buf.write(sizeof *n);
             if (!ptr)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             mozilla::LittleEndian::writeUint16(ptr, *n);
         } else {
             const uint8_t *ptr = buf.read(sizeof *n);
@@ -139,7 +139,7 @@ class XDRState {
         if (mode == XDR_ENCODE) {
             uint8_t *ptr = buf.write(sizeof *n);
             if (!ptr)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             mozilla::LittleEndian::writeUint32(ptr, *n);
         } else {
             const uint8_t *ptr = buf.read(sizeof *n);
@@ -152,7 +152,7 @@ class XDRState {
         if (mode == XDR_ENCODE) {
             uint8_t *ptr = buf.write(sizeof(*n));
             if (!ptr)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             mozilla::LittleEndian::writeUint64(ptr, *n);
         } else {
             const uint8_t *ptr = buf.read(sizeof(*n));
@@ -169,7 +169,7 @@ class XDRState {
         if (mode == XDR_ENCODE)
             pun.d = *dp;
         if (!codeUint64(&pun.u))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (mode == XDR_DECODE)
             *dp = pun.d;
         return true;
@@ -179,7 +179,7 @@ class XDRState {
         if (mode == XDR_ENCODE) {
             uint8_t *ptr = buf.write(len);
             if (!ptr)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             memcpy(ptr, bytes, len);
         } else {
             memcpy(bytes, buf.read(len), len);
@@ -198,7 +198,7 @@ class XDRState {
             size_t n = strlen(*sp) + 1;
             uint8_t *ptr = buf.write(n);
             if (!ptr)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             memcpy(ptr, *sp, n);
         } else {
             *sp = buf.readCString();

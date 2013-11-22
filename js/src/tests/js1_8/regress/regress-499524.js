@@ -8,7 +8,7 @@
 function isSyntaxError(code) {
   try {
     eval(code);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   } catch (exception) {
     if (SyntaxError.prototype.isPrototypeOf(exception))
       return true;

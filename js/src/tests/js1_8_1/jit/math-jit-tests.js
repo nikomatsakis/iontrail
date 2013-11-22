@@ -82,7 +82,7 @@ function map_test(t, cases)
 function close_enough(expected, actual)
 {
   if (typeof expected != typeof actual)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (typeof expected != 'number')
     return actual == expected;
 
@@ -91,7 +91,7 @@ function close_enough(expected, actual)
   if (actual != actual)
     return expected != expected
       if (expected != expected)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Tolerate a certain degree of error.
   if (actual != expected)

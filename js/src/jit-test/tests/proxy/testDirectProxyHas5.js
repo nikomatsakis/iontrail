@@ -9,7 +9,7 @@ var proxy = new Proxy(Object.create(Object.create(null, {
     }
 }), {
     has: function (target, name) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 });
 assertEq('foo' in proxy, false);

@@ -3125,12 +3125,12 @@ public:
         // Sanity check - if the assembler has OOM'd, it will start overwriting
         // its internal buffer and thus our links could be garbage.
         if (oom())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         char* code = reinterpret_cast<char*>(m_formatter.data());
         int32_t offset = getInt32(code + from.m_offset);
         if (offset == -1)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         *next = JmpSrc(offset);
         return true;
     }
@@ -3856,7 +3856,7 @@ private:
         }
 #else
         // No REX prefix bytes on 32-bit x86.
-        inline bool regRequiresRex(int) { return false; }
+        inline bool regRequiresRex(int) { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
         inline void emitRexIf(bool, int, int, int) {}
         inline void emitRexIfNeeded(int, int, int) {}
 #endif

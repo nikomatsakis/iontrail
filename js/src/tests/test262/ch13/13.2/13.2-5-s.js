@@ -14,7 +14,7 @@ function testcase() {
         var foo = new Function("'use strict';");
         try {
             var temp = foo.caller;
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         catch (e) {
             return e instanceof TypeError;

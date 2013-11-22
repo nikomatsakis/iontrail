@@ -23,7 +23,7 @@ struct OuterWrapper : js::Wrapper
     }
 
     virtual bool finalizeInBackground(JS::Value priv) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     static OuterWrapper singleton;

@@ -239,7 +239,7 @@ struct FieldHashPolicy : DefaultHasher<JSFlatString*>
       return true;
 
     if (k->length() != l->length())
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return memcmp(k->chars(), l->chars(), k->length() * sizeof(jschar)) == 0;
   }

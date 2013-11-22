@@ -24,7 +24,7 @@ JS::detail::ToPropertyKeySlow(JSContext *cx, HandleValue v, PropertyKey *key)
 
     RootedAtom atom(cx);
     if (!ToAtom<CanGC>(cx, v))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     uint32_t index;
     if (atom->isIndex(&index)) {

@@ -85,7 +85,7 @@ js::ValueToStringBufferSlow(JSContext *cx, const Value &arg, StringBuffer &sb)
 {
     RootedValue v(cx, arg);
     if (!ToPrimitive(cx, JSTYPE_STRING, &v))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (v.isString())
         return sb.append(v.toString());

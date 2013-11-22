@@ -94,15 +94,15 @@ frontend::IsIdentifier(JSLinearString *str)
     size_t length = str->length();
 
     if (length == 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     jschar c = *chars;
     if (!IsIdentifierStart(c))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     const jschar *end = chars + length;
     while (++chars != end) {
         c = *chars;
         if (!IsIdentifierPart(c))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -646,7 +646,7 @@ TokenStream::reportCompileErrorNumberVA(uint32_t offset, unsigned flags, unsigne
     if (!js_ExpandErrorArguments(cx, js_GetErrorMessage, nullptr, errorNumber, &err.message,
                                  &err.report, err.argumentsType, args))
     {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // Given a token, T, that we want to complain about: if T's (starting)
@@ -681,17 +681,17 @@ TokenStream::reportCompileErrorNumberVA(uint32_t offset, unsigned flags, unsigne
         // Create the windowed strings.
         StringBuffer windowBuf(cx);
         if (!windowBuf.append(windowBase, windowLength) || !windowBuf.append((jschar)0))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         // Unicode and char versions of the window into the offending source
         // line, without final \n.
         err.report.uclinebuf = windowBuf.extractWellSized();
         if (!err.report.uclinebuf)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         TwoByteChars tbchars(err.report.uclinebuf, windowLength);
         err.report.linebuf = LossyTwoByteCharsToNewLatin1CharsZ(cx, tbchars).c_str();
         if (!err.report.linebuf)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         err.report.tokenptr = err.report.linebuf + windowOffset;
         err.report.uctokenptr = err.report.uclinebuf + windowOffset;
@@ -773,7 +773,7 @@ TokenStream::peekUnicodeEscape(int *result)
             + JS7_UNHEX(cp[4]);
         return true;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -783,7 +783,7 @@ TokenStream::matchUnicodeEscapeIdStart(int32_t *cp)
         skipChars(5);
         return true;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -793,7 +793,7 @@ TokenStream::matchUnicodeEscapeIdent(int32_t *cp)
         skipChars(5);
         return true;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 // Helper function which returns true if the first length(q) characters in p are
@@ -802,7 +802,7 @@ static bool
 CharsMatch(const jschar *p, const char *q) {
     while (*q) {
         if (*p++ != *q++)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -819,9 +819,9 @@ TokenStream::getDirectives(bool isMultiline, bool shouldWarnDeprecated)
     // only check for this case if we encounter a '#' character.
 
     if (!getSourceURL(isMultiline, shouldWarnDeprecated))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!getSourceMappingURL(isMultiline, shouldWarnDeprecated))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }
@@ -837,7 +837,7 @@ TokenStream::getDirective(bool isMultiline, bool shouldWarnDeprecated,
     if (peekChars(directiveLength, peeked) && CharsMatch(peeked, directive)) {
         if (shouldWarnDeprecated &&
             !reportWarning(JSMSG_DEPRECATED_PRAGMA, errorMsgPragma))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         skipChars(directiveLength);
         tokenbuf.clear();
@@ -864,7 +864,7 @@ TokenStream::getDirective(bool isMultiline, bool shouldWarnDeprecated,
         js_free(*destination);
         *destination = cx->pod_malloc<jschar>(length + 1);
         if (!*destination)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         PodCopy(*destination, tokenbuf.begin(), length);
         (*destination)[length] = '\0';
@@ -919,10 +919,10 @@ IsTokenSane(Token *tp)
     // Nb: TOK_EOL should never be used in an actual Token;  it should only be
     // returned as a TokenKind from peekTokenSameLine().
     if (tp->type < TOK_ERROR || tp->type >= TOK_LIMIT || tp->type == TOK_EOL)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (tp->pos.end < tp->pos.begin)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }
@@ -945,7 +945,7 @@ TokenStream::putIdentInTokenbuf(const jschar *identStart)
         }
         if (!tokenbuf.append(c)) {
             userbuf.setAddressOfNextRawChar(tmp);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
     userbuf.setAddressOfNextRawChar(tmp);

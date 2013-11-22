@@ -19,7 +19,7 @@ js::ObjectImpl::isExtensible(ExclusiveContext *cx, js::Handle<ObjectImpl*> obj, 
 {
     if (obj->asObjectPtr()->is<ProxyObject>()) {
         if (!cx->shouldBeJSContext())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         HandleObject h =
             HandleObject::fromMarkedLocation(reinterpret_cast<JSObject* const*>(obj.address()));
         return Proxy::isExtensible(cx->asJSContext(), h, extensible);

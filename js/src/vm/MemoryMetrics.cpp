@@ -64,7 +64,7 @@ InefficientNonFlatteningStringHashPolicy::match(const JSString *const &k, const 
 {
     // We can't use js::EqualStrings, because that flattens our strings.
     if (k->length() != l->length())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     const jschar *c1;
     ScopedJSFreePtr<jschar> ownedChars1;
@@ -435,10 +435,10 @@ JS_PUBLIC_API(bool)
 JS::CollectRuntimeStats(JSRuntime *rt, RuntimeStats *rtStats, ObjectPrivateVisitor *opv)
 {
     if (!rtStats->compartmentStatsVector.reserve(rt->numCompartments))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!rtStats->zoneStatsVector.reserve(rt->zones.length()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     rtStats->gcHeapChunkTotal =
         size_t(JS_GetGCParameter(rt, JSGC_TOTAL_CHUNKS)) * gc::ChunkSize;
@@ -452,7 +452,7 @@ JS::CollectRuntimeStats(JSRuntime *rt, RuntimeStats *rtStats, ObjectPrivateVisit
     // Take the per-compartment measurements.
     StatsClosure closure(rtStats, opv);
     if (!closure.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     IterateZonesCompartmentsArenasCells(rt, &closure, StatsZoneCallback, StatsCompartmentCallback,
                                         StatsArenaCallback, StatsCellCallback<FineGrained>);
 
@@ -563,15 +563,15 @@ AddSizeOfTab(JSRuntime *rt, HandleObject obj, MallocSizeOf mallocSizeOf, ObjectP
     JS::Zone *zone = GetObjectZone(obj);
 
     if (!rtStats.compartmentStatsVector.reserve(zone->compartments.length()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!rtStats.zoneStatsVector.reserve(1))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Take the per-compartment measurements.
     StatsClosure closure(&rtStats, opv);
     if (!closure.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     IterateZoneCompartmentsArenasCells(rt, zone, &closure, StatsZoneCallback,
                                        StatsCompartmentCallback, StatsArenaCallback,
                                        StatsCellCallback<CoarseGrained>);

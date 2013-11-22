@@ -211,7 +211,7 @@ class ArrayBufferObject : public JSObject
     void neuter(JSContext *maybecx);
 
     /*
-     * Check if the arrayBuffer contains any data. This will return false for
+     * Check if the arrayBuffer contains any data. This will do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false) for
      * ArrayBuffer.prototype and neutered ArrayBuffers.
      */
     bool hasData() const {

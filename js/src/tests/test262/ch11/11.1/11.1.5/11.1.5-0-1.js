@@ -18,10 +18,10 @@ function testcase() {
   var s3 = "Modified by setter";
   eval("var o = {get foo(){ return s1;},set foo(arg){return s2 = s3}};");
   if(o.foo !== s1) 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   o.foo=10;
   if(s2 !== s3) 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   return true;
  }
 runTestCase(testcase);

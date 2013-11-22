@@ -111,7 +111,7 @@ typedef AutoValueVector NodeVector;
         JS_ASSERT(expr);                                                                  \
         if (!(expr)) {                                                                    \
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_BAD_PARSE_NODE);  \
-            return false;                                                                 \
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                                                 \
         }                                                                                 \
     JS_END_MACRO
 
@@ -119,7 +119,7 @@ typedef AutoValueVector NodeVector;
     JS_BEGIN_MACRO                                                                        \
         MOZ_ASSERT(false);                                                                \
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_BAD_PARSE_NODE);      \
-        return false;                                                                     \
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                                                     \
     JS_END_MACRO
 
 namespace {
@@ -131,7 +131,7 @@ GetPropertyDefault(JSContext *cx, HandleObject obj, HandleId id, HandleValue def
 {
     bool found;
     if (!JSObject::hasProperty(cx, obj, id, &found))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!found) {
         result.set(defaultValue);
         return true;
@@ -169,7 +169,7 @@ class NodeBuilder
     bool init(HandleObject userobj = NullPtr()) {
         if (src) {
             if (!atomValue(src, &srcval))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             srcval.setNull();
         }
@@ -190,10 +190,10 @@ class NodeBuilder
             const char *name = callbackNames[i];
             RootedAtom atom(cx, Atomize(cx, name, strlen(name)));
             if (!atom)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             RootedId id(cx, AtomToId(atom));
             if (!GetPropertyDefault(cx, userobj, id, nullVal, &funv))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             if (funv.isNullOrUndefined()) {
                 callbacks[i].setNull();
@@ -203,7 +203,7 @@ class NodeBuilder
             if (!funv.isObject() || !funv.toObject().is<JSFunction>()) {
                 js_ReportValueErrorFlags(cx, JSREPORT_ERROR, JSMSG_NOT_FUNCTION,
                                          JSDVG_SEARCH_STACK, funv, NullPtr(), nullptr, nullptr);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             callbacks[i] = funv;
@@ -221,7 +221,7 @@ class NodeBuilder
         if (saveLoc) {
             RootedValue loc(cx);
             if (!newNodeLoc(pos, &loc))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             Value argv[] = { loc };
             AutoValueArray ava(cx, argv, 1);
             return Invoke(cx, userv, fun, ArrayLength(argv), argv, dst);
@@ -236,7 +236,7 @@ class NodeBuilder
         if (saveLoc) {
             RootedValue loc(cx);
             if (!newNodeLoc(pos, &loc))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             Value argv[] = { v1, loc };
             AutoValueArray ava(cx, argv, 2);
             return Invoke(cx, userv, fun, ArrayLength(argv), argv, dst);
@@ -252,7 +252,7 @@ class NodeBuilder
         if (saveLoc) {
             RootedValue loc(cx);
             if (!newNodeLoc(pos, &loc))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             Value argv[] = { v1, v2, loc };
             AutoValueArray ava(cx, argv, 3);
             return Invoke(cx, userv, fun, ArrayLength(argv), argv, dst);
@@ -268,7 +268,7 @@ class NodeBuilder
         if (saveLoc) {
             RootedValue loc(cx);
             if (!newNodeLoc(pos, &loc))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             Value argv[] = { v1, v2, v3, loc };
             AutoValueArray ava(cx, argv, 4);
             return Invoke(cx, userv, fun, ArrayLength(argv), argv, dst);
@@ -284,7 +284,7 @@ class NodeBuilder
         if (saveLoc) {
             RootedValue loc(cx);
             if (!newNodeLoc(pos, &loc))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             Value argv[] = { v1, v2, v3, v4, loc };
             AutoValueArray ava(cx, argv, 5);
             return Invoke(cx, userv, fun, ArrayLength(argv), argv, dst);
@@ -300,7 +300,7 @@ class NodeBuilder
         if (saveLoc) {
             RootedValue loc(cx);
             if (!newNodeLoc(pos, &loc))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             Value argv[] = { v1, v2, v3, v4, v5, loc };
             AutoValueArray ava(cx, argv, 6);
             return Invoke(cx, userv, fun, ArrayLength(argv), argv, dst);
@@ -326,7 +326,7 @@ class NodeBuilder
          */
         RootedAtom atom(cx, Atomize(cx, s, strlen(s)));
         if (!atom)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         dst.setString(atom);
         return true;
@@ -335,7 +335,7 @@ class NodeBuilder
     bool newObject(MutableHandleObject dst) {
         RootedObject nobj(cx, NewBuiltinClassInstance(cx, &JSObject::class_));
         if (!nobj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         dst.set(nobj);
         return true;
@@ -441,7 +441,7 @@ class NodeBuilder
                   MutableHandleValue dst) {
         RootedValue array(cx);
         if (!newArray(elts, &array))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         RootedValue cb(cx, callbacks[type]);
         if (!cb.isNull())
@@ -458,7 +458,7 @@ class NodeBuilder
          */
         RootedAtom atom(cx, Atomize(cx, name, strlen(name)));
         if (!atom)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* Represent "no node" as null and ensure users are not exposed to magic values. */
         RootedValue optVal(cx, val.isMagic(JS_SERIALIZE_NO_NODE) ? NullValue() : val);
@@ -655,7 +655,7 @@ NodeBuilder::newNode(ASTType type, TokenPos *pos, MutableHandleObject dst)
         !setNodeLoc(node, pos) ||
         !atomValue(nodeTypeNames[type], &tv) ||
         !setProperty(node, "type", tv)) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     dst.set(node);
@@ -668,11 +668,11 @@ NodeBuilder::newArray(NodeVector &elts, MutableHandleValue dst)
     const size_t len = elts.length();
     if (len > UINT32_MAX) {
         js_ReportAllocationOverflow(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     RootedObject array(cx, NewDenseAllocatedArray(cx, uint32_t(len)));
     if (!array)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (size_t i = 0; i < len; i++) {
         RootedValue val(cx, elts[i]);
@@ -684,7 +684,7 @@ NodeBuilder::newArray(NodeVector &elts, MutableHandleValue dst)
             continue;
 
         if (!JSObject::setElement(cx, array, array, i, &val, false))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     dst.setObject(*array);
@@ -704,7 +704,7 @@ NodeBuilder::newNodeLoc(TokenPos *pos, MutableHandleValue dst)
     RootedValue val(cx);
 
     if (!newObject(&loc))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     dst.setObject(*loc);
 
@@ -714,31 +714,31 @@ NodeBuilder::newNodeLoc(TokenPos *pos, MutableHandleValue dst)
     tokenStream->srcCoords.lineNumAndColumnIndex(pos->end, &endLineNum, &endColumnIndex);
 
     if (!newObject(&to))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     val.setObject(*to);
     if (!setProperty(loc, "start", val))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     val.setNumber(startLineNum);
     if (!setProperty(to, "line", val))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     val.setNumber(startColumnIndex);
     if (!setProperty(to, "column", val))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!newObject(&to))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     val.setObject(*to);
     if (!setProperty(loc, "end", val))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     val.setNumber(endLineNum);
     if (!setProperty(to, "line", val))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     val.setNumber(endColumnIndex);
     if (!setProperty(to, "column", val))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!setProperty(loc, "source", srcval))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }
@@ -955,7 +955,7 @@ NodeBuilder::switchStatement(HandleValue disc, NodeVector &elts, bool lexical, T
 {
     RootedValue array(cx);
     if (!newArray(elts, &array))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue lexicalVal(cx, BooleanValue(lexical));
 
@@ -976,7 +976,7 @@ NodeBuilder::tryStatement(HandleValue body, NodeVector &guarded, HandleValue ung
 {
     RootedValue guardedHandlers(cx);
     if (!newArray(guarded, &guardedHandlers))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue cb(cx, callbacks[AST_TRY_STMT]);
     if (!cb.isNull())
@@ -1008,7 +1008,7 @@ NodeBuilder::binaryExpression(BinaryOperator op, HandleValue left, HandleValue r
 
     RootedValue opName(cx);
     if (!atomValue(binopNames[op], &opName))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue cb(cx, callbacks[AST_BINARY_EXPR]);
     if (!cb.isNull())
@@ -1029,7 +1029,7 @@ NodeBuilder::unaryExpression(UnaryOperator unop, HandleValue expr, TokenPos *pos
 
     RootedValue opName(cx);
     if (!atomValue(unopNames[unop], &opName))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue cb(cx, callbacks[AST_UNARY_EXPR]);
     if (!cb.isNull())
@@ -1051,7 +1051,7 @@ NodeBuilder::assignmentExpression(AssignmentOperator aop, HandleValue lhs, Handl
 
     RootedValue opName(cx);
     if (!atomValue(aopNames[aop], &opName))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue cb(cx, callbacks[AST_ASSIGN_EXPR]);
     if (!cb.isNull())
@@ -1070,7 +1070,7 @@ NodeBuilder::updateExpression(HandleValue expr, bool incr, bool prefix, TokenPos
 {
     RootedValue opName(cx);
     if (!atomValue(incr ? "++" : "--", &opName))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue prefixVal(cx, BooleanValue(prefix));
 
@@ -1091,7 +1091,7 @@ NodeBuilder::logicalExpression(bool lor, HandleValue left, HandleValue right, To
 {
     RootedValue opName(cx);
     if (!atomValue(lor ? "||" : "&&", &opName))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue cb(cx, callbacks[AST_LOGICAL_EXPR]);
     if (!cb.isNull())
@@ -1131,7 +1131,7 @@ NodeBuilder::callExpression(HandleValue callee, NodeVector &args, TokenPos *pos,
 {
     RootedValue array(cx);
     if (!newArray(args, &array))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue cb(cx, callbacks[AST_CALL_EXPR]);
     if (!cb.isNull())
@@ -1149,7 +1149,7 @@ NodeBuilder::newExpression(HandleValue callee, NodeVector &args, TokenPos *pos,
 {
     RootedValue array(cx);
     if (!newArray(args, &array))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue cb(cx, callbacks[AST_NEW_EXPR]);
     if (!cb.isNull())
@@ -1198,7 +1198,7 @@ NodeBuilder::propertyPattern(HandleValue key, HandleValue patt, TokenPos *pos,
 {
     RootedValue kindName(cx);
     if (!atomValue("init", &kindName))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue cb(cx, callbacks[AST_PROP_PATT]);
     if (!cb.isNull())
@@ -1221,7 +1221,7 @@ NodeBuilder::propertyInitializer(HandleValue key, HandleValue val, PropKind kind
                    : kind == PROP_GETTER
                    ? "get"
                    : "set", &kindName)) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedValue cb(cx, callbacks[AST_PROPERTY]);
@@ -1296,7 +1296,7 @@ NodeBuilder::comprehensionExpression(HandleValue body, NodeVector &blocks, Handl
 {
     RootedValue array(cx);
     if (!newArray(blocks, &array))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue cb(cx, callbacks[AST_COMP_EXPR]);
     if (!cb.isNull())
@@ -1315,7 +1315,7 @@ NodeBuilder::generatorExpression(HandleValue body, NodeVector &blocks, HandleVal
 {
     RootedValue array(cx);
     if (!newArray(blocks, &array))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue cb(cx, callbacks[AST_GENERATOR_EXPR]);
     if (!cb.isNull())
@@ -1334,7 +1334,7 @@ NodeBuilder::letExpression(NodeVector &head, HandleValue expr, TokenPos *pos,
 {
     RootedValue array(cx);
     if (!newArray(head, &array))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue cb(cx, callbacks[AST_LET_EXPR]);
     if (!cb.isNull())
@@ -1351,7 +1351,7 @@ NodeBuilder::letStatement(NodeVector &head, HandleValue stmt, TokenPos *pos, Mut
 {
     RootedValue array(cx);
     if (!newArray(head, &array))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue cb(cx, callbacks[AST_LET_STMT]);
     if (!cb.isNull())
@@ -1369,7 +1369,7 @@ NodeBuilder::importDeclaration(NodeVector &elts, HandleValue moduleSpec, TokenPo
 {
     RootedValue array(cx);
     if (!newArray(elts, &array))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue cb(cx, callbacks[AST_IMPORT_DECL]);
     if (!cb.isNull())
@@ -1401,7 +1401,7 @@ NodeBuilder::exportDeclaration(HandleValue decl, NodeVector &elts, HandleValue m
 {
     RootedValue array(cx, NullValue());
     if (decl.isNull() && !newArray(elts, &array))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue cb(cx, callbacks[AST_IMPORT_DECL]);
 
@@ -1452,7 +1452,7 @@ NodeBuilder::variableDeclaration(NodeVector &elts, VarDeclKind kind, TokenPos *p
                    : kind == VARDECL_LET
                    ? "let"
                    : "var", &kindName)) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedValue cb(cx, callbacks[AST_VAR_DECL]);
@@ -1481,7 +1481,7 @@ NodeBuilder::switchCase(HandleValue expr, NodeVector &elts, TokenPos *pos, Mutab
 {
     RootedValue array(cx);
     if (!newArray(elts, &array))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue cb(cx, callbacks[AST_CASE]);
     if (!cb.isNull())
@@ -1549,9 +1549,9 @@ NodeBuilder::function(ASTType type, TokenPos *pos,
 {
     RootedValue array(cx), defarray(cx);
     if (!newArray(args, &array))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!newArray(defaults, &defarray))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue isGeneratorVal(cx, BooleanValue(isGenerator));
     RootedValue isExpressionVal(cx, BooleanValue(isExpression));
@@ -1808,14 +1808,14 @@ ASTSerializer::statements(ParseNode *pn, NodeVector &elts)
     JS_ASSERT(pn->isArity(PN_LIST));
 
     if (!elts.reserve(pn->pn_count))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (ParseNode *next = pn->pn_head; next; next = next->pn_next) {
         JS_ASSERT(pn->pn_pos.encloses(next->pn_pos));
 
         RootedValue elt(cx);
         if (!sourceElement(next, &elt))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         elts.infallibleAppend(elt);
     }
 
@@ -1826,14 +1826,14 @@ bool
 ASTSerializer::expressions(ParseNode *pn, NodeVector &elts)
 {
     if (!elts.reserve(pn->pn_count))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (ParseNode *next = pn->pn_head; next; next = next->pn_next) {
         JS_ASSERT(pn->pn_pos.encloses(next->pn_pos));
 
         RootedValue elt(cx);
         if (!expression(next, &elt))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         elts.infallibleAppend(elt);
     }
 
@@ -1899,11 +1899,11 @@ ASTSerializer::variableDeclaration(ParseNode *pn, bool let, MutableHandleValue d
 
     NodeVector dtors(cx);
     if (!dtors.reserve(pn->pn_count))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     for (ParseNode *next = pn->pn_head; next; next = next->pn_next) {
         RootedValue child(cx);
         if (!variableDeclarator(next, &kind, &child))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         dtors.infallibleAppend(child);
     }
     return builder.variableDeclaration(dtors, kind, &pn->pn_pos, dst);
@@ -1950,7 +1950,7 @@ ASTSerializer::let(ParseNode *pn, bool expr, MutableHandleValue dst)
 
     NodeVector dtors(cx);
     if (!dtors.reserve(letHead->pn_count))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     VarDeclKind kind = VARDECL_LET_HEAD;
 
@@ -1961,7 +1961,7 @@ ASTSerializer::let(ParseNode *pn, bool expr, MutableHandleValue dst)
          * not contain const declarations, declarators should never have PND_CONST set.
          */
         if (!variableDeclarator(next, &kind, &child))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         dtors.infallibleAppend(child);
     }
 
@@ -1982,12 +1982,12 @@ ASTSerializer::importDeclaration(ParseNode *pn, MutableHandleValue dst)
 
     NodeVector elts(cx);
     if (!elts.reserve(pn->pn_count))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (ParseNode *next = pn->pn_left->pn_head; next; next = next->pn_next) {
         RootedValue elt(cx);
         if (!importSpecifier(next, &elt))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         elts.infallibleAppend(elt);
     }
 
@@ -2021,16 +2021,16 @@ ASTSerializer::exportDeclaration(ParseNode *pn, MutableHandleValue dst)
     switch (ParseNodeKind kind = kid->getKind()) {
       case PNK_EXPORT_SPEC_LIST:
         if (!elts.reserve(pn->pn_count))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         for (ParseNode *next = pn->pn_left->pn_head; next; next = next->pn_next) {
             RootedValue elt(cx);
             if (next->isKind(PNK_EXPORT_SPEC)) {
                 if (!exportSpecifier(next, &elt))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else {
                 if (!builder.exportBatchSpecifier(&pn->pn_pos, &elt))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             elts.infallibleAppend(elt);
         }
@@ -2038,14 +2038,14 @@ ASTSerializer::exportDeclaration(ParseNode *pn, MutableHandleValue dst)
 
       case PNK_FUNCTION:
         if (!function(kid, AST_FUNC_DECL, &decl))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 
       case PNK_VAR:
       case PNK_CONST:
       case PNK_LET:
         if (!variableDeclaration(kid, kind == PNK_LET, &decl))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 
       default:
@@ -2054,7 +2054,7 @@ ASTSerializer::exportDeclaration(ParseNode *pn, MutableHandleValue dst)
 
     RootedValue moduleSpec(cx, NullValue());
     if (pn->isKind(PNK_EXPORT_FROM) && !literal(pn->pn_right, &moduleSpec))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return builder.exportDeclaration(decl, elts, moduleSpec, &pn->pn_pos, dst);
 }
@@ -2095,7 +2095,7 @@ ASTSerializer::switchStatement(ParseNode *pn, MutableHandleValue dst)
     RootedValue disc(cx);
 
     if (!expression(pn->pn_left, &disc))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ParseNode *listNode;
     bool lexical;
@@ -2110,12 +2110,12 @@ ASTSerializer::switchStatement(ParseNode *pn, MutableHandleValue dst)
 
     NodeVector cases(cx);
     if (!cases.reserve(listNode->pn_count))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (ParseNode *next = listNode->pn_head; next; next = next->pn_next) {
         RootedValue child(cx);
         if (!switchCase(next, &child))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         cases.infallibleAppend(child);
     }
 
@@ -2133,7 +2133,7 @@ ASTSerializer::catchClause(ParseNode *pn, bool *isGuarded, MutableHandleValue ds
 
     if (!pattern(pn->pn_kid1, nullptr, &var) ||
         !optExpression(pn->pn_kid2, &guard)) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     *isGuarded = !guard.isMagic(JS_SERIALIZE_NO_NODE);
@@ -2151,20 +2151,20 @@ ASTSerializer::tryStatement(ParseNode *pn, MutableHandleValue dst)
 
     RootedValue body(cx);
     if (!statement(pn->pn_kid1, &body))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     NodeVector guarded(cx);
     RootedValue unguarded(cx, NullValue());
 
     if (pn->pn_kid2) {
         if (!guarded.reserve(pn->pn_kid2->pn_count))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         for (ParseNode *next = pn->pn_kid2->pn_head; next; next = next->pn_next) {
             RootedValue clause(cx);
             bool isGuarded;
             if (!catchClause(next->pn_expr, &isGuarded, &clause))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (isGuarded)
                 guarded.infallibleAppend(clause);
             else
@@ -2214,7 +2214,7 @@ ASTSerializer::forIn(ParseNode *loop, ParseNode *head, HandleValue var, HandleVa
 bool
 ASTSerializer::statement(ParseNode *pn, MutableHandleValue dst)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     switch (pn->getKind()) {
       case PNK_FUNCTION:
       case PNK_VAR:
@@ -2314,7 +2314,7 @@ ASTSerializer::statement(ParseNode *pn, MutableHandleValue dst)
 
         RootedValue stmt(cx);
         if (!statement(pn->pn_right, &stmt))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (head->isKind(PNK_FORIN)) {
             RootedValue var(cx);
@@ -2356,7 +2356,7 @@ ASTSerializer::statement(ParseNode *pn, MutableHandleValue dst)
 
         RootedValue var(cx);
         if (!variableDeclaration(prelude, false, &var))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         ParseNode *head = loop->pn_left;
         JS_ASSERT(head->isKind(PNK_FORIN));
@@ -2425,23 +2425,23 @@ ASTSerializer::leftAssociate(ParseNode *pn, MutableHandleValue dst)
     ParseNode *head = pn->pn_head;
     RootedValue left(cx);
     if (!expression(head, &left))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     for (ParseNode *next = head->pn_next; next; next = next->pn_next) {
         RootedValue right(cx);
         if (!expression(next, &right))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         TokenPos subpos(pn->pn_pos.begin, next->pn_pos.end);
 
         if (logop) {
             if (!builder.logicalExpression(lor, left, right, &subpos, &left))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             BinaryOperator op = binop(pn->getKind(), pn->getOp());
             LOCAL_ASSERT(op > BINOP_ERR && op < BINOP_LIMIT);
 
             if (!builder.binaryExpression(op, left, right, &subpos, &left))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -2478,7 +2478,7 @@ ASTSerializer::comprehension(ParseNode *pn, MutableHandleValue dst)
     while (next->isKind(PNK_FOR)) {
         RootedValue block(cx);
         if (!comprehensionBlock(next, &block) || !blocks.append(block))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         next = next->pn_right;
     }
 
@@ -2486,7 +2486,7 @@ ASTSerializer::comprehension(ParseNode *pn, MutableHandleValue dst)
 
     if (next->isKind(PNK_IF)) {
         if (!optExpression(next->pn_kid1, &filter))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         next = next->pn_kid2;
     } else if (next->isKind(PNK_STATEMENTLIST) && next->pn_count == 0) {
         /* FoldConstants optimized away the push. */
@@ -2513,7 +2513,7 @@ ASTSerializer::generatorExpression(ParseNode *pn, MutableHandleValue dst)
     while (next->isKind(PNK_FOR)) {
         RootedValue block(cx);
         if (!comprehensionBlock(next, &block) || !blocks.append(block))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         next = next->pn_right;
     }
 
@@ -2521,7 +2521,7 @@ ASTSerializer::generatorExpression(ParseNode *pn, MutableHandleValue dst)
 
     if (next->isKind(PNK_IF)) {
         if (!optExpression(next->pn_kid1, &filter))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         next = next->pn_kid2;
     }
 
@@ -2538,7 +2538,7 @@ ASTSerializer::generatorExpression(ParseNode *pn, MutableHandleValue dst)
 bool
 ASTSerializer::expression(ParseNode *pn, MutableHandleValue dst)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     switch (pn->getKind()) {
       case PNK_FUNCTION:
       {
@@ -2694,18 +2694,18 @@ ASTSerializer::expression(ParseNode *pn, MutableHandleValue dst)
 
         RootedValue callee(cx);
         if (!expression(next, &callee))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         NodeVector args(cx);
         if (!args.reserve(pn->pn_count - 1))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         for (next = next->pn_next; next; next = next->pn_next) {
             JS_ASSERT(pn->pn_pos.encloses(next->pn_pos));
 
             RootedValue arg(cx);
             if (!expression(next, &arg))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             args.infallibleAppend(arg);
         }
 
@@ -2741,7 +2741,7 @@ ASTSerializer::expression(ParseNode *pn, MutableHandleValue dst)
       {
         NodeVector elts(cx);
         if (!elts.reserve(pn->pn_count))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         for (ParseNode *next = pn->pn_head; next; next = next->pn_next) {
             JS_ASSERT(pn->pn_pos.encloses(next->pn_pos));
@@ -2751,7 +2751,7 @@ ASTSerializer::expression(ParseNode *pn, MutableHandleValue dst)
             } else {
                 RootedValue expr(cx);
                 if (!expression(next, &expr))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 elts.infallibleAppend(expr);
             }
         }
@@ -2771,18 +2771,18 @@ ASTSerializer::expression(ParseNode *pn, MutableHandleValue dst)
         /* The parser notes any uninitialized properties by setting the PNX_DESTRUCT flag. */
         if (pn->pn_xflags & PNX_DESTRUCT) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_BAD_OBJECT_INIT);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         NodeVector elts(cx);
         if (!elts.reserve(pn->pn_count))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         for (ParseNode *next = pn->pn_head; next; next = next->pn_next) {
             JS_ASSERT(pn->pn_pos.encloses(next->pn_pos));
 
             RootedValue prop(cx);
             if (!property(next, &prop))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             elts.infallibleAppend(prop);
         }
 
@@ -2892,11 +2892,11 @@ ASTSerializer::literal(ParseNode *pn, MutableHandleValue dst)
 
         RootedObject proto(cx);
         if (!js_GetClassPrototype(cx, JSProto_RegExp, &proto))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         RootedObject re2(cx, CloneRegExpObject(cx, re1, proto));
         if (!re2)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         val.setObject(*re2);
         break;
@@ -2932,7 +2932,7 @@ ASTSerializer::arrayPattern(ParseNode *pn, VarDeclKind *pkind, MutableHandleValu
 
     NodeVector elts(cx);
     if (!elts.reserve(pn->pn_count))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (ParseNode *next = pn->pn_head; next; next = next->pn_next) {
         if (next->isKind(PNK_ELISION)) {
@@ -2940,7 +2940,7 @@ ASTSerializer::arrayPattern(ParseNode *pn, VarDeclKind *pkind, MutableHandleValu
         } else {
             RootedValue patt(cx);
             if (!pattern(next, pkind, &patt))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             elts.infallibleAppend(patt);
         }
     }
@@ -2955,7 +2955,7 @@ ASTSerializer::objectPattern(ParseNode *pn, VarDeclKind *pkind, MutableHandleVal
 
     NodeVector elts(cx);
     if (!elts.reserve(pn->pn_count))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (ParseNode *next = pn->pn_head; next; next = next->pn_next) {
         LOCAL_ASSERT(next->isOp(JSOP_INITPROP));
@@ -2964,7 +2964,7 @@ ASTSerializer::objectPattern(ParseNode *pn, VarDeclKind *pkind, MutableHandleVal
         if (!propertyName(next->pn_left, &key) ||
             !pattern(next->pn_right, pkind, &patt) ||
             !builder.propertyPattern(key, patt, &next->pn_pos, &prop)) {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         elts.infallibleAppend(prop);
@@ -2976,7 +2976,7 @@ ASTSerializer::objectPattern(ParseNode *pn, VarDeclKind *pkind, MutableHandleVal
 bool
 ASTSerializer::pattern(ParseNode *pn, VarDeclKind *pkind, MutableHandleValue dst)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     switch (pn->getKind()) {
       case PNK_OBJECT:
         return objectPattern(pn, pkind, dst);
@@ -3029,7 +3029,7 @@ ASTSerializer::function(ParseNode *pn, ASTType type, MutableHandleValue dst)
     RootedValue id(cx);
     RootedAtom funcAtom(cx, func->atom());
     if (!optIdentifier(funcAtom, nullptr, &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     NodeVector args(cx);
     NodeVector defaults(cx);
@@ -3125,7 +3125,7 @@ ASTSerializer::functionArgs(ParseNode *pn, ParseNode *pnargs, ParseNode *pndestr
     while ((arg && arg != pnbody) || destruct) {
         if (destruct && destruct->pn_right->frameSlot() == i) {
             if (!pattern(destruct->pn_left, nullptr, &node) || !args.append(node))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             destruct = destruct->pn_next;
         } else if (arg && arg != pnbody) {
             /*
@@ -3142,16 +3142,16 @@ ASTSerializer::functionArgs(ParseNode *pn, ParseNode *pnargs, ParseNode *pndestr
             JS_ASSERT(arg->isKind(PNK_NAME) || arg->isKind(PNK_ASSIGN));
             ParseNode *argName = arg->isKind(PNK_NAME) ? arg : arg->pn_left;
             if (!identifier(argName, &node))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (rest.isUndefined() && arg->pn_next == pnbody)
                 rest.setObject(node.toObject());
             else if (!args.append(node))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (arg->pn_dflags & PND_DEFAULT) {
                 ParseNode *expr = arg->isDefn() ? arg->expr() : arg->pn_kid->pn_right;
                 RootedValue def(cx);
                 if (!expression(expr, &def) || !defaults.append(def))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             arg = arg->pn_next;
         } else {
@@ -3173,7 +3173,7 @@ ASTSerializer::functionBody(ParseNode *pn, TokenPos *pos, MutableHandleValue dst
     for (ParseNode *next = pn; next; next = next->pn_next) {
         RootedValue child(cx);
         if (!sourceElement(next, &child) || !elts.append(child))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return builder.blockStatement(elts, pos, dst);
@@ -3187,12 +3187,12 @@ reflect_parse(JSContext *cx, uint32_t argc, jsval *vp)
     if (args.length() < 1) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MORE_ARGS_NEEDED,
                              "Reflect.parse", "0", "s");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedString src(cx, ToString<CanGC>(cx, args[0]));
     if (!src)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ScopedJSFreePtr<char> filename;
     uint32_t lineno = 1;
@@ -3207,7 +3207,7 @@ reflect_parse(JSContext *cx, uint32_t argc, jsval *vp)
             js_ReportValueErrorFlags(cx, JSREPORT_ERROR, JSMSG_UNEXPECTED_TYPE,
                                      JSDVG_SEARCH_STACK, arg, NullPtr(),
                                      "not an object", nullptr);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         RootedObject config(cx, &arg.toObject());
@@ -3218,7 +3218,7 @@ reflect_parse(JSContext *cx, uint32_t argc, jsval *vp)
         RootedId locId(cx, NameToId(cx->names().loc));
         RootedValue trueVal(cx, BooleanValue(true));
         if (!GetPropertyDefault(cx, config, locId, trueVal, &prop))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         loc = ToBoolean(prop);
 
@@ -3227,22 +3227,22 @@ reflect_parse(JSContext *cx, uint32_t argc, jsval *vp)
             RootedId sourceId(cx, NameToId(cx->names().source));
             RootedValue nullVal(cx, NullValue());
             if (!GetPropertyDefault(cx, config, sourceId, nullVal, &prop))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             if (!prop.isNullOrUndefined()) {
                 RootedString str(cx, ToString<CanGC>(cx, prop));
                 if (!str)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 size_t length = str->length();
                 const jschar *chars = str->getChars(cx);
                 if (!chars)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 TwoByteChars tbchars(chars, length);
                 filename = LossyTwoByteCharsToNewLatin1CharsZ(cx, tbchars).c_str();
                 if (!filename)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             /* config.line */
@@ -3250,7 +3250,7 @@ reflect_parse(JSContext *cx, uint32_t argc, jsval *vp)
             RootedValue oneValue(cx, Int32Value(1));
             if (!GetPropertyDefault(cx, config, lineId, oneValue, &prop) ||
                 !ToUint32(cx, prop, &lineno)) {
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
 
@@ -3258,14 +3258,14 @@ reflect_parse(JSContext *cx, uint32_t argc, jsval *vp)
         RootedId builderId(cx, NameToId(cx->names().builder));
         RootedValue nullVal(cx, NullValue());
         if (!GetPropertyDefault(cx, config, builderId, nullVal, &prop))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!prop.isNullOrUndefined()) {
             if (!prop.isObject()) {
                 js_ReportValueErrorFlags(cx, JSREPORT_ERROR, JSMSG_UNEXPECTED_TYPE,
                                          JSDVG_SEARCH_STACK, prop, NullPtr(),
                                          "not an object", nullptr);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             builder = &prop.toObject();
         }
@@ -3274,11 +3274,11 @@ reflect_parse(JSContext *cx, uint32_t argc, jsval *vp)
     /* Extract the builder methods first to report errors before parsing. */
     ASTSerializer serialize(cx, loc, filename, lineno);
     if (!serialize.init(builder))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSStableString *stable = src->ensureStable(cx);
     if (!stable)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     const StableCharPtr chars = stable->chars();
     size_t length = stable->length();
@@ -3292,12 +3292,12 @@ reflect_parse(JSContext *cx, uint32_t argc, jsval *vp)
 
     ParseNode *pn = parser.parse(nullptr);
     if (!pn)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue val(cx);
     if (!serialize.program(pn, &val)) {
         args.rval().setNull();
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args.rval().set(val);

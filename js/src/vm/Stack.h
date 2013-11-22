@@ -1126,7 +1126,7 @@ class InvokeArgs : public JS::CallArgs
 
     bool init(unsigned argc) {
         if (!v_.resize(2 + argc))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         ImplicitCast<CallArgs>(*this) = CallArgsFromVp(argc, v_.begin());
         return true;
     }
@@ -1534,7 +1534,7 @@ class ScriptFrameIter
 #ifdef JS_ION
         return isJit() && data_.ionFrames_.isOptimizedJS();
 #else
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
     }
 
@@ -1542,7 +1542,7 @@ class ScriptFrameIter
 #ifdef JS_ION
         return isJit() && data_.ionFrames_.isBaselineJS();
 #else
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
     }
 
@@ -1610,7 +1610,7 @@ class NonBuiltinScriptFrameIter : public ScriptFrameIter
     static bool includeSelfhostedFrames();
 #else
     static bool includeSelfhostedFrames() {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 #endif
 

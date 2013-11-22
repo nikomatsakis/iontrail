@@ -53,7 +53,7 @@ JSObject::deleteElement(JSContext *cx, js::HandleObject obj, uint32_t index, boo
 {
     jsid id;
     if (!js::IndexToId(cx, index, &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     js::types::MarkTypePropertyConfigured(cx, obj, id);
     js::DeleteElementOp op = obj->getOps()->deleteElement;
     return (op ? op : js::baseops::DeleteElement)(cx, obj, index, succeeded);
@@ -152,7 +152,7 @@ inline bool
 JSObject::setDenseElementIfHasType(uint32_t index, const js::Value &val)
 {
     if (!js::types::HasTypePropertyId(this, JSID_VOID, val))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     setDenseElementMaybeConvertDouble(index, val);
     return true;
 }
@@ -355,7 +355,7 @@ JSObject::setSingletonType(js::ExclusiveContext *cx, js::HandleObject obj)
 
     js::types::TypeObject *type = cx->getLazyType(obj->getClass(), obj->getTaggedProto());
     if (!type)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     obj->type_ = type;
     return true;
@@ -382,7 +382,7 @@ JSObject::clearType(JSContext *cx, js::HandleObject obj)
 
     js::types::TypeObject *type = cx->getNewType(obj->getClass(), nullptr);
     if (!type)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     obj->type_ = type;
     return true;
@@ -532,7 +532,7 @@ JSObject::hasProperty(JSContext *cx, js::HandleObject obj,
     JSAutoResolveFlags rf(cx, flags);
     if (!lookupGeneric(cx, obj, id, &pobj, &prop)) {
         *foundp = false;  /* initialize to shut GCC up */
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     *foundp = !!prop;
     return true;
@@ -542,7 +542,7 @@ inline bool
 JSObject::nativeSetSlotIfHasType(js::Shape *shape, const js::Value &value)
 {
     if (!js::types::HasTypePropertyId(this, shape->propid(), value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     nativeSetSlot(shape->slot(), value);
     return true;
 }
@@ -565,7 +565,7 @@ JSObject::getElement(JSContext *cx, js::HandleObject obj, js::HandleObject recei
 
     JS::RootedId id(cx);
     if (!js::IndexToId(cx, index, id.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return getGeneric(cx, obj, receiver, id, vp);
 }
 
@@ -575,11 +575,11 @@ JSObject::getElementNoGC(JSContext *cx, JSObject *obj, JSObject *receiver,
 {
     js::ElementIdOp op = obj->getOps()->getElement;
     if (op)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     jsid id;
     if (!js::IndexToId(cx, index, &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return getGenericNoGC(cx, obj, receiver, id, vp);
 }
 
@@ -599,12 +599,12 @@ JSObject::getElementIfPresent(JSContext *cx, js::HandleObject obj, js::HandleObj
      */
     JS::RootedId id(cx);
     if (!js::IndexToId(cx, index, id.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS::RootedObject obj2(cx);
     js::RootedShape prop(cx);
     if (!lookupGeneric(cx, obj, id, &obj2, &prop))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!prop) {
         *present = false;
@@ -657,7 +657,7 @@ IsFunctionObject(const js::Value &v, JSFunction **fun)
         *fun = &v.toObject().as<JSFunction>();
         return true;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static JS_ALWAYS_INLINE bool
@@ -698,7 +698,7 @@ ClassMethodIsNative(JSContext *cx, JSObject *obj, const Class *clasp, jsid metho
     if (!HasDataProperty(cx, obj, methodid, &v)) {
         JSObject *proto = obj->getProto();
         if (!proto || proto->getClass() != clasp || !HasDataProperty(cx, proto, methodid, &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return js::IsNativeFunction(v, native);
@@ -826,9 +826,9 @@ FindProto(ExclusiveContext *cx, const js::Class *clasp, MutableHandleObject prot
 {
     JSProtoKey protoKey = GetClassProtoKey(clasp);
     if (!js_GetClassPrototype(cx, protoKey, proto, clasp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!proto && !js_GetClassPrototype(cx, JSProto_Object, proto))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return true;
 }
 
@@ -965,7 +965,7 @@ DefineConstructorAndPrototype(JSContext *cx, Handle<GlobalObject*> global,
         global->setConstructor(key, UndefinedValue());
         global->setPrototype(key, UndefinedValue());
         global->setConstructorPropertySlot(key, UndefinedValue());
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     types::AddTypePropertyId(cx, global, id, ObjectValue(*ctor));
@@ -994,7 +994,7 @@ inline bool
 IsObjectWithClass(const Value &v, ESClassValue classValue, JSContext *cx)
 {
     if (!v.isObject())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedObject obj(cx, &v.toObject());
     return ObjectClassIs(obj, classValue, cx);
 }
@@ -1009,7 +1009,7 @@ static JS_ALWAYS_INLINE bool
 ValueIsSpecial(JSObject *obj, MutableHandleValue propval, MutableHandle<SpecialId> sidp,
                JSContext *cx)
 {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 JSObject *

@@ -102,7 +102,7 @@ var Runtime = {
   return type[type.length-1] == '*';
 },
   isStructType: function isStructType(type) {
-  if (isPointerType(type)) return false;
+  if (isPointerType(type)) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (isArrayType(type)) return true;
   if (/<?{ ?[^}]* ?}>?/.test(type)) return true; // { i32, i8 } etc. - anonymous struct types
   // See comment in isStructPointerType()
@@ -154,13 +154,13 @@ var Runtime = {
   var seen = {};
   if (ident) {
     return items.filter(function(item) {
-      if (seen[item[ident]]) return false;
+      if (seen[item[ident]]) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       seen[item[ident]] = true;
       return true;
     });
   } else {
     return items.filter(function(item) {
-      if (seen[item]) return false;
+      if (seen[item]) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       seen[item] = true;
       return true;
     });
@@ -3886,7 +3886,7 @@ function copyTempDouble(ptr) {
       try { if (type == __ZTIt) isNumber = true } catch(e){}
       return isNumber;
     }function ___cxa_does_inherit(definiteType, possibilityType, possibility) {
-      if (possibility == 0) return false;
+      if (possibility == 0) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       if (possibilityType == 0 || possibilityType == definiteType)
         return true;
       var possibility_type_info;
@@ -3909,15 +3909,15 @@ function copyTempDouble(ptr) {
           var possPointerBaseType = HEAP32[((possPointerBaseAddr)>>2)];
           return ___cxa_does_inherit(defPointerBaseType, possPointerBaseType, possibility);
         } else
-          return false; // one pointer and one non-pointer
+          do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); // one pointer and one non-pointer
       case 1: // class with no base class
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       case 2: // class with base class
         var parentTypeAddr = possibilityType + 8;
         var parentType = HEAP32[((parentTypeAddr)>>2)];
         return ___cxa_does_inherit(definiteType, parentType, possibility);
       default:
-        return false; // some unencountered type
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); // some unencountered type
       }
     }
   function ___resumeException(ptr) {

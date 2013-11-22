@@ -83,7 +83,7 @@ function ToString( object ) {
 
 function ToBoolean( value ) {
   if ( value == 0 || value == NaN || value == false ) {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   } else {
     return true;
   }

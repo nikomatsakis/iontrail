@@ -211,7 +211,7 @@ STATIC_PRECONDITION_ASSUME(ubound(args.argv_) >= argc)
 JS_ALWAYS_INLINE bool
 CallJSNative(JSContext *cx, Native native, const CallArgs &args)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
 #ifdef DEBUG
     bool alreadyThrowing = cx->isExceptionPending();
@@ -251,7 +251,7 @@ CallJSNativeConstructor(JSContext *cx, Native native, const CallArgs &args)
 
     JS_ASSERT(args.thisv().isMagic());
     if (!CallJSNative(cx, native, args))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Native constructors must return non-primitive values on success.
@@ -285,7 +285,7 @@ CallJSNativeConstructor(JSContext *cx, Native native, const CallArgs &args)
 JS_ALWAYS_INLINE bool
 CallJSPropertyOp(JSContext *cx, PropertyOp op, HandleObject receiver, HandleId id, MutableHandleValue vp)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     assertSameCompartment(cx, receiver, id, vp);
     bool ok = op(cx, receiver, id, vp);
@@ -298,7 +298,7 @@ JS_ALWAYS_INLINE bool
 CallJSPropertyOpSetter(JSContext *cx, StrictPropertyOp op, HandleObject obj, HandleId id,
                        bool strict, MutableHandleValue vp)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     assertSameCompartment(cx, obj, id, vp);
     return op(cx, obj, id, strict, vp);
@@ -308,7 +308,7 @@ static inline bool
 CallJSDeletePropertyOp(JSContext *cx, JSDeletePropertyOp op, HandleObject receiver, HandleId id,
                        bool *succeeded)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     assertSameCompartment(cx, receiver, id);
     return op(cx, receiver, id, succeeded);

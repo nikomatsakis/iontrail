@@ -158,7 +158,7 @@ js::InitCommonNames(JSContext *cx)
     for (size_t i = 0; i < ArrayLength(cachedNames); i++, names++) {
         JSAtom *atom = Atomize(cx, cachedNames[i].str, cachedNames[i].length, InternAtom);
         if (!atom)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         names->init(atom->asPropertyName());
     }
     JS_ASSERT(uintptr_t(names) == uintptr_t(&cx->runtime()->atomState + 1));
@@ -220,7 +220,7 @@ AtomIsInterned(JSContext *cx, JSAtom *atom)
 
     AtomSet::Ptr p = cx->runtime()->atoms().lookup(atom);
     if (!p)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return p->isTagged();
 }
@@ -401,7 +401,7 @@ js::IndexToIdSlow(ExclusiveContext *cx, uint32_t index, jsid *idp)
 
     JSAtom *atom = AtomizeChars(cx, start.get(), end - start);
     if (!atom)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *idp = JSID_FROM_BITS((size_t)atom);
     return true;
@@ -463,11 +463,11 @@ js::XDRAtom(XDRState<mode> *xdr, MutableHandleAtom atomp)
     if (mode == XDR_ENCODE) {
         uint32_t nchars = atomp->length();
         if (!xdr->codeUint32(&nchars))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         jschar *chars = const_cast<jschar *>(atomp->getChars(xdr->cx()));
         if (!chars)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         return xdr->codeChars(chars, nchars);
     }
@@ -475,7 +475,7 @@ js::XDRAtom(XDRState<mode> *xdr, MutableHandleAtom atomp)
     /* Avoid JSString allocation for already existing atoms. See bug 321985. */
     uint32_t nchars;
     if (!xdr->codeUint32(&nchars))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSContext *cx = xdr->cx();
     JSAtom *atom;
@@ -500,7 +500,7 @@ js::XDRAtom(XDRState<mode> *xdr, MutableHandleAtom atomp)
          */
         chars = cx->runtime()->pod_malloc<jschar>(nchars);
         if (!chars)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JS_ALWAYS_TRUE(xdr->codeChars(chars, nchars));
@@ -510,7 +510,7 @@ js::XDRAtom(XDRState<mode> *xdr, MutableHandleAtom atomp)
 #endif /* !IS_LITTLE_ENDIAN */
 
     if (!atom)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     atomp.set(atom);
     return true;
 }

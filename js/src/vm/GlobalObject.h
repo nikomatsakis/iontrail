@@ -533,7 +533,7 @@ class GlobalObject : public JSObject
             *vp = holder->getSlot(shape->slot());
             return true;
         }
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool getIntrinsicValue(JSContext *cx, HandlePropertyName name, MutableHandleValue value) {
@@ -541,7 +541,7 @@ class GlobalObject : public JSObject
             return true;
         Rooted<GlobalObject*> self(cx, this);
         if (!cx->runtime()->cloneSelfHostedValue(cx, name, value))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         RootedObject holder(cx, self->intrinsicsHolder());
         RootedId id(cx, NameToId(name));
         return JS_DefinePropertyById(cx, holder, id, value, nullptr, nullptr, 0);

@@ -78,7 +78,7 @@ PropertyTree::insertChild(ExclusiveContext *cx, Shape *parent, Shape *child)
         KidsHash *hash = HashChildren(shape, child);
         if (!hash) {
             js_ReportOutOfMemory(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         kidp->setHash(hash);
         child->setParent(parent);
@@ -87,7 +87,7 @@ PropertyTree::insertChild(ExclusiveContext *cx, Shape *parent, Shape *child)
 
     if (!kidp->toHash()->putNew(child, child)) {
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     child->setParent(parent);

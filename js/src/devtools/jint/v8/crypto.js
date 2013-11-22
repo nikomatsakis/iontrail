@@ -1637,9 +1637,9 @@ function bnIsProbablePrime(t) {
   if(x.t == 1 && x_array[0] <= lowprimes[lowprimes.length-1]) {
     for(i = 0; i < lowprimes.length; ++i)
       if(x_array[0] == lowprimes[i]) return true;
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
-  if(x.isEven()) return false;
+  if(x.isEven()) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   i = 1;
   /* BEGIN LOOP */
   while(i < lowprimes.length) {
@@ -1649,7 +1649,7 @@ function bnIsProbablePrime(t) {
   /* END LOOP */
     m = x.modInt(m);
   /* BEGIN LOOP */
-    while(i < j) if(m%lowprimes[i++] == 0) return false;
+    while(i < j) if(m%lowprimes[i++] == 0) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   /* END LOOP */
   }
   /* END LOOP */
@@ -1660,7 +1660,7 @@ function bnIsProbablePrime(t) {
 function bnpMillerRabin(t) {
   var n1 = this.subtract(BigInteger.ONE);
   var k = n1.getLowestSetBit();
-  if(k <= 0) return false;
+  if(k <= 0) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   var r = n1.shiftRight(k);
   t = (t+1)>>1;
   if(t > lowprimes.length) t = lowprimes.length;
@@ -1674,10 +1674,10 @@ function bnpMillerRabin(t) {
   /* BEGIN LOOP */
       while(j++ < k && y.compareTo(n1) != 0) {
         y = y.modPowInt(2,this);
-        if(y.compareTo(BigInteger.ONE) == 0) return false;
+        if(y.compareTo(BigInteger.ONE) == 0) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
   /* END LOOP */
-      if(y.compareTo(n1) != 0) return false;
+      if(y.compareTo(n1) != 0) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
   }
   /* END LOOP */

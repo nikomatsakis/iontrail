@@ -30,7 +30,7 @@ function expectThrowTypeError(fun)
 var isPrototypeOf = Object.prototype.isPrototypeOf;
 
 /*
- * 1. If V is not an Object, return false.
+ * 1. If V is not an Object, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false).
  */
 assertEq(isPrototypeOf(), false);
 assertEq(isPrototypeOf(1), false);
@@ -64,7 +64,7 @@ expectThrowTypeError(function() { isPrototypeOf(protoGlobal); });
 
 /*
  * 3a. Let V be the value of the [[Prototype]] internal property of V.
- * 3b. If V is null, return false.
+ * 3b. If V is null, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false).
  */
 assertEq(Object.prototype.isPrototypeOf(Object.prototype), false);
 assertEq(String.prototype.isPrototypeOf({}), false);

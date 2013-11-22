@@ -23,6 +23,6 @@ function testcase() {
   if (d === false && typeof(o) === 'object' && o.x === 1) {
     return true;
   }
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
  }
 runTestCase(testcase);

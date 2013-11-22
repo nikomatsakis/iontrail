@@ -112,7 +112,7 @@ StringBuffer::append(JSString *str)
 {
     JSLinearString *linear = str->ensureLinear(context());
     if (!linear)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return append(linear);
 }
 
@@ -121,7 +121,7 @@ StringBuffer::appendInflated(const char *cstr, size_t cstrlen)
 {
     size_t lengthBefore = length();
     if (!cb.growByUninitialized(cstrlen))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     InflateStringToBuffer(cstr, cstrlen, begin() + lengthBefore);
     return true;
 }

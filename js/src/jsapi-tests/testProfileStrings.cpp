@@ -64,7 +64,7 @@ Prof(JSContext* cx, unsigned argc, jsval *vp)
 {
     JSObject *obj = JS_NewObjectForConstructor(cx, &ptestClass, vp);
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(obj));
     return true;
 }

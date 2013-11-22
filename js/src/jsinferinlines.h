@@ -411,10 +411,10 @@ inline bool
 TrackPropertyTypes(ExclusiveContext *cx, JSObject *obj, jsid id)
 {
     if (!cx->typeInferenceEnabled() || obj->hasLazyType() || obj->type()->unknownProperties())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (obj->hasSingletonType() && !obj->type()->maybeGetProperty(id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }
@@ -461,7 +461,7 @@ HasTypePropertyId(JSObject *obj, jsid id, Type type)
     if (HeapTypeSet *types = obj->type()->maybeGetProperty(IdToTypeId(id)))
         return types->hasType(type);
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 inline bool
@@ -748,7 +748,7 @@ SetInitializerObjectType(JSContext *cx, HandleScript script, jsbytecode *pc, Han
     } else {
         types::TypeObject *type = TypeScript::InitObject(cx, script, pc, key);
         if (!type)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         obj->uninlinedSetType(type);
     }
 
@@ -1098,7 +1098,7 @@ TypeSet::hasType(Type type) const
         return true;
 
     if (type.isUnknown()) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else if (type.isPrimitive()) {
         return !!(flags & PrimitiveTypeFlag(type.primitive()));
     } else if (type.isAnyObject()) {
@@ -1168,7 +1168,7 @@ TypeSet::addType(Type type, LifoAlloc *alloc, bool *padded)
         TypeObjectKey **pentry = HashSetInsert<TypeObjectKey *,TypeObjectKey,TypeObjectKey>
                                      (*alloc, objectSet, objectCount, object);
         if (!pentry)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (*pentry)
             return true;
         *pentry = object;
@@ -1300,7 +1300,7 @@ TypeSet::getTypeOrSingleObject(JSContext *cx, unsigned i, TypeObject **result) c
         type = singleton->uninlinedGetType(cx);
         if (!type) {
             cx->compartment()->types.setPendingNukeTypes(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
     *result = type;
@@ -1474,9 +1474,9 @@ JSScript::ensureRanAnalysis(JSContext *cx)
     js::types::AutoEnterAnalysis aea(cx);
 
     if (!ensureHasTypes(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!hasAnalysis() && !makeAnalysis(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JS_ASSERT(analysis()->ranBytecode());
     return true;
 }

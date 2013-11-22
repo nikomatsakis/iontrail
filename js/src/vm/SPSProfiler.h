@@ -274,7 +274,7 @@ class SPSInstrumentation
         JS_ASSERT_IF(frame != nullptr, frame->script != nullptr);
         JS_ASSERT_IF(frame != nullptr, frame->left == 1);
         if (!frames.growBy(1))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         frame = &frames[frames.length() - 1];
         frame->script = nullptr;
         frame->skipNext = false;
@@ -326,7 +326,7 @@ class SPSInstrumentation
         const char *string = profiler_->profileString(cx, script,
                                                       script->function());
         if (string == nullptr)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         masm.spsPushFrame(profiler_, string, script, scratch);
         setPushed(script);
         return true;

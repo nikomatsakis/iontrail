@@ -5,7 +5,7 @@
 
 //-----------------------------------------------------------------------------
 var BUGNUMBER = 245113;
-var summary = 'instanceof operator should return false for class prototype';
+var summary = 'instanceof operator should do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false) for class prototype';
 var actual = '';
 var expect = '';
 

@@ -22,9 +22,9 @@ namespace frontend {
 // Usage:
 //    pn = parser->statement();
 //    if (!pn)
-//        return false;
+//        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 //    if (!FoldConstants(cx, &pn, parser))
-//        return false;
+//        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 bool
 FoldConstants(ExclusiveContext *cx, ParseNode **pnp, Parser<FullParseHandler> *parser);
 

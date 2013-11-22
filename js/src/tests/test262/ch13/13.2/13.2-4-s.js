@@ -16,7 +16,7 @@ function testcase() {
             var foo = function () {
             }
             foo.arguments = 20;
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } catch (ex) {
             return ex instanceof TypeError;
         }

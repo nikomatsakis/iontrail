@@ -4,7 +4,7 @@ expected = 'true,';
 var isNotEmpty = function (args, i) {
   var o = args[i];
   if (!(o && o.length)) {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   return true;
 };
@@ -12,7 +12,7 @@ var isNotEmpty = function (args, i) {
 var f = function(obj) {
   for (var i = 0; i < arguments.length; i++) {
     if (!isNotEmpty(arguments, i))
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   return true;
 }

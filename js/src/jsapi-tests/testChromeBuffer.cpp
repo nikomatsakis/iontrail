@@ -29,7 +29,7 @@ bool
 CallTrusted(JSContext *cx, unsigned argc, jsval *vp)
 {
     if (!JS_SaveFrameChain(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     bool ok = false;
     {
@@ -49,7 +49,7 @@ BEGIN_TEST(testChromeBuffer)
     CHECK(trusted_glob);
 
     if (!JS_AddNamedObjectRoot(cx, &trusted_glob, "trusted-global"))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSFunction *fun;
 
@@ -71,7 +71,7 @@ BEGIN_TEST(testChromeBuffer)
                                            bytes, strlen(bytes), options));
             trusted_fun = JS_GetFunctionObject(fun);
             if (!JS_AddNamedObjectRoot(cx, &trusted_fun, "trusted-function"))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         JS::RootedValue v(cx, JS::ObjectValue(*trusted_fun));

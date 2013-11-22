@@ -61,7 +61,7 @@ class FixedSizeHashSet
             lastOperations[bucket] = numOperations++;
             return true;
         }
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     void insert(const Lookup &lookup, const T &entry)
@@ -108,7 +108,7 @@ class FixedSizeHashSet
             }
         }
 
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     template <typename S>

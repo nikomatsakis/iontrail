@@ -51,10 +51,10 @@ struct Option
     void setTerminatesOptions(bool enabled) { terminatesOptions = enabled; }
     bool getTerminatesOptions() const { return terminatesOptions; }
 
-    virtual bool isValued() const { return false; }
+    virtual bool isValued() const { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
 
     /* Only some valued options are variadic (like MultiStringOptions). */
-    virtual bool isVariadic() const { return false; }
+    virtual bool isVariadic() const { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
 
     /*
      * For arguments, the shortflag field is used to indicate whether the

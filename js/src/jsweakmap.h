@@ -139,7 +139,7 @@ class WeakMap : public HashMap<Key, Value, HashPolicy, RuntimeAllocPolicy>, publ
   private:
     bool markValue(JSTracer *trc, Value *x) {
         if (gc::IsMarked(x))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         gc::Mark(trc, x, "WeakMap entry value");
         JS_ASSERT(gc::IsMarked(x));
         return true;
@@ -169,11 +169,11 @@ class WeakMap : public HashMap<Key, Value, HashPolicy, RuntimeAllocPolicy>, publ
              */
             return delegate && gc::IsObjectMarked(&delegate);
         }
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool keyNeedsMark(gc::Cell *cell) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool markIteratively(JSTracer *trc) {

@@ -315,11 +315,11 @@ CrossCompartmentWrapper::get(JSContext *cx, HandleObject wrapper, HandleObject r
         if (!cx->compartment()->wrap(cx, &receiverCopy) ||
             !cx->compartment()->wrapId(cx, idCopy.address()))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (!Wrapper::get(cx, wrapper, receiverCopy, idCopy, vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return cx->compartment()->wrap(cx, vp);
 }
@@ -384,7 +384,7 @@ Reify(JSContext *cx, JSCompartment *origin, MutableHandleValue vp)
     /* Wrap the iteratee. */
     RootedObject obj(cx, ni->obj);
     if (!origin->wrap(cx, &obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Wrap the elements in the iterator's snapshot.
@@ -396,28 +396,28 @@ Reify(JSContext *cx, JSCompartment *origin, MutableHandleValue vp)
     AutoIdVector keys(cx);
     if (length > 0) {
         if (!keys.reserve(length))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         for (size_t i = 0; i < length; ++i) {
             RootedId id(cx);
             RootedValue v(cx, StringValue(ni->begin()[i]));
             if (!ValueToId<CanGC>(cx, v, &id))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             keys.infallibleAppend(id);
             if (!origin->wrapId(cx, &keys[i]))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
     close.clear();
     if (!CloseIterator(cx, iterObj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (isKeyIter) {
         if (!VectorToKeyIterator(cx, obj, ni->flags, keys, vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         if (!VectorToValueIterator(cx, obj, ni->flags, keys, vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -429,7 +429,7 @@ CrossCompartmentWrapper::iterate(JSContext *cx, HandleObject wrapper, unsigned f
     {
         AutoCompartment call(cx, wrappedObject(wrapper));
         if (!Wrapper::iterate(cx, wrapper, flags, vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (CanReify(vp))
@@ -447,15 +447,15 @@ CrossCompartmentWrapper::call(JSContext *cx, HandleObject wrapper, const CallArg
 
         args.setCallee(ObjectValue(*wrapped));
         if (!cx->compartment()->wrap(cx, args.mutableThisv()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         for (size_t n = 0; n < args.length(); ++n) {
             if (!cx->compartment()->wrap(cx, args[n]))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (!Wrapper::call(cx, wrapper, args))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return cx->compartment()->wrap(cx, args.rval());
@@ -470,10 +470,10 @@ CrossCompartmentWrapper::construct(JSContext *cx, HandleObject wrapper, const Ca
 
         for (size_t n = 0; n < args.length(); ++n) {
             if (!cx->compartment()->wrap(cx, args[n]))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (!Wrapper::construct(cx, wrapper, args))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return cx->compartment()->wrap(cx, args.rval());
 }
@@ -491,7 +491,7 @@ CrossCompartmentWrapper::nativeCall(JSContext *cx, IsAcceptableThis test, Native
         AutoCompartment call(cx, wrapped);
         InvokeArgs dstArgs(cx);
         if (!dstArgs.init(srcArgs.length()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         Value *src = srcArgs.base();
         Value *srcend = srcArgs.array() + srcArgs.length();
@@ -501,7 +501,7 @@ CrossCompartmentWrapper::nativeCall(JSContext *cx, IsAcceptableThis test, Native
         for (; src < srcend; ++src, ++dst) {
             source = *src;
             if (!cx->compartment()->wrap(cx, &source))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             *dst = source.get();
 
             // Handle |this| specially. When we rewrap on the other side of the
@@ -520,7 +520,7 @@ CrossCompartmentWrapper::nativeCall(JSContext *cx, IsAcceptableThis test, Native
         }
 
         if (!CallNonGenericMethod(cx, test, impl, dstArgs))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         srcArgs.rval().set(dstArgs.rval());
     }
@@ -533,7 +533,7 @@ CrossCompartmentWrapper::hasInstance(JSContext *cx, HandleObject wrapper, Mutabl
 {
     AutoCompartment call(cx, wrappedObject(wrapper));
     if (!cx->compartment()->wrap(cx, v))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return Wrapper::hasInstance(cx, wrapper, v, bp);
 }
 
@@ -589,7 +589,7 @@ CrossCompartmentWrapper::getPrototypeOf(JSContext *cx, HandleObject wrapper,
         RootedObject wrapped(cx, wrappedObject(wrapper));
         AutoCompartment call(cx, wrapped);
         if (!JSObject::getProto(cx, wrapped, protop))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (protop)
             protop->setDelegate(cx);
     }
@@ -626,7 +626,7 @@ SecurityWrapper<Base>::preventExtensions(JSContext *cx, HandleObject wrapper)
 {
     // See above.
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_UNWRAP_DENIED);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 template <class Base>
@@ -636,7 +636,7 @@ SecurityWrapper<Base>::enter(JSContext *cx, HandleObject wrapper, HandleId id,
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_UNWRAP_DENIED);
     *bp = false;
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 template <class Base>
@@ -645,7 +645,7 @@ SecurityWrapper<Base>::nativeCall(JSContext *cx, IsAcceptableThis test, NativeIm
                                   CallArgs args)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_UNWRAP_DENIED);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 // For security wrappers, we run the DefaultValue algorithm on the wrapper
@@ -663,7 +663,7 @@ template <class Base>
 bool
 SecurityWrapper<Base>::objectClassIs(HandleObject obj, ESClassValue classValue, JSContext *cx)
 {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 template <class Base>
@@ -683,7 +683,7 @@ SecurityWrapper<Base>::defineProperty(JSContext *cx, HandleObject wrapper,
         const jschar *prop = str ? str->getCharsZ(cx) : nullptr;
         JS_ReportErrorNumberUC(cx, js_GetErrorMessage, nullptr,
                                JSMSG_ACCESSOR_DEF_DENIED, prop);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return Base::defineProperty(cx, wrapper, id, desc);
@@ -710,7 +710,7 @@ bool
 DeadObjectProxy::preventExtensions(JSContext *cx, HandleObject proxy)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEAD_OBJECT);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -718,7 +718,7 @@ DeadObjectProxy::getPropertyDescriptor(JSContext *cx, HandleObject wrapper, Hand
                                        MutableHandle<PropertyDescriptor> desc, unsigned flags)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEAD_OBJECT);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -726,7 +726,7 @@ DeadObjectProxy::getOwnPropertyDescriptor(JSContext *cx, HandleObject wrapper, H
                                           MutableHandle<PropertyDescriptor> desc, unsigned flags)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEAD_OBJECT);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -734,7 +734,7 @@ DeadObjectProxy::defineProperty(JSContext *cx, HandleObject wrapper, HandleId id
                                 MutableHandle<PropertyDescriptor> desc)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEAD_OBJECT);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -742,56 +742,56 @@ DeadObjectProxy::getOwnPropertyNames(JSContext *cx, HandleObject wrapper,
                                      AutoIdVector &props)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEAD_OBJECT);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
 DeadObjectProxy::delete_(JSContext *cx, HandleObject wrapper, HandleId id, bool *bp)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEAD_OBJECT);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
 DeadObjectProxy::enumerate(JSContext *cx, HandleObject wrapper, AutoIdVector &props)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEAD_OBJECT);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
 DeadObjectProxy::call(JSContext *cx, HandleObject wrapper, const CallArgs &args)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEAD_OBJECT);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
 DeadObjectProxy::construct(JSContext *cx, HandleObject wrapper, const CallArgs &args)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEAD_OBJECT);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
 DeadObjectProxy::nativeCall(JSContext *cx, IsAcceptableThis test, NativeImpl impl, CallArgs args)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEAD_OBJECT);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
 DeadObjectProxy::hasInstance(JSContext *cx, HandleObject proxy, MutableHandleValue v, bool *bp)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEAD_OBJECT);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
 DeadObjectProxy::objectClassIs(HandleObject obj, ESClassValue classValue, JSContext *cx)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEAD_OBJECT);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 const char *
@@ -810,14 +810,14 @@ bool
 DeadObjectProxy::regexp_toShared(JSContext *cx, HandleObject proxy, RegExpGuard *g)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEAD_OBJECT);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
 DeadObjectProxy::defaultValue(JSContext *cx, HandleObject obj, JSType hint, MutableHandleValue vp)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEAD_OBJECT);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -825,7 +825,7 @@ DeadObjectProxy::getElementIfPresent(JSContext *cx, HandleObject obj, HandleObje
                                      uint32_t index, MutableHandleValue vp, bool *present)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEAD_OBJECT);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -990,7 +990,7 @@ js::RemapAllWrappersForObject(JSContext *cx, JSObject *oldTargetArg,
 
     AutoWrapperVector toTransplant(cx);
     if (!toTransplant.reserve(cx->runtime()->numCompartments))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (CompartmentsIter c(cx->runtime(), SkipAtoms); !c.done(); c.next()) {
         if (WrapperMap::Ptr wp = c->lookupWrapper(origv)) {
@@ -1035,7 +1035,7 @@ js::RecomputeWrappers(JSContext *cx, const CompartmentFilter &sourceFilter,
 
             // Add it to the list.
             if (!toRecompute.append(WrapperValue(e)))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 

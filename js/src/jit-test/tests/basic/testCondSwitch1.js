@@ -13,7 +13,7 @@ function f(x) {
     case get(true):
         return true;
     case get(false):
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     case get({}):
         return {};
     case get(null):

@@ -40,7 +40,7 @@ PropDesc::checkGetter(JSContext *cx)
         if (!js_IsCallable(get_) && !get_.isUndefined()) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_BAD_GET_SET_FIELD,
                                  js_getter_str);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
     return true;
@@ -53,7 +53,7 @@ PropDesc::checkSetter(JSContext *cx)
         if (!js_IsCallable(set_) && !set_.isUndefined()) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_BAD_GET_SET_FIELD,
                                  js_setter_str);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
     return true;
@@ -66,7 +66,7 @@ CheckArgCompartment(JSContext *cx, JSObject *obj, HandleValue v,
     if (v.isObject() && v.toObject().compartment() != obj->compartment()) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEBUG_COMPARTMENT_MISMATCH,
                              methodname, propname);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -88,7 +88,7 @@ PropDesc::unwrapDebuggerObjectsInto(JSContext *cx, Debugger *dbg, HandleObject o
         if (!dbg->unwrapDebuggeeValue(cx, &value) ||
             !CheckArgCompartment(cx, obj, value, "defineProperty", "value"))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         unwrapped->value_ = value;
     }
@@ -98,7 +98,7 @@ PropDesc::unwrapDebuggerObjectsInto(JSContext *cx, Debugger *dbg, HandleObject o
         if (!dbg->unwrapDebuggeeValue(cx, &get) ||
             !CheckArgCompartment(cx, obj, get, "defineProperty", "get"))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         unwrapped->get_ = get;
     }
@@ -108,7 +108,7 @@ PropDesc::unwrapDebuggerObjectsInto(JSContext *cx, Debugger *dbg, HandleObject o
         if (!dbg->unwrapDebuggeeValue(cx, &set) ||
             !CheckArgCompartment(cx, obj, set, "defineProperty", "set"))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         unwrapped->set_ = set;
     }
@@ -131,7 +131,7 @@ PropDesc::wrapInto(JSContext *cx, HandleObject obj, const jsid &id, jsid *wrappe
 
     *wrappedId = id;
     if (!comp->wrapId(cx, wrappedId))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *desc = *this;
     RootedValue value(cx, desc->value_);
@@ -139,7 +139,7 @@ PropDesc::wrapInto(JSContext *cx, HandleObject obj, const jsid &id, jsid *wrappe
     RootedValue set(cx, desc->set_);
 
     if (!comp->wrap(cx, &value) || !comp->wrap(cx, &get) || !comp->wrap(cx, &set))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     desc->value_ = value;
     desc->get_ = get;
@@ -411,7 +411,7 @@ TypedElementsHeader<T>::getOwnElement(JSContext *cx, Handle<ObjectImpl*> obj, ui
 
     *desc = PropDesc(ElementToValue(getElement(index)), PropDesc::Writable,
                      PropDesc::Enumerable, PropDesc::Configurable);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -453,7 +453,7 @@ DenseElementsHeader::defineElement(JSContext *cx, Handle<ObjectImpl*> obj, uint3
         (desc.hasWritable() && !desc.writable()))
     {
         if (!obj->makeElementsSparse(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         SparseElementsHeader &elts = obj->elementsHeader().asSparseElements();
         return elts.defineElement(cx, obj, index, desc, shouldThrow, resolveFlags, succeeded);
     }
@@ -477,7 +477,7 @@ DenseElementsHeader::defineElement(JSContext *cx, Handle<ObjectImpl*> obj, uint3
      */
     bool extensible;
     if (!JSObject::isExtensible(cx, obj, &extensible))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!extensible) {
         *succeeded = false;
         if (!shouldThrow)
@@ -487,7 +487,7 @@ DenseElementsHeader::defineElement(JSContext *cx, Handle<ObjectImpl*> obj, uint3
                                                   JSDVG_IGNORE_STACK,
                                                   val, NullPtr(),
                                                   nullptr, nullptr));
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Otherwise we ensure space for it exists and that it's initialized. */
@@ -495,12 +495,12 @@ DenseElementsHeader::defineElement(JSContext *cx, Handle<ObjectImpl*> obj, uint3
 
     /* Propagate any error. */
     if (res == ObjectImpl::Failure)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Otherwise, if the index was too far out of range, go sparse. */
     if (res == ObjectImpl::ConvertToSparse) {
         if (!obj->makeElementsSparse(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         SparseElementsHeader &elts = obj->elementsHeader().asSparseElements();
         return elts.defineElement(cx, obj, index, desc, shouldThrow, resolveFlags, succeeded);
     }
@@ -537,7 +537,7 @@ TypedElementsHeader<T>::defineElement(JSContext *cx, Handle<ObjectImpl*> obj,
     js_ReportValueErrorFlags(cx, JSREPORT_ERROR, JSMSG_OBJECT_NOT_EXTENSIBLE,
                              JSDVG_IGNORE_STACK,
                              val, NullPtr(), nullptr, nullptr);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -549,7 +549,7 @@ ArrayBufferElementsHeader::defineElement(JSContext *cx, Handle<ObjectImpl*> obj,
 
     Rooted<JSObject*> delegate(cx, ArrayBufferDelegate(cx, obj));
     if (!delegate)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return DefineElement(cx, delegate, index, desc, shouldThrow, resolveFlags, succeeded);
 }
 
@@ -559,7 +559,7 @@ js::GetOwnProperty(JSContext *cx, Handle<ObjectImpl*> obj, PropertyId pid_, unsi
 {
     JS_NEW_OBJECT_REPRESENTATION_ONLY();
 
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     Rooted<PropertyId> pid(cx, pid_);
 
@@ -578,10 +578,10 @@ js::GetOwnProperty(JSContext *cx, Handle<ObjectImpl*> obj, PropertyId pid_, unsi
                 Rooted<JSObject*> obj2(cx, nullptr);
                 JSNewResolveOp op = reinterpret_cast<JSNewResolveOp>(resolve);
                 if (!op(cx, robj, id, resolveFlags, &obj2))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else {
                 if (!resolve(cx, robj, id))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
 
@@ -661,7 +661,7 @@ js::GetProperty(JSContext *cx, Handle<ObjectImpl*> obj, Handle<ObjectImpl*> rece
 
         AutoPropDescRooter desc(cx);
         if (!GetOwnProperty(cx, current, pid, resolveFlags, &desc.getPropDesc()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* No property?  Recur or bottom out. */
         if (desc.isUndefined()) {
@@ -689,7 +689,7 @@ js::GetProperty(JSContext *cx, Handle<ObjectImpl*> obj, Handle<ObjectImpl*> rece
 
             InvokeArgs args(cx);
             if (!args.init(0))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             args.setCallee(get);
             args.setThis(ObjectValue(*receiver));
@@ -723,7 +723,7 @@ js::GetElement(JSContext *cx, Handle<ObjectImpl*> obj, Handle<ObjectImpl*> recei
 
         PropDesc desc;
         if (!GetOwnElement(cx, current, index, resolveFlags, &desc))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* No property?  Recur or bottom out. */
         if (desc.isUndefined()) {
@@ -751,7 +751,7 @@ js::GetElement(JSContext *cx, Handle<ObjectImpl*> obj, Handle<ObjectImpl*> recei
 
             InvokeArgs args(cx);
             if (!args.init(0))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             /* Push getter, receiver, and no args. */
             args.setCallee(getter);
@@ -785,7 +785,7 @@ js::HasElement(JSContext *cx, Handle<ObjectImpl*> obj, uint32_t index, unsigned 
 
         PropDesc prop;
         if (!GetOwnElement(cx, current, index, resolveFlags, &prop))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!prop.isUndefined()) {
             *found = true;
@@ -900,7 +900,7 @@ TypedElementsHeader<T>::setElement(JSContext *cx, Handle<ObjectImpl*> obj,
     } else if (v.isPrimitive()) {
         if (v.isString()) {
             if (!StringToNumber(cx, v.toString(), &d))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else if (v.isUndefined()) {
             d = GenericNaN();
         } else {
@@ -925,7 +925,7 @@ ArrayBufferElementsHeader::setElement(JSContext *cx, Handle<ObjectImpl*> obj,
 
     JSObject *delegate = ArrayBufferDelegate(cx, obj);
     if (!delegate)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return SetElement(cx, obj, receiver, index, v, resolveFlags, succeeded);
 }
 
@@ -948,7 +948,7 @@ js::SetElement(JSContext *cx, Handle<ObjectImpl*> obj, Handle<ObjectImpl*> recei
 
         PropDesc ownDesc;
         if (!GetOwnElement(cx, current, index, resolveFlags, &ownDesc))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!ownDesc.isUndefined()) {
             if (ownDesc.isDataDescriptor()) {
@@ -976,7 +976,7 @@ js::SetElement(JSContext *cx, Handle<ObjectImpl*> obj, Handle<ObjectImpl*> recei
 
                 InvokeArgs args(cx);
                 if (!args.init(1))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 /* Push set, receiver, and v as the sole argument. */
                 args.setCallee(setter);

@@ -140,7 +140,7 @@ badSurrogate:
     /* Delegate error reporting to the measurement function. */
     if (maybecx)
         GetDeflatedUTF8StringLength(maybecx, src - 1, srclen + 1);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 bufferTooSmall:
     *dstlenp = (origDstlen - dstlen);
@@ -148,7 +148,7 @@ bufferTooSmall:
         JS_ReportErrorNumber(maybecx, js_GetErrorMessage, nullptr,
                              JSMSG_BUFFER_TOO_SMALL);
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /*******************************************************************************
@@ -851,14 +851,14 @@ TypeError(JSContext* cx, const char* expected, jsval actual)
   if (str) {
     src = bytes.encodeLatin1(cx, str);
     if (!src)
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   } else {
     JS_ClearPendingException(cx);
     src = "<<error converting value to string>>";
   }
   JS_ReportErrorNumber(cx, GetErrorMessage, nullptr,
                        CTYPESMSG_TYPE_ERROR, expected, src);
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static JSObject*
@@ -967,7 +967,7 @@ DefineABIConstant(JSContext* cx,
   RootedObject obj(cx, JS_DefineObject(cx, parent, name, &sCABIClass, prototype,
                                        JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT));
   if (!obj)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   JS_SetReservedSlot(obj, SLOT_ABICODE, INT_TO_JSVAL(code));
   return JS_FreezeObject(cx, obj);
 }
@@ -990,31 +990,31 @@ InitTypeConstructor(JSContext* cx,
   JSFunction* fun = js::DefineFunctionWithReserved(cx, parent, spec.name, spec.call.op,
                       spec.nargs, spec.flags);
   if (!fun)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   RootedObject obj(cx, JS_GetFunctionObject(fun));
   if (!obj)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Set up the .prototype and .prototype.constructor properties.
   typeProto.set(JS_NewObject(cx, &sCTypeProtoClass, CTypeProto, parent));
   if (!typeProto)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Define property before proceeding, for GC safety.
   if (!JS_DefineProperty(cx, obj, "prototype", OBJECT_TO_JSVAL(typeProto),
          nullptr, nullptr, JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   if (fns && !JS_DefineFunctions(cx, typeProto, fns))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   if (!JS_DefineProperties(cx, typeProto, props))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   if (!JS_DefineProperty(cx, typeProto, "constructor", OBJECT_TO_JSVAL(obj),
          nullptr, nullptr, JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Stash ctypes.{Pointer,Array,Struct}Type.prototype on a reserved slot of
   // the type constructor, for faster lookup.
@@ -1026,16 +1026,16 @@ InitTypeConstructor(JSContext* cx,
   // common to all CDatas.
   dataProto.set(JS_NewObject(cx, &sCDataProtoClass, CDataProto, parent));
   if (!dataProto)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Define functions and properties on the 'dataProto' object that are common
   // to all CData objects created from this type constructor. (These will
   // become functions and properties on CData objects created from this type.)
   if (instanceFns && !JS_DefineFunctions(cx, dataProto, instanceFns))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   if (instanceProps && !JS_DefineProperties(cx, dataProto, instanceProps))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Link the type prototype to the data prototype.
   JS_SetReservedSlot(typeProto, SLOT_OURDATAPROTO, OBJECT_TO_JSVAL(dataProto));
@@ -1043,7 +1043,7 @@ InitTypeConstructor(JSContext* cx,
   if (!JS_FreezeObject(cx, obj) ||
       //!JS_FreezeObject(cx, dataProto) || // XXX fixme - see bug 541212!
       !JS_FreezeObject(cx, typeProto))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   return true;
 }
@@ -1114,7 +1114,7 @@ InitTypeClasses(JSContext* cx, HandleObject parent)
   //     * Provides properties and functions common to all CTypes.
   RootedObject CTypeProto(cx, InitCTypeClass(cx, parent));
   if (!CTypeProto)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Initialize the ctypes.CData class. This acts as an abstract base class for
   // instances of the various types, and provides the common API functions.
@@ -1129,7 +1129,7 @@ InitTypeClasses(JSContext* cx, HandleObject parent)
   //     * Provides properties and functions common to all CDatas.
   RootedObject CDataProto(cx, InitCDataClass(cx, parent, CTypeProto));
   if (!CDataProto)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Link CTypeProto to CDataProto.
   JS_SetReservedSlot(CTypeProto, SLOT_OURDATAPROTO, OBJECT_TO_JSVAL(CDataProto));
@@ -1166,24 +1166,24 @@ InitTypeClasses(JSContext* cx, HandleObject parent)
          sPointerFunction, nullptr, sPointerProps,
          sPointerInstanceFunctions, sPointerInstanceProps,
          protos.handleAt(SLOT_POINTERPROTO), protos.handleAt(SLOT_POINTERDATAPROTO)))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   if (!InitTypeConstructor(cx, parent, CTypeProto, CDataProto,
          sArrayFunction, nullptr, sArrayProps,
          sArrayInstanceFunctions, sArrayInstanceProps,
          protos.handleAt(SLOT_ARRAYPROTO), protos.handleAt(SLOT_ARRAYDATAPROTO)))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   if (!InitTypeConstructor(cx, parent, CTypeProto, CDataProto,
          sStructFunction, sStructFunctions, sStructProps,
          sStructInstanceFunctions, nullptr,
          protos.handleAt(SLOT_STRUCTPROTO), protos.handleAt(SLOT_STRUCTDATAPROTO)))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   if (!InitTypeConstructor(cx, parent, CTypeProto, protos.handleAt(SLOT_POINTERDATAPROTO),
          sFunctionFunction, nullptr, sFunctionProps, sFunctionInstanceFunctions, nullptr,
          protos.handleAt(SLOT_FUNCTIONPROTO), protos.handleAt(SLOT_FUNCTIONDATAPROTO)))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   protos[SLOT_CDATAPROTO] = CDataProto;
 
@@ -1198,11 +1198,11 @@ InitTypeClasses(JSContext* cx, HandleObject parent)
   protos[SLOT_INT64PROTO] = InitInt64Class(cx, parent, &sInt64ProtoClass,
     Int64::Construct, sInt64Functions, sInt64StaticFunctions);
   if (!protos[SLOT_INT64PROTO])
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   protos[SLOT_UINT64PROTO] = InitInt64Class(cx, parent, &sUInt64ProtoClass,
     UInt64::Construct, sUInt64Functions, sUInt64StaticFunctions);
   if (!protos[SLOT_UINT64PROTO])
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Finally, store a pointer to the global ctypes object.
   // Note that there is no other reliable manner of locating this object.
@@ -1219,13 +1219,13 @@ InitTypeClasses(JSContext* cx, HandleObject parent)
 
   RootedObject ABIProto(cx, InitABIClass(cx, parent));
   if (!ABIProto)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Attach objects representing ABI constants.
   if (!DefineABIConstant(cx, parent, "default_abi", ABI_DEFAULT, ABIProto) ||
       !DefineABIConstant(cx, parent, "stdcall_abi", ABI_STDCALL, ABIProto) ||
       !DefineABIConstant(cx, parent, "winapi_abi", ABI_WINAPI, ABIProto))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Create objects representing the builtin types, and attach them to the
   // ctypes object. Each type object 't' has:
@@ -1243,7 +1243,7 @@ InitTypeClasses(JSContext* cx, HandleObject parent)
       TYPE_##name, INT_TO_JSVAL(sizeof(type)),                                 \
       INT_TO_JSVAL(ffiType.alignment), &ffiType));                             \
   if (!typeObj_##name)                                                         \
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #include "ctypes/typedefs.h"
 
   // Alias 'ctypes.unsigned' as 'ctypes.unsigned_int', since they represent
@@ -1251,21 +1251,21 @@ InitTypeClasses(JSContext* cx, HandleObject parent)
   if (!JS_DefineProperty(cx, parent, "unsigned",
          OBJECT_TO_JSVAL(typeObj_unsigned_int), nullptr, nullptr,
          JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Create objects representing the special types void_t and voidptr_t.
   RootedObject typeObj(cx,
     CType::DefineBuiltin(cx, parent, "void_t", CTypeProto, CDataProto, "void",
                          TYPE_void_t, JSVAL_VOID, JSVAL_VOID, &ffi_type_void));
   if (!typeObj)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   typeObj = PointerType::CreateInternal(cx, typeObj);
   if (!typeObj)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!JS_DefineProperty(cx, parent, "voidptr_t", OBJECT_TO_JSVAL(typeObj),
          nullptr, nullptr, JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   return true;
 }
@@ -1303,12 +1303,12 @@ static bool GetObjectProperty(JSContext *cx, HandleObject obj,
 {
   RootedValue val(cx);
   if (!JS_GetProperty(cx, obj, property, &val)) {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   if (JSVAL_IS_PRIMITIVE(val)) {
     JS_ReportError(cx, "missing or non-object field");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   result.set(JSVAL_TO_OBJECT(val));
@@ -1329,41 +1329,41 @@ JS_InitCTypesClass(JSContext* cx, JSObject *globalArg)
   // attach ctypes property to global object
   RootedObject ctypes(cx, JS_NewObject(cx, &sCTypesGlobalClass, nullptr, nullptr));
   if (!ctypes)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   if (!JS_DefineProperty(cx, global, "ctypes", OBJECT_TO_JSVAL(ctypes),
          JS_PropertyStub, JS_StrictPropertyStub, JSPROP_READONLY | JSPROP_PERMANENT)){
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   if (!InitTypeClasses(cx, ctypes))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // attach API functions and properties
   if (!JS_DefineFunctions(cx, ctypes, sModuleFunctions) ||
       !JS_DefineProperties(cx, ctypes, sModuleProps))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Set up ctypes.CDataFinalizer.prototype.
   RootedObject ctor(cx);
   if (!GetObjectProperty(cx, ctypes, "CDataFinalizer", &ctor))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   RootedObject prototype(cx, JS_NewObject(cx, &sCDataFinalizerProtoClass, nullptr, ctypes));
   if (!prototype)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   if (!JS_DefineProperties(cx, prototype, sCDataFinalizerProps) ||
       !JS_DefineFunctions(cx, prototype, sCDataFinalizerFunctions))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   if (!JS_DefineProperty(cx, ctor, "prototype", OBJECT_TO_JSVAL(prototype),
                          nullptr, nullptr, JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   if (!JS_DefineProperty(cx, prototype, "constructor", OBJECT_TO_JSVAL(ctor),
                          nullptr, nullptr, JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 
   // Seal the ctypes object, to prevent modification.
@@ -1490,15 +1490,15 @@ static JS_ALWAYS_INLINE bool IsAlwaysExact()
   //    types are always signed.)
   // 3) If TargetType is an exact integral type, FromType must be also.
   if (NumericLimits<TargetType>::digits < NumericLimits<FromType>::digits)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   if (NumericLimits<FromType>::is_signed &&
       !NumericLimits<TargetType>::is_signed)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   if (!NumericLimits<FromType>::is_exact &&
       NumericLimits<TargetType>::is_exact)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   return true;
 }
@@ -1557,7 +1557,7 @@ static JS_ALWAYS_INLINE bool ConvertExact(FromType i, TargetType* result)
 template<class Type, bool IsSigned>
 struct IsNegativeImpl {
   static JS_ALWAYS_INLINE bool Test(Type i) {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 };
 
@@ -1597,7 +1597,7 @@ jsvalToBool(JSContext* cx, jsval val, bool* result)
     return d == 1 || d == 0;
   }
   // Don't silently convert null to bool. It's probably a mistake.
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 // Implicitly convert val to IntegerType, allowing bool, int, double,
@@ -1633,7 +1633,7 @@ jsvalToInteger(JSContext* cx, jsval val, IntegerType* result)
 #define DEFINE_INT_TYPE(name, fromType, ffiType)                               \
       case TYPE_##name:                                                        \
         if (!IsAlwaysExact<IntegerType, fromType>())                           \
-          return false;                                                        \
+          do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                                        \
         *result = IntegerType(*static_cast<fromType*>(data));                  \
         return true;
 #define DEFINE_WRAPPED_INT_TYPE(x, y, z) DEFINE_INT_TYPE(x, y, z)
@@ -1653,7 +1653,7 @@ jsvalToInteger(JSContext* cx, jsval val, IntegerType* result)
       case TYPE_array:
       case TYPE_struct:
         // Not a compatible number type.
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
     }
 
@@ -1672,12 +1672,12 @@ jsvalToInteger(JSContext* cx, jsval val, IntegerType* result)
     if (CDataFinalizer::IsCDataFinalizer(obj)) {
       RootedValue innerData(cx);
       if (!CDataFinalizer::GetValue(cx, obj, innerData.address())) {
-        return false; // Nothing to convert
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); // Nothing to convert
       }
       return jsvalToInteger(cx, innerData, result);
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   if (JSVAL_IS_BOOLEAN(val)) {
     // Implicitly promote boolean values to 0 or 1, like C.
@@ -1686,7 +1686,7 @@ jsvalToInteger(JSContext* cx, jsval val, IntegerType* result)
     return true;
   }
   // Don't silently convert null to an integer. It's probably a mistake.
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 // Implicitly convert val to FloatType, allowing int, double,
@@ -1722,7 +1722,7 @@ jsvalToFloat(JSContext *cx, jsval val, FloatType* result)
 #define DEFINE_FLOAT_TYPE(name, fromType, ffiType)                             \
       case TYPE_##name:                                                        \
         if (!IsAlwaysExact<FloatType, fromType>())                             \
-          return false;                                                        \
+          do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                                        \
         *result = FloatType(*static_cast<fromType*>(data));                    \
         return true;
 #define DEFINE_INT_TYPE(x, y, z) DEFINE_FLOAT_TYPE(x, y, z)
@@ -1739,13 +1739,13 @@ jsvalToFloat(JSContext *cx, jsval val, FloatType* result)
       case TYPE_array:
       case TYPE_struct:
         // Not a compatible number type.
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
     }
   }
   // Don't silently convert true to 1.0 or false to 0.0, even though C/C++
   // does it. It's likely to be a mistake.
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 template<class IntegerType>
@@ -1756,16 +1756,16 @@ StringToInteger(JSContext* cx, JSString* string, IntegerType* result)
 
   const jschar* cp = string->getChars(nullptr);
   if (!cp)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   const jschar* end = cp + string->length();
   if (cp == end)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   IntegerType sign = 1;
   if (cp[0] == '-') {
     if (!NumericLimits<IntegerType>::is_signed)
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     sign = -1;
     ++cp;
@@ -1790,12 +1790,12 @@ StringToInteger(JSContext* cx, JSString* string, IntegerType* result)
     else if (base == 16 && c >= 'A' && c <= 'F')
       c = c - 'A' + 10;
     else
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     IntegerType ii = i;
     i = ii * base + sign * c;
     if (i / base != ii) // overflow
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   *result = i;
@@ -1852,13 +1852,13 @@ jsvalToBigInteger(JSContext* cx,
     if (CDataFinalizer::IsCDataFinalizer(obj)) {
       RootedValue innerData(cx);
       if (!CDataFinalizer::GetValue(cx, obj, innerData.address())) {
-        return false; // Nothing to convert
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); // Nothing to convert
       }
       return jsvalToBigInteger(cx, innerData, allowString, result);
     }
 
   }
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 // Implicitly convert val to a size value, where the size value is represented
@@ -1867,7 +1867,7 @@ static bool
 jsvalToSize(JSContext* cx, jsval val, bool allowString, size_t* result)
 {
   if (!jsvalToBigInteger(cx, val, allowString, result))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Also check that the result fits in a double.
   return Convert<size_t>(double(*result)) == *result;
@@ -1914,7 +1914,7 @@ jsidToBigInteger(JSContext* cx,
       return ConvertExact(i, result);
     }
   }
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 // Implicitly convert val to a size value, where the size value is represented
@@ -1923,7 +1923,7 @@ static bool
 jsidToSize(JSContext* cx, jsid val, bool allowString, size_t* result)
 {
   if (!jsidToBigInteger(cx, val, allowString, result))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Also check that the result fits in a double.
   return Convert<size_t>(double(*result)) == *result;
@@ -1936,7 +1936,7 @@ SizeTojsval(JSContext* cx, size_t size, jsval* result)
 {
   if (Convert<size_t>(double(size)) != size) {
     JS_ReportError(cx, "size overflow");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   *result = JS_NumberValue(double(size));
@@ -1970,7 +1970,7 @@ jsvalToIntegerExplicit(jsval val, IntegerType* result)
       return true;
     }
   }
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 // Forcefully convert val to a pointer value when explicitly requested.
@@ -1990,7 +1990,7 @@ jsvalToPtrExplicit(JSContext* cx, jsval val, uintptr_t* result)
       // Cast through an intptr_t intermediate to sign-extend.
       intptr_t i = Convert<intptr_t>(d);
       if (double(i) != d)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
       *result = uintptr_t(i);
       return true;
@@ -2009,7 +2009,7 @@ jsvalToPtrExplicit(JSContext* cx, jsval val, uintptr_t* result)
 
       // Make sure the integer fits in the alotted precision.
       if (int64_t(p) != i)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       *result = uintptr_t(p);
       return true;
     }
@@ -2022,7 +2022,7 @@ jsvalToPtrExplicit(JSContext* cx, jsval val, uintptr_t* result)
       return uint64_t(*result) == i;
     }
   }
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 template<class IntegerType, class CharType, size_t N, class AP>
@@ -2118,19 +2118,19 @@ ConvertToJS(JSContext* cx,
       /* Get ctypes.UInt64.prototype from ctypes.CType.prototype. */           \
       proto = CType::GetProtoFromType(cx, typeObj, SLOT_UINT64PROTO);          \
       if (!proto)                                                              \
-        return false;                                                          \
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                                          \
     } else {                                                                   \
       value = int64_t(*static_cast<type*>(data));                              \
       /* Get ctypes.Int64.prototype from ctypes.CType.prototype. */            \
       proto = CType::GetProtoFromType(cx, typeObj, SLOT_INT64PROTO);           \
       if (!proto)                                                              \
-        return false;                                                          \
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                                          \
     }                                                                          \
                                                                                \
     JSObject* obj = Int64Base::Construct(cx, proto, value,                     \
       !NumericLimits<type>::is_signed);                                        \
     if (!obj)                                                                  \
-      return false;                                                            \
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                                            \
     *result = OBJECT_TO_JSVAL(obj);                                            \
     break;                                                                     \
   }
@@ -2151,7 +2151,7 @@ ConvertToJS(JSContext* cx,
     // Convert the jschar to a 1-character string.
     JSString* str = JS_NewUCStringCopyN(cx, static_cast<jschar*>(data), 1);
     if (!str)
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *result = STRING_TO_JSVAL(str);
     break;
@@ -2163,12 +2163,12 @@ ConvertToJS(JSContext* cx,
     // want this, return early.
     if (wantPrimitive) {
       JS_ReportError(cx, "cannot convert to primitive value");
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JSObject* obj = CData::Create(cx, typeObj, parentObj, data, ownResult);
     if (!obj)
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *result = OBJECT_TO_JSVAL(obj);
     break;
@@ -2216,7 +2216,7 @@ bool CanConvertTypedArrayItemTo(JSObject *baseType, JSObject *valObj, JSContext 
     elementTypeCode = TYPE_float64_t;
     break;
   default:
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   return elementTypeCode == baseTypeCode;
 }
@@ -2271,7 +2271,7 @@ ImplicitConvert(JSContext* cx,
       if (!p) {
         // We have called |dispose| or |forget| already.
         JS_ReportError(cx, "Attempting to convert an empty CDataFinalizer");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
 
       // If the types are equal, copy the buffer contained within the CData.
@@ -2324,7 +2324,7 @@ ImplicitConvert(JSContext* cx,
         return TypeError(cx, #name, val);                                      \
       const jschar *chars = str->getChars(cx);                                 \
       if (!chars)                                                              \
-        return false;                                                          \
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                                          \
       result = chars[0];                                                       \
     } else if (!jsvalToInteger(cx, val, &result)) {                            \
       return TypeError(cx, #name, val);                                        \
@@ -2370,7 +2370,7 @@ ImplicitConvert(JSContext* cx,
       size_t sourceLength = sourceString->length();
       const jschar* sourceChars = sourceString->getChars(cx);
       if (!sourceChars)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
       switch (CType::GetTypeCode(baseType)) {
       case TYPE_char:
@@ -2380,13 +2380,13 @@ ImplicitConvert(JSContext* cx,
         size_t nbytes =
           GetDeflatedUTF8StringLength(cx, sourceChars, sourceLength);
         if (nbytes == (size_t) -1)
-          return false;
+          do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         char** charBuffer = static_cast<char**>(buffer);
         *charBuffer = cx->pod_malloc<char>(nbytes + 1);
         if (!*charBuffer) {
           JS_ReportAllocationOverflow(cx);
-          return false;
+          do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         ASSERT_OK(DeflateStringToUTF8Buffer(cx, sourceChars, sourceLength,
@@ -2403,7 +2403,7 @@ ImplicitConvert(JSContext* cx,
         *jscharBuffer = cx->pod_malloc<jschar>(sourceLength + 1);
         if (!*jscharBuffer) {
           JS_ReportAllocationOverflow(cx);
-          return false;
+          do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         *freePointer = true;
@@ -2443,7 +2443,7 @@ ImplicitConvert(JSContext* cx,
       size_t sourceLength = sourceString->length();
       const jschar* sourceChars = sourceString->getChars(cx);
       if (!sourceChars)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
       switch (CType::GetTypeCode(baseType)) {
       case TYPE_char:
@@ -2453,11 +2453,11 @@ ImplicitConvert(JSContext* cx,
         size_t nbytes =
           GetDeflatedUTF8StringLength(cx, sourceChars, sourceLength);
         if (nbytes == (size_t) -1)
-          return false;
+          do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (targetLength < nbytes) {
           JS_ReportError(cx, "ArrayType has insufficient length");
-          return false;
+          do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         char* charBuffer = static_cast<char*>(buffer);
@@ -2474,7 +2474,7 @@ ImplicitConvert(JSContext* cx,
         // if there's space.
         if (targetLength < sourceLength) {
           JS_ReportError(cx, "ArrayType has insufficient length");
-          return false;
+          do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         memcpy(buffer, sourceChars, sourceLength * sizeof(jschar));
@@ -2493,7 +2493,7 @@ ImplicitConvert(JSContext* cx,
       if (!JS_GetArrayLength(cx, valObj, &sourceLength) ||
           targetLength != size_t(sourceLength)) {
         JS_ReportError(cx, "ArrayType length does not match source array length");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
 
       // Convert into an intermediate, in case of failure.
@@ -2502,17 +2502,17 @@ ImplicitConvert(JSContext* cx,
       AutoPtr<char> intermediate(cx->pod_malloc<char>(arraySize));
       if (!intermediate) {
         JS_ReportAllocationOverflow(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
 
       for (uint32_t i = 0; i < sourceLength; ++i) {
         RootedValue item(cx);
         if (!JS_GetElement(cx, valObj, i, &item))
-          return false;
+          do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         char* data = intermediate.get() + elementSize * i;
         if (!ImplicitConvert(cx, item, baseType, data, false, nullptr))
-          return false;
+          do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
 
       memcpy(buffer, intermediate.get(), arraySize);
@@ -2526,7 +2526,7 @@ ImplicitConvert(JSContext* cx,
       size_t arraySize = elementSize * targetLength;
       if (arraySize != size_t(sourceLength)) {
         JS_ReportError(cx, "ArrayType length does not match source ArrayBuffer length");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
       memcpy(buffer, JS_GetArrayBufferData(valObj), sourceLength);
       break;
@@ -2543,7 +2543,7 @@ ImplicitConvert(JSContext* cx,
       size_t arraySize = elementSize * targetLength;
       if (arraySize != size_t(sourceLength)) {
         JS_ReportError(cx, "typed array length does not match source TypedArray length");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
       memcpy(buffer, JS_GetArrayBufferViewData(valObj), sourceLength);
       break;
@@ -2560,42 +2560,42 @@ ImplicitConvert(JSContext* cx,
       // specification, convert the fields.
       RootedObject iter(cx, JS_NewPropertyIterator(cx, valObj));
       if (!iter)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
       // Convert into an intermediate, in case of failure.
       size_t structSize = CType::GetSize(targetType);
       AutoPtr<char> intermediate(cx->pod_malloc<char>(structSize));
       if (!intermediate) {
         JS_ReportAllocationOverflow(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
 
       RootedId id(cx);
       size_t i = 0;
       while (1) {
         if (!JS_NextProperty(cx, iter, id.address()))
-          return false;
+          do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (JSID_IS_VOID(id))
           break;
 
         if (!JSID_IS_STRING(id)) {
           JS_ReportError(cx, "property name is not a string");
-          return false;
+          do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         JSFlatString *name = JSID_TO_FLAT_STRING(id);
         const FieldInfo* field = StructType::LookupField(cx, targetType, name);
         if (!field)
-          return false;
+          do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         RootedValue prop(cx);
         if (!JS_GetPropertyById(cx, valObj, id, &prop))
-          return false;
+          do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         // Convert the field via ImplicitConvert().
         char* fieldData = intermediate.get() + field->mOffset;
         if (!ImplicitConvert(cx, prop, field->mType, fieldData, false, nullptr))
-          return false;
+          do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         ++i;
       }
@@ -2603,7 +2603,7 @@ ImplicitConvert(JSContext* cx,
       const FieldInfoHash* fields = StructType::GetFieldInfo(targetType);
       if (i != fields->count()) {
         JS_ReportError(cx, "missing fields");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
 
       memcpy(buffer, intermediate.get(), structSize);
@@ -2635,7 +2635,7 @@ ExplicitConvert(JSContext* cx, HandleValue val, HandleObject targetType, void* b
   // We store any pending exception in case we need to re-throw it.
   RootedValue ex(cx);
   if (!JS_GetPendingException(cx, &ex))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Otherwise, assume soft failure. Clear the pending exception so that we
   // can throw a different one as required.
@@ -2680,7 +2680,7 @@ ExplicitConvert(JSContext* cx, HandleValue val, HandleObject targetType, void* b
   case TYPE_struct:
     // ImplicitConvert is sufficient. Re-throw the exception it generated.
     JS_SetPendingException(cx, ex);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   case TYPE_void_t:
   case TYPE_function:
     MOZ_ASSUME_UNREACHABLE("invalid type");
@@ -2991,7 +2991,7 @@ BuildDataSource(JSContext* cx,
     char* str = NumberToCString(cx, &cbuf, fp);                                \
     if (!str) {                                                                \
       JS_ReportOutOfMemory(cx);                                                \
-      return false;                                                            \
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                                            \
     }                                                                          \
                                                                                \
     result.append(str, strlen(str));                                           \
@@ -3007,12 +3007,12 @@ BuildDataSource(JSContext* cx,
     // Serialize as a 1-character JS string.
     JSString* str = JS_NewUCStringCopyN(cx, static_cast<jschar*>(data), 1);
     if (!str)
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Escape characters, and quote as necessary.
     JSString* src = JS_ValueToSource(cx, STRING_TO_JSVAL(str));
     if (!src)
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     AppendString(result, src);
     break;
@@ -3048,7 +3048,7 @@ BuildDataSource(JSContext* cx,
     for (size_t i = 0; i < length; ++i) {
       char* element = static_cast<char*>(data) + elementSize * i;
       if (!BuildDataSource(cx, baseType, element, true, result))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
       if (i + 1 < length)
         AppendString(result, ", ");
@@ -3070,7 +3070,7 @@ BuildDataSource(JSContext* cx,
     size_t length = fields->count();
     Array<const FieldInfoHash::Entry*, 64> fieldsArray;
     if (!fieldsArray.resize(length))
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (FieldInfoHash::Range r = fields->all(); !r.empty(); r.popFront())
       fieldsArray[r.front().value.mIndex] = &r.front();
@@ -3087,7 +3087,7 @@ BuildDataSource(JSContext* cx,
       char* fieldData = static_cast<char*>(data) + entry->value.mOffset;
       RootedObject entryType(cx, entry->value.mType);
       if (!BuildDataSource(cx, entryType, fieldData, true, result))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
       if (i + 1 != length)
         AppendString(result, ", ");
@@ -3116,7 +3116,7 @@ ConstructAbstract(JSContext* cx,
 {
   // Calling an abstract base class constructor is disallowed.
   JS_ReportError(cx, "cannot construct from abstract type");
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /*******************************************************************************
@@ -3133,7 +3133,7 @@ CType::ConstructData(JSContext* cx,
   RootedObject obj(cx, &args.callee());
   if (!CType::IsCType(obj)) {
     JS_ReportError(cx, "not a CType");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // How we construct the CData object depends on what type we represent.
@@ -3143,10 +3143,10 @@ CType::ConstructData(JSContext* cx,
   switch (GetTypeCode(obj)) {
   case TYPE_void_t:
     JS_ReportError(cx, "cannot construct from void_t");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   case TYPE_function:
     JS_ReportError(cx, "cannot construct from FunctionType; use FunctionType.ptr instead");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   case TYPE_pointer:
     return PointerType::ConstructData(cx, obj, args);
   case TYPE_array:
@@ -3165,17 +3165,17 @@ CType::ConstructBasic(JSContext* cx,
 {
   if (args.length() > 1) {
     JS_ReportError(cx, "CType constructor takes zero or one argument");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // construct a CData object
   RootedObject result(cx, CData::Create(cx, obj, NullPtr(), nullptr, true));
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   if (args.length() == 1) {
     if (!ExplicitConvert(cx, args[0], obj, CData::GetData(result)))
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   args.rval().setObject(*result);
@@ -3418,7 +3418,7 @@ CType::TypesEqual(JSObject* t1, JSObject* t2)
   TypeCode c1 = GetTypeCode(t1);
   TypeCode c2 = GetTypeCode(t2);
   if (c1 != c2)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Determine whether the types require shallow or deep comparison.
   switch (c1) {
@@ -3434,20 +3434,20 @@ CType::TypesEqual(JSObject* t1, JSObject* t2)
 
     // Compare abi, return type, and argument types.
     if (f1->mABI != f2->mABI)
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!TypesEqual(f1->mReturnType, f2->mReturnType))
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (f1->mArgTypes.length() != f2->mArgTypes.length())
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (f1->mIsVariadic != f2->mIsVariadic)
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (size_t i = 0; i < f1->mArgTypes.length(); ++i) {
       if (!TypesEqual(f1->mArgTypes[i], f2->mArgTypes[i]))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -3459,7 +3459,7 @@ CType::TypesEqual(JSObject* t1, JSObject* t2)
     bool d1 = ArrayType::GetSafeLength(t1, &s1);
     bool d2 = ArrayType::GetSafeLength(t2, &s2);
     if (d1 != d2 || (d1 && s1 != s2))
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSObject* b1 = ArrayType::GetBaseType(t1);
     JSObject* b2 = ArrayType::GetBaseType(t2);
@@ -3467,7 +3467,7 @@ CType::TypesEqual(JSObject* t1, JSObject* t2)
   }
   case TYPE_struct:
     // Require exact type object equality.
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   default:
     // Shallow comparison is sufficient.
     return true;
@@ -3493,7 +3493,7 @@ CType::GetSafeSize(JSObject* obj, size_t* result)
   }
 
   JS_ASSERT(JSVAL_IS_VOID(size));
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 size_t
@@ -3621,7 +3621,7 @@ bool
 CType::IsCTypeOrProto(HandleValue v)
 {
   if (!v.isObject())
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   JSObject* obj = &v.toObject();
   return CType::IsCType(obj) || CType::IsCTypeProto(obj);
 }
@@ -3649,7 +3649,7 @@ CType::NameGetter(JSContext* cx, JS::CallArgs args)
   RootedObject obj(cx, &args.thisv().toObject());
   JSString* name = CType::GetName(cx, obj);
   if (!name)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setString(name);
   return true;
@@ -3670,7 +3670,7 @@ CType::PtrGetter(JSContext* cx, JS::CallArgs args)
   RootedObject obj(cx, &args.thisv().toObject());
   JSObject* pointerType = PointerType::CreateInternal(cx, obj);
   if (!pointerType)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setObject(*pointerType);
   return true;
@@ -3682,28 +3682,28 @@ CType::CreateArray(JSContext* cx, unsigned argc, jsval* vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   RootedObject baseType(cx, JS_THIS_OBJECT(cx, vp));
   if (!baseType)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!CType::IsCType(baseType)) {
     JS_ReportError(cx, "not a CType");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // Construct and return a new ArrayType object.
   if (args.length() > 1) {
     JS_ReportError(cx, "array takes zero or one argument");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // Convert the length argument to a size_t.
   size_t length = 0;
   if (args.length() == 1 && !jsvalToSize(cx, args[0], false, &length)) {
     JS_ReportError(cx, "argument must be a nonnegative integer");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JSObject* result = ArrayType::CreateInternal(cx, baseType, length, args.length() == 1);
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setObject(*result);
   return true;
@@ -3715,10 +3715,10 @@ CType::ToString(JSContext* cx, unsigned argc, jsval* vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   RootedObject obj(cx, JS_THIS_OBJECT(cx, vp));
   if (!obj)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!CType::IsCType(obj) && !CType::IsCTypeProto(obj)) {
     JS_ReportError(cx, "not a CType");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // Create the appropriate string depending on whether we're sCTypeClass or
@@ -3734,7 +3734,7 @@ CType::ToString(JSContext* cx, unsigned argc, jsval* vp)
     result = JS_NewStringCopyZ(cx, "[CType proto object]");
   }
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setString(result);
   return true;
@@ -3746,11 +3746,11 @@ CType::ToSource(JSContext* cx, unsigned argc, jsval* vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   JSObject* obj = JS_THIS_OBJECT(cx, vp);
   if (!obj)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!CType::IsCType(obj) && !CType::IsCTypeProto(obj))
   {
     JS_ReportError(cx, "not a CType");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // Create the appropriate string depending on whether we're sCTypeClass or
@@ -3764,7 +3764,7 @@ CType::ToSource(JSContext* cx, unsigned argc, jsval* vp)
     result = JS_NewStringCopyZ(cx, "[CType proto object]");
   }
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setString(result);
   return true;
@@ -3787,7 +3787,7 @@ CType::HasInstance(JSContext* cx, HandleObject obj, MutableHandleValue v, bool* 
   RootedObject proto(cx, &v.toObject());
   for (;;) {
     if (!JS_GetPrototype(cx, proto, &proto))
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!proto)
       break;
     if (proto == prototype) {
@@ -3833,15 +3833,15 @@ ABI::ToSource(JSContext* cx, unsigned argc, jsval* vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   if (args.length() != 0) {
     JS_ReportError(cx, "toSource takes zero arguments");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JSObject* obj = JS_THIS_OBJECT(cx, vp);
   if (!obj)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!ABI::IsABI(obj)) {
     JS_ReportError(cx, "not an ABI");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JSString* result;
@@ -3857,10 +3857,10 @@ ABI::ToSource(JSContext* cx, unsigned argc, jsval* vp)
       break;
     default:
       JS_ReportError(cx, "not a valid ABICode");
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setString(result);
   return true;
@@ -3878,19 +3878,19 @@ PointerType::Create(JSContext* cx, unsigned argc, jsval* vp)
   // Construct and return a new PointerType object.
   if (args.length() != 1) {
     JS_ReportError(cx, "PointerType takes one argument");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   jsval arg = args[0];
   RootedObject obj(cx);
   if (JSVAL_IS_PRIMITIVE(arg) || !CType::IsCType(obj = &arg.toObject())) {
     JS_ReportError(cx, "first argument must be a CType");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JSObject* result = CreateInternal(cx, obj);
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setObject(*result);
   return true;
@@ -3939,17 +3939,17 @@ PointerType::ConstructData(JSContext* cx,
 {
   if (!CType::IsCType(obj) || CType::GetTypeCode(obj) != TYPE_pointer) {
     JS_ReportError(cx, "not a PointerType");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   if (args.length() > 3) {
     JS_ReportError(cx, "constructor takes 0, 1, 2, or 3 arguments");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   RootedObject result(cx, CData::Create(cx, obj, NullPtr(), nullptr, true));
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Set return value early, must not observe *vp after
   args.rval().setObject(*result);
@@ -3980,7 +3980,7 @@ PointerType::ConstructData(JSContext* cx,
   if (!looksLikeClosure) {
     if (args.length() != 1) {
       JS_ReportError(cx, "first argument must be a function");
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return ExplicitConvert(cx, args[0], obj, CData::GetData(result));
   }
@@ -3999,7 +3999,7 @@ PointerType::ConstructData(JSContext* cx,
     } else if (!JSVAL_IS_PRIMITIVE(args[1])) {
       thisObj = &args[1].toObject();
     } else if (!JS_ValueToObject(cx, args[1], &thisObj)) {
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
   }
 
@@ -4028,7 +4028,7 @@ bool
 PointerType::IsPointerType(HandleValue v)
 {
   if (!v.isObject())
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   JSObject* obj = &v.toObject();
   return CType::IsCType(obj) && CType::GetTypeCode(obj) == TYPE_pointer;
 }
@@ -4037,7 +4037,7 @@ bool
 PointerType::IsPointer(HandleValue v)
 {
   if (!v.isObject())
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   JSObject* obj = &v.toObject();
   return CData::IsCData(obj) && CType::GetTypeCode(CData::GetCType(obj)) == TYPE_pointer;
 }
@@ -4057,17 +4057,17 @@ PointerType::IsNull(JSContext* cx, unsigned argc, jsval* vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   JSObject* obj = JS_THIS_OBJECT(cx, vp);
   if (!obj)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!CData::IsCData(obj)) {
     JS_ReportError(cx, "not a CData");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // Get pointer type and base type.
   JSObject* typeObj = CData::GetCType(obj);
   if (CType::GetTypeCode(typeObj) != TYPE_pointer) {
     JS_ReportError(cx, "not a PointerType");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   void* data = *static_cast<void**>(CData::GetData(obj));
@@ -4080,22 +4080,22 @@ PointerType::OffsetBy(JSContext* cx, const CallArgs& args, int offset)
 {
   JSObject* obj = JS_THIS_OBJECT(cx, args.base());
   if (!obj)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!CData::IsCData(obj)) {
     JS_ReportError(cx, "not a CData");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   RootedObject typeObj(cx, CData::GetCType(obj));
   if (CType::GetTypeCode(typeObj) != TYPE_pointer) {
     JS_ReportError(cx, "not a PointerType");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   RootedObject baseType(cx, PointerType::GetBaseType(typeObj));
   if (!CType::IsSizeDefined(baseType)) {
     JS_ReportError(cx, "cannot modify pointer of undefined size");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   size_t elementSize = CType::GetSize(baseType);
@@ -4105,7 +4105,7 @@ PointerType::OffsetBy(JSContext* cx, const CallArgs& args, int offset)
   // Create a PointerType CData object containing the new address.
   JSObject* result = CData::Create(cx, typeObj, NullPtr(), &address, true);
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setObject(*result);
   return true;
@@ -4132,18 +4132,18 @@ PointerType::ContentsGetter(JSContext* cx, JS::CallArgs args)
   RootedObject baseType(cx, GetBaseType(CData::GetCType(obj)));
   if (!CType::IsSizeDefined(baseType)) {
     JS_ReportError(cx, "cannot get contents of undefined size");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   void* data = *static_cast<void**>(CData::GetData(obj));
   if (data == nullptr) {
     JS_ReportError(cx, "cannot read contents of null pointer");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   RootedValue result(cx);
   if (!ConvertToJS(cx, baseType, NullPtr(), data, false, false, result.address()))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().set(result);
   return true;
@@ -4156,13 +4156,13 @@ PointerType::ContentsSetter(JSContext* cx, JS::CallArgs args)
   RootedObject baseType(cx, GetBaseType(CData::GetCType(obj)));
   if (!CType::IsSizeDefined(baseType)) {
     JS_ReportError(cx, "cannot set contents of undefined size");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   void* data = *static_cast<void**>(CData::GetData(obj));
   if (data == nullptr) {
     JS_ReportError(cx, "cannot write contents to null pointer");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   args.rval().setUndefined();
@@ -4180,26 +4180,26 @@ ArrayType::Create(JSContext* cx, unsigned argc, jsval* vp)
   // Construct and return a new ArrayType object.
   if (args.length() < 1 || args.length() > 2) {
     JS_ReportError(cx, "ArrayType takes one or two arguments");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   if (JSVAL_IS_PRIMITIVE(args[0]) ||
       !CType::IsCType(&args[0].toObject())) {
     JS_ReportError(cx, "first argument must be a CType");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // Convert the length argument to a size_t.
   size_t length = 0;
   if (args.length() == 2 && !jsvalToSize(cx, args[1], false, &length)) {
     JS_ReportError(cx, "second argument must be a nonnegative integer");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   RootedObject baseType(cx, &args[0].toObject());
   JSObject* result = CreateInternal(cx, baseType, length, args.length() == 2);
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setObject(*result);
   return true;
@@ -4269,7 +4269,7 @@ ArrayType::ConstructData(JSContext* cx,
 
   if (!CType::IsCType(obj) || CType::GetTypeCode(obj) != TYPE_array) {
     JS_ReportError(cx, "not an ArrayType");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // Decide whether we have an object to initialize from. We'll override this
@@ -4281,13 +4281,13 @@ ArrayType::ConstructData(JSContext* cx,
   if (CType::IsSizeDefined(obj)) {
     if (args.length() > 1) {
       JS_ReportError(cx, "constructor takes zero or one argument");
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
   } else {
     if (args.length() != 1) {
       JS_ReportError(cx, "constructor takes one argument");
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedObject baseType(cx, GetBaseType(obj));
@@ -4305,7 +4305,7 @@ ArrayType::ConstructData(JSContext* cx,
       if (!JS_GetProperty(cx, arg, "length", &lengthVal) ||
           !jsvalToSize(cx, lengthVal, false, &length)) {
         JS_ReportError(cx, "argument must be an array object or length");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
 
     } else if (args[0].isString()) {
@@ -4315,7 +4315,7 @@ ArrayType::ConstructData(JSContext* cx,
       size_t sourceLength = sourceString->length();
       const jschar* sourceChars = sourceString->getChars(cx);
       if (!sourceChars)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
       switch (CType::GetTypeCode(baseType)) {
       case TYPE_char:
@@ -4324,7 +4324,7 @@ ArrayType::ConstructData(JSContext* cx,
         // Determine the UTF-8 length.
         length = GetDeflatedUTF8StringLength(cx, sourceChars, sourceLength);
         if (length == (size_t) -1)
-          return false;
+          do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         ++length;
         break;
@@ -4338,24 +4338,24 @@ ArrayType::ConstructData(JSContext* cx,
 
     } else {
       JS_ReportError(cx, "argument must be an array object or length");
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // Construct a new ArrayType of defined length, for the new CData object.
     obj = CreateInternal(cx, baseType, length, true);
     if (!obj)
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JSObject* result = CData::Create(cx, obj, NullPtr(), nullptr, true);
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setObject(*result);
 
   if (convertObject) {
     if (!ExplicitConvert(cx, args[0], obj, CData::GetData(result)))
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   return true;
@@ -4392,7 +4392,7 @@ ArrayType::GetSafeLength(JSObject* obj, size_t* result)
   }
 
   JS_ASSERT(length.isUndefined());
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 size_t
@@ -4460,7 +4460,7 @@ bool
 ArrayType::IsArrayType(HandleValue v)
 {
   if (!v.isObject())
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   JSObject* obj = &v.toObject();
   return CType::IsCType(obj) && CType::GetTypeCode(obj) == TYPE_array;
 }
@@ -4469,7 +4469,7 @@ bool
 ArrayType::IsArrayOrArrayType(HandleValue v)
 {
   if (!v.isObject())
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   JSObject* obj = &v.toObject();
 
    // Allow both CTypes and CDatas of the ArrayType persuasion by extracting the
@@ -4510,7 +4510,7 @@ ArrayType::Getter(JSContext* cx, HandleObject obj, HandleId idval, MutableHandle
   // This should never happen, but we'll check to be safe.
   if (!CData::IsCData(obj)) {
     JS_ReportError(cx, "not a CData");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // Bail early if we're not an ArrayType. (This setter is present for all
@@ -4531,7 +4531,7 @@ ArrayType::Getter(JSContext* cx, HandleObject obj, HandleId idval, MutableHandle
   }
   if (!ok || index >= length) {
     JS_ReportError(cx, "invalid index");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   RootedObject baseType(cx, GetBaseType(typeObj));
@@ -4546,7 +4546,7 @@ ArrayType::Setter(JSContext* cx, HandleObject obj, HandleId idval, bool strict, 
   // This should never happen, but we'll check to be safe.
   if (!CData::IsCData(obj)) {
     JS_ReportError(cx, "not a CData");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // Bail early if we're not an ArrayType. (This setter is present for all
@@ -4567,7 +4567,7 @@ ArrayType::Setter(JSContext* cx, HandleObject obj, HandleId idval, bool strict, 
   }
   if (!ok || index >= length) {
     JS_ReportError(cx, "invalid index");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JSObject* baseType = GetBaseType(typeObj);
@@ -4582,32 +4582,32 @@ ArrayType::AddressOfElement(JSContext* cx, unsigned argc, jsval* vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   RootedObject obj(cx, JS_THIS_OBJECT(cx, vp));
   if (!obj)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!CData::IsCData(obj)) {
     JS_ReportError(cx, "not a CData");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   RootedObject typeObj(cx, CData::GetCType(obj));
   if (CType::GetTypeCode(typeObj) != TYPE_array) {
     JS_ReportError(cx, "not an ArrayType");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   if (args.length() != 1) {
     JS_ReportError(cx, "addressOfElement takes one argument");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   RootedObject baseType(cx, GetBaseType(typeObj));
   RootedObject pointerType(cx, PointerType::CreateInternal(cx, baseType));
   if (!pointerType)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Create a PointerType CData object containing null.
   RootedObject result(cx, CData::Create(cx, pointerType, NullPtr(), nullptr, true));
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setObject(*result);
 
@@ -4617,7 +4617,7 @@ ArrayType::AddressOfElement(JSContext* cx, unsigned argc, jsval* vp)
   if (!jsvalToSize(cx, args[0], false, &index) ||
       index >= length) {
     JS_ReportError(cx, "invalid index");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // Manually set the pointer inside the object, so we skip the conversion step.
@@ -4702,7 +4702,7 @@ AddFieldToArray(JSContext* cx,
   Rooted<JSFlatString*> name(cx, name_);
   RootedObject fieldObj(cx, JS_NewObject(cx, nullptr, nullptr, nullptr));
   if (!fieldObj)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   *element = OBJECT_TO_JSVAL(fieldObj);
 
@@ -4710,7 +4710,7 @@ AddFieldToArray(JSContext* cx,
          name->chars(), name->length(),
          OBJECT_TO_JSVAL(typeObj), nullptr, nullptr,
          JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   return JS_FreezeObject(cx, fieldObj);
 }
@@ -4723,13 +4723,13 @@ StructType::Create(JSContext* cx, unsigned argc, jsval* vp)
   // Construct and return a new StructType object.
   if (args.length() < 1 || args.length() > 2) {
     JS_ReportError(cx, "StructType takes one or two arguments");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   jsval name = args[0];
   if (!name.isString()) {
     JS_ReportError(cx, "first argument must be a string");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // Get ctypes.StructType.prototype from the ctypes.StructType constructor.
@@ -4741,18 +4741,18 @@ StructType::Create(JSContext* cx, unsigned argc, jsval* vp)
   RootedObject result(cx, CType::Create(cx, typeProto, NullPtr(), TYPE_struct,
                                         JSVAL_TO_STRING(name), JSVAL_VOID, JSVAL_VOID, nullptr));
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   if (args.length() == 2) {
     RootedObject arr(cx, JSVAL_IS_PRIMITIVE(args[1]) ? nullptr : &args[1].toObject());
     if (!arr || !JS_IsArrayObject(cx, arr)) {
       JS_ReportError(cx, "second argument must be an array");
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // Define the struct fields.
     if (!DefineInternal(cx, result, arr))
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   args.rval().setObject(*result);
@@ -4782,18 +4782,18 @@ StructType::DefineInternal(JSContext* cx, JSObject* typeObj_, JSObject* fieldsOb
   // ctypes.CType.prototype.
   RootedObject dataProto(cx, CType::GetProtoFromType(cx, typeObj, SLOT_STRUCTDATAPROTO));
   if (!dataProto)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Set up the 'prototype' and 'prototype.constructor' properties.
   // The prototype will reflect the struct fields as properties on CData objects
   // created from this type.
   RootedObject prototype(cx, JS_NewObject(cx, &sCDataProtoClass, dataProto, nullptr));
   if (!prototype)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   if (!JS_DefineProperty(cx, prototype, "constructor", OBJECT_TO_JSVAL(typeObj),
          nullptr, nullptr, JSPROP_READONLY | JSPROP_PERMANENT))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Create a FieldInfoHash to stash on the type object, and an array to root
   // its constituents. (We cannot simply stash the hash in a reserved slot now
@@ -4802,12 +4802,12 @@ StructType::DefineInternal(JSContext* cx, JSObject* typeObj_, JSObject* fieldsOb
   AutoPtr<FieldInfoHash> fields(cx->new_<FieldInfoHash>());
   if (!fields || !fields->init(len)) {
     JS_ReportOutOfMemory(cx);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   JS::AutoValueVector fieldRoots(cx);
   if (!fieldRoots.resize(len)) {
     JS_ReportOutOfMemory(cx);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // Process the field types.
@@ -4819,22 +4819,22 @@ StructType::DefineInternal(JSContext* cx, JSObject* typeObj_, JSObject* fieldsOb
     for (uint32_t i = 0; i < len; ++i) {
       RootedValue item(cx);
       if (!JS_GetElement(cx, fieldsObj, i, &item))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
       RootedObject fieldType(cx, nullptr);
       JSFlatString* flat = ExtractStructField(cx, item, fieldType.address());
       if (!flat)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       Rooted<JSStableString*> name(cx, flat->ensureStable(cx));
       if (!name)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       fieldRoots[i] = JS::ObjectValue(*fieldType);
 
       // Make sure each field name is unique
       FieldInfoHash::AddPtr entryPtr = fields->lookupForAdd(name);
       if (entryPtr) {
         JS_ReportError(cx, "struct fields must have unique names");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
 
       // Add the field to the StructType's 'prototype' property.
@@ -4842,7 +4842,7 @@ StructType::DefineInternal(JSContext* cx, JSObject* typeObj_, JSObject* fieldsOb
              name->chars().get(), name->length(), JSVAL_VOID,
              StructType::FieldGetter, StructType::FieldSetter,
              JSPROP_SHARED | JSPROP_ENUMERATE | JSPROP_PERMANENT))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
       size_t fieldSize = CType::GetSize(fieldType);
       size_t fieldAlign = CType::GetAlignment(fieldType);
@@ -4852,7 +4852,7 @@ StructType::DefineInternal(JSContext* cx, JSObject* typeObj_, JSObject* fieldsOb
       // checking fieldOffset for overflow.
       if (fieldOffset + fieldSize < structSize) {
         JS_ReportError(cx, "size overflow");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
 
       // Add field name to the hash
@@ -4873,7 +4873,7 @@ StructType::DefineInternal(JSContext* cx, JSObject* typeObj_, JSObject* fieldsOb
     size_t structTail = Align(structSize, structAlign);
     if (structTail < structSize) {
       JS_ReportError(cx, "size overflow");
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     structSize = structTail;
 
@@ -4888,14 +4888,14 @@ StructType::DefineInternal(JSContext* cx, JSObject* typeObj_, JSObject* fieldsOb
 
   RootedValue sizeVal(cx);
   if (!SizeTojsval(cx, structSize, sizeVal.address()))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   JS_SetReservedSlot(typeObj, SLOT_FIELDINFO, PRIVATE_TO_JSVAL(fields.forget()));
 
   JS_SetReservedSlot(typeObj, SLOT_SIZE, sizeVal);
   JS_SetReservedSlot(typeObj, SLOT_ALIGN, INT_TO_JSVAL(structAlign));
   //if (!JS_FreezeObject(cx, prototype)0 // XXX fixme - see bug 541212!
-  //  return false;
+  //  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   JS_SetReservedSlot(typeObj, SLOT_PROTO, OBJECT_TO_JSVAL(prototype));
   return true;
 }
@@ -4982,32 +4982,32 @@ StructType::Define(JSContext* cx, unsigned argc, jsval* vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   RootedObject obj(cx, JS_THIS_OBJECT(cx, vp));
   if (!obj)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!CType::IsCType(obj) ||
       CType::GetTypeCode(obj) != TYPE_struct) {
     JS_ReportError(cx, "not a StructType");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   if (CType::IsSizeDefined(obj)) {
     JS_ReportError(cx, "StructType has already been defined");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   if (args.length() != 1) {
     JS_ReportError(cx, "define takes one argument");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   jsval arg = args[0];
   if (JSVAL_IS_PRIMITIVE(arg)) {
     JS_ReportError(cx, "argument must be an array");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   RootedObject arr(cx, JSVAL_TO_OBJECT(arg));
   if (!JS_IsArrayObject(cx, arr)) {
     JS_ReportError(cx, "argument must be an array");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   return DefineInternal(cx, obj, arr);
@@ -5020,17 +5020,17 @@ StructType::ConstructData(JSContext* cx,
 {
   if (!CType::IsCType(obj) || CType::GetTypeCode(obj) != TYPE_struct) {
     JS_ReportError(cx, "not a StructType");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   if (!CType::IsSizeDefined(obj)) {
     JS_ReportError(cx, "cannot construct an opaque StructType");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JSObject* result = CData::Create(cx, obj, NullPtr(), nullptr, true);
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setObject(*result);
 
@@ -5054,12 +5054,12 @@ StructType::ConstructData(JSContext* cx,
       return true;
 
     if (fields->count() != 1)
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // If ExplicitConvert failed, and there is no pending exception, then assume
     // hard failure (out of memory, or some other similarly serious condition).
     if (!JS_IsExceptionPending(cx))
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Otherwise, assume soft failure, and clear the pending exception so that we
     // can throw a different one as required.
@@ -5077,7 +5077,7 @@ StructType::ConstructData(JSContext* cx,
       if (!ImplicitConvert(cx, args[field.mIndex], field.mType,
              buffer + field.mOffset,
              false, nullptr))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -5085,7 +5085,7 @@ StructType::ConstructData(JSContext* cx,
 
   JS_ReportError(cx, "constructor takes 0, 1, or %u arguments",
     fields->count());
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 const FieldInfoHash*
@@ -5156,7 +5156,7 @@ StructType::BuildFieldsArray(JSContext* cx, JSObject* obj)
 StructType::IsStruct(HandleValue v)
 {
   if (!v.isObject())
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   JSObject* obj = &v.toObject();
   return CType::IsCType(obj) && CType::GetTypeCode(obj) == TYPE_struct;
 }
@@ -5177,7 +5177,7 @@ StructType::FieldsArrayGetter(JSContext* cx, JS::CallArgs args)
     // Build the 'fields' array lazily.
     JSObject* fields = BuildFieldsArray(cx, obj);
     if (!fields)
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JS_SetReservedSlot(obj, SLOT_FIELDS, OBJECT_TO_JSVAL(fields));
 
     args.rval().setObject(*fields);
@@ -5193,18 +5193,18 @@ StructType::FieldGetter(JSContext* cx, HandleObject obj, HandleId idval, Mutable
 {
   if (!CData::IsCData(obj)) {
     JS_ReportError(cx, "not a CData");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JSObject* typeObj = CData::GetCType(obj);
   if (CType::GetTypeCode(typeObj) != TYPE_struct) {
     JS_ReportError(cx, "not a StructType");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   const FieldInfo* field = LookupField(cx, typeObj, JSID_TO_FLAT_STRING(idval));
   if (!field)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   char* data = static_cast<char*>(CData::GetData(obj)) + field->mOffset;
   RootedObject fieldType(cx, field->mType);
@@ -5216,18 +5216,18 @@ StructType::FieldSetter(JSContext* cx, HandleObject obj, HandleId idval, bool st
 {
   if (!CData::IsCData(obj)) {
     JS_ReportError(cx, "not a CData");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JSObject* typeObj = CData::GetCType(obj);
   if (CType::GetTypeCode(typeObj) != TYPE_struct) {
     JS_ReportError(cx, "not a StructType");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   const FieldInfo* field = LookupField(cx, typeObj, JSID_TO_FLAT_STRING(idval));
   if (!field)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   char* data = static_cast<char*>(CData::GetData(obj)) + field->mOffset;
   return ImplicitConvert(cx, vp, field->mType, data, false, nullptr);
@@ -5239,40 +5239,40 @@ StructType::AddressOfField(JSContext* cx, unsigned argc, jsval* vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   RootedObject obj(cx, JS_THIS_OBJECT(cx, vp));
   if (!obj)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!CData::IsCData(obj)) {
     JS_ReportError(cx, "not a CData");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JSObject* typeObj = CData::GetCType(obj);
   if (CType::GetTypeCode(typeObj) != TYPE_struct) {
     JS_ReportError(cx, "not a StructType");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   if (args.length() != 1) {
     JS_ReportError(cx, "addressOfField takes one argument");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JSFlatString *str = JS_FlattenString(cx, args[0].toString());
   if (!str)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   const FieldInfo* field = LookupField(cx, typeObj, str);
   if (!field)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   RootedObject baseType(cx, field->mType);
   RootedObject pointerType(cx, PointerType::CreateInternal(cx, baseType));
   if (!pointerType)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Create a PointerType CData object containing null.
   JSObject* result = CData::Create(cx, pointerType, NullPtr(), nullptr, true);
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setObject(*result);
 
@@ -5313,7 +5313,7 @@ static bool
 GetABI(JSContext* cx, jsval abiType, ffi_abi* result)
 {
   if (JSVAL_IS_PRIMITIVE(abiType))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   ABICode abi = GetABICode(JSVAL_TO_OBJECT(abiType));
 
@@ -5338,7 +5338,7 @@ GetABI(JSContext* cx, jsval abiType, ffi_abi* result)
   case INVALID_ABI:
     break;
   }
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static JSObject*
@@ -5418,7 +5418,7 @@ IsEllipsis(JSContext* cx, jsval v, bool* isEllipsis)
     return true;
   const jschar* chars = str->getChars(cx);
   if (!chars)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   jschar dot = '.';
   *isEllipsis = (chars[0] == dot &&
                  chars[1] == dot &&
@@ -5433,12 +5433,12 @@ PrepareCIF(JSContext* cx,
   ffi_abi abi;
   if (!GetABI(cx, OBJECT_TO_JSVAL(fninfo->mABI), &abi)) {
     JS_ReportError(cx, "Invalid ABI specification");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   ffi_type* rtype = CType::GetFFIType(cx, fninfo->mReturnType);
   if (!rtype)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   ffi_status status =
     ffi_prep_cif(&fninfo->mCIF,
@@ -5452,13 +5452,13 @@ PrepareCIF(JSContext* cx,
     return true;
   case FFI_BAD_ABI:
     JS_ReportError(cx, "Invalid ABI specification");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   case FFI_BAD_TYPEDEF:
     JS_ReportError(cx, "Invalid type specification");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   default:
     JS_ReportError(cx, "Unknown libffi error");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 }
 
@@ -5594,7 +5594,7 @@ FunctionType::Create(JSContext* cx, unsigned argc, jsval* vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   if (args.length() < 2 || args.length() > 3) {
     JS_ReportError(cx, "FunctionType takes two or three arguments");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   AutoValueVector argTypes(cx);
@@ -5606,7 +5606,7 @@ FunctionType::Create(JSContext* cx, unsigned argc, jsval* vp)
       arrayObj = &args[2].toObject();
     if (!arrayObj || !JS_IsArrayObject(cx, arrayObj)) {
       JS_ReportError(cx, "third argument must be an array");
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     uint32_t len;
@@ -5614,7 +5614,7 @@ FunctionType::Create(JSContext* cx, unsigned argc, jsval* vp)
 
     if (!argTypes.resize(len)) {
       JS_ReportOutOfMemory(cx);
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
   }
 
@@ -5622,13 +5622,13 @@ FunctionType::Create(JSContext* cx, unsigned argc, jsval* vp)
   JS_ASSERT_IF(argTypes.length(), arrayObj);
   for (uint32_t i = 0; i < argTypes.length(); ++i) {
     if (!JS_GetElement(cx, arrayObj, i, argTypes.handleAt(i)))
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JSObject* result = CreateInternal(cx, args[0], args[1],
       argTypes.begin(), argTypes.length());
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setObject(*result);
   return true;
@@ -5687,17 +5687,17 @@ FunctionType::ConstructData(JSContext* cx,
   FunctionInfo* fninfo = FunctionType::GetFunctionInfo(typeObj);
   if (fninfo->mIsVariadic) {
     JS_ReportError(cx, "Can't declare a variadic callback function");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   if (GetABICode(fninfo->mABI) == ABI_WINAPI) {
     JS_ReportError(cx, "Can't declare a ctypes.winapi_abi callback function, "
                    "use ctypes.stdcall_abi instead");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   RootedObject closureObj(cx, CClosure::Create(cx, typeObj, fnObj, thisObj, errVal, data));
   if (!closureObj)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Set the closure object as the referent of the new CData object.
   JS_SetReservedSlot(dataObj, SLOT_REFERENT, OBJECT_TO_JSVAL(closureObj));
@@ -5722,19 +5722,19 @@ ConvertArgument(JSContext* cx,
 {
   if (!value->SizeToType(cx, type)) {
     JS_ReportAllocationOverflow(cx);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   bool freePointer = false;
   if (!ImplicitConvert(cx, arg, type, value->mData, true, &freePointer))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   if (freePointer) {
     // ImplicitConvert converted a string for us, which we have to free.
     // Keep track of it.
     if (!strings->growBy(1)) {
       JS_ReportOutOfMemory(cx);
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     strings->back().mData = *static_cast<char**>(value->mData);
   }
@@ -5752,19 +5752,19 @@ FunctionType::Call(JSContext* cx,
   RootedObject obj(cx, &args.callee());
   if (!CData::IsCData(obj)) {
     JS_ReportError(cx, "not a CData");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   RootedObject typeObj(cx, CData::GetCType(obj));
   if (CType::GetTypeCode(typeObj) != TYPE_pointer) {
     JS_ReportError(cx, "not a FunctionType.ptr");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   typeObj = PointerType::GetBaseType(typeObj);
   if (CType::GetTypeCode(typeObj) != TYPE_function) {
     JS_ReportError(cx, "not a FunctionType.ptr");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   FunctionInfo* fninfo = GetFunctionInfo(typeObj);
@@ -5773,7 +5773,7 @@ FunctionType::Call(JSContext* cx,
   if ((!fninfo->mIsVariadic && args.length() != argcFixed) ||
       (fninfo->mIsVariadic && args.length() < argcFixed)) {
     JS_ReportError(cx, "Number of arguments does not match declaration");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // Check if we have a Library object. If we do, make sure it's open.
@@ -5782,7 +5782,7 @@ FunctionType::Call(JSContext* cx,
     PRLibrary* library = Library::GetLibrary(&slot.toObject());
     if (!library) {
       JS_ReportError(cx, "library is not open");
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
   }
 
@@ -5791,17 +5791,17 @@ FunctionType::Call(JSContext* cx,
   AutoValueAutoArray strings;
   if (!values.resize(args.length())) {
     JS_ReportOutOfMemory(cx);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   for (unsigned i = 0; i < argcFixed; ++i)
     if (!ConvertArgument(cx, args[i], fninfo->mArgTypes[i], &values[i], &strings))
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   if (fninfo->mIsVariadic) {
     if (!fninfo->mFFITypes.resize(args.length())) {
       JS_ReportOutOfMemory(cx);
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedObject obj(cx);  // Could reuse obj instead of declaring a second
@@ -5814,7 +5814,7 @@ FunctionType::Call(JSContext* cx,
         // they absolutely must be CData objects already.
         JS_ReportError(cx, "argument %d of type %s is not a CData object",
                        i, JS_GetTypeName(cx, JS_TypeOfValue(cx, args[i])));
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
       if (!(type = CData::GetCType(obj)) ||
           !(type = PrepareType(cx, OBJECT_TO_JSVAL(type))) ||
@@ -5823,11 +5823,11 @@ FunctionType::Call(JSContext* cx,
           !ConvertArgument(cx, args[i], type, &values[i], &strings) ||
           !(fninfo->mFFITypes[i] = CType::GetFFIType(cx, type))) {
         // These functions report their own errors.
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
     }
     if (!PrepareCIF(cx, fninfo))
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // initialize a pointer to an appropriate location, for storing the result
@@ -5836,7 +5836,7 @@ FunctionType::Call(JSContext* cx,
   if (typeCode != TYPE_void_t &&
       !returnValue.SizeToType(cx, fninfo->mReturnType)) {
     JS_ReportAllocationOverflow(cx);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // Let the runtime callback know that we are about to call into C.
@@ -5875,7 +5875,7 @@ FunctionType::Call(JSContext* cx,
   // Store the error value for later consultation with |ctypes.getStatus|
   JSObject *objCTypes = CType::GetGlobalCTypes(cx, typeObj);
   if (!objCTypes)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   JS_SetReservedSlot(objCTypes, SLOT_ERRNO, INT_TO_JSVAL(errnoStatus));
 #if defined(XP_WIN)
@@ -5922,7 +5922,7 @@ bool
 FunctionType::IsFunctionType(HandleValue v)
 {
   if (!v.isObject())
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   JSObject* obj = &v.toObject();
   return CType::IsCType(obj) && CType::GetTypeCode(obj) == TYPE_function;
 }
@@ -5944,19 +5944,19 @@ FunctionType::ArgTypesGetter(JSContext* cx, JS::CallArgs args)
   {
       JS::AutoValueVector vec(cx);
       if (!vec.resize(len))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
       for (size_t i = 0; i < len; ++i)
         vec[i] = JS::ObjectValue(*fninfo->mArgTypes[i]);
 
       argTypes = JS_NewArrayObject(cx, len, vec.begin());
       if (!argTypes)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // Seal and cache it.
   if (!JS_FreezeObject(cx, argTypes))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   JS_SetReservedSlot(obj, SLOT_ARGS_T, JS::ObjectValue(*argTypes));
 
   args.rval().setObject(*argTypes);
@@ -6437,26 +6437,26 @@ CData::Address(JSContext* cx, unsigned argc, jsval* vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   if (args.length() != 0) {
     JS_ReportError(cx, "address takes zero arguments");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   RootedObject obj(cx, JS_THIS_OBJECT(cx, vp));
   if (!obj)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!IsCData(obj)) {
     JS_ReportError(cx, "not a CData");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   RootedObject typeObj(cx, CData::GetCType(obj));
   RootedObject pointerType(cx, PointerType::CreateInternal(cx, typeObj));
   if (!pointerType)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   // Create a PointerType CData object containing null.
   JSObject* result = CData::Create(cx, pointerType, NullPtr(), nullptr, true);
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setObject(*result);
 
@@ -6472,13 +6472,13 @@ CData::Cast(JSContext* cx, unsigned argc, jsval* vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   if (args.length() != 2) {
     JS_ReportError(cx, "cast takes two arguments");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   if (JSVAL_IS_PRIMITIVE(args[0]) ||
       !CData::IsCData(&args[0].toObject())) {
     JS_ReportError(cx, "first argument must be a CData");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   RootedObject sourceData(cx, &args[0].toObject());
   JSObject* sourceType = CData::GetCType(sourceData);
@@ -6486,7 +6486,7 @@ CData::Cast(JSContext* cx, unsigned argc, jsval* vp)
   if (JSVAL_IS_PRIMITIVE(args[1]) ||
       !CType::IsCType(&args[1].toObject())) {
     JS_ReportError(cx, "second argument must be a CType");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   RootedObject targetType(cx, &args[1].toObject());
@@ -6495,7 +6495,7 @@ CData::Cast(JSContext* cx, unsigned argc, jsval* vp)
       targetSize > CType::GetSize(sourceType)) {
     JS_ReportError(cx,
       "target CType has undefined or larger size than source CType");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // Construct a new CData object with a type of 'targetType' and a referent
@@ -6503,7 +6503,7 @@ CData::Cast(JSContext* cx, unsigned argc, jsval* vp)
   void* data = CData::GetData(sourceData);
   JSObject* result = CData::Create(cx, targetType, sourceData, data, false);
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setObject(*result);
   return true;
@@ -6515,13 +6515,13 @@ CData::GetRuntime(JSContext* cx, unsigned argc, jsval* vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   if (args.length() != 1) {
     JS_ReportError(cx, "getRuntime takes one argument");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   if (JSVAL_IS_PRIMITIVE(args[0]) ||
       !CType::IsCType(&args[0].toObject())) {
     JS_ReportError(cx, "first argument must be a CType");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   RootedObject targetType(cx, &args[0].toObject());
@@ -6529,13 +6529,13 @@ CData::GetRuntime(JSContext* cx, unsigned argc, jsval* vp)
   if (!CType::GetSafeSize(targetType, &targetSize) ||
       targetSize != sizeof(void*)) {
     JS_ReportError(cx, "target CType has non-pointer size");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   void* data = static_cast<void*>(cx->runtime());
   JSObject* result = CData::Create(cx, targetType, NullPtr(), &data, true);
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setObject(*result);
   return true;
@@ -6549,13 +6549,13 @@ ReadStringCommon(JSContext* cx, InflateUTF8Method inflateUTF8, unsigned argc, js
   CallArgs args = CallArgsFromVp(argc, vp);
   if (args.length() != 0) {
     JS_ReportError(cx, "readString takes zero arguments");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JSObject* obj = CDataFinalizer::GetCData(cx, JS_THIS_OBJECT(cx, vp));
   if (!obj || !CData::IsCData(obj)) {
     JS_ReportError(cx, "not a CData");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // Make sure we are a pointer to, or an array of, an 8-bit or 16-bit
@@ -6571,7 +6571,7 @@ ReadStringCommon(JSContext* cx, InflateUTF8Method inflateUTF8, unsigned argc, js
     data = *static_cast<void**>(CData::GetData(obj));
     if (data == nullptr) {
       JS_ReportError(cx, "cannot read contents of null pointer");
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     break;
   case TYPE_array:
@@ -6581,7 +6581,7 @@ ReadStringCommon(JSContext* cx, InflateUTF8Method inflateUTF8, unsigned argc, js
     break;
   default:
     JS_ReportError(cx, "not a PointerType or ArrayType");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // Convert the string buffer, taking care to determine the correct string
@@ -6599,7 +6599,7 @@ ReadStringCommon(JSContext* cx, InflateUTF8Method inflateUTF8, unsigned argc, js
     // Determine the length.
     jschar *dst = inflateUTF8(cx, JS::UTF8Chars(bytes, length), &length).get();
     if (!dst)
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     result = JS_NewUCString(cx, dst, length);
     break;
@@ -6617,11 +6617,11 @@ ReadStringCommon(JSContext* cx, InflateUTF8Method inflateUTF8, unsigned argc, js
   default:
     JS_ReportError(cx,
       "base type is not an 8-bit or 16-bit integer or character type");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setString(result);
   return true;
@@ -6665,15 +6665,15 @@ CData::ToSource(JSContext* cx, unsigned argc, jsval* vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   if (args.length() != 0) {
     JS_ReportError(cx, "toSource takes zero arguments");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JSObject* obj = JS_THIS_OBJECT(cx, vp);
   if (!obj)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!CData::IsCData(obj) && !CData::IsCDataProto(obj)) {
     JS_ReportError(cx, "not a CData");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JSString* result;
@@ -6687,7 +6687,7 @@ CData::ToSource(JSContext* cx, unsigned argc, jsval* vp)
   }
 
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setString(result);
   return true;
@@ -6715,10 +6715,10 @@ CDataFinalizer::Methods::ToSource(JSContext *cx, unsigned argc, jsval *vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   RootedObject objThis(cx, JS_THIS_OBJECT(cx, vp));
   if (!objThis)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!CDataFinalizer::IsCDataFinalizer(objThis)) {
     JS_ReportError(cx, "not a CDataFinalizer");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   CDataFinalizer::Private *p = (CDataFinalizer::Private *)
@@ -6731,27 +6731,27 @@ CDataFinalizer::Methods::ToSource(JSContext *cx, unsigned argc, jsval *vp)
     RootedObject objType(cx, CDataFinalizer::GetCType(cx, objThis));
     if (!objType) {
       JS_ReportError(cx, "CDataFinalizer has no type");
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     AutoString source;
     AppendString(source, "ctypes.CDataFinalizer(");
     JSString *srcValue = CData::GetSourceString(cx, objType, p->cargs);
     if (!srcValue) {
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     AppendString(source, srcValue);
     AppendString(source, ", ");
     jsval valCodePtrType = JS_GetReservedSlot(objThis,
                                               SLOT_DATAFINALIZER_CODETYPE);
     if (JSVAL_IS_PRIMITIVE(valCodePtrType)) {
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedObject typeObj(cx, JSVAL_TO_OBJECT(valCodePtrType));
     JSString *srcDispose = CData::GetSourceString(cx, typeObj, &(p->code));
     if (!srcDispose) {
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     AppendString(source, srcDispose);
@@ -6761,7 +6761,7 @@ CDataFinalizer::Methods::ToSource(JSContext *cx, unsigned argc, jsval *vp)
 
   if (!strMessage) {
     // This is a memory issue, no error message
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   args.rval().setString(strMessage);
@@ -6774,10 +6774,10 @@ CDataFinalizer::Methods::ToString(JSContext *cx, unsigned argc, jsval *vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   JSObject* objThis = JS_THIS_OBJECT(cx, vp);
   if (!objThis)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!CDataFinalizer::IsCDataFinalizer(objThis)) {
     JS_ReportError(cx, "not a CDataFinalizer");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JSString *strMessage;
@@ -6787,14 +6787,14 @@ CDataFinalizer::Methods::ToString(JSContext *cx, unsigned argc, jsval *vp)
     // to avoid reporting an error when not appropriate.
     strMessage = JS_NewStringCopyZ(cx, "[CDataFinalizer - empty]");
     if (!strMessage) {
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
   } else if (!CDataFinalizer::GetValue(cx, objThis, value.address())) {
     MOZ_ASSUME_UNREACHABLE("Could not convert an empty CDataFinalizer");
   } else {
     strMessage = ToString(cx, value);
     if (!strMessage) {
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
   }
   args.rval().setString(strMessage);
@@ -6854,7 +6854,7 @@ CDataFinalizer::GetValue(JSContext *cx, JSObject *obj, jsval *aResult)
 
   if (!p) {
     JS_ReportError(cx, "Attempting to get the value of an empty CDataFinalizer");
-    return false;  // We have called |dispose| or |forget| already.
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);  // We have called |dispose| or |forget| already.
   }
 
   RootedObject ctype(cx, GetCType(cx, obj));
@@ -6882,7 +6882,7 @@ CDataFinalizer::Construct(JSContext* cx, unsigned argc, jsval *vp)
   RootedObject objProto(cx);
   if (!GetObjectProperty(cx, objSelf, "prototype", &objProto)) {
     JS_ReportError(cx, "CDataFinalizer.prototype does not exist");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // Get arguments
@@ -6894,7 +6894,7 @@ CDataFinalizer::Construct(JSContext* cx, unsigned argc, jsval *vp)
 
   if (args.length() != 2) {
     JS_ReportError(cx, "CDataFinalizer takes 2 arguments");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JS::Value valCodePtr = args[1];
@@ -6970,7 +6970,7 @@ CDataFinalizer::Construct(JSContext* cx, unsigned argc, jsval *vp)
   if (freePointer) {
     // Note: We could handle that case, if necessary.
     JS_ReportError(cx, "Internal Error during CDataFinalizer. Object cannot be represented");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // 4. Prepare buffer for holding return value
@@ -6985,7 +6985,7 @@ CDataFinalizer::Construct(JSContext* cx, unsigned argc, jsval *vp)
 
   JSObject *objResult = JS_NewObject(cx, &sCDataFinalizerClass, objProto, nullptr);
   if (!objResult) {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // If our argument is a CData, it holds a type.
@@ -7020,14 +7020,14 @@ CDataFinalizer::Construct(JSContext* cx, unsigned argc, jsval *vp)
   if (!GetABI(cx, OBJECT_TO_JSVAL(funInfoFinalizer->mABI), &abi)) {
     JS_ReportError(cx, "Internal Error: "
                    "Invalid ABI specification in CDataFinalizer");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   ffi_type* rtype = CType::GetFFIType(cx, funInfoFinalizer->mReturnType);
   if (!rtype) {
     JS_ReportError(cx, "Internal Error: "
                    "Could not access ffi type of CDataFinalizer");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // 7. Store C information as private
@@ -7104,12 +7104,12 @@ CDataFinalizer::Methods::Forget(JSContext* cx, unsigned argc, jsval *vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   if (args.length() != 0) {
     JS_ReportError(cx, "CDataFinalizer.prototype.forget takes no arguments");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JS::Rooted<JSObject*> obj(cx, args.thisv().toObjectOrNull());
   if (!obj)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!CDataFinalizer::IsCDataFinalizer(obj)) {
     return TypeError(cx, "a CDataFinalizer", OBJECT_TO_JSVAL(obj));
   }
@@ -7119,14 +7119,14 @@ CDataFinalizer::Methods::Forget(JSContext* cx, unsigned argc, jsval *vp)
 
   if (!p) {
     JS_ReportError(cx, "forget called on an empty CDataFinalizer");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   RootedValue valJSData(cx);
   RootedObject ctype(cx, GetCType(cx, obj));
   if (!ConvertToJS(cx, ctype, NullPtr(), p->cargs, false, true, valJSData.address())) {
     JS_ReportError(cx, "CDataFinalizer value cannot be represented");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   CDataFinalizer::Cleanup(p, obj);
@@ -7151,12 +7151,12 @@ CDataFinalizer::Methods::Dispose(JSContext* cx, unsigned argc, jsval *vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   if (args.length() != 0) {
     JS_ReportError(cx, "CDataFinalizer.prototype.dispose takes no arguments");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   RootedObject obj(cx, JS_THIS_OBJECT(cx, vp));
   if (!obj)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!CDataFinalizer::IsCDataFinalizer(obj)) {
     return TypeError(cx, "a CDataFinalizer", OBJECT_TO_JSVAL(obj));
   }
@@ -7166,7 +7166,7 @@ CDataFinalizer::Methods::Dispose(JSContext* cx, unsigned argc, jsval *vp)
 
   if (!p) {
     JS_ReportError(cx, "dispose called on an empty CDataFinalizer.");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   jsval valType = JS_GetReservedSlot(obj, SLOT_DATAFINALIZER_VALTYPE);
@@ -7174,7 +7174,7 @@ CDataFinalizer::Methods::Dispose(JSContext* cx, unsigned argc, jsval *vp)
 
   JSObject *objCTypes = CType::GetGlobalCTypes(cx, &valType.toObject());
   if (!objCTypes)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   jsval valCodePtrType = JS_GetReservedSlot(obj, SLOT_DATAFINALIZER_CODETYPE);
   JS_ASSERT(!JSVAL_IS_PRIMITIVE(valCodePtrType));
@@ -7206,7 +7206,7 @@ CDataFinalizer::Methods::Dispose(JSContext* cx, unsigned argc, jsval *vp)
     return true;
   }
   CDataFinalizer::Cleanup(p, obj);
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /*
@@ -7325,7 +7325,7 @@ Int64Base::ToString(JSContext* cx,
 {
   if (args.length() > 1) {
     JS_ReportError(cx, "toString takes zero or one argument");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   int radix = 10;
@@ -7335,7 +7335,7 @@ Int64Base::ToString(JSContext* cx,
       radix = arg.toInt32();
     if (!arg.isInt32() || radix < 2 || radix > 36) {
       JS_ReportError(cx, "radix argument must be an integer between 2 and 36");
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
   }
 
@@ -7348,7 +7348,7 @@ Int64Base::ToString(JSContext* cx,
 
   JSString *result = NewUCString(cx, intString);
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setString(result);
   return true;
@@ -7362,7 +7362,7 @@ Int64Base::ToSource(JSContext* cx,
 {
   if (args.length() != 0) {
     JS_ReportError(cx, "toSource takes zero arguments");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   // Return a decimal string suitable for constructing the number.
@@ -7378,7 +7378,7 @@ Int64Base::ToSource(JSContext* cx,
 
   JSString *result = NewUCString(cx, source);
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setString(result);
   return true;
@@ -7394,7 +7394,7 @@ Int64::Construct(JSContext* cx,
   // Construct and return a new Int64 object.
   if (args.length() != 1) {
     JS_ReportError(cx, "Int64 takes one argument");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   int64_t i = 0;
@@ -7410,7 +7410,7 @@ Int64::Construct(JSContext* cx,
 
   JSObject* result = Int64Base::Construct(cx, proto, i, false);
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setObject(*result);
   return true;
@@ -7428,10 +7428,10 @@ Int64::ToString(JSContext* cx, unsigned argc, jsval* vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   JSObject* obj = JS_THIS_OBJECT(cx, vp);
   if (!obj)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!Int64::IsInt64(obj)) {
     JS_ReportError(cx, "not an Int64");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   return Int64Base::ToString(cx, obj, args, false);
@@ -7443,10 +7443,10 @@ Int64::ToSource(JSContext* cx, unsigned argc, jsval* vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   JSObject* obj = JS_THIS_OBJECT(cx, vp);
   if (!obj)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!Int64::IsInt64(obj)) {
     JS_ReportError(cx, "not an Int64");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   return Int64Base::ToSource(cx, obj, args, false);
@@ -7462,7 +7462,7 @@ Int64::Compare(JSContext* cx, unsigned argc, jsval* vp)
       !Int64::IsInt64(&args[0].toObject()) ||
       !Int64::IsInt64(&args[1].toObject())) {
     JS_ReportError(cx, "compare takes two Int64 arguments");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JSObject* obj1 = &args[0].toObject();
@@ -7492,7 +7492,7 @@ Int64::Lo(JSContext* cx, unsigned argc, jsval* vp)
   if (args.length() != 1 || JSVAL_IS_PRIMITIVE(args[0]) ||
       !Int64::IsInt64(&args[0].toObject())) {
     JS_ReportError(cx, "lo takes one Int64 argument");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JSObject* obj = &args[0].toObject();
@@ -7510,7 +7510,7 @@ Int64::Hi(JSContext* cx, unsigned argc, jsval* vp)
   if (args.length() != 1 || JSVAL_IS_PRIMITIVE(args[0]) ||
       !Int64::IsInt64(&args[0].toObject())) {
     JS_ReportError(cx, "hi takes one Int64 argument");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JSObject* obj = &args[0].toObject();
@@ -7527,7 +7527,7 @@ Int64::Join(JSContext* cx, unsigned argc, jsval* vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   if (args.length() != 2) {
     JS_ReportError(cx, "join takes two arguments");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   int32_t hi;
@@ -7548,7 +7548,7 @@ Int64::Join(JSContext* cx, unsigned argc, jsval* vp)
 
   JSObject* result = Int64Base::Construct(cx, proto, i, false);
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setObject(*result);
   return true;
@@ -7564,7 +7564,7 @@ UInt64::Construct(JSContext* cx,
   // Construct and return a new UInt64 object.
   if (args.length() != 1) {
     JS_ReportError(cx, "UInt64 takes one argument");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   uint64_t u = 0;
@@ -7580,7 +7580,7 @@ UInt64::Construct(JSContext* cx,
 
   JSObject* result = Int64Base::Construct(cx, proto, u, true);
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setObject(*result);
   return true;
@@ -7598,10 +7598,10 @@ UInt64::ToString(JSContext* cx, unsigned argc, jsval* vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   JSObject* obj = JS_THIS_OBJECT(cx, vp);
   if (!obj)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!UInt64::IsUInt64(obj)) {
     JS_ReportError(cx, "not a UInt64");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   return Int64Base::ToString(cx, obj, args, true);
@@ -7613,10 +7613,10 @@ UInt64::ToSource(JSContext* cx, unsigned argc, jsval* vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   JSObject* obj = JS_THIS_OBJECT(cx, vp);
   if (!obj)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!UInt64::IsUInt64(obj)) {
     JS_ReportError(cx, "not a UInt64");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   return Int64Base::ToSource(cx, obj, args, true);
@@ -7632,7 +7632,7 @@ UInt64::Compare(JSContext* cx, unsigned argc, jsval* vp)
       !UInt64::IsUInt64(&args[0].toObject()) ||
       !UInt64::IsUInt64(&args[1].toObject())) {
     JS_ReportError(cx, "compare takes two UInt64 arguments");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JSObject* obj1 = &args[0].toObject();
@@ -7658,7 +7658,7 @@ UInt64::Lo(JSContext* cx, unsigned argc, jsval* vp)
   if (args.length() != 1 || JSVAL_IS_PRIMITIVE(args[0]) ||
       !UInt64::IsUInt64(&args[0].toObject())) {
     JS_ReportError(cx, "lo takes one UInt64 argument");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JSObject* obj = &args[0].toObject();
@@ -7676,7 +7676,7 @@ UInt64::Hi(JSContext* cx, unsigned argc, jsval* vp)
   if (args.length() != 1 || JSVAL_IS_PRIMITIVE(args[0]) ||
       !UInt64::IsUInt64(&args[0].toObject())) {
     JS_ReportError(cx, "hi takes one UInt64 argument");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   JSObject* obj = &args[0].toObject();
@@ -7693,7 +7693,7 @@ UInt64::Join(JSContext* cx, unsigned argc, jsval* vp)
   CallArgs args = CallArgsFromVp(argc, vp);
   if (args.length() != 2) {
     JS_ReportError(cx, "join takes two arguments");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   uint32_t hi;
@@ -7714,7 +7714,7 @@ UInt64::Join(JSContext* cx, unsigned argc, jsval* vp)
 
   JSObject* result = Int64Base::Construct(cx, proto, u, true);
   if (!result)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   args.rval().setObject(*result);
   return true;

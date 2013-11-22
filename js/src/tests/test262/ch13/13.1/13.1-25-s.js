@@ -18,7 +18,7 @@ function testcase() {
 
         try {
             eval("'use strict'; function _13_1_25_fun(param1, param2, param1) { }");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } catch (e) {
             return e instanceof SyntaxError;
         }

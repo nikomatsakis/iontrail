@@ -60,7 +60,7 @@ fun_getProperty(JSContext *cx, HandleObject obj_, HandleId id, MutableHandleValu
     RootedObject obj(cx, obj_);
     while (!obj->is<JSFunction>()) {
         if (!JSObject::getProto(cx, obj, &obj))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!obj)
             return true;
     }
@@ -84,17 +84,17 @@ fun_getProperty(JSContext *cx, HandleObject obj_, HandleId id, MutableHandleValu
         if (fun->hasRest()) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                                  JSMSG_FUNCTION_ARGUMENTS_AND_REST);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         /* Warn if strict about f.arguments or equivalent unqualified uses. */
         if (!JS_ReportErrorFlagsAndNumber(cx, JSREPORT_WARNING | JSREPORT_STRICT, js_GetErrorMessage,
                                           nullptr, JSMSG_DEPRECATED_USAGE, js_arguments_str)) {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         ArgumentsObject *argsobj = ArgumentsObject::createUnexpected(cx, iter);
         if (!argsobj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #ifdef JS_ION
         // Disabling compiling of this script in IonMonkey.
@@ -124,7 +124,7 @@ fun_getProperty(JSContext *cx, HandleObject obj_, HandleId id, MutableHandleValu
             vp.set(iter.calleev());
 
         if (!cx->compartment()->wrap(cx, vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /*
          * Censor the caller if we don't have full access to it.
@@ -137,7 +137,7 @@ fun_getProperty(JSContext *cx, HandleObject obj_, HandleId id, MutableHandleValu
             if (callerFun->isInterpreted() && callerFun->strict()) {
                 JS_ReportErrorFlagsAndNumber(cx, JSREPORT_ERROR, js_GetErrorMessage, nullptr,
                                              JSMSG_CALLER_IS_STRICT);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
 
@@ -167,22 +167,22 @@ fun_enumerate(JSContext *cx, HandleObject obj)
     if (!obj->isBoundFunction()) {
         id = NameToId(cx->names().prototype);
         if (!JSObject::hasProperty(cx, obj, id, &found, 0))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     id = NameToId(cx->names().length);
     if (!JSObject::hasProperty(cx, obj, id, &found, 0))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     id = NameToId(cx->names().name);
     if (!JSObject::hasProperty(cx, obj, id, &found, 0))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (unsigned i = 0; i < ArrayLength(poisonPillProps); i++) {
         const uint16_t offset = poisonPillProps[i];
         id = NameToId(AtomStateOffsetToName(cx->runtime()->atomState, offset));
         if (!JSObject::hasProperty(cx, obj, id, &found, 0))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -260,7 +260,7 @@ js::FunctionHasResolveHook(const JSAtomState &atomState, PropertyName *name)
             return true;
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -289,7 +289,7 @@ js::fun_resolve(JSContext *cx, HandleObject obj, HandleId id, unsigned flags,
             return true;
 
         if (!ResolveInterpretedFunctionPrototype(cx, fun))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         objp.set(fun);
         return true;
     }
@@ -300,7 +300,7 @@ js::fun_resolve(JSContext *cx, HandleObject obj, HandleId id, unsigned flags,
         RootedValue v(cx);
         if (JSID_IS_ATOM(id, cx->names().length)) {
             if (fun->isInterpretedLazy() && !fun->getOrCreateScript(cx))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             uint16_t length = fun->hasScript() ? fun->nonLazyScript()->funLength :
                 fun->nargs - fun->hasRest();
             v.setInt32(length);
@@ -310,7 +310,7 @@ js::fun_resolve(JSContext *cx, HandleObject obj, HandleId id, unsigned flags,
 
         if (!DefineNativeProperty(cx, fun, id, v, JS_PropertyStub, JS_StrictPropertyStub,
                                   JSPROP_PERMANENT | JSPROP_READONLY, 0, 0)) {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         objp.set(fun);
         return true;
@@ -326,7 +326,7 @@ js::fun_resolve(JSContext *cx, HandleObject obj, HandleId id, unsigned flags,
             StrictPropertyOp setter;
             unsigned attrs = JSPROP_PERMANENT | JSPROP_SHARED;
             if (fun->isInterpretedLazy() && !fun->getOrCreateScript(cx))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (fun->isInterpreted() ? fun->strict() : fun->isBoundFunction()) {
                 JSObject *throwTypeError = fun->global().getThrowTypeError();
 
@@ -341,7 +341,7 @@ js::fun_resolve(JSContext *cx, HandleObject obj, HandleId id, unsigned flags,
             RootedValue value(cx, UndefinedValue());
             if (!DefineNativeProperty(cx, fun, id, value, getter, setter,
                                       attrs, 0, 0)) {
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             objp.set(fun);
             return true;
@@ -377,7 +377,7 @@ js::XDRInterpretedFunction(XDRState<mode> *xdr, HandleObject enclosingScope, Han
                 JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                                      JSMSG_NOT_SCRIPTED_FUNCTION, name);
             }
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (fun->atom())
             firstword |= HasAtom;
@@ -385,38 +385,38 @@ js::XDRInterpretedFunction(XDRState<mode> *xdr, HandleObject enclosingScope, Han
             firstword |= IsStarGenerator;
         script = fun->getOrCreateScript(cx);
         if (!script)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         atom = fun->atom();
         flagsword = (fun->nargs << 16) | fun->flags;
 
         if (!xdr->codeUint32(&firstword))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         if (!xdr->codeUint32(&firstword))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         JSObject *proto = nullptr;
         if (firstword & IsStarGenerator) {
             proto = cx->global()->getOrCreateStarGeneratorFunctionPrototype(cx);
             if (!proto)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         fun = NewFunctionWithProto(cx, NullPtr(), nullptr, 0, JSFunction::INTERPRETED,
                                    NullPtr(), NullPtr(), proto,
                                    JSFunction::FinalizeKind, TenuredObject);
         if (!fun)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         atom = nullptr;
         script = nullptr;
     }
 
     if ((firstword & HasAtom) && !XDRAtom(xdr, &atom))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!xdr->codeUint32(&flagsword))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!XDRScript(xdr, enclosingScope, enclosingScript, fun, &script))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (mode == XDR_DECODE) {
         fun->nargs = flagsword >> 16;
@@ -425,7 +425,7 @@ js::XDRInterpretedFunction(XDRState<mode> *xdr, HandleObject enclosingScope, Han
         fun->initScript(script);
         script->setFunction(fun);
         if (!JSFunction::setTypeForScriptedFunction(cx, fun))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         JS_ASSERT(fun->nargs == fun->nonLazyScript()->bindings.numArgs());
         RootedScript script(cx, fun->nonLazyScript());
         CallNewScriptHook(cx, script, fun);
@@ -491,7 +491,7 @@ fun_hasInstance(JSContext *cx, HandleObject objArg, MutableHandleValue v, bool *
 
     RootedValue pval(cx);
     if (!JSObject::getProperty(cx, obj, obj, cx->names().prototype, &pval))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (pval.isPrimitive()) {
         /*
@@ -500,13 +500,13 @@ fun_hasInstance(JSContext *cx, HandleObject objArg, MutableHandleValue v, bool *
          */
         RootedValue val(cx, ObjectValue(*obj));
         js_ReportValueError(cx, JSMSG_BAD_PROTOTYPE, -1, val, NullPtr());
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedObject pobj(cx, &pval.toObject());
     bool isDelegate;
     if (!IsDelegate(cx, pobj, v, &isDelegate))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *bp = isDelegate;
     return true;
 }
@@ -592,7 +592,7 @@ FindBody(JSContext *cx, HandleFunction fun, StableCharPtr chars, size_t length,
             break;
           case TOK_ERROR:
             // Must be memory.
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
           default:
             break;
         }
@@ -601,7 +601,7 @@ FindBody(JSContext *cx, HandleFunction fun, StableCharPtr chars, size_t length,
     if (tt == TOK_ARROW)
         tt = ts.getToken();
     if (tt == TOK_ERROR)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     bool braced = tt == TOK_LC;
     JS_ASSERT_IF(fun->isExprClosure(), !braced);
     *bodyStart = ts.currentToken().pos.begin;
@@ -822,15 +822,15 @@ fun_toString(JSContext *cx, unsigned argc, Value *vp)
     uint32_t indent = 0;
 
     if (args.length() != 0 && !ToUint32(cx, args[0], &indent))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedString str(cx, fun_toStringHelper(cx, obj, indent));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setString(str);
     return true;
@@ -845,7 +845,7 @@ fun_toSource(JSContext *cx, unsigned argc, Value *vp)
 
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedString str(cx);
     if (obj->isCallable())
@@ -854,7 +854,7 @@ fun_toSource(JSContext *cx, unsigned argc, Value *vp)
         str = ObjectToSource(cx, obj);
 
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setString(str);
     return true;
 }
@@ -867,7 +867,7 @@ js_fun_call(JSContext *cx, unsigned argc, Value *vp)
 
     if (!js_IsCallable(fval)) {
         ReportIncompatibleMethod(cx, CallReceiverFromVp(vp), &JSFunction::class_);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     Value *argv = vp + 2;
@@ -882,7 +882,7 @@ js_fun_call(JSContext *cx, unsigned argc, Value *vp)
     /* Allocate stack space for fval, obj, and the args. */
     InvokeArgs args(cx);
     if (!args.init(argc))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Push fval, thisv, and the args. */
     args.setCallee(fval);
@@ -903,7 +903,7 @@ PushBaselineFunApplyArguments(JSContext *cx, jit::IonFrameIterator &frame, Invok
     JS_ASSERT(length <= ARGS_LENGTH_MAX);
 
     if (!args.init(length))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Push fval, obj, and aobj's elements as args. */
     args.setCallee(vp[1]);
@@ -923,7 +923,7 @@ js_fun_apply(JSContext *cx, unsigned argc, Value *vp)
     RootedValue fval(cx, vp[1]);
     if (!js_IsCallable(fval)) {
         ReportIncompatibleMethod(cx, CallReceiverFromVp(vp), &JSFunction::class_);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Step 2. */
@@ -961,7 +961,7 @@ js_fun_apply(JSContext *cx, unsigned argc, Value *vp)
                     JS_ASSERT(length <= ARGS_LENGTH_MAX);
 
                     if (!args.init(length))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                     /* Push fval, obj, and aobj's elements as args. */
                     args.setCallee(fval);
@@ -976,7 +976,7 @@ js_fun_apply(JSContext *cx, unsigned argc, Value *vp)
                     JS_ASSERT(frame.isBaselineJS());
 
                     if (!PushBaselineFunApplyArguments(cx, frame, args, vp))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             } else {
                 JS_ASSERT(frame.type() == jit::IonFrame_Exit);
@@ -988,7 +988,7 @@ js_fun_apply(JSContext *cx, unsigned argc, Value *vp)
                 JS_ASSERT(frame.isBaselineJS());
 
                 if (!PushBaselineFunApplyArguments(cx, frame, args, vp))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         } else
 #endif
@@ -998,7 +998,7 @@ js_fun_apply(JSContext *cx, unsigned argc, Value *vp)
             JS_ASSERT(length <= ARGS_LENGTH_MAX);
 
             if (!args.init(length))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             /* Push fval, obj, and aobj's elements as args. */
             args.setCallee(fval);
@@ -1012,7 +1012,7 @@ js_fun_apply(JSContext *cx, unsigned argc, Value *vp)
         if (!vp[3].isObject()) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                                  JSMSG_BAD_APPLY_ARGS, js_apply_str);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         /*
@@ -1022,16 +1022,16 @@ js_fun_apply(JSContext *cx, unsigned argc, Value *vp)
         RootedObject aobj(cx, &vp[3].toObject());
         uint32_t length;
         if (!GetLengthProperty(cx, aobj, &length))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* Step 6. */
         if (length > ARGS_LENGTH_MAX) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_TOO_MANY_FUN_APPLY_ARGS);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (!args.init(length))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* Push fval, obj, and aobj's elements as args. */
         args.setCallee(fval);
@@ -1039,12 +1039,12 @@ js_fun_apply(JSContext *cx, unsigned argc, Value *vp)
 
         /* Steps 7-8. */
         if (!GetElements(cx, aobj, length, args.array()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Step 9. */
     if (!Invoke(cx, args))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *vp = args.rval();
     return true;
@@ -1067,13 +1067,13 @@ JSFunction::initBoundFunction(JSContext *cx, HandleValue thisArg,
      * value and arguments count.
      */
     if (!self->toDictionaryMode(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!self->setFlag(cx, BaseShape::BOUND_FUNCTION))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!JSObject::setSlotSpan(cx, self, BOUND_FUNCTION_RESERVED_SLOTS + argslen))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     self->setSlot(JSSLOT_BOUND_FUNCTION_THIS, thisArg);
     self->setSlot(JSSLOT_BOUND_FUNCTION_ARGS_COUNT, PrivateUint32Value(argslen));
@@ -1139,7 +1139,7 @@ JSFunction::createScriptForLazilyInterpretedFunction(JSContext *cx, HandleFuncti
             script = lazy->function()->getOrCreateScript(cx);
             if (!script) {
                 fun->initLazyScript(lazy);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             fun->initScript(script);
             return true;
@@ -1164,7 +1164,7 @@ JSFunction::createScriptForLazilyInterpretedFunction(JSContext *cx, HandleFuncti
             RootedScript clonedScript(cx, CloneScript(cx, enclosingScope, fun, scriptRoot));
             if (!clonedScript) {
                 fun->initLazyScript(lazy);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             clonedScript->setSourceObject(lazy->sourceObject());
@@ -1185,7 +1185,7 @@ JSFunction::createScriptForLazilyInterpretedFunction(JSContext *cx, HandleFuncti
         const jschar *chars = lazy->source()->chars(cx);
         if (!chars) {
             fun->initLazyScript(lazy);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         const jschar *lazyStart = chars + lazy->begin();
@@ -1193,7 +1193,7 @@ JSFunction::createScriptForLazilyInterpretedFunction(JSContext *cx, HandleFuncti
 
         if (!frontend::CompileLazyFunction(cx, lazy, lazyStart, lazyLength)) {
             fun->initLazyScript(lazy);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         script = fun->nonLazyScript();
@@ -1218,7 +1218,7 @@ JSFunction::createScriptForLazilyInterpretedFunction(JSContext *cx, HandleFuncti
     /* Lazily cloned self hosted script. */
     RootedAtom funAtom(cx, &fun->getExtendedSlot(0).toString()->asAtom());
     if (!funAtom)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     Rooted<PropertyName *> funName(cx, funAtom->asPropertyName());
     return cx->runtime()->cloneSelfHostedFunctionScript(cx, funName, fun);
 }
@@ -1246,7 +1246,7 @@ js::CallOrConstructBoundFunction(JSContext *cx, unsigned argc, Value *vp)
 
     if (argc + argslen > ARGS_LENGTH_MAX) {
         js_ReportAllocationOverflow(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* 15.3.4.5.1 step 3, 15.3.4.5.2 step 1. */
@@ -1257,7 +1257,7 @@ js::CallOrConstructBoundFunction(JSContext *cx, unsigned argc, Value *vp)
 
     InvokeArgs invokeArgs(cx);
     if (!invokeArgs.init(argc + argslen))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* 15.3.4.5.1, 15.3.4.5.2 step 4. */
     for (unsigned i = 0; i < argslen; i++)
@@ -1271,7 +1271,7 @@ js::CallOrConstructBoundFunction(JSContext *cx, unsigned argc, Value *vp)
         invokeArgs.setThis(boundThis);
 
     if (constructing ? !InvokeConstructor(cx, invokeArgs) : !Invoke(cx, invokeArgs))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *vp = invokeArgs.rval();
     return true;
@@ -1302,7 +1302,7 @@ fun_bind(JSContext *cx, unsigned argc, Value *vp)
     /* Step 2. */
     if (!js_IsCallable(thisv)) {
         ReportIncompatibleMethod(cx, args, &JSFunction::class_);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Step 3. */
@@ -1318,7 +1318,7 @@ fun_bind(JSContext *cx, unsigned argc, Value *vp)
     RootedObject target(cx, &thisv.toObject());
     JSObject *boundFunction = js_fun_bind(cx, target, thisArg, boundArgs, argslen);
     if (!boundFunction)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 22. */
     args.rval().setObject(*boundFunction);
@@ -1368,7 +1368,7 @@ OnBadFormal(JSContext *cx, TokenKind tt)
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_BAD_FORMAL);
     else
         JS_ASSERT(cx->isExceptionPending());
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 const JSFunctionSpec js::function_methods[] = {
@@ -1393,7 +1393,7 @@ FunctionConstructor(JSContext *cx, unsigned argc, Value *vp, GeneratorKind gener
     Rooted<GlobalObject*> global(cx, &args.callee().global());
     if (!GlobalObject::isRuntimeCodeGenEnabled(cx, global)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CSP_BLOCKED_FUNCTION);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     AutoKeepAtoms keepAtoms(cx->perThreadData);
@@ -1434,7 +1434,7 @@ FunctionConstructor(JSContext *cx, unsigned argc, Value *vp, GeneratorKind gener
             /* Collect the lengths for all the function-argument arguments. */
             arg = ToString<CanGC>(cx, args[i]);
             if (!arg)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             args[i].setString(arg);
 
             /*
@@ -1445,7 +1445,7 @@ FunctionConstructor(JSContext *cx, unsigned argc, Value *vp, GeneratorKind gener
             args_length = old_args_length + arg->length();
             if (args_length < old_args_length) {
                 js_ReportAllocationOverflow(cx);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
 
@@ -1455,7 +1455,7 @@ FunctionConstructor(JSContext *cx, unsigned argc, Value *vp, GeneratorKind gener
         if (args_length < old_args_length ||
             args_length >= ~(size_t)0 / sizeof(jschar)) {
             js_ReportAllocationOverflow(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         /*
@@ -1467,7 +1467,7 @@ FunctionConstructor(JSContext *cx, unsigned argc, Value *vp, GeneratorKind gener
         jschar *cp = cx->tempLifoAlloc().newArray<jschar>(args_length + 1);
         if (!cp) {
             js_ReportOutOfMemory(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         StableCharPtr collected_args(cp, args_length + 1);
 
@@ -1479,7 +1479,7 @@ FunctionConstructor(JSContext *cx, unsigned argc, Value *vp, GeneratorKind gener
             size_t arg_length = arg->length();
             const jschar *arg_chars = arg->getChars(cx);
             if (!arg_chars)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             (void) js_strncpy(cp, arg_chars, arg_length);
             cp += arg_length;
 
@@ -1508,7 +1508,7 @@ FunctionConstructor(JSContext *cx, unsigned argc, Value *vp, GeneratorKind gener
                  */
                 if (hasRest) {
                     ts.reportError(JSMSG_PARAMETER_AFTER_REST);
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
 
                 if (tt == TOK_YIELD && yieldIsValidName)
@@ -1523,7 +1523,7 @@ FunctionConstructor(JSContext *cx, unsigned argc, Value *vp, GeneratorKind gener
                         if (tt != TOK_NAME) {
                             if (tt != TOK_ERROR)
                                 ts.reportError(JSMSG_NO_REST_NAME);
-                            return false;
+                            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                         }
                     } else {
                         return OnBadFormal(cx, tt);
@@ -1531,7 +1531,7 @@ FunctionConstructor(JSContext *cx, unsigned argc, Value *vp, GeneratorKind gener
                 }
 
                 if (!formals.append(ts.currentName()))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 /*
                  * Get the next token.  Stop on end of stream.  Otherwise
@@ -1560,10 +1560,10 @@ FunctionConstructor(JSContext *cx, unsigned argc, Value *vp, GeneratorKind gener
     else
         str = ToString<CanGC>(cx, args[args.length() - 1]);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JSLinearString *linear = str->ensureLinear(cx);
     if (!linear)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS::Anchor<JSString *> strAnchor(str);
     const jschar *chars = linear->chars();
@@ -1583,14 +1583,14 @@ FunctionConstructor(JSContext *cx, unsigned argc, Value *vp, GeneratorKind gener
     if (isStarGenerator) {
         proto = global->getOrCreateStarGeneratorFunctionPrototype(cx);
         if (!proto)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     RootedFunction fun(cx, NewFunctionWithProto(cx, NullPtr(), nullptr, 0,
                                                 JSFunction::INTERPRETED_LAMBDA, global,
                                                 anonymousAtom, proto,
                                                 JSFunction::FinalizeKind, TenuredObject));
     if (!fun)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (hasRest)
         fun->setHasRest();
@@ -1804,7 +1804,7 @@ js::IsConstructor(const Value &v)
 {
     // Step 2.
     if (!v.isObject())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Step 3-4, a bit complex for us, since we have several flavors of
     // [[Construct]] internal method.
@@ -1867,14 +1867,14 @@ JSObject::hasIdempotentProtoChain() const
     JSObject *obj = const_cast<JSObject *>(this);
     while (true) {
         if (!obj->isNative())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         JSResolveOp resolve = obj->getClass()->resolve;
         if (resolve != JS_ResolveStub && resolve != (JSResolveOp) js::fun_resolve)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (obj->getOps()->lookupProperty || obj->getOps()->lookupGeneric || obj->getOps()->lookupElement)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         obj = obj->getProto();
         if (!obj)

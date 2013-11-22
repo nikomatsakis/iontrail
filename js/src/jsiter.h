@@ -224,10 +224,10 @@ namespace js {
  *     ForOfIterator it(cx, iterable);
  *     while (it.next()) {
  *        if (!DoStuff(cx, it.value()))
- *            return false;
+ *            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
  *     }
  *     if (!it.close())
- *         return false;
+ *         do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
  *
  * The final it.close() check is needed in order to check for cases where
  * any of the iterator operations fail.

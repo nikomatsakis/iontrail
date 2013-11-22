@@ -823,7 +823,7 @@ struct JSRuntime : public JS::shadow::Runtime,
 #ifdef JS_WORKER_THREADS
         return numExclusiveThreads > 0;
 #else
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
     }
 
@@ -1231,11 +1231,11 @@ struct JSRuntime : public JS::shadow::Runtime,
             }
             return true;
         }
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 #else
     int gcZeal() { return 0; }
-    bool needZealousGC() { return false; }
+    bool needZealousGC() { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
 #endif
 
     bool                gcValidate;
@@ -1704,7 +1704,7 @@ struct JSRuntime : public JS::shadow::Runtime,
 #ifdef JS_THREADSAFE
         return useHelperThreads_ == JS_USE_HELPER_THREADS;
 #else
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
     }
 

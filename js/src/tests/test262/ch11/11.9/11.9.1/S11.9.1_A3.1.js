@@ -2,7 +2,7 @@
 // This code is governed by the BSD license found in the LICENSE file.
 
 /**
- * Return true, if x and y are both true or both false; otherwise, return false
+ * Return true, if x and y are both true or both false; otherwise, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
  *
  * @path ch11/11.9/11.9.1/S11.9.1_A3.1.js
  * @description x and y are boolean primitives

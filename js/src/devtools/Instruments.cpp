@@ -98,7 +98,7 @@ LoadDTPerformanceLibrary()
   if (!DTPerformanceLibrary) {
     DTPerformanceLibrary = LoadDTPerformanceLibraries(false);
     if (!DTPerformanceLibrary) {
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
   }
 
@@ -107,7 +107,7 @@ LoadDTPerformanceLibrary()
   if (!_sym) { \
     dlclose(DTPerformanceLibrary); \
     DTPerformanceLibrary = nullptr; \
-    return false; \
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); \
   }
 
   DTPERFORMANCE_SYMBOLS
@@ -139,24 +139,24 @@ Error(CFErrorRef error)
     printf("%.*s\n\n", (int)CFDataGetLength(data), CFDataGetBytePtr(data));
   }
 #endif
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
 Start(pid_t pid)
 {
   if (gSession) {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   if (!LoadDTPerformanceLibrary()) {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   AutoReleased<CFStringRef> process =
     CFStringCreateWithFormat(kCFAllocatorDefault, nullptr, CFSTR("%d"), pid);
   if (!process) {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   CFErrorRef error = nullptr;
   gSession = DTPerformanceSessionCreate(nullptr, process, nullptr, &error);
@@ -167,7 +167,7 @@ Start(pid_t pid)
   AutoReleased<CFNumberRef> interval =
     CFNumberCreate(0, kCFNumberIntType, &kSamplingInterval);
   if (!interval) {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   CFStringRef keys[1] = { CFSTR(DTPerformanceSession_Option_SamplingInterval) };
   CFNumberRef values[1] = { interval };
@@ -176,7 +176,7 @@ Start(pid_t pid)
                        (const void**)values, 1, &kCFTypeDictionaryKeyCallBacks,
                        &kCFTypeDictionaryValueCallBacks);
   if (!options) {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   if (!DTPerformanceSessionAddInstrument(gSession,
@@ -203,7 +203,7 @@ bool
 Resume()
 {
   if (!gSession) {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   CFErrorRef error = nullptr;

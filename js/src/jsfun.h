@@ -95,7 +95,7 @@ class JSFunction : public JSObject
         JS_ASSERT(!isInterpretedLazy());
 
         if (isNative())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         // Note: this should be kept in sync with FunctionBox::isHeavyweight().
         return nonLazyScript()->bindings.hasAnyAliasedBindings() ||
@@ -127,7 +127,7 @@ class JSFunction : public JSObject
 
     bool hasJITCode() const {
         if (!hasScript())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         return nonLazyScript()->hasBaselineScript() || nonLazyScript()->hasIonScript();
     }

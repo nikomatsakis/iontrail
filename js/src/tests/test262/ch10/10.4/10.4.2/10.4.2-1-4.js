@@ -21,7 +21,7 @@ function testcase() {
                     return true;
                 }
             }
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } finally {
             delete this.__10_4_2_1_4;
         }

@@ -44,7 +44,7 @@ js::CreateRegExpMatchResult(JSContext *cx, HandleString input_, const jschar *ch
     if (!input) {
         input = js_NewStringCopyN<CanGC>(cx, chars, length);
         if (!input)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     size_t numPairs = matches.length();
@@ -52,7 +52,7 @@ js::CreateRegExpMatchResult(JSContext *cx, HandleString input_, const jschar *ch
 
     AutoValueVector elements(cx);
     if (!elements.reserve(numPairs))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Accumulate a Value for each pair, in a rooted vector. */
     for (size_t i = 0; i < numPairs; ++i) {
@@ -64,7 +64,7 @@ js::CreateRegExpMatchResult(JSContext *cx, HandleString input_, const jschar *ch
         } else {
             JSLinearString *str = js_NewDependentString(cx, input, pair.start, pair.length());
             if (!str)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             elements.infallibleAppend(StringValue(str));
         }
     }
@@ -72,17 +72,17 @@ js::CreateRegExpMatchResult(JSContext *cx, HandleString input_, const jschar *ch
     /* Copy the rooted vector into the array object. */
     RootedObject array(cx, NewDenseCopiedArray(cx, elements.length(), elements.begin()));
     if (!array)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Set the |index| property. */
     RootedValue index(cx, Int32Value(matches[0].start));
     if (!DefinePropertyHelper(cx, array, cx->names().index, index))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Set the |input| property. */
     RootedValue inputVal(cx, StringValue(input));
     if (!DefinePropertyHelper(cx, array, cx->names().input, inputVal))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     rval.setObject(*array);
     return true;
@@ -94,7 +94,7 @@ js::CreateRegExpMatchResult(JSContext *cx, HandleString string, MatchPairs &matc
 {
     Rooted<JSLinearString*> input(cx, string->ensureLinear(cx));
     if (!input)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return CreateRegExpMatchResult(cx, input, input->chars(), input->length(), matches, rval);
 }
 
@@ -130,7 +130,7 @@ js::ExecuteRegExpLegacy(JSContext *cx, RegExpStatics *res, RegExpObject &reobj,
 {
     RegExpGuard shared(cx);
     if (!reobj.getShared(cx, &shared))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ScopedMatchPairs matches(&cx->tempLifoAlloc());
     MatchConduit conduit(&matches);
@@ -139,7 +139,7 @@ js::ExecuteRegExpLegacy(JSContext *cx, RegExpStatics *res, RegExpObject &reobj,
         ExecuteRegExpImpl(cx, res, *shared, input, chars, length, lastIndex, conduit);
 
     if (status == RegExpRunStatus_Error)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (status == RegExpRunStatus_Success_NotFound) {
         /* ExecuteRegExp() previously returned an array or null. */
@@ -207,7 +207,7 @@ CompileRegExpObject(JSContext *cx, RegExpObjectBuilder &builder, CallArgs args)
         Rooted<JSAtom*> empty(cx, cx->runtime()->emptyString);
         RegExpObject *reobj = builder.build(empty, res->getFlags());
         if (!reobj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args.rval().setObject(*reobj);
         return true;
     }
@@ -228,7 +228,7 @@ CompileRegExpObject(JSContext *cx, RegExpObjectBuilder &builder, CallArgs args)
 
         if (args.hasDefined(1)) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_NEWREGEXP_FLAGGED);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         /*
@@ -239,7 +239,7 @@ CompileRegExpObject(JSContext *cx, RegExpObjectBuilder &builder, CallArgs args)
         {
             RegExpGuard g(cx);
             if (!RegExpToShared(cx, sourceObj, &g))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             flags = g->getFlags();
         }
@@ -250,12 +250,12 @@ CompileRegExpObject(JSContext *cx, RegExpObjectBuilder &builder, CallArgs args)
          */
         RootedValue v(cx);
         if (!JSObject::getProperty(cx, sourceObj, sourceObj, cx->names().source, &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         Rooted<JSAtom*> sourceAtom(cx, &v.toString()->asAtom());
         RegExpObject *reobj = builder.build(sourceAtom, flags);
         if (!reobj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         args.rval().setObject(*reobj);
         return true;
@@ -268,30 +268,30 @@ CompileRegExpObject(JSContext *cx, RegExpObjectBuilder &builder, CallArgs args)
         /* Coerce to string and compile. */
         source = ToAtom<CanGC>(cx, sourceValue);
         if (!source)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RegExpFlag flags = RegExpFlag(0);
     if (args.hasDefined(1)) {
         RootedString flagStr(cx, ToString<CanGC>(cx, args[1]));
         if (!flagStr)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args[1].setString(flagStr);
         if (!ParseRegExpFlags(cx, flagStr, &flags))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedAtom escapedSourceStr(cx, EscapeNakedForwardSlashes(cx, source));
     if (!escapedSourceStr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!js::RegExpShared::checkSyntax(cx, nullptr, escapedSourceStr))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RegExpStatics *res = cx->global()->getRegExpStatics();
     RegExpObject *reobj = builder.build(escapedSourceStr, RegExpFlag(flags | res->getFlags()));
     if (!reobj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setObject(*reobj);
     return true;
@@ -349,7 +349,7 @@ regexp_toString_impl(JSContext *cx, CallArgs args)
 
     JSString *str = args.thisv().toObject().as<RegExpObject>().toString(cx);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setString(str);
     return true;
@@ -430,7 +430,7 @@ static_input_setter(JSContext *cx, unsigned argc, Value *vp)
 
     RootedString str(cx, ToString<CanGC>(cx, args.get(0)));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     res->setPendingInput(str);
     args.rval().setString(str);
@@ -612,7 +612,7 @@ regexp_exec_impl(JSContext *cx, CallArgs args, HandleObject regexp, HandleString
     RegExpRunStatus status = ExecuteRegExp(cx, regexp, string, conduit, staticsUpdate);
 
     if (status == RegExpRunStatus_Error)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (status == RegExpRunStatus_Success_NotFound) {
         args.rval().setNull();
@@ -628,7 +628,7 @@ regexp_exec_impl(JSContext *cx, CallArgs args)
     RootedObject regexp(cx, &args.thisv().toObject());
     RootedString string(cx, ToString<CanGC>(cx, args.get(0)));
     if (!string)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return regexp_exec_impl(cx, args, regexp, string, UpdateRegExpStatics);
 }

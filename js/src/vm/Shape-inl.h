@@ -69,7 +69,7 @@ Shape::get(JSContext* cx, HandleObject receiver, JSObject* obj, JSObject *pobj,
     Rooted<Shape *> self(cx, this);
     RootedId id(cx);
     if (!self->getUserId(cx, &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return CallJSPropertyOp(cx, self->getterOp(), receiver, id, vp);
 }
@@ -125,7 +125,7 @@ Shape::set(JSContext* cx, HandleObject obj, HandleObject receiver, bool strict,
     Rooted<Shape *> self(cx, this);
     RootedId id(cx);
     if (!self->getUserId(cx, &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * |with (it) color='red';| ends up here.

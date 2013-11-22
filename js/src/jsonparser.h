@@ -129,10 +129,10 @@ class MOZ_STACK_CLASS JSONParser : private AutoGCRooter
     /*
      * Parse the JSON data specified at construction time.  If it parses
      * successfully, store the prescribed value in *vp and return true.  If an
-     * internal error (e.g. OOM) occurs during parsing, return false.
+     * internal error (e.g. OOM) occurs during parsing, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false).
      * Otherwise, if invalid input was specifed but no internal error occurred,
      * behavior depends upon the error handling specified at construction: if
-     * error handling is RaiseError then throw a SyntaxError and return false,
+     * error handling is RaiseError then throw a SyntaxError and do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false),
      * otherwise return true and set *vp to |undefined|.  (JSON syntax can't
      * represent |undefined|, so the JSON data couldn't have specified it.)
      */

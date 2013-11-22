@@ -15,7 +15,7 @@ function testcase() {
 
         try {
             throw new Error("...");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } catch (EVAL) {
             return EVAL instanceof Error;
         }

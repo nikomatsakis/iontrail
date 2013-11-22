@@ -40,12 +40,12 @@ js::EnsureWorkerThreadsInitialized(ExclusiveContext *cx)
 
     rt->workerThreadState = rt->new_<WorkerThreadState>(rt);
     if (!rt->workerThreadState)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!rt->workerThreadState->init()) {
         js_delete(rt->workerThreadState);
         rt->workerThreadState = nullptr;
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -66,10 +66,10 @@ js::StartOffThreadAsmJSCompile(ExclusiveContext *cx, AsmJSParallelTask *asmData)
 
     // Don't append this task if another failed.
     if (state.asmJSWorkerFailed())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!state.asmJSWorklist.append(asmData))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     state.notifyAll(WorkerThreadState::PRODUCER);
     return true;
@@ -79,7 +79,7 @@ bool
 js::StartOffThreadIonCompile(JSContext *cx, jit::IonBuilder *builder)
 {
     if (!EnsureWorkerThreadsInitialized(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     WorkerThreadState &state = *cx->runtime()->workerThreadState;
     JS_ASSERT(state.numThreads);
@@ -87,7 +87,7 @@ js::StartOffThreadIonCompile(JSContext *cx, jit::IonBuilder *builder)
     AutoLockWorkerThreadState lock(state);
 
     if (!state.ionWorklist.append(builder))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     state.notifyAll(WorkerThreadState::PRODUCER);
     return true;
@@ -218,7 +218,7 @@ js::StartOffThreadParseScript(JSContext *cx, const ReadOnlyCompileOptions &optio
     frontend::MaybeCallSourceHandler(cx, options, chars, length);
 
     if (!EnsureWorkerThreadsInitialized(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS::CompartmentOptions compartmentOptions(cx->compartment()->options());
     compartmentOptions.setZone(JS::FreshZone);
@@ -226,7 +226,7 @@ js::StartOffThreadParseScript(JSContext *cx, const ReadOnlyCompileOptions &optio
     JSObject *global = JS_NewGlobalObject(cx, &workerGlobalClass, nullptr,
                                           JS::FireOnNewGlobalHook, compartmentOptions);
     if (!global)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     global->zone()->types.inferenceEnabled = cx->typeInferenceEnabled();
     JS_SetCompartmentPrincipals(global->compartment(), cx->compartment()->principals);
@@ -241,7 +241,7 @@ js::StartOffThreadParseScript(JSContext *cx, const ReadOnlyCompileOptions &optio
         !js_GetClassObject(cx, cx->global(), JSProto_RegExp, &obj) ||
         !js_GetClassObject(cx, cx->global(), JSProto_GeneratorFunction, &obj))
     {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     {
         AutoCompartment ac(cx, global);
@@ -250,7 +250,7 @@ js::StartOffThreadParseScript(JSContext *cx, const ReadOnlyCompileOptions &optio
             !js_GetClassObject(cx, global, JSProto_RegExp, &obj) ||
             !js_GetClassObject(cx, global, JSProto_GeneratorFunction, &obj))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -260,7 +260,7 @@ js::StartOffThreadParseScript(JSContext *cx, const ReadOnlyCompileOptions &optio
         cx->new_<ExclusiveContext>(cx->runtime(), (PerThreadData *) nullptr,
                                    ThreadSafeContext::Context_Exclusive));
     if (!workercx)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     workercx->enterCompartment(global->compartment());
 
@@ -268,7 +268,7 @@ js::StartOffThreadParseScript(JSContext *cx, const ReadOnlyCompileOptions &optio
         cx->new_<ParseTask>(workercx.get(), cx, chars, length,
                             scopeChain, callback, callbackData));
     if (!task || !task->init(cx, options))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     workercx.forget();
 
@@ -278,7 +278,7 @@ js::StartOffThreadParseScript(JSContext *cx, const ReadOnlyCompileOptions &optio
     AutoLockWorkerThreadState lock(state);
 
     if (!state.parseWorklist.append(task.get()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     task.forget();
 
@@ -318,22 +318,22 @@ WorkerThreadState::init()
 
     workerLock = PR_NewLock();
     if (!workerLock)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     consumerWakeup = PR_NewCondVar(workerLock);
     if (!consumerWakeup)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     producerWakeup = PR_NewCondVar(workerLock);
     if (!producerWakeup)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     numThreads = runtime->helperThreadCount();
 
     threads = (WorkerThread*) js_pod_calloc<WorkerThread>(numThreads);
     if (!threads) {
         numThreads = 0;
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     for (size_t i = 0; i < numThreads; i++) {
@@ -350,7 +350,7 @@ WorkerThreadState::init()
             js_free(threads);
             threads = nullptr;
             numThreads = 0;
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -460,10 +460,10 @@ WorkerThreadState::canStartIonCompile()
     // currently compiling a script. The latter condition ensures that two
     // compilations cannot simultaneously occur.
     if (ionWorklist.empty())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     for (size_t i = 0; i < numThreads; i++) {
         if (threads[i].ionBuilder)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -477,10 +477,10 @@ WorkerThreadState::canStartParseTask()
     // block on other off thread asm.js compilation tasks.
     JS_ASSERT(isLocked());
     if (parseWorklist.empty())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     for (size_t i = 0; i < numThreads; i++) {
         if (threads[i].parseTask)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -787,13 +787,13 @@ bool
 js::StartOffThreadCompression(ExclusiveContext *cx, SourceCompressionTask *task)
 {
     if (!EnsureWorkerThreadsInitialized(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     WorkerThreadState &state = *cx->workerThreadState();
     AutoLockWorkerThreadState lock(state);
 
     if (!state.compressionWorklist.append(task))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     state.notifyAll(WorkerThreadState::PRODUCER);
     return true;
@@ -811,7 +811,7 @@ WorkerThreadState::compressionInProgress(SourceCompressionTask *task)
         if (threads[i].compressionTask == task)
             return true;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -836,7 +836,7 @@ SourceCompressionTask::complete()
     }
     if (oom) {
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }

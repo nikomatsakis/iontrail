@@ -33,7 +33,7 @@ struct LowToHigh
     }
 
     static bool shouldBeRemoved(uint32_t initial) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 };
 
@@ -107,7 +107,7 @@ AddLowKeys(IntMap *am, IntMap *bm, int seed)
         uint32_t n = rand() & 0x0000FFFF;
         if (!am->has(n)) {
             if (bm->has(n))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             am->putNew(n, n);
             bm->putNew(n, n);
             i++;
@@ -125,7 +125,7 @@ AddLowKeys(IntSet *as, IntSet *bs, int seed)
         uint32_t n = rand() & 0x0000FFFF;
         if (!as->has(n)) {
             if (bs->has(n))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             as->putNew(n);
             bs->putNew(n);
             i++;
@@ -145,7 +145,7 @@ SlowRekey(IntMap *m) {
             continue;
         uint32_t hi = NewKeyFunction::rekey(r.front().key);
         if (tmp.has(hi))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         tmp.putNew(hi, r.front().value);
     }
 
@@ -168,7 +168,7 @@ SlowRekey(IntSet *s) {
             continue;
         uint32_t hi = NewKeyFunction::rekey(r.front());
         if (tmp.has(hi))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         tmp.putNew(hi);
     }
 

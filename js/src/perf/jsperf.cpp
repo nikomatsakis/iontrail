@@ -23,7 +23,7 @@ static PerfMeasurement* GetPM(JSContext* cx, JS::HandleValue value, const char* 
         CallArgs args = CallArgsFromVp(argc, vp);                       \
         PerfMeasurement* p = GetPM(cx, args.thisv(), #name);            \
         if (!p)                                                         \
-            return false;                                               \
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                               \
         args.rval().setNumber(double(p->name));                         \
         return true;                                                    \
     }
@@ -51,7 +51,7 @@ pm_start(JSContext* cx, unsigned argc, jsval* vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     PerfMeasurement* p = GetPM(cx, args.thisv(), "start");
     if (!p)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     p->start();
     args.rval().setUndefined();
@@ -64,7 +64,7 @@ pm_stop(JSContext* cx, unsigned argc, jsval* vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     PerfMeasurement* p = GetPM(cx, args.thisv(), "stop");
     if (!p)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     p->stop();
     args.rval().setUndefined();
@@ -77,7 +77,7 @@ pm_reset(JSContext* cx, unsigned argc, jsval* vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     PerfMeasurement* p = GetPM(cx, args.thisv(), "reset");
     if (!p)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     p->reset();
     args.rval().setUndefined();
@@ -90,7 +90,7 @@ pm_canMeasureSomething(JSContext* cx, unsigned argc, jsval* vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     PerfMeasurement* p = GetPM(cx, args.thisv(), "canMeasureSomething");
     if (!p)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setBoolean(p->canMeasureSomething());
     return true;
@@ -173,19 +173,19 @@ pm_construct(JSContext* cx, unsigned argc, jsval* vp)
 {
     uint32_t mask;
     if (!JS_ConvertArguments(cx, argc, JS_ARGV(cx, vp), "u", &mask))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS::RootedObject obj(cx, JS_NewObjectForConstructor(cx, &pm_class, vp));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!JS_FreezeObject(cx, obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     PerfMeasurement* p = cx->new_<PerfMeasurement>(PerfMeasurement::EventMask(mask));
     if (!p) {
         JS_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JS_SetPrivate(obj, p);

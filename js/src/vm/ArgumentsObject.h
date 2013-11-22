@@ -192,7 +192,7 @@ class ArgumentsObject : public JSObject
     bool isElementDeleted(uint32_t i) const {
         JS_ASSERT(i < data()->numArgs);
         if (i >= initialLength())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         return IsBitArrayElementSet(data()->deletedBits, initialLength(), i);
     }
 
@@ -248,7 +248,7 @@ class ArgumentsObject : public JSObject
      */
     bool maybeGetElement(uint32_t i, MutableHandleValue vp) {
         if (i >= initialLength() || isElementDeleted(i))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         vp.set(element(i));
         return true;
     }

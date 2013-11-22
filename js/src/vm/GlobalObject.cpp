@@ -52,7 +52,7 @@ ThrowTypeError(JSContext *cx, unsigned argc, Value *vp)
 {
     JS_ReportErrorFlagsAndNumber(cx, JSREPORT_ERROR, js_GetErrorMessage, nullptr,
                                  JSMSG_THROW_TYPE_ERROR);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static bool
@@ -68,14 +68,14 @@ ProtoGetterImpl(JSContext *cx, CallArgs args)
 
     HandleValue thisv = args.thisv();
     if (thisv.isPrimitive() && !BoxNonStrictThis(cx, args))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     unsigned dummy;
     RootedObject obj(cx, &args.thisv().toObject());
     RootedId nid(cx, NameToId(cx->names().proto));
     RootedValue v(cx);
     if (!CheckAccess(cx, obj, nid, JSACC_PROTO, &v, &dummy))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().set(v);
     return true;
@@ -96,7 +96,7 @@ static bool
 TestProtoSetterThis(HandleValue v)
 {
     if (v.isNullOrUndefined())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* These will work as if on a boxed primitive; dumb, but whatever. */
     if (!v.isObject())
@@ -128,10 +128,10 @@ ProtoSetterImpl(JSContext *cx, CallArgs args)
     /* ES5 8.6.2 forbids changing [[Prototype]] if not [[Extensible]]. */
     bool extensible;
     if (!JSObject::isExtensible(cx, obj, &extensible))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!extensible) {
         obj->reportNotExtensible(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /*
@@ -144,7 +144,7 @@ ProtoSetterImpl(JSContext *cx, CallArgs args)
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_INCOMPATIBLE_PROTO,
                              "Object", "__proto__ setter",
                              obj->is<ProxyObject>() ? "Proxy" : "ArrayBuffer");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Do nothing if __proto__ isn't being set to an object or null. */
@@ -159,10 +159,10 @@ ProtoSetterImpl(JSContext *cx, CallArgs args)
     RootedId nid(cx, NameToId(cx->names().proto));
     RootedValue v(cx);
     if (!CheckAccess(cx, obj, nid, JSAccessMode(JSACC_PROTO | JSACC_WRITE), &v, &dummy))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!SetClassAndProto(cx, obj, obj->getClass(), newProto, true))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setUndefined();
     return true;
@@ -458,11 +458,11 @@ GlobalObject::initStandardClasses(JSContext *cx, Handle<GlobalObject*> global)
     if (!JSObject::defineProperty(cx, global, cx->names().undefined, undefinedValue,
                                   JS_PropertyStub, JS_StrictPropertyStub, JSPROP_PERMANENT | JSPROP_READONLY))
     {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!global->initFunctionAndObjectClasses(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Initialize the rest of the standard objects and functions. */
     return js_InitArrayClass(cx, global) &&
@@ -517,7 +517,7 @@ GlobalObject::warnOnceAboutWatch(JSContext *cx, HandleObject obj)
         if (!JS_ReportErrorFlagsAndNumber(cx, JSREPORT_WARNING, js_GetErrorMessage, NULL,
                                           JSMSG_OBJECT_WATCH_DEPRECATED))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         v.init(global, HeapSlot::Slot, WARNED_WATCH_DEPRECATED, BooleanValue(true));
     }
@@ -585,9 +585,9 @@ js::DefinePropertiesAndBrand(JSContext *cx, JSObject *obj_,
     RootedObject obj(cx, obj_);
 
     if (ps && !JS_DefineProperties(cx, obj, ps))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (fs && !JS_DefineFunctions(cx, obj, fs))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return true;
 }
 
@@ -638,16 +638,16 @@ GlobalObject::addDebugger(JSContext *cx, Handle<GlobalObject*> global, Debugger 
 {
     DebuggerVector *debuggers = getOrCreateDebuggers(cx, global);
     if (!debuggers)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #ifdef DEBUG
     for (Debugger **p = debuggers->begin(); p != debuggers->end(); p++)
         JS_ASSERT(*p != dbg);
 #endif
     if (debuggers->empty() && !global->compartment()->addDebuggee(cx, global))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!debuggers->append(dbg)) {
         global->compartment()->removeDebuggee(cx->runtime()->defaultFreeOp(), global);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -663,14 +663,14 @@ GlobalObject::getSelfHostedFunction(JSContext *cx, HandleAtom selfHostedName, Ha
         return true;
 
     if (!cx->runtime()->maybeWrappedSelfHostedFunction(cx, shId, funVal))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!funVal.isUndefined())
         return true;
 
     JSFunction *fun = NewFunction(cx, NullPtr(), nullptr, nargs, JSFunction::INTERPRETED_LAZY,
                                   holder, name, JSFunction::ExtendedFinalizeKind, SingletonObject);
     if (!fun)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     fun->setIsSelfHostedBuiltin();
     fun->setExtendedSlot(0, StringValue(selfHostedName));
     funVal.setObject(*fun);

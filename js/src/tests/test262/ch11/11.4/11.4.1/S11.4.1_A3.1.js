@@ -2,7 +2,7 @@
 // This code is governed by the BSD license found in the LICENSE file.
 
 /**
- * If the property has the DontDelete attribute, return false
+ * If the property has the DontDelete attribute, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
  *
  * @path ch11/11.4/11.4.1/S11.4.1_A3.1.js
  * @description Checking declared variable

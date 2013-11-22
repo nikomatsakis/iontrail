@@ -93,7 +93,7 @@ RegExpStatics::executeLazy(JSContext *cx)
     /* Retrieve or create the RegExpShared in this compartment. */
     RegExpGuard g(cx);
     if (!cx->compartment()->regExps.get(cx, lazySource, lazyFlags, &g))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * It is not necessary to call aboutToWrite(): evaluation of
@@ -106,7 +106,7 @@ RegExpStatics::executeLazy(JSContext *cx)
     /* Execute the full regular expression. */
     RegExpRunStatus status = g->execute(cx, chars, length, &this->lazyIndex, this->matches);
     if (status == RegExpRunStatus_Error)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * RegExpStatics are only updated on successful (matching) execution.

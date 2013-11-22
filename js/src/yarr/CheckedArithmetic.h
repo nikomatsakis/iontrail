@@ -83,7 +83,7 @@ protected:
     void clearOverflow() { }
 
 public:
-    bool hasOverflowed() const { return false; }
+    bool hasOverflowed() const { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
 };
 
 class RecordOverflow {
@@ -138,7 +138,7 @@ template <typename Target, typename Source> struct BoundsChecker<Target, Source,
     {
         // Target is unsigned so any value less than zero is clearly unsafe
         if (value < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         // If our (unsigned) Target is the same or greater width we can
         // convert value to type Target without losing precision
         if (sizeof(Target) >= sizeof(Source)) 
@@ -244,11 +244,11 @@ template <typename LHS, typename RHS, typename ResultType> struct ArithmeticOper
         if (signsMatch(lhs, rhs)) {
             if (lhs >= 0) {
                 if ((::std::numeric_limits<ResultType>::max() - rhs) < lhs)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else {
                 ResultType temp = lhs - ::std::numeric_limits<ResultType>::min();
                 if (rhs < -temp)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         } // if the signs do not match this operation can't overflow
         result = lhs + rhs;
@@ -260,10 +260,10 @@ template <typename LHS, typename RHS, typename ResultType> struct ArithmeticOper
         if (!signsMatch(lhs, rhs)) {
             if (lhs >= 0) {
                 if (lhs > ::std::numeric_limits<ResultType>::max() + rhs)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else {
                 if (rhs > ::std::numeric_limits<ResultType>::max() + lhs)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         } // if the signs match this operation can't overflow
         result = lhs - rhs;
@@ -275,20 +275,20 @@ template <typename LHS, typename RHS, typename ResultType> struct ArithmeticOper
         if (signsMatch(lhs, rhs)) {
             if (lhs >= 0) {
                 if (lhs && (::std::numeric_limits<ResultType>::max() / lhs) < rhs)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else {
                 if (lhs == ::std::numeric_limits<ResultType>::min() || rhs == ::std::numeric_limits<ResultType>::min())
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if ((::std::numeric_limits<ResultType>::max() / -lhs) < -rhs)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         } else {
             if (lhs < 0) {
                 if (rhs && lhs < (::std::numeric_limits<ResultType>::min() / rhs))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else {
                 if (lhs && rhs < (::std::numeric_limits<ResultType>::min() / lhs))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
         result = lhs * rhs;
@@ -305,7 +305,7 @@ template <typename LHS, typename RHS, typename ResultType> struct ArithmeticOper
     {
         ResultType temp = lhs + rhs;
         if (temp < lhs)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         result = temp;
         return true;
     }
@@ -314,7 +314,7 @@ template <typename LHS, typename RHS, typename ResultType> struct ArithmeticOper
     {
         ResultType temp = lhs - rhs;
         if (temp > lhs)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         result = temp;
         return true;
     }
@@ -323,7 +323,7 @@ template <typename LHS, typename RHS, typename ResultType> struct ArithmeticOper
     {
         ResultType temp = lhs * rhs;
         if (temp < lhs)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         result = temp;
         return true;
     }
@@ -337,9 +337,9 @@ template <typename ResultType> struct ArithmeticOperations<int, unsigned, Result
     {
         int64_t temp = lhs + rhs;
         if (temp < ::std::numeric_limits<ResultType>::min())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (temp > ::std::numeric_limits<ResultType>::max())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         result = static_cast<ResultType>(temp);
         return true;
     }
@@ -348,9 +348,9 @@ template <typename ResultType> struct ArithmeticOperations<int, unsigned, Result
     {
         int64_t temp = lhs - rhs;
         if (temp < ::std::numeric_limits<ResultType>::min())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (temp > ::std::numeric_limits<ResultType>::max())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         result = static_cast<ResultType>(temp);
         return true;
     }
@@ -359,9 +359,9 @@ template <typename ResultType> struct ArithmeticOperations<int, unsigned, Result
     {
         int64_t temp = lhs * rhs;
         if (temp < ::std::numeric_limits<ResultType>::min())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (temp > ::std::numeric_limits<ResultType>::max())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         result = static_cast<ResultType>(temp);
         return true;
     }

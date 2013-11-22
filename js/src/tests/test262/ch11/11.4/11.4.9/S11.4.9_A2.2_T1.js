@@ -5,7 +5,7 @@
  * Operator !x uses [[Default Value]]
  *
  * @path ch11/11.4/11.4.9/S11.4.9_A2.2_T1.js
- * @description If Type(value) is Object, return false
+ * @description If Type(value) is Object, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
  */
 
 //CHECK#1

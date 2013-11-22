@@ -14,11 +14,11 @@ Monitor::init()
 #ifdef JS_THREADSAFE
     lock_ = PR_NewLock();
     if (!lock_)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     condVar_ = PR_NewCondVar(lock_);
     if (!condVar_)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
 
     return true;

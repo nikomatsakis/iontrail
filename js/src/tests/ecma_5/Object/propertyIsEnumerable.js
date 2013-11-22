@@ -172,7 +172,7 @@ expectThrowTypeError(function() { propertyIsEnumerable.call(undefined, {}); });
 /*
  * 3. Let desc be the result of calling the [[GetOwnProperty]] internal method
  *    of O passing P as the argument.
- * 4. If desc is undefined, return false.
+ * 4. If desc is undefined, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false).
  */
 assertEq(propertyIsEnumerable.call({}, "valueOf"), false);
 assertEq(propertyIsEnumerable.call({}, "toString"), false);

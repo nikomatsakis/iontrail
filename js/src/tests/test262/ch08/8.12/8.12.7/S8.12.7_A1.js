@@ -3,7 +3,7 @@
 
 /**
  * When the [[Delete]] method of O is called with property name P,
- * and If the property has the DontDelete attribute, return false
+ * and If the property has the DontDelete attribute, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
  *
  * @path ch08/8.12/8.12.7/S8.12.7_A1.js
  * @description Try to delete Math.E, that has the DontDelete attribute

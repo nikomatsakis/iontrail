@@ -344,7 +344,7 @@ class Parser : private AutoGCRooter, public StrictModeGetter
     /*
      * Not all language constructs can be handled during syntax parsing. If it
      * is not known whether the parse succeeds or fails, this bit is set and
-     * the parse will return false.
+     * the parse will do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false).
      */
     bool abortedSyntaxParse:1;
 
@@ -560,7 +560,7 @@ class Parser : private AutoGCRooter, public StrictModeGetter
 
     bool allowsForEachIn() {
 #if !JS_HAS_FOR_EACH_IN
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #else
         return versionNumber() >= JSVERSION_1_6;
 #endif

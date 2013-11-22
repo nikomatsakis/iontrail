@@ -19,7 +19,7 @@ bool
 ParseContext<ParseHandler>::init(TokenStream &ts)
 {
     if (!frontend::GenerateBlockId(ts, this, this->bodyid))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return decls_.init() && lexdeps.ensureMap(sc->context);
 }

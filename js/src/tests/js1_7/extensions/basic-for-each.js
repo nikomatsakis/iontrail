@@ -24,10 +24,10 @@ function Array_equals(a, b)
   if (!(a instanceof Array) || !(b instanceof Array))
     throw new Error("Arguments not both of type Array");
   if (a.length != b.length)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   for (var i = 0, sz = a.length; i < sz; i++)
     if (a[i] !== b[i])
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   return true;
 }
 

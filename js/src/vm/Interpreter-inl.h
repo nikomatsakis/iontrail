@@ -51,7 +51,7 @@ ComputeThis(JSContext *cx, AbstractFramePtr frame)
 
     JSObject *thisObj = BoxNonStrictThis(cx, thisv);
     if (!thisObj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     frame.thisValue().setObject(*thisObj);
     return true;
@@ -88,7 +88,7 @@ GuardFunApplyArgumentsOptimization(JSContext *cx, AbstractFramePtr frame, Handle
         if (!IsNativeFunction(callee, js_fun_apply)) {
             RootedScript script(cx, frame.script());
             if (!JSScript::argumentsOptimizationFailed(cx, script))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             args[1] = ObjectValue(frame.argsObj());
         }
     }
@@ -158,7 +158,7 @@ GetLengthProperty(const Value &lval, MutableHandleValue vp)
         }
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 template <bool TypeOf> inline bool
@@ -173,14 +173,14 @@ FetchName(JSContext *cx, HandleObject obj, HandleObject obj2, HandlePropertyName
         JSAutoByteString printable;
         if (AtomToPrintableString(cx, name, &printable))
             js_ReportIsNotDefined(cx, printable.ptr());
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Take the slow path if shape was not found in a native object. */
     if (!obj->isNative() || !obj2->isNative()) {
         Rooted<jsid> id(cx, NameToId(name));
         if (!JSObject::getGeneric(cx, obj, obj, id, vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         Rooted<JSObject*> normalized(cx, obj);
         if (normalized->getClass() == &WithObject::class_ && !shape->hasDefaultGetter())
@@ -190,7 +190,7 @@ FetchName(JSContext *cx, HandleObject obj, HandleObject obj2, HandlePropertyName
             JS_ASSERT(shape->hasSlot());
             vp.set(obj2->nativeGetSlot(shape->slot()));
         } else if (!NativeGet(cx, normalized, obj2, shape, vp)) {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
     return true;
@@ -200,7 +200,7 @@ inline bool
 FetchNameNoGC(JSObject *pobj, Shape *shape, MutableHandleValue vp)
 {
     if (!shape || !pobj->isNative() || !shape->isDataDescriptor() || !shape->hasDefaultGetter())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     vp.set(pobj->nativeGetSlot(shape->slot()));
     return true;
@@ -254,14 +254,14 @@ DefVarOrConstOperation(JSContext *cx, HandleObject varobj, HandlePropertyName dn
     RootedShape prop(cx);
     RootedObject obj2(cx);
     if (!JSObject::lookupProperty(cx, varobj, dn, &obj2, &prop))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Steps 8c, 8d. */
     if (!prop || (obj2 != varobj && varobj->is<GlobalObject>())) {
         RootedValue value(cx, UndefinedValue());
         if (!JSObject::defineProperty(cx, varobj, dn, value, JS_PropertyStub,
                                       JS_StrictPropertyStub, attrs)) {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     } else if (attrs & JSPROP_READONLY) {
         /*
@@ -271,7 +271,7 @@ DefVarOrConstOperation(JSContext *cx, HandleObject varobj, HandlePropertyName dn
         unsigned oldAttrs;
         RootedId id(cx, NameToId(dn));
         if (!JSObject::getGenericAttributes(cx, varobj, id, &oldAttrs))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         JSAutoByteString bytes;
         if (AtomToPrintableString(cx, dn, &bytes)) {
@@ -283,7 +283,7 @@ DefVarOrConstOperation(JSContext *cx, HandleObject varobj, HandlePropertyName dn
                                                          : "var",
                                                          bytes.ptr()));
         }
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -304,7 +304,7 @@ NegOperation(JSContext *cx, HandleScript script, jsbytecode *pc, HandleValue val
     } else {
         double d;
         if (!ToNumber(cx, val, &d))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         res.setNumber(-d);
     }
 
@@ -322,11 +322,11 @@ ToIdOperation(JSContext *cx, HandleScript script, jsbytecode *pc, HandleValue ob
 
     JSObject *obj = ToObjectFromStack(cx, objval);
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedId id(cx);
     if (!ValueToId<CanGC>(cx, idval, &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     res.set(IdToValue(id));
     return true;
@@ -346,7 +346,7 @@ GetObjectElementOperation(JSContext *cx, JSOp op, JSObject *objArg, bool wasObje
 
             RootedObject obj(cx, objArg);
             if (!JSObject::getElement(cx, obj, obj, index, res))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             objArg = obj;
             break;
         }
@@ -357,7 +357,7 @@ GetObjectElementOperation(JSContext *cx, JSOp op, JSObject *objArg, bool wasObje
             res.set(rref);
             if (ValueIsSpecial(obj, res, &special, cx)) {
                 if (!JSObject::getSpecial(cx, obj, obj, special, res))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 objArg = obj;
                 break;
             }
@@ -379,14 +379,14 @@ GetObjectElementOperation(JSContext *cx, JSOp op, JSObject *objArg, bool wasObje
 
         name = ToAtom<CanGC>(cx, rref);
         if (!name)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (name->isIndex(&index)) {
             if (!JSObject::getElement(cx, obj, obj, index, res))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             if (!JSObject::getProperty(cx, obj, obj, name->asPropertyName(), res))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         objArg = obj;
@@ -396,7 +396,7 @@ GetObjectElementOperation(JSContext *cx, JSOp op, JSObject *objArg, bool wasObje
     if (op == JSOP_CALLELEM && JS_UNLIKELY(res.isUndefined()) && wasObject) {
         RootedObject obj(cx, objArg);
         if (!OnUnknownMethod(cx, obj, rref, res))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 #endif
 
@@ -422,7 +422,7 @@ GetElemOptimizedArguments(JSContext *cx, AbstractFramePtr frame, MutableHandleVa
 
         RootedScript script(cx, frame.script());
         if (!JSScript::argumentsOptimizationFailed(cx, script))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         lref.set(ObjectValue(frame.argsObj()));
     }
@@ -442,7 +442,7 @@ GetElementOperation(JSContext *cx, JSOp op, MutableHandleValue lref, HandleValue
         if (index < str->length()) {
             str = cx->runtime()->staticStrings.getUnitStringForElement(cx, str, index);
             if (!str)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             res.setString(str);
             return true;
         }
@@ -451,7 +451,7 @@ GetElementOperation(JSContext *cx, JSOp op, MutableHandleValue lref, HandleValue
     bool isObject = lref.isObject();
     JSObject *obj = ToObjectFromStack(cx, lref);
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return GetObjectElementOperation(cx, op, obj, isObject, rref, res);
 }
 
@@ -476,7 +476,7 @@ InitElemOperation(JSContext *cx, HandleObject obj, HandleValue idval, HandleValu
 
     RootedId id(cx);
     if (!ValueToId<CanGC>(cx, idval, &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return JSObject::defineGeneric(cx, obj, id, val, nullptr, nullptr, JSPROP_ENUMERATE);
 }
@@ -501,16 +501,16 @@ InitArrayElemOperation(JSContext *cx, jsbytecode *pc, HandleObject obj, uint32_t
             (op == JSOP_INITELEM_INC && next == JSOP_POP))
         {
             if (!SetLengthProperty(cx, obj, index + 1))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     } else {
         if (!JSObject::defineElement(cx, obj, index, val, nullptr, nullptr, JSPROP_ENUMERATE))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (op == JSOP_INITELEM_INC && index == INT32_MAX) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_SPREAD_TOO_LARGE);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -523,19 +523,19 @@ InitArrayElemOperation(JSContext *cx, jsbytecode *pc, HandleObject obj, uint32_t
             *res = lhs.toInt32() OP rhs.toInt32();                            \
         } else {                                                              \
             if (!ToPrimitive(cx, JSTYPE_NUMBER, lhs))                         \
-                return false;                                                 \
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                                 \
             if (!ToPrimitive(cx, JSTYPE_NUMBER, rhs))                         \
-                return false;                                                 \
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                                 \
             if (lhs.isString() && rhs.isString()) {                           \
                 JSString *l = lhs.toString(), *r = rhs.toString();            \
                 int32_t result;                                               \
                 if (!CompareStrings(cx, l, r, &result))                       \
-                    return false;                                             \
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                             \
                 *res = result OP 0;                                           \
             } else {                                                          \
                 double l, r;                                                  \
                 if (!ToNumber(cx, lhs, &l) || !ToNumber(cx, rhs, &r))         \
-                    return false;;                                            \
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);;                                            \
                 *res = (l OP r);                                              \
             }                                                                 \
         }                                                                     \
@@ -567,7 +567,7 @@ BitNot(JSContext *cx, HandleValue in, int *out)
 {
     int i;
     if (!ToInt32(cx, in, &i))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *out = ~i;
     return true;
 }
@@ -577,7 +577,7 @@ BitXor(JSContext *cx, HandleValue lhs, HandleValue rhs, int *out)
 {
     int left, right;
     if (!ToInt32(cx, lhs, &left) || !ToInt32(cx, rhs, &right))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *out = left ^ right;
     return true;
 }
@@ -587,7 +587,7 @@ BitOr(JSContext *cx, HandleValue lhs, HandleValue rhs, int *out)
 {
     int left, right;
     if (!ToInt32(cx, lhs, &left) || !ToInt32(cx, rhs, &right))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *out = left | right;
     return true;
 }
@@ -597,7 +597,7 @@ BitAnd(JSContext *cx, HandleValue lhs, HandleValue rhs, int *out)
 {
     int left, right;
     if (!ToInt32(cx, lhs, &left) || !ToInt32(cx, rhs, &right))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *out = left & right;
     return true;
 }
@@ -607,7 +607,7 @@ BitLsh(JSContext *cx, HandleValue lhs, HandleValue rhs, int *out)
 {
     int32_t left, right;
     if (!ToInt32(cx, lhs, &left) || !ToInt32(cx, rhs, &right))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *out = uint32_t(left) << (right & 31);
     return true;
 }
@@ -617,7 +617,7 @@ BitRsh(JSContext *cx, HandleValue lhs, HandleValue rhs, int *out)
 {
     int32_t left, right;
     if (!ToInt32(cx, lhs, &left) || !ToInt32(cx, rhs, &right))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *out = left >> (right & 31);
     return true;
 }
@@ -628,7 +628,7 @@ UrshOperation(JSContext *cx, HandleValue lhs, HandleValue rhs, Value *out)
     uint32_t left;
     int32_t  right;
     if (!ToUint32(cx, lhs, &left) || !ToInt32(cx, rhs, &right))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     left >>= right & 31;
     out->setNumber(uint32_t(left));
     return true;
@@ -695,7 +695,7 @@ class FastInvokeGuard
             if (!script_) {
                 script_ = fun_->getOrCreateScript(cx);
                 if (!script_)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             if (ictx_.empty())
                 ictx_.construct(cx, (js::jit::TempAllocator *)nullptr);
@@ -703,11 +703,11 @@ class FastInvokeGuard
 
             jit::MethodStatus status = jit::CanEnterUsingFastInvoke(cx, script_, args_.length());
             if (status == jit::Method_Error)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (status == jit::Method_Compiled) {
                 jit::IonExecStatus result = jit::FastInvoke(cx, fun_, args_);
                 if (IsErrorStatus(result))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 JS_ASSERT(result == jit::IonExec_Ok);
                 return true;

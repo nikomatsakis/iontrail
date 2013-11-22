@@ -19,7 +19,7 @@ BEGIN_TEST(testContexts_IsRunning)
         JSContext *acx = JS_NewContext(rt, 8192);
         if (!acx) {
             JS_ReportOutOfMemory(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         // acx should not be running

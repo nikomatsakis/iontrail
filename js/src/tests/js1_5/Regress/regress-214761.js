@@ -20,19 +20,19 @@ var code = "var bar1=new Array();\n" +
   "var bar3=document.getElementById&&!document.all;\n" +
   "var bar4=document.layers;\n" +
   "function foo1(){\n" +
-  "return false;}\n" +
+  "do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}\n" +
   "function foo2(){\n" +
-  "return false;}\n" +
+  "do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}\n" +
   "function foo3(){\n" +
-  "return false;}\n" +
+  "do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}\n" +
   "function foo4(){\n" +
-  "return false;}\n" +
+  "do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}\n" +
   "function foo5(){\n" +
-  "return false;}\n" +
+  "do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}\n" +
   "function foo6(){\n" +
-  "return false;}\n" +
+  "do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}\n" +
   "function foo7(){\n" +
-  "return false;}";
+  "do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}";
 
 try
 {

@@ -140,7 +140,7 @@ PushNodeChildren(ParseNode *pn, NodeStack *stack)
         pn->pn_funbox = nullptr;
         stack->pushUnlessNull(pn->pn_body);
         pn->pn_body = nullptr;
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
       case PN_NAME:
         /*

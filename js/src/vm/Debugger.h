@@ -79,7 +79,7 @@ class DebuggerWeakMap : private WeakMap<Key, Value, DefaultHasher<Key> >
     bool relookupOrAdd(AddPtr &p, const KeyInput &k, const ValueInput &v) {
         JS_ASSERT(v->compartment() == Base::compartment);
         if (!incZoneCount(k->zone()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         bool ok = Base::relookupOrAdd(p, k, v);
         if (!ok)
             decZoneCount(k->zone());
@@ -124,7 +124,7 @@ class DebuggerWeakMap : private WeakMap<Key, Value, DefaultHasher<Key> >
     bool incZoneCount(JS::Zone *zone) {
         CountMap::Ptr p = zoneCounts.lookupWithDefault(zone, 0);
         if (!p)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         ++p->value;
         return true;
     }
@@ -488,7 +488,7 @@ class Debugger : private mozilla::LinkedListElement<Debugger>
     bool getScriptFrame(JSContext *cx, const ScriptFrameIter &iter, MutableHandleValue vp) {
         AbstractFramePtr data = iter.copyDataAsAbstractFramePtr();
         if (!data || !getScriptFrame(cx, iter.abstractFramePtr(), vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         vp.toObject().setPrivate(data.raw());
         return true;
     }

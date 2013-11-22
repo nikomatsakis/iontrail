@@ -45,5 +45,5 @@ function test1()
 function test2()
 {
   test1();
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }

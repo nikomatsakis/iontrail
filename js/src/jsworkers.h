@@ -205,7 +205,7 @@ OffThreadIonCompilationEnabled(JSRuntime *rt)
         && rt->helperThreadCount() != 0
         && rt->useHelperThreadsForIonCompilation();
 #else
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
 }
 

@@ -26,5 +26,5 @@ function referencesVia(from, edge, to) {
     print("all incoming edges, from any object:");
     for (var e in edges)
         print(e);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }

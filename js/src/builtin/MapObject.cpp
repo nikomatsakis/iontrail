@@ -108,7 +108,7 @@ class OrderedHashTable
         uint32_t buckets = initialBuckets();
         Data **tableAlloc = static_cast<Data **>(alloc.malloc_(buckets * sizeof(Data *)));
         if (!tableAlloc)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         for (uint32_t i = 0; i < buckets; i++)
             tableAlloc[i] = nullptr;
 
@@ -116,7 +116,7 @@ class OrderedHashTable
         Data *dataAlloc = static_cast<Data *>(alloc.malloc_(capacity * sizeof(Data)));
         if (!dataAlloc) {
             alloc.free_(tableAlloc);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         // clear() requires that members are assigned only after all allocation
@@ -164,7 +164,7 @@ class OrderedHashTable
      * replace that entry with |element|. Otherwise add a new entry.
      *
      * On success, return true, whether there was already a matching element or
-     * not. On allocation failure, return false. If this returns false, it
+     * not. On allocation failure, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false). If this returns false, it
      * means the element was not added to the table.
      */
     template <typename ElementInput>
@@ -180,7 +180,7 @@ class OrderedHashTable
             // place to free up some space. Otherwise, grow the table.
             uint32_t newHashShift = liveCount >= dataCapacity * 0.75 ? hashShift - 1 : hashShift;
             if (!rehash(newHashShift))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         h >>= hashShift;
@@ -224,7 +224,7 @@ class OrderedHashTable
         // If many entries have been removed, try to shrink the table.
         if (hashBuckets() > initialBuckets() && liveCount < dataLength * minDataFill()) {
             if (!rehash(hashShift + 1))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         return true;
     }
@@ -249,7 +249,7 @@ class OrderedHashTable
             if (!init()) {
                 // init() only mutates members on success; see comment above.
                 hashTable = oldHashTable;
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             alloc.free_(oldHashTable);
@@ -625,7 +625,7 @@ class OrderedHashTable
         size_t newHashBuckets = 1 << (HashNumberSizeBits - newHashShift);
         Data **newHashTable = static_cast<Data **>(alloc.malloc_(newHashBuckets * sizeof(Data *)));
         if (!newHashTable)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         for (uint32_t i = 0; i < newHashBuckets; i++)
             newHashTable[i] = nullptr;
 
@@ -633,7 +633,7 @@ class OrderedHashTable
         Data *newData = static_cast<Data *>(alloc.malloc_(newCapacity * sizeof(Data)));
         if (!newData) {
             alloc.free_(newHashTable);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         Data *wp = newData;
@@ -778,7 +778,7 @@ HashableValue::setValue(JSContext *cx, HandleValue v)
         // Atomize so that hash() and operator==() are fast and infallible.
         JSString *str = AtomizeString(cx, v.toString(), DoNotInternAtom);
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         value = StringValue(str);
     } else if (v.isDouble()) {
         double d = v.toDouble();
@@ -898,14 +898,14 @@ GlobalObject::initMapIteratorProto(JSContext *cx, Handle<GlobalObject *> global)
 {
     JSObject *base = global->getOrCreateIteratorPrototype(cx);
     if (!base)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     Rooted<JSObject*> proto(cx,
         NewObjectWithGivenProto(cx, &MapIteratorObject::class_, base, global));
     if (!proto)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     proto->setSlot(MapIteratorObject::RangeSlot, PrivateValue(nullptr));
     if (!JS_DefineFunctions(cx, proto, MapIteratorObject::methods))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     global->setReservedSlot(MAP_ITERATOR_PROTO, ObjectValue(*proto));
     return true;
 }
@@ -975,7 +975,7 @@ MapIteratorObject::next_impl(JSContext *cx, CallArgs args)
 
             JSObject *pairobj = NewDenseCopiedArray(cx, ArrayLength(pair), pair);
             if (!pairobj)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             value.setObject(*pairobj);
             break;
           }
@@ -986,7 +986,7 @@ MapIteratorObject::next_impl(JSContext *cx, CallArgs args)
 
     RootedObject result(cx, CreateItrResultObject(cx, value, done));
     if (!result)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setObject(*result);
 
     return true;
@@ -1141,14 +1141,14 @@ MapObject::construct(JSContext *cx, unsigned argc, Value *vp)
 {
     Rooted<JSObject*> obj(cx, NewBuiltinClassInstance(cx, &class_));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ValueMap *map = cx->new_<ValueMap>(cx->runtime());
     if (!map)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!map->init()) {
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     obj->setPrivate(map);
 
@@ -1156,40 +1156,40 @@ MapObject::construct(JSContext *cx, unsigned argc, Value *vp)
     if (args.hasDefined(0)) {
         ForOfIterator iter(cx);
         if (!iter.init(args[0]))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         RootedValue pairVal(cx);
         RootedObject pairObj(cx);
         while (true) {
             bool done;
             if (!iter.next(&pairVal, &done))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (done)
                 break;
             if (!pairVal.isObject()) {
                 JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_INVALID_MAP_ITERABLE);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             pairObj = &pairVal.toObject();
             if (!pairObj)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             RootedValue key(cx);
             if (!JSObject::getElement(cx, pairObj, pairObj, 0, &key))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             AutoHashableValueRooter hkey(cx);
             if (!hkey.setValue(cx, key))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             RootedValue val(cx);
             if (!JSObject::getElement(cx, pairObj, pairObj, 1, &val))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             RelocatableValue rval(val);
             if (!map->put(hkey, rval)) {
                 js_ReportOutOfMemory(cx);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             WriteBarrierPost(cx->runtime(), map, hkey);
         }
@@ -1208,7 +1208,7 @@ MapObject::is(HandleValue v)
 #define ARG0_KEY(cx, args, key)                                               \
     AutoHashableValueRooter key(cx);                                          \
     if (args.length() > 0 && !key.setValue(cx, args[0]))                      \
-        return false
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
 
 ValueMap &
 MapObject::extract(CallReceiver call)
@@ -1286,7 +1286,7 @@ MapObject::set_impl(JSContext *cx, CallArgs args)
     RelocatableValue rval(args.get(1));
     if (!map.put(key, rval)) {
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     WriteBarrierPost(cx->runtime(), &map, key);
     args.rval().setUndefined();
@@ -1319,7 +1319,7 @@ MapObject::delete_impl(JSContext *cx, CallArgs args)
     bool found;
     if (!map.remove(key, &found)) {
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     args.rval().setBoolean(found);
     return true;
@@ -1339,7 +1339,7 @@ MapObject::iterator_impl(JSContext *cx, CallArgs args, IteratorKind kind)
     ValueMap &map = *mapobj->getData();
     Rooted<JSObject*> iterobj(cx, MapIteratorObject::create(cx, mapobj, &map, kind));
     if (!iterobj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setObject(*iterobj);
     return true;
 }
@@ -1389,7 +1389,7 @@ MapObject::clear_impl(JSContext *cx, CallArgs args)
     Rooted<MapObject*> mapobj(cx, &args.thisv().toObject().as<MapObject>());
     if (!mapobj->getData()->clear()) {
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     args.rval().setUndefined();
     return true;
@@ -1473,13 +1473,13 @@ GlobalObject::initSetIteratorProto(JSContext *cx, Handle<GlobalObject*> global)
 {
     JSObject *base = global->getOrCreateIteratorPrototype(cx);
     if (!base)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedObject proto(cx, NewObjectWithGivenProto(cx, &SetIteratorObject::class_, base, global));
     if (!proto)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     proto->setSlot(SetIteratorObject::RangeSlot, PrivateValue(nullptr));
     if (!JS_DefineFunctions(cx, proto, SetIteratorObject::methods))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     global->setReservedSlot(SET_ITERATOR_PROTO, ObjectValue(*proto));
     return true;
 }
@@ -1545,7 +1545,7 @@ SetIteratorObject::next_impl(JSContext *cx, CallArgs args)
 
             JSObject *pairObj = NewDenseCopiedArray(cx, 2, pair);
             if (!pairObj)
-              return false;
+              do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             value.setObject(*pairObj);
             break;
           }
@@ -1556,7 +1556,7 @@ SetIteratorObject::next_impl(JSContext *cx, CallArgs args)
 
     RootedObject result(cx, CreateItrResultObject(cx, value, done));
     if (!result)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setObject(*result);
 
     return true;
@@ -1651,14 +1651,14 @@ SetObject::construct(JSContext *cx, unsigned argc, Value *vp)
 {
     Rooted<JSObject*> obj(cx, NewBuiltinClassInstance(cx, &class_));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ValueSet *set = cx->new_<ValueSet>(cx->runtime());
     if (!set)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!set->init()) {
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     obj->setPrivate(set);
 
@@ -1667,19 +1667,19 @@ SetObject::construct(JSContext *cx, unsigned argc, Value *vp)
         RootedValue keyVal(cx);
         ForOfIterator iter(cx);
         if (!iter.init(args[0]))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         AutoHashableValueRooter key(cx);
         while (true) {
             bool done;
             if (!iter.next(&keyVal, &done))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (done)
                 break;
             if (!key.setValue(cx, keyVal))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!set->put(key)) {
                 js_ReportOutOfMemory(cx);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             WriteBarrierPost(cx->runtime(), set, key);
         }
@@ -1748,7 +1748,7 @@ SetObject::add_impl(JSContext *cx, CallArgs args)
     ARG0_KEY(cx, args, key);
     if (!set.put(key)) {
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     WriteBarrierPost(cx->runtime(), &set, key);
     args.rval().setUndefined();
@@ -1772,7 +1772,7 @@ SetObject::delete_impl(JSContext *cx, CallArgs args)
     bool found;
     if (!set.remove(key, &found)) {
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     args.rval().setBoolean(found);
     return true;
@@ -1792,7 +1792,7 @@ SetObject::iterator_impl(JSContext *cx, CallArgs args, IteratorKind kind)
     ValueSet &set = *setobj->getData();
     Rooted<JSObject*> iterobj(cx, SetIteratorObject::create(cx, setobj, &set, kind));
     if (!iterobj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setObject(*iterobj);
     return true;
 }
@@ -1829,7 +1829,7 @@ SetObject::clear_impl(JSContext *cx, CallArgs args)
     Rooted<SetObject*> setobj(cx, &args.thisv().toObject().as<SetObject>());
     if (!setobj->getData()->clear()) {
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     args.rval().setUndefined();
     return true;

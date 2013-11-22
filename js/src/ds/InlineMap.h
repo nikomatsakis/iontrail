@@ -57,13 +57,13 @@ class InlineMap
             map.clear();
         } else {
             if (!map.init(count()))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             JS_ASSERT(map.initialized());
         }
 
         for (InlineElem *it = inl, *end = inl + inlNext; it != end; ++it) {
             if (it->key && !map.putNew(it->key, it->value))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         inlNext = InlineElems + 1;
@@ -75,7 +75,7 @@ class InlineMap
     JS_NEVER_INLINE
     bool switchAndAdd(const K &key, const V &value) {
         if (!switchToMap())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         return map.putNew(key, value);
     }

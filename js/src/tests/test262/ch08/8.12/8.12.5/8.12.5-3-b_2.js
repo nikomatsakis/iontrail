@@ -27,11 +27,11 @@ function testcase() {
             for (var i in descArray[j]) {
                 if (i==="value") {
                     if (origDesc[i]===newDesc[i]) {
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     }
                 }
                 else if (origDesc[i]!==newDesc[i]) {
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
         }

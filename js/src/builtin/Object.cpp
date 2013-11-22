@@ -33,11 +33,11 @@ js::obj_construct(JSContext *cx, unsigned argc, Value *vp)
     if (args.length() > 0 && !args[0].isNullOrUndefined()) {
         obj = ToObject(cx, args[0]);
         if (!obj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         /* Make an object whether this was called with 'new' or not. */
         if (!NewObjectScriptedCall(cx, &obj))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args.rval().setObject(*obj);
@@ -53,18 +53,18 @@ obj_propertyIsEnumerable(JSContext *cx, unsigned argc, Value *vp)
     /* Step 1. */
     RootedId id(cx);
     if (!ValueToId<CanGC>(cx, args.get(0), &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 2. */
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Steps 3. */
     RootedObject pobj(cx);
     RootedShape prop(cx);
     if (!JSObject::lookupGeneric(cx, obj, id, &pobj, &prop))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 4. */
     if (!prop) {
@@ -80,7 +80,7 @@ obj_propertyIsEnumerable(JSContext *cx, unsigned argc, Value *vp)
     /* Step 5. */
     unsigned attrs;
     if (!JSObject::getGenericAttributes(cx, pobj, id, &attrs))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setBoolean((attrs & JSPROP_ENUMERATE) != 0);
     return true;
@@ -91,15 +91,15 @@ static bool
 obj_toSource(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSString *str = ObjectToSource(cx, obj);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setString(str);
     return true;
@@ -304,12 +304,12 @@ obj_toString(JSContext *cx, unsigned argc, Value *vp)
     /* Step 3. */
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Steps 4-5. */
     JSString *str = JS_BasicObjectToString(cx, obj);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setString(str);
     return true;
 }
@@ -318,14 +318,14 @@ obj_toString(JSContext *cx, unsigned argc, Value *vp)
 static bool
 obj_toLocaleString(JSContext *cx, unsigned argc, Value *vp)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     CallArgs args = CallArgsFromVp(argc, vp);
 
     /* Step 1. */
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Steps 2-4. */
     RootedId id(cx, NameToId(cx->names().toString));
@@ -338,7 +338,7 @@ obj_valueOf(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setObject(*obj);
     return true;
 }
@@ -353,46 +353,46 @@ DefineAccessor(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
     if (!BoxNonStrictThis(cx, args))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (args.length() < 2 || !js_IsCallable(args[1])) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                              JSMSG_BAD_GETTER_OR_SETTER,
                              Type == Getter ? js_getter_str : js_setter_str);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedId id(cx);
     if (!ValueToId<CanGC>(cx, args[0], &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedObject descObj(cx, NewBuiltinClassInstance(cx, &JSObject::class_));
     if (!descObj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSAtomState &names = cx->names();
     RootedValue trueVal(cx, BooleanValue(true));
 
     /* enumerable: true */
     if (!JSObject::defineProperty(cx, descObj, names.enumerable, trueVal))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* configurable: true */
     if (!JSObject::defineProperty(cx, descObj, names.configurable, trueVal))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* enumerable: true */
     PropertyName *acc = (Type == Getter) ? names.get : names.set;
     RootedValue accessorVal(cx, args[1]);
     if (!JSObject::defineProperty(cx, descObj, acc, accessorVal))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedObject thisObj(cx, &args.thisv().toObject());
 
     bool dummy;
     RootedValue descObjValue(cx, ObjectValue(*descObj));
     if (!DefineOwnProperty(cx, thisObj, id, descObjValue, &dummy))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setUndefined();
     return true;
@@ -417,17 +417,17 @@ obj_lookupGetter(JSContext *cx, unsigned argc, Value *vp)
 
     RootedId id(cx);
     if (!ValueToId<CanGC>(cx, args.get(0), &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (obj->is<ProxyObject>()) {
         // The vanilla getter lookup code below requires that the object is
         // native. Handle proxies separately.
         args.rval().setUndefined();
         Rooted<PropertyDescriptor> desc(cx);
         if (!Proxy::getPropertyDescriptor(cx, obj, id, &desc, 0))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (desc.object() && desc.hasGetterObject() && desc.getterObject())
             args.rval().setObject(*desc.getterObject());
         return true;
@@ -435,7 +435,7 @@ obj_lookupGetter(JSContext *cx, unsigned argc, Value *vp)
     RootedObject pobj(cx);
     RootedShape shape(cx);
     if (!JSObject::lookupGeneric(cx, obj, id, &pobj, &shape))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setUndefined();
     if (shape) {
         if (pobj->isNative() && !IsImplicitDenseElement(shape)) {
@@ -453,17 +453,17 @@ obj_lookupSetter(JSContext *cx, unsigned argc, Value *vp)
 
     RootedId id(cx);
     if (!ValueToId<CanGC>(cx, args.get(0), &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (obj->is<ProxyObject>()) {
         // The vanilla setter lookup code below requires that the object is
         // native. Handle proxies separately.
         args.rval().setUndefined();
         Rooted<PropertyDescriptor> desc(cx);
         if (!Proxy::getPropertyDescriptor(cx, obj, id, &desc, 0))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (desc.object() && desc.hasSetterObject() && desc.setterObject())
             args.rval().setObject(*desc.setterObject());
         return true;
@@ -471,7 +471,7 @@ obj_lookupSetter(JSContext *cx, unsigned argc, Value *vp)
     RootedObject pobj(cx);
     RootedShape shape(cx);
     if (!JSObject::lookupGeneric(cx, obj, id, &pobj, &shape))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setUndefined();
     if (shape) {
         if (pobj->isNative() && !IsImplicitDenseElement(shape)) {
@@ -492,18 +492,18 @@ obj_getPrototypeOf(JSContext *cx, unsigned argc, Value *vp)
     /* Step 1. */
     if (args.length() == 0) {
         js_ReportMissingArg(cx, args.calleev(), 0);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (args[0].isPrimitive()) {
         RootedValue val(cx, args[0]);
         char *bytes = DecompileValueGenerator(cx, JSDVG_SEARCH_STACK, val, NullPtr());
         if (!bytes)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                              JSMSG_UNEXPECTED_TYPE, bytes, "not an object");
         js_free(bytes);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Step 2. */
@@ -514,11 +514,11 @@ obj_getPrototypeOf(JSContext *cx, unsigned argc, Value *vp)
      */
     InvokeArgs args2(cx);
     if (!args2.init(0))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args2.setCallee(cx->global()->protoGetter());
     args2.setThis(args[0]);
     if (!Invoke(cx, args2))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().set(args2.rval());
     return true;
 }
@@ -541,7 +541,7 @@ js::WatchHandler(JSContext *cx, JSObject *obj_, jsid id_, JS::Value old,
     Value argv[] = { IdToValue(id), old, *nvp };
     RootedValue rv(cx);
     if (!Invoke(cx, ObjectValue(*obj), ObjectOrNullValue(callable), ArrayLength(argv), argv, &rv))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *nvp = rv;
     return true;
@@ -554,33 +554,33 @@ obj_watch(JSContext *cx, unsigned argc, Value *vp)
 
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #if 0 /* pending addressing Firebug's use of this method */
     if (!GlobalObject::warnOnceAboutWatch(cx, obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
 
     if (args.length() <= 1) {
         js_ReportMissingArg(cx, args.calleev(), 1);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedObject callable(cx, ValueToCallable(cx, args[1], args.length() - 2));
     if (!callable)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedId propid(cx);
     if (!ValueToId<CanGC>(cx, args[0], &propid))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue tmp(cx);
     unsigned attrs;
     if (!CheckAccess(cx, obj, propid, JSACC_WATCH, &tmp, &attrs))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!JSObject::watch(cx, obj, propid, callable))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setUndefined();
     return true;
@@ -593,23 +593,23 @@ obj_unwatch(JSContext *cx, unsigned argc, Value *vp)
 
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #if 0 /* pending addressing Firebug's use of this method */
     if (!GlobalObject::warnOnceAboutWatch(cx, obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
 
     RootedId id(cx);
     if (args.length() != 0) {
         if (!ValueToId<CanGC>(cx, args[0], &id))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         id = JSID_VOID;
     }
 
     if (!JSObject::unwatch(cx, obj, id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setUndefined();
     return true;
@@ -641,12 +641,12 @@ obj_hasOwnProperty(JSContext *cx, unsigned argc, Value *vp)
     /* Step 1. */
     RootedId idRoot(cx);
     if (!ValueToId<CanGC>(cx, idValue, &idRoot))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 2. */
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Non-standard code for proxies. */
     RootedObject obj2(cx);
@@ -654,14 +654,14 @@ obj_hasOwnProperty(JSContext *cx, unsigned argc, Value *vp)
     if (obj->is<ProxyObject>()) {
         bool has;
         if (!Proxy::hasOwn(cx, obj, idRoot, &has))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args.rval().setBoolean(has);
         return true;
     }
 
     /* Step 3. */
     if (!HasOwnProperty<CanGC>(cx, obj->getOps()->lookupGeneric, obj, idRoot, &obj2, &prop))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     /* Step 4,5. */
     args.rval().setBoolean(!!prop);
     return true;
@@ -682,12 +682,12 @@ obj_isPrototypeOf(JSContext *cx, unsigned argc, Value *vp)
     /* Step 2. */
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 3. */
     bool isDelegate;
     if (!IsDelegate(cx, obj, args[0], &isDelegate))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setBoolean(isDelegate);
     return true;
 }
@@ -699,7 +699,7 @@ obj_create(JSContext *cx, unsigned argc, Value *vp)
     if (argc == 0) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MORE_ARGS_NEEDED,
                              "Object.create", "0", "s");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     CallArgs args = CallArgsFromVp(argc, vp);
@@ -707,11 +707,11 @@ obj_create(JSContext *cx, unsigned argc, Value *vp)
     if (!v.isObjectOrNull()) {
         char *bytes = DecompileValueGenerator(cx, JSDVG_SEARCH_STACK, v, NullPtr());
         if (!bytes)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_UNEXPECTED_TYPE,
                              bytes, "not an object or null");
         js_free(bytes);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedObject proto(cx, v.toObjectOrNull());
@@ -722,18 +722,18 @@ obj_create(JSContext *cx, unsigned argc, Value *vp)
      */
     RootedObject obj(cx, NewObjectWithGivenProto(cx, &JSObject::class_, proto, &args.callee().global()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* 15.2.3.5 step 4. */
     if (args.hasDefined(1)) {
         if (args[1].isPrimitive()) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_NOT_NONNULL_OBJECT);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         RootedObject props(cx, &args[1].toObject());
         if (!DefineProperties(cx, obj, props))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* 5. Return obj. */
@@ -747,10 +747,10 @@ obj_getOwnPropertyDescriptor(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedObject obj(cx);
     if (!GetFirstArgumentAsObject(cx, args, "Object.getOwnPropertyDescriptor", &obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedId id(cx);
     if (!ValueToId<CanGC>(cx, args.get(1), &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return GetOwnPropertyDescriptor(cx, obj, id, args.rval());
 }
 
@@ -760,15 +760,15 @@ obj_keys(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedObject obj(cx);
     if (!GetFirstArgumentAsObject(cx, args, "Object.keys", &obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     AutoIdVector props(cx);
     if (!GetPropertyNames(cx, obj, JSITER_OWNONLY, &props))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     AutoValueVector vals(cx);
     if (!vals.reserve(props.length()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     for (size_t i = 0, len = props.length(); i < len; i++) {
         jsid id = props[i];
         if (JSID_IS_STRING(id)) {
@@ -776,7 +776,7 @@ obj_keys(JSContext *cx, unsigned argc, Value *vp)
         } else if (JSID_IS_INT(id)) {
             JSString *str = Int32ToString<CanGC>(cx, JSID_TO_INT(id));
             if (!str)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             vals.infallibleAppend(StringValue(str));
         } else {
             JS_ASSERT(JSID_IS_OBJECT(id));
@@ -786,7 +786,7 @@ obj_keys(JSContext *cx, unsigned argc, Value *vp)
     JS_ASSERT(props.length() <= UINT32_MAX);
     JSObject *aobj = NewDenseCopiedArray(cx, uint32_t(vals.length()), vals.begin());
     if (!aobj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setObject(*aobj);
     return true;
@@ -800,7 +800,7 @@ obj_is(JSContext *cx, unsigned argc, Value *vp)
 
     bool same;
     if (!SameValue(cx, args.get(0), args.get(1), &same))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setBoolean(same);
     return true;
@@ -812,22 +812,22 @@ obj_getOwnPropertyNames(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedObject obj(cx);
     if (!GetFirstArgumentAsObject(cx, args, "Object.getOwnPropertyNames", &obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     AutoIdVector keys(cx);
     if (!GetPropertyNames(cx, obj, JSITER_OWNONLY | JSITER_HIDDEN, &keys))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     AutoValueVector vals(cx);
     if (!vals.resize(keys.length()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (size_t i = 0, len = keys.length(); i < len; i++) {
          jsid id = keys[i];
          if (JSID_IS_INT(id)) {
              JSString *str = Int32ToString<CanGC>(cx, JSID_TO_INT(id));
              if (!str)
-                 return false;
+                 do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
              vals[i].setString(str);
          } else if (JSID_IS_ATOM(id)) {
              vals[i].setString(JSID_TO_STRING(id));
@@ -838,7 +838,7 @@ obj_getOwnPropertyNames(JSContext *cx, unsigned argc, Value *vp)
 
     JSObject *aobj = NewDenseCopiedArray(cx, vals.length(), vals.begin());
     if (!aobj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setObject(*aobj);
     return true;
@@ -851,15 +851,15 @@ obj_defineProperty(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedObject obj(cx);
     if (!GetFirstArgumentAsObject(cx, args, "Object.defineProperty", &obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedId id(cx);
     if (!ValueToId<CanGC>(cx, args.get(1), &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     bool junk;
     if (!DefineOwnProperty(cx, obj, id, args.get(2), &junk))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setObject(*obj);
     return true;
@@ -874,19 +874,19 @@ obj_defineProperties(JSContext *cx, unsigned argc, Value *vp)
     /* Steps 1 and 7. */
     RootedObject obj(cx);
     if (!GetFirstArgumentAsObject(cx, args, "Object.defineProperties", &obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setObject(*obj);
 
     /* Step 2. */
     if (args.length() < 2) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MORE_ARGS_NEEDED,
                              "Object.defineProperties", "0", "s");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     RootedValue val(cx, args[1]);
     RootedObject props(cx, ToObject(cx, val));
     if (!props)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Steps 3-6. */
     return DefineProperties(cx, obj, props);
@@ -898,11 +898,11 @@ obj_isExtensible(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedObject obj(cx);
     if (!GetFirstArgumentAsObject(cx, args, "Object.isExtensible", &obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     bool extensible;
     if (!JSObject::isExtensible(cx, obj, &extensible))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setBoolean(extensible);
     return true;
 }
@@ -913,13 +913,13 @@ obj_preventExtensions(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedObject obj(cx);
     if (!GetFirstArgumentAsObject(cx, args, "Object.preventExtensions", &obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setObject(*obj);
 
     bool extensible;
     if (!JSObject::isExtensible(cx, obj, &extensible))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!extensible)
         return true;
 
@@ -932,7 +932,7 @@ obj_freeze(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedObject obj(cx);
     if (!GetFirstArgumentAsObject(cx, args, "Object.freeze", &obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setObject(*obj);
 
@@ -945,11 +945,11 @@ obj_isFrozen(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedObject obj(cx);
     if (!GetFirstArgumentAsObject(cx, args, "Object.preventExtensions", &obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     bool frozen;
     if (!JSObject::isFrozen(cx, obj, &frozen))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setBoolean(frozen);
     return true;
 }
@@ -960,7 +960,7 @@ obj_seal(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedObject obj(cx);
     if (!GetFirstArgumentAsObject(cx, args, "Object.seal", &obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setObject(*obj);
 
@@ -973,11 +973,11 @@ obj_isSealed(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedObject obj(cx);
     if (!GetFirstArgumentAsObject(cx, args, "Object.isSealed", &obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     bool sealed;
     if (!JSObject::isSealed(cx, obj, &sealed))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setBoolean(sealed);
     return true;
 }

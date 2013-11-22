@@ -40,7 +40,7 @@ GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
 {
     RootedObject info(cx, JS_NewObject(cx, nullptr, nullptr, nullptr));
     if (!info)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedValue value(cx);
 
 #ifdef JSGC_ROOT_ANALYSIS
@@ -49,7 +49,7 @@ GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
     value = BooleanValue(false);
 #endif
     if (!JS_SetProperty(cx, info, "rooting-analysis", value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #ifdef JSGC_USE_EXACT_ROOTING
     value = BooleanValue(true);
@@ -57,7 +57,7 @@ GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
     value = BooleanValue(false);
 #endif
     if (!JS_SetProperty(cx, info, "exact-rooting", value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #ifdef DEBUG
     value = BooleanValue(true);
@@ -65,7 +65,7 @@ GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
     value = BooleanValue(false);
 #endif
     if (!JS_SetProperty(cx, info, "debug", value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #ifdef JS_HAS_CTYPES
     value = BooleanValue(true);
@@ -73,7 +73,7 @@ GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
     value = BooleanValue(false);
 #endif
     if (!JS_SetProperty(cx, info, "has-ctypes", value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #ifdef JS_CPU_X86
     value = BooleanValue(true);
@@ -81,7 +81,7 @@ GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
     value = BooleanValue(false);
 #endif
     if (!JS_SetProperty(cx, info, "x86", value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #ifdef JS_CPU_X64
     value = BooleanValue(true);
@@ -89,7 +89,7 @@ GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
     value = BooleanValue(false);
 #endif
     if (!JS_SetProperty(cx, info, "x64", value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #ifdef MOZ_ASAN
     value = BooleanValue(true);
@@ -97,7 +97,7 @@ GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
     value = BooleanValue(false);
 #endif
     if (!JS_SetProperty(cx, info, "asan", value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #ifdef JS_GC_ZEAL
     value = BooleanValue(true);
@@ -105,7 +105,7 @@ GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
     value = BooleanValue(false);
 #endif
     if (!JS_SetProperty(cx, info, "has-gczeal", value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #ifdef JS_THREADSAFE
     value = BooleanValue(true);
@@ -113,7 +113,7 @@ GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
     value = BooleanValue(false);
 #endif
     if (!JS_SetProperty(cx, info, "threadsafe", value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #ifdef JS_MORE_DETERMINISTIC
     value = BooleanValue(true);
@@ -121,7 +121,7 @@ GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
     value = BooleanValue(false);
 #endif
     if (!JS_SetProperty(cx, info, "more-deterministic", value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #ifdef MOZ_PROFILING
     value = BooleanValue(true);
@@ -129,7 +129,7 @@ GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
     value = BooleanValue(false);
 #endif
     if (!JS_SetProperty(cx, info, "profiling", value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #ifdef INCLUDE_MOZILLA_DTRACE
     value = BooleanValue(true);
@@ -137,7 +137,7 @@ GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
     value = BooleanValue(false);
 #endif
     if (!JS_SetProperty(cx, info, "dtrace", value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #ifdef MOZ_TRACE_JSCALLS
     value = BooleanValue(true);
@@ -145,7 +145,7 @@ GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
     value = BooleanValue(false);
 #endif
     if (!JS_SetProperty(cx, info, "trace-jscalls-api", value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #ifdef JSGC_INCREMENTAL
     value = BooleanValue(true);
@@ -153,7 +153,7 @@ GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
     value = BooleanValue(false);
 #endif
     if (!JS_SetProperty(cx, info, "incremental-gc", value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #ifdef JSGC_GENERATIONAL
     value = BooleanValue(true);
@@ -161,7 +161,7 @@ GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
     value = BooleanValue(false);
 #endif
     if (!JS_SetProperty(cx, info, "generational-gc", value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #ifdef MOZ_VALGRIND
     value = BooleanValue(true);
@@ -169,7 +169,7 @@ GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
     value = BooleanValue(false);
 #endif
     if (!JS_SetProperty(cx, info, "valgrind", value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #ifdef JS_OOM_DO_BACKTRACES
     value = BooleanValue(true);
@@ -177,7 +177,7 @@ GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
     value = BooleanValue(false);
 #endif
     if (!JS_SetProperty(cx, info, "oom-backtraces", value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #ifdef ENABLE_PARALLEL_JS
     value = BooleanValue(true);
@@ -185,7 +185,7 @@ GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
     value = BooleanValue(false);
 #endif
     if (!JS_SetProperty(cx, info, "parallelJS", value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #ifdef ENABLE_BINARYDATA
     value = BooleanValue(true);
@@ -193,7 +193,7 @@ GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
     value = BooleanValue(false);
 #endif
     if (!JS_SetProperty(cx, info, "binary-data", value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *vp = ObjectValue(*info);
     return true;
@@ -213,7 +213,7 @@ GC(JSContext *cx, unsigned argc, jsval *vp)
         Value arg = vp[2];
         if (arg.isString()) {
             if (!JS_StringEqualsAscii(cx, arg.toString(), "compartment", &compartment))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else if (arg.isObject()) {
             PrepareZoneForGC(UncheckedUnwrap(&arg.toObject())->zone());
             compartment = true;
@@ -237,7 +237,7 @@ GC(JSContext *cx, unsigned argc, jsval *vp)
 #endif
     JSString *str = JS_NewStringCopyZ(cx, buf);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *vp = STRING_TO_JSVAL(str);
     return true;
 }
@@ -275,11 +275,11 @@ GCParameter(JSContext *cx, unsigned argc, Value *vp)
 
     JSString *str = ToString(cx, args.get(0));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSFlatString *flatStr = JS_FlattenString(cx, str);
     if (!flatStr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     size_t paramIndex = 0;
     for (;; paramIndex++) {
@@ -288,7 +288,7 @@ GCParameter(JSContext *cx, unsigned argc, Value *vp)
                            "the first argument must be maxBytes, "
                            "maxMallocBytes, gcStackpoolLifespan, gcBytes or "
                            "gcNumber");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (JS_FlatStringEqualsAscii(flatStr, paramMap[paramIndex].name))
             break;
@@ -305,14 +305,14 @@ GCParameter(JSContext *cx, unsigned argc, Value *vp)
     if (param == JSGC_NUMBER || param == JSGC_BYTES) {
         JS_ReportError(cx, "Attempt to change read-only parameter %s",
                        paramMap[paramIndex].name);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     uint32_t value;
     if (!ToUint32(cx, args[1], &value)) {
         JS_ReportError(cx, "the second argument must be convertable to uint32_t "
                            "with non-zero value");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (param == JSGC_MAX_BYTES) {
@@ -322,7 +322,7 @@ GCParameter(JSContext *cx, unsigned argc, Value *vp)
                            "attempt to set maxBytes to the value less than the current "
                            "gcBytes (%u)",
                            gcBytes);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -337,7 +337,7 @@ IsProxy(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     if (argc != 1) {
         JS_ReportError(cx, "the function takes exactly one argument");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (!args[0].isObject()) {
         args.rval().setBoolean(false);
@@ -353,21 +353,21 @@ InternalConst(JSContext *cx, unsigned argc, jsval *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     if (args.length() == 0) {
         JS_ReportError(cx, "the function takes exactly one argument");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JSString *str = ToString(cx, args[0]);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JSFlatString *flat = JS_FlattenString(cx, str);
     if (!flat)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (JS_FlatStringEqualsAscii(flat, "INCREMENTAL_MARK_STACK_BASE_CAPACITY")) {
         vp[0] = UINT_TO_JSVAL(js::INCREMENTAL_MARK_STACK_BASE_CAPACITY);
     } else {
         JS_ReportError(cx, "unknown const name");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -380,7 +380,7 @@ GCPreserveCode(JSContext *cx, unsigned argc, jsval *vp)
     if (argc != 0) {
         RootedObject callee(cx, &args.callee());
         ReportUsageError(cx, callee, "Wrong number of arguments");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     cx->runtime()->alwaysPreserveCode = true;
@@ -398,17 +398,17 @@ GCZeal(JSContext *cx, unsigned argc, Value *vp)
     if (args.length() > 2) {
         RootedObject callee(cx, &args.callee());
         ReportUsageError(cx, callee, "Too many arguments");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     uint32_t zeal;
     if (!ToUint32(cx, args.get(0), &zeal))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     uint32_t frequency = JS_DEFAULT_ZEAL_FREQ;
     if (args.length() >= 2) {
         if (!ToUint32(cx, args.get(1), &frequency))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JS_SetGCZeal(cx, (uint8_t)zeal, frequency);
@@ -424,7 +424,7 @@ ScheduleGC(JSContext *cx, unsigned argc, Value *vp)
     if (argc != 1) {
         RootedObject callee(cx, &args.callee());
         ReportUsageError(cx, callee, "Wrong number of arguments");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (args[0].isInt32()) {
@@ -452,7 +452,7 @@ SelectForGC(JSContext *cx, unsigned argc, Value *vp)
     for (unsigned i = 0; i < args.length(); i++) {
         if (args[i].isObject()) {
             if (!rt->gcSelectedForMarking.append(&args[i].toObject()))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -468,7 +468,7 @@ VerifyPreBarriers(JSContext *cx, unsigned argc, jsval *vp)
     if (args.length() > 0) {
         RootedObject callee(cx, &args.callee());
         ReportUsageError(cx, callee, "Too many arguments");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     gc::VerifyBarriers(cx->runtime(), gc::PreBarrierVerifier);
@@ -482,7 +482,7 @@ VerifyPostBarriers(JSContext *cx, unsigned argc, jsval *vp)
     if (argc) {
         RootedObject callee(cx, &JS_CALLEE(cx, vp).toObject());
         ReportUsageError(cx, callee, "Too many arguments");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     gc::VerifyBarriers(cx->runtime(), gc::PostBarrierVerifier);
     *vp = JSVAL_VOID;
@@ -497,7 +497,7 @@ GCState(JSContext *cx, unsigned argc, jsval *vp)
     if (argc != 0) {
         RootedObject callee(cx, &args.callee());
         ReportUsageError(cx, callee, "Too many arguments");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     const char *state;
@@ -513,7 +513,7 @@ GCState(JSContext *cx, unsigned argc, jsval *vp)
 
     JSString *str = JS_NewStringCopyZ(cx, state);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *vp = StringValue(str);
     return true;
 }
@@ -526,7 +526,7 @@ DeterministicGC(JSContext *cx, unsigned argc, jsval *vp)
     if (args.length() != 1) {
         RootedObject callee(cx, &args.callee());
         ReportUsageError(cx, callee, "Wrong number of arguments");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     gc::SetDeterministicGC(cx, ToBoolean(args[0]));
@@ -543,14 +543,14 @@ GCSlice(JSContext *cx, unsigned argc, Value *vp)
     if (args.length() > 1) {
         RootedObject callee(cx, &args.callee());
         ReportUsageError(cx, callee, "Wrong number of arguments");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool limit = true;
     uint32_t budget = 0;
     if (args.length() == 1) {
         if (!ToUint32(cx, args[0], &budget))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         limit = false;
     }
@@ -568,7 +568,7 @@ ValidateGC(JSContext *cx, unsigned argc, jsval *vp)
     if (args.length() != 1) {
         RootedObject callee(cx, &args.callee());
         ReportUsageError(cx, callee, "Wrong number of arguments");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     gc::SetValidateGC(cx, ToBoolean(args[0]));
@@ -584,7 +584,7 @@ FullCompartmentChecks(JSContext *cx, unsigned argc, jsval *vp)
     if (args.length() != 1) {
         RootedObject callee(cx, &args.callee());
         ReportUsageError(cx, callee, "Wrong number of arguments");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     gc::SetFullCompartmentChecks(cx, ToBoolean(args[0]));
@@ -600,22 +600,22 @@ NondeterministicGetWeakMapKeys(JSContext *cx, unsigned argc, jsval *vp)
     if (argc != 1) {
         RootedObject callee(cx, &args.callee());
         ReportUsageError(cx, callee, "Wrong number of arguments");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (!args[0].isObject()) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_NOT_EXPECTED_TYPE,
                              "nondeterministicGetWeakMapKeys", "WeakMap",
                              InformalValueTypeName(args[0]));
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     RootedObject arr(cx);
     if (!JS_NondeterministicGetWeakMapKeys(cx, &args[0].toObject(), arr.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!arr) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_NOT_EXPECTED_TYPE,
                              "nondeterministicGetWeakMapKeys", "WeakMap",
                              args[0].toObject().getClass()->name);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     args.rval().setObject(*arr);
     return true;
@@ -696,7 +696,7 @@ CountHeap(JSContext *cx, unsigned argc, jsval *vp)
             JS_ReportError(cx,
                            "the first argument is not null or a heap-allocated "
                            "thing");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -706,20 +706,20 @@ CountHeap(JSContext *cx, unsigned argc, jsval *vp)
     if (args.length() > 1) {
         JSString *str = ToString(cx, args[1]);
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         JSFlatString *flatStr = JS_FlattenString(cx, str);
         if (!flatStr)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (JS_FlatStringEqualsAscii(flatStr, "specific")) {
             if (args.length() < 3) {
                 JS_ReportError(cx, "tracing of specific value requested "
                                "but no value provided");
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             traceValue = args[2];
             if (!JSVAL_IS_TRACEABLE(traceValue)){
                 JS_ReportError(cx, "cannot trace this kind of value");
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             traceThing = JSVAL_TO_TRACEABLE(traceValue);
         } else {
@@ -732,7 +732,7 @@ CountHeap(JSContext *cx, unsigned argc, jsval *vp)
                     JSAutoByteString bytes(cx, str);
                     if (!!bytes)
                         JS_ReportError(cx, "trace kind name '%s' is unknown", bytes.ptr());
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
         }
@@ -742,7 +742,7 @@ CountHeap(JSContext *cx, unsigned argc, jsval *vp)
     JS_TracerInit(&countTracer.base, JS_GetRuntime(cx), CountHeapNotify);
     if (!countTracer.visited.init()) {
         JS_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     countTracer.ok = true;
     countTracer.traceList = nullptr;
@@ -777,7 +777,7 @@ CountHeap(JSContext *cx, unsigned argc, jsval *vp)
     }
     if (!countTracer.ok) {
         JS_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     *vp = JS_NumberValue((double) counter);
@@ -791,12 +791,12 @@ OOMAfterAllocations(JSContext *cx, unsigned argc, jsval *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     if (args.length() != 1) {
         JS_ReportError(cx, "count argument required");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     uint32_t count;
     if (!JS::ToUint32(cx, args[0], &count))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     OOM_maxAllocations = OOM_counter + count;
     return true;
@@ -828,11 +828,11 @@ MakeFinalizeObserver(JSContext *cx, unsigned argc, jsval *vp)
 {
     RootedObject scope(cx, JS::CurrentGlobalOrNull(cx));
     if (!scope)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSObject *obj = JS_NewObjectWithGivenProto(cx, &FinalizeCounterClass, nullptr, scope);
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *vp = OBJECT_TO_JSVAL(obj);
     return true;
@@ -860,7 +860,7 @@ DumpHeapComplete(JSContext *cx, unsigned argc, jsval *vp)
             JSString *str = v.toString();
             bool same = false;
             if (!JS_StringEqualsAscii(cx, str, "collectNurseryBeforeDump", &same))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (same) {
                 nurseryBehaviour = js::CollectNurseryBeforeDump;
                 ++i;
@@ -874,12 +874,12 @@ DumpHeapComplete(JSContext *cx, unsigned argc, jsval *vp)
             JSString *str = v.toString();
             JSAutoByteString fileNameBytes;
             if (!fileNameBytes.encodeLatin1(cx, str))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             const char *fileName = fileNameBytes.ptr();
             dumpFile = fopen(fileName, "w");
             if (!dumpFile) {
                 JS_ReportError(cx, "can't open %s", fileName);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             ++i;
         }
@@ -887,7 +887,7 @@ DumpHeapComplete(JSContext *cx, unsigned argc, jsval *vp)
 
     if (i != argc) {
         JS_ReportError(cx, "bad arguments passed to dumpHeapComplete");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     js::DumpHeapComplete(JS_GetRuntime(cx), dumpFile ? dumpFile : stdout, nurseryBehaviour);
@@ -903,7 +903,7 @@ static bool
 Terminate(JSContext *cx, unsigned arg, jsval *vp)
 {
     JS_ClearPendingException(cx);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static bool
@@ -913,7 +913,7 @@ EnableSPSProfilingAssertions(JSContext *cx, unsigned argc, jsval *vp)
     if (argc == 0 || !args[0].isBoolean()) {
         RootedObject arg(cx, &args.callee());
         ReportUsageError(cx, arg, "Must have one boolean argument");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     static ProfileEntry stack[1000];
@@ -952,7 +952,7 @@ DisplayName(JSContext *cx, unsigned argc, jsval *vp)
     if (argc == 0 || !args[0].isObject() || !args[0].toObject().is<JSFunction>()) {
         RootedObject arg(cx, &args.callee());
         ReportUsageError(cx, arg, "Must have one function argument");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JSFunction *fun = &args[0].toObject().as<JSFunction>();
@@ -978,11 +978,11 @@ ShellObjectMetadataCallback(JSContext *cx, JSObject **pmetadata)
 {
     RootedValue fun(cx);
     if (!JS_GetProperty(cx, cx->global(), ObjectMetadataPropertyName, &fun))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue rval(cx);
     if (!Invoke(cx, UndefinedValue(), fun, 0, nullptr, &rval))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (rval.isObject())
         *pmetadata = &rval.toObject();
@@ -999,13 +999,13 @@ SetObjectMetadataCallback(JSContext *cx, unsigned argc, jsval *vp)
 
     if (argc == 0 || !args[0].isObject() || !args[0].toObject().is<JSFunction>()) {
         if (!JS_DeleteProperty(cx, cx->global(), ObjectMetadataPropertyName))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         js::SetObjectMetadataCallback(cx, nullptr);
         return true;
     }
 
     if (!JS_DefineProperty(cx, cx->global(), ObjectMetadataPropertyName, args[0], nullptr, nullptr, 0))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     js::SetObjectMetadataCallback(cx, ShellObjectMetadataCallback);
     return true;
@@ -1017,7 +1017,7 @@ SetObjectMetadata(JSContext *cx, unsigned argc, jsval *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     if (argc != 2 || !args[0].isObject() || !args[1].isObject()) {
         JS_ReportError(cx, "Both arguments must be objects");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args.rval().setUndefined();
@@ -1033,7 +1033,7 @@ GetObjectMetadata(JSContext *cx, unsigned argc, jsval *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     if (argc != 1 || !args[0].isObject()) {
         JS_ReportError(cx, "Argument must be an object");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args.rval().setObjectOrNull(GetObjectMetadata(&args[0].toObject()));
@@ -1064,17 +1064,17 @@ SetJitCompilerOption(JSContext *cx, unsigned argc, jsval *vp)
 
     if (args.length() != 2) {
         ReportUsageError(cx, callee, "Wrong number of arguments.");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!args[0].isString()) {
         ReportUsageError(cx, callee, "First argument must be a String.");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!args[1].isInt32()) {
         ReportUsageError(cx, callee, "Second argument must be an Int32.");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JSFlatString *strArg = JS_FlattenString(cx, args[0].toString());
@@ -1090,7 +1090,7 @@ SetJitCompilerOption(JSContext *cx, unsigned argc, jsval *vp)
 
     if (opt == JSJITCOMPILER_NOT_AN_OPTION) {
         ReportUsageError(cx, callee, "First argument does not name a valid option (see jsapi.h).");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     int32_t number = args[1].toInt32();
@@ -1181,7 +1181,7 @@ class CloneBufferObject : public JSObject {
                            "maxMallocBytes, gcStackpoolLifespan, gcBytes or "
                            "gcNumber");
             JS_ReportError(cx, "clonebuffer setter requires a single string argument");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (fuzzingSafe) {
@@ -1195,7 +1195,7 @@ class CloneBufferObject : public JSObject {
 
         char *str = JS_EncodeString(cx, args[0].toString());
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         obj->setData(reinterpret_cast<uint64_t*>(str));
         obj->setNBytes(JS_GetStringLength(args[0].toString()));
 
@@ -1226,16 +1226,16 @@ class CloneBufferObject : public JSObject {
 
         bool hasTransferable;
         if (!JS_StructuredCloneHasTransferables(obj->data(), obj->nbytes(), &hasTransferable))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (hasTransferable) {
             JS_ReportError(cx, "cannot retrieve structured clone buffer with transferables");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         JSString *str = JS_NewStringCopyN(cx, reinterpret_cast<char*>(obj->data()), obj->nbytes());
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args.rval().setString(str);
         return true;
     }
@@ -1282,11 +1282,11 @@ Serialize(JSContext *cx, unsigned argc, jsval *vp)
 
     JSAutoStructuredCloneBuffer clonebuf;
     if (!clonebuf.write(cx, args.get(0), args.get(1)))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedObject obj(cx, CloneBufferObject::Create(cx, &clonebuf));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setObject(*obj);
     return true;
@@ -1299,12 +1299,12 @@ Deserialize(JSContext *cx, unsigned argc, jsval *vp)
 
     if (args.length() != 1 || !args[0].isObject()) {
         JS_ReportError(cx, "deserialize requires a single clonebuffer argument");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!args[0].toObject().is<CloneBufferObject>()) {
         JS_ReportError(cx, "deserialize requires a clonebuffer");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     Rooted<CloneBufferObject*> obj(cx, &args[0].toObject().as<CloneBufferObject>());
@@ -1313,17 +1313,17 @@ Deserialize(JSContext *cx, unsigned argc, jsval *vp)
     if (!obj->data()) {
         JS_ReportError(cx, "deserialize given invalid clone buffer "
                        "(transferables already consumed?)");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool hasTransferable;
     if (!JS_StructuredCloneHasTransferables(obj->data(), obj->nbytes(), &hasTransferable))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue deserialized(cx);
     if (!JS_ReadStructuredClone(cx, obj->data(), obj->nbytes(),
                                 JS_STRUCTURED_CLONE_VERSION, &deserialized, nullptr, nullptr)) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     args.rval().set(deserialized);
 
@@ -1340,15 +1340,15 @@ Neuter(JSContext *cx, unsigned argc, jsval *vp)
 
     RootedObject obj(cx);
     if (!JS_ValueToObject(cx, args.get(0), &obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!obj) {
         JS_ReportError(cx, "neuter must be passed an object");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!JS_NeuterArrayBuffer(cx, obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setUndefined();
     return true;

@@ -34,13 +34,13 @@ XDRBuffer::grow(size_t n)
     size_t newCapacity = JS_ROUNDUP(offset + n, MEM_BLOCK);
     if (isUint32Overflow(newCapacity)) {
         JS_ReportErrorNumber(cx(), js_GetErrorMessage, nullptr, JSMSG_TOO_BIG_TO_ENCODE);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     void *data = js_realloc(base, newCapacity);
     if (!data) {
         js_ReportOutOfMemory(cx());
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     base = static_cast<uint8_t *>(data);
     cursor = base + offset;
@@ -56,7 +56,7 @@ XDRState<mode>::codeChars(jschar *chars, size_t nchars)
     if (mode == XDR_ENCODE) {
         uint8_t *ptr = buf.write(nbytes);
         if (!ptr)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         mozilla::NativeEndian::copyAndSwapToLittleEndian(ptr, chars, nchars);
     } else {
         const uint8_t *ptr = buf.read(nbytes);
@@ -74,12 +74,12 @@ VersionCheck(XDRState<mode> *xdr)
         bytecodeVer = XDR_BYTECODE_VERSION;
 
     if (!xdr->codeUint32(&bytecodeVer))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (mode == XDR_DECODE && bytecodeVer != XDR_BYTECODE_VERSION) {
         /* We do not provide binary compatibility with older scripts. */
         JS_ReportErrorNumber(xdr->cx(), js_GetErrorMessage, nullptr, JSMSG_BAD_SCRIPT_MAGIC);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -93,7 +93,7 @@ XDRState<mode>::codeFunction(MutableHandleObject objp)
         objp.set(nullptr);
 
     if (!VersionCheck(this))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return XDRInterpretedFunction(this, NullPtr(), NullPtr(), objp);
 }
@@ -111,10 +111,10 @@ XDRState<mode>::codeScript(MutableHandleScript scriptp)
     }
 
     if (!VersionCheck(this))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!XDRScript(this, NullPtr(), NullPtr(), NullPtr(), &script))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (mode == XDR_DECODE) {
         JS_ASSERT(!script->compileAndGo);

@@ -3,7 +3,7 @@
 
 /**
  * Type(x) and Type(y) are Object-s.
- * Return true, if x and y are references to the same Object; otherwise, return false
+ * Return true, if x and y are references to the same Object; otherwise, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
  *
  * @path ch11/11.9/11.9.2/S11.9.2_A7.1.js
  * @description Checking Boolean object, Number object, String object, Object object

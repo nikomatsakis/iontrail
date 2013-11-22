@@ -989,10 +989,10 @@ class JSObject : public js::ObjectImpl
         js::GenericIdOp op = obj->getOps()->getGeneric;
         if (op) {
             if (!op(cx, obj, receiver, id, vp))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             if (!js::baseops::GetProperty(cx, obj, receiver, id, vp))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         return true;
     }
@@ -1002,7 +1002,7 @@ class JSObject : public js::ObjectImpl
     {
         js::GenericIdOp op = obj->getOps()->getGeneric;
         if (op)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         return js::baseops::GetPropertyNoGC(cx, obj, receiver, id, vp);
     }
 
@@ -1609,7 +1609,7 @@ extern bool
 GetFirstArgumentAsObject(JSContext *cx, const CallArgs &args, const char *method,
                          MutableHandleObject objp);
 
-/* Helpers for throwing. These always return false. */
+/* Helpers for throwing. These always do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false). */
 extern bool
 Throw(JSContext *cx, jsid id, unsigned errorNumber);
 

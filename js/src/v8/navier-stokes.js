@@ -381,7 +381,7 @@ function FluidField(canvas) {
             reset();
             return true;
         }
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     this.setResolution(64, 64);
 }

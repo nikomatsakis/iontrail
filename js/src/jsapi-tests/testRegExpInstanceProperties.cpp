@@ -19,7 +19,7 @@ BEGIN_TEST(testRegExpInstanceProperties)
     JSObject *regexpProto = JSVAL_TO_OBJECT(regexpProtoVal);
 
     if (!helper(regexpProto))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_GC(cx);
 

@@ -36,13 +36,13 @@ MergeArrayRuns(T *dst, const T *src, size_t run1, size_t run2, Comparator c)
     const T *b = src + run1;
     bool lessOrEqual;
     if (!c(b[-1],  b[0], &lessOrEqual))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!lessOrEqual) {
         /* Runs are not already sorted, merge them. */
         for (const T *a = src;;) {
             if (!c(*a, *b, &lessOrEqual))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (lessOrEqual) {
                 *dst++ = *a++;
                 if (!--run1) {
@@ -98,7 +98,7 @@ MergeSort(T *array, size_t nelems, T *scratch, Comparator c)
             for (size_t j = i; ;) {
                 bool lessOrEqual;
                 if (!c(array[j - 1], array[j], &lessOrEqual))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (lessOrEqual)
                     break;
                 T tmp = array[j - 1];
@@ -121,7 +121,7 @@ MergeSort(T *array, size_t nelems, T *scratch, Comparator c)
             }
             size_t run2 = (run <= nelems - hi) ? run : nelems - hi;
             if (!detail::MergeArrayRuns(vec2 + lo, vec1 + lo, run, run2, c))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         T *swap = vec1;
         vec1 = vec2;

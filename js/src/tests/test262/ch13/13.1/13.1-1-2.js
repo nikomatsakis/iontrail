@@ -16,6 +16,6 @@ function testcase()
     eval('(function foo(a,a){})');
     return true;
   }
-  catch (e) { return false }
+  catch (e) { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false) }
   }
 runTestCase(testcase);

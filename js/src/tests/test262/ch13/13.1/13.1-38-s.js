@@ -14,7 +14,7 @@ function testcase() {
         var _13_1_38_s = {};
         try {
             eval("_13_1_38_s.x = function eval() {'use strict'; };");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } catch (e) {
             return e instanceof SyntaxError;
         }

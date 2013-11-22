@@ -367,7 +367,7 @@ class BytecodeParser
             offsetStack = alloc.newArray<uint32_t>(stackDepth);
             if (stackDepth) {
                 if (!offsetStack)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 for (uint32_t n = 0; n < stackDepth; n++)
                     offsetStack[n] = stack[n];
             }
@@ -531,11 +531,11 @@ BytecodeParser::addJump(uint32_t offset, uint32_t *currentOffset,
     if (!code) {
         code = alloc().new_<Bytecode>();
         if (!code)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         AssertStackDepth(script_, offset, stackDepth);
         if (!code->captureOffsetStack(alloc(), offsetStack, stackDepth)) {
             reportOOM();
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     } else {
         code->mergeOffsetStack(offsetStack, stackDepth);
@@ -561,7 +561,7 @@ BytecodeParser::parse()
 
     if (!codeArray_) {
         reportOOM();
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     mozilla::PodZero(codeArray_, length);
@@ -570,14 +570,14 @@ BytecodeParser::parse()
     Bytecode *startcode = alloc().new_<Bytecode>();
     if (!startcode) {
         reportOOM();
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // Fill in stack depth and definitions at initial bytecode.
     uint32_t *offsetStack = alloc().newArray<uint32_t>(maximumStackDepth());
     if (maximumStackDepth() && !offsetStack) {
         reportOOM();
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     startcode->stackDepth = 0;
@@ -624,13 +624,13 @@ BytecodeParser::parse()
             pc2 += JUMP_OFFSET_LEN;
 
             if (!addJump(defaultOffset, &nextOffset, stackDepth, offsetStack))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             for (int32_t i = low; i <= high; i++) {
                 uint32_t targetOffset = offset + GET_JUMP_OFFSET(pc2);
                 if (targetOffset != offset) {
                     if (!addJump(targetOffset, &nextOffset, stackDepth, offsetStack))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
                 pc2 += JUMP_OFFSET_LEN;
             }
@@ -650,7 +650,7 @@ BytecodeParser::parse()
                     uint32_t catchOffset = startOffset + tn->length;
                     if (tn->kind != JSTRY_ITER && tn->kind != JSTRY_LOOP) {
                         if (!addJump(catchOffset, &nextOffset, stackDepth, offsetStack))
-                            return false;
+                            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     }
                 }
             }
@@ -670,7 +670,7 @@ BytecodeParser::parse()
 
             uint32_t targetOffset = offset + GET_JUMP_OFFSET(pc);
             if (!addJump(targetOffset, &nextOffset, newStackDepth, offsetStack))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         // Handle any fallthrough from this opcode.
@@ -683,12 +683,12 @@ BytecodeParser::parse()
                 nextcode = alloc().new_<Bytecode>();
                 if (!nextcode) {
                     reportOOM();
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
                 AssertStackDepth(script_, successorOffset, stackDepth);
                 if (!nextcode->captureOffsetStack(alloc(), offsetStack, stackDepth)) {
                     reportOOM();
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             } else {
                 nextcode->mergeOffsetStack(offsetStack, stackDepth);
@@ -706,10 +706,10 @@ js::ReconstructStackDepth(JSContext *cx, JSScript *script, jsbytecode *pc, uint3
 {
     BytecodeParser parser(cx, script);
     if (!parser.parse())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!parser.isReachable(pc))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *depth = parser.stackDepthAtPC(pc);
 
@@ -732,7 +732,7 @@ js_DisassembleAtPC(JSContext *cx, JSScript *scriptArg, bool lines,
     unsigned len;
 
     if (showAll && !parser.parse())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (showAll)
         Sprint(sp, "%s:%u\n", script->filename(), script->lineno);
@@ -787,7 +787,7 @@ js_DisassembleAtPC(JSContext *cx, JSScript *scriptArg, bool lines,
         }
         len = js_Disassemble1(cx, script, next, next - script->code, lines, sp);
         if (!len)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         next += len;
     }
     return true;
@@ -805,7 +805,7 @@ js_DumpPC(JSContext *cx)
     js::gc::AutoSuppressGC suppressGC(cx);
     Sprinter sprinter(cx);
     if (!sprinter.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     ScriptFrameIter iter(cx);
     RootedScript script(cx, iter.script());
     bool ok = js_DisassembleAtPC(cx, script, true, iter.pc(), false, &sprinter);
@@ -819,7 +819,7 @@ js_DumpScript(JSContext *cx, JSScript *scriptArg)
     js::gc::AutoSuppressGC suppressGC(cx);
     Sprinter sprinter(cx);
     if (!sprinter.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedScript script(cx, scriptArg);
     bool ok = js_Disassemble(cx, script, true, &sprinter);
     fprintf(stdout, "%s", sprinter.string());
@@ -835,7 +835,7 @@ js_DumpScriptDepth(JSContext *cx, JSScript *scriptArg, jsbytecode *pc)
     js::gc::AutoSuppressGC suppressGC(cx);
     Sprinter sprinter(cx);
     if (!sprinter.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedScript script(cx, scriptArg);
     bool ok = js_DisassembleAtPC(cx, script, true, pc, true, &sprinter);
     fprintf(stdout, "%s", sprinter.string());
@@ -851,13 +851,13 @@ ToDisassemblySource(JSContext *cx, jsval v, JSAutoByteString *bytes)
     if (JSVAL_IS_STRING(v)) {
         Sprinter sprinter(cx);
         if (!sprinter.init())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         char *nbytes = QuoteString(&sprinter, JSVAL_TO_STRING(v), '"');
         if (!nbytes)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         nbytes = JS_sprintf_append(nullptr, "%s", nbytes);
         if (!nbytes)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         bytes->initBytes(nbytes);
         return true;
     }
@@ -865,7 +865,7 @@ ToDisassemblySource(JSContext *cx, jsval v, JSAutoByteString *bytes)
     if (cx->runtime()->isHeapBusy() || cx->runtime()->noGCOrAllocationCheck) {
         char *source = JS_sprintf_append(nullptr, "<value>");
         if (!source)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         bytes->initBytes(source);
         return true;
     }
@@ -876,7 +876,7 @@ ToDisassemblySource(JSContext *cx, jsval v, JSAutoByteString *bytes)
             char *source = JS_sprintf_append(nullptr, "depth %d {",
                                              obj->as<BlockObject>().stackDepth());
             if (!source)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             Shape::Range<CanGC> r(cx, obj->lastProperty());
 
@@ -888,19 +888,19 @@ ToDisassemblySource(JSContext *cx, jsval v, JSAutoByteString *bytes)
 
                 JSAutoByteString bytes;
                 if (!AtomToPrintableString(cx, atom, &bytes))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 r.popFront();
                 source = JS_sprintf_append(source, "%s: %d%s",
                                            bytes.ptr(), shape->shortid(),
                                            !r.empty() ? ", " : "");
                 if (!source)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             source = JS_sprintf_append(source, "}");
             if (!source)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             bytes->initBytes(source);
             return true;
         }
@@ -908,14 +908,14 @@ ToDisassemblySource(JSContext *cx, jsval v, JSAutoByteString *bytes)
         if (obj->is<JSFunction>()) {
             JSString *str = JS_DecompileFunction(cx, &obj->as<JSFunction>(), JS_DONT_PRETTY_PRINT);
             if (!str)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             return bytes->encodeLatin1(cx, str);
         }
 
         if (obj->is<RegExpObject>()) {
             JSString *source = obj->as<RegExpObject>().toString(cx);
             if (!source)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             JS::Anchor<JSString *> anchor(source);
             return bytes->encodeLatin1(cx, source);
         }
@@ -1122,7 +1122,7 @@ Sprinter::realloc_(size_t newSize)
     char *newBuf = (char *) js_realloc(base, newSize);
     if (!newBuf) {
         reportOutOfMemory();
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     base = newBuf;
     size = newSize;
@@ -1154,7 +1154,7 @@ Sprinter::init()
     base = (char *) js_malloc(DefaultSize);
     if (!base) {
         reportOutOfMemory();
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 #ifdef DEBUG
     initialized = true;
@@ -1600,7 +1600,7 @@ ExpressionDecompiler::decompilePC(jsbytecode *pc)
       case JSOP_CALLPROP: {
         RootedAtom prop(cx, (op == JSOP_LENGTH) ? cx->names().length : loadAtom(pc));
         if (!decompilePCForStackOperand(pc, -1))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (IsIdentifier(prop)) {
             return write(".") &&
                    quote(prop, '\0');
@@ -1653,7 +1653,7 @@ ExpressionDecompiler::decompilePC(jsbytecode *pc)
         RootedValue objv(cx, ObjectValue(*obj));
         JSString *str = ValueToSource(cx, objv);
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         return write(str);
       }
       default:
@@ -1673,17 +1673,17 @@ ExpressionDecompiler::init()
     assertSameCompartment(cx, script);
 
     if (!sprinter.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     localNames = cx->new_<BindingVector>(cx);
     if (!localNames)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedScript script_(cx, script);
     if (!FillBindingVector(script_, localNames))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!parser.parse())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }
@@ -1760,7 +1760,7 @@ ExpressionDecompiler::getOutput(char **res)
     ptrdiff_t len = sprinter.stringEnd() - sprinter.stringAt(0);
     *res = cx->pod_malloc<char>(len + 1);
     if (!*res)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     js_memcpy(*res, sprinter.stringAt(0), len);
     (*res)[len] = 0;
     return true;
@@ -1786,7 +1786,7 @@ FindStartPC(JSContext *cx, ScriptFrameIter &iter, int spindex, int skipStackHits
 
     BytecodeParser parser(cx, iter.script());
     if (!parser.parse())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (spindex < 0 && spindex + int(parser.stackDepthAtPC(current)) < 0)
         spindex = JSDVG_SEARCH_STACK;
@@ -1857,15 +1857,15 @@ DecompileExpressionFromStack(JSContext *cx, int spindex, int skipStackHits, Hand
         return true;
 
     if (!FindStartPC(cx, frameIter, spindex, skipStackHits, v, &valuepc))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!valuepc)
         return true;
 
     ExpressionDecompiler ed(cx, script, fun);
     if (!ed.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!ed.decompilePC(valuepc))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return ed.getOutput(res);
 }
@@ -1945,7 +1945,7 @@ DecompileArgumentFromStack(JSContext *cx, int formalIndex, char **res)
 
     BytecodeParser parser(cx, script);
     if (!parser.parse())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     int formalStackIndex = parser.stackDepthAtPC(current) - GET_ARGC(current) + formalIndex;
     JS_ASSERT(formalStackIndex >= 0);
@@ -1954,9 +1954,9 @@ DecompileArgumentFromStack(JSContext *cx, int formalIndex, char **res)
 
     ExpressionDecompiler ed(cx, script, fun);
     if (!ed.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!ed.decompilePCForStackOperand(current, formalStackIndex))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return ed.getOutput(res);
 }
@@ -2006,7 +2006,7 @@ js::CallResultEscapes(jsbytecode *pc)
         return true;
 
     if (*pc == JSOP_POP)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (*pc == JSOP_NOT)
         pc += JSOP_NOT_LENGTH;
@@ -2023,7 +2023,7 @@ js::IsValidBytecodeOffset(JSContext *cx, JSScript *script, size_t offset)
         if (here >= offset)
             return here == offset;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 JS_FRIEND_API(size_t)
@@ -2187,7 +2187,7 @@ GetPCCountJSON(JSContext *cx, const ScriptAndCounts &sac, StringBuffer &buf)
 
     JSString *str = JS_DecompileScript(cx, script, nullptr, 0);
     if (!str || !(str = StringToSource(cx, str)))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     buf.append(str);
 
@@ -2233,17 +2233,17 @@ GetPCCountJSON(JSContext *cx, const ScriptAndCounts &sac, StringBuffer &buf)
         {
             ExpressionDecompiler ed(cx, script, script->function());
             if (!ed.init())
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!ed.decompilePC(pc))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             char *text;
             if (!ed.getOutput(&text))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             AppendJSONProperty(buf, "text");
             JSString *str = JS_NewStringCopyZ(cx, text);
             js_free(text);
             if (!str || !(str = StringToSource(cx, str)))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             buf.append(str);
         }
 
@@ -2304,7 +2304,7 @@ GetPCCountJSON(JSContext *cx, const ScriptAndCounts &sac, StringBuffer &buf)
                 AppendJSONProperty(buf, "code");
                 JSString *str = JS_NewStringCopyZ(cx, block.code());
                 if (!str || !(str = StringToSource(cx, str)))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 buf.append(str);
 
                 AppendJSONProperty(buf, "instructionBytes");

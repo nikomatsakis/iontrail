@@ -5,7 +5,7 @@
  * Operator x && y uses GetValue
  *
  * @path ch11/11.11/11.11.1/S11.11.1_A2.1_T4.js
- * @description If ToBoolean(x) is false and GetBase(y) is null, return false
+ * @description If ToBoolean(x) is false and GetBase(y) is null, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
  */
 
 //CHECK#1

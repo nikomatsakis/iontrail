@@ -1273,7 +1273,7 @@ class Shape : public gc::BarrieredCell<Shape>
             if (count >= ShapeTable::MIN_ENTRIES)
                 return true;
         }
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
 #ifdef DEBUG

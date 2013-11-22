@@ -615,7 +615,7 @@ date_msecFromArgs(JSContext *cx, CallArgs args, double *rval)
         if (loop < args.length()) {
             double d;
             if (!ToNumber(cx, args[loop], &d))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             /* return NaN if any arg is not finite */
             if (!IsFinite(d)) {
                 *rval = GenericNaN();
@@ -651,7 +651,7 @@ date_UTC(JSContext *cx, unsigned argc, Value *vp)
 
     double msec_time;
     if (!date_msecFromArgs(cx, args, &msec_time))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     msec_time = TimeClip(msec_time);
 
@@ -719,7 +719,7 @@ ndigits(size_t n, size_t *result, const jschar *s, size_t* i, size_t limit)
         return ((*i - init) == n);
 
     *i = init;
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static int
@@ -917,7 +917,7 @@ date_parseISOString(JSLinearString *str, double *result, DateTimeInfo *dtInfo)
  syntax:
     /* syntax error */
     *result = 0;
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #undef PEEK
 #undef NEED
@@ -1194,7 +1194,7 @@ date_parseString(JSLinearString *str, double *result, DateTimeInfo *dtInfo)
 syntax:
     /* syntax error */
     *result = 0;
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static bool
@@ -1208,11 +1208,11 @@ date_parse(JSContext *cx, unsigned argc, Value *vp)
 
     JSString *str = ToString<CanGC>(cx, args[0]);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSLinearString *linearStr = str->ensureLinear(cx);
     if (!linearStr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     double result;
     if (!date_parseString(linearStr, &result, &cx->runtime()->dateTimeInfo)) {
@@ -1715,7 +1715,7 @@ date_setTime_impl(JSContext *cx, CallArgs args)
 
     double result;
     if (!ToNumber(cx, args[0], &result))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     dateObj->setUTCTime(TimeClip(result), args.rval().address());
     return true;
@@ -1770,7 +1770,7 @@ date_setMilliseconds_impl(JSContext *cx, CallArgs args)
     /* Step 2. */
     double milli;
     if (!ToNumber(cx, args.get(0), &milli))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     double time = MakeTime(HourFromTime(t), MinFromTime(t), SecFromTime(t), milli);
 
     /* Step 3. */
@@ -1800,7 +1800,7 @@ date_setUTCMilliseconds_impl(JSContext *cx, CallArgs args)
     /* Step 2. */
     double milli;
     if (!ToNumber(cx, args.get(0), &milli))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     double time = MakeTime(HourFromTime(t), MinFromTime(t), SecFromTime(t), milli);
 
     /* Step 3. */
@@ -1830,12 +1830,12 @@ date_setSeconds_impl(JSContext *cx, CallArgs args)
     /* Step 2. */
     double s;
     if (!ToNumber(cx, args.get(0), &s))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 3. */
     double milli;
     if (!GetMsecsOrDefault(cx, args, 1, t, &milli))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 4. */
     double date = MakeDate(Day(t), MakeTime(HourFromTime(t), MinFromTime(t), s, milli));
@@ -1867,12 +1867,12 @@ date_setUTCSeconds_impl(JSContext *cx, CallArgs args)
     /* Step 2. */
     double s;
     if (!ToNumber(cx, args.get(0), &s))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 3. */
     double milli;
     if (!GetMsecsOrDefault(cx, args, 1, t, &milli))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 4. */
     double date = MakeDate(Day(t), MakeTime(HourFromTime(t), MinFromTime(t), s, milli));
@@ -1904,17 +1904,17 @@ date_setMinutes_impl(JSContext *cx, CallArgs args)
     /* Step 2. */
     double m;
     if (!ToNumber(cx, args.get(0), &m))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 3. */
     double s;
     if (!GetSecsOrDefault(cx, args, 1, t, &s))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 4. */
     double milli;
     if (!GetMsecsOrDefault(cx, args, 2, t, &milli))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 5. */
     double date = MakeDate(Day(t), MakeTime(HourFromTime(t), m, s, milli));
@@ -1946,17 +1946,17 @@ date_setUTCMinutes_impl(JSContext *cx, CallArgs args)
     /* Step 2. */
     double m;
     if (!ToNumber(cx, args.get(0), &m))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 3. */
     double s;
     if (!GetSecsOrDefault(cx, args, 1, t, &s))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 4. */
     double milli;
     if (!GetMsecsOrDefault(cx, args, 2, t, &milli))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 5. */
     double date = MakeDate(Day(t), MakeTime(HourFromTime(t), m, s, milli));
@@ -1988,22 +1988,22 @@ date_setHours_impl(JSContext *cx, CallArgs args)
     /* Step 2. */
     double h;
     if (!ToNumber(cx, args.get(0), &h))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 3. */
     double m;
     if (!GetMinsOrDefault(cx, args, 1, t, &m))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 4. */
     double s;
     if (!GetSecsOrDefault(cx, args, 2, t, &s))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 5. */
     double milli;
     if (!GetMsecsOrDefault(cx, args, 3, t, &milli))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 6. */
     double date = MakeDate(Day(t), MakeTime(h, m, s, milli));
@@ -2035,22 +2035,22 @@ date_setUTCHours_impl(JSContext *cx, CallArgs args)
     /* Step 2. */
     double h;
     if (!ToNumber(cx, args.get(0), &h))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 3. */
     double m;
     if (!GetMinsOrDefault(cx, args, 1, t, &m))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 4. */
     double s;
     if (!GetSecsOrDefault(cx, args, 2, t, &s))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 5. */
     double milli;
     if (!GetMsecsOrDefault(cx, args, 3, t, &milli))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 6. */
     double newDate = MakeDate(Day(t), MakeTime(h, m, s, milli));
@@ -2082,7 +2082,7 @@ date_setDate_impl(JSContext *cx, CallArgs args)
     /* Step 2. */
     double date;
     if (!ToNumber(cx, args.get(0), &date))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 3. */
     double newDate = MakeDate(MakeDay(YearFromTime(t), MonthFromTime(t), date), TimeWithinDay(t));
@@ -2114,7 +2114,7 @@ date_setUTCDate_impl(JSContext *cx, CallArgs args)
     /* Step 2. */
     double date;
     if (!ToNumber(cx, args.get(0), &date))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 3. */
     double newDate = MakeDate(MakeDay(YearFromTime(t), MonthFromTime(t), date), TimeWithinDay(t));
@@ -2166,12 +2166,12 @@ date_setMonth_impl(JSContext *cx, CallArgs args)
     /* Step 2. */
     double m;
     if (!ToNumber(cx, args.get(0), &m))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 3. */
     double date;
     if (!GetDateOrDefault(cx, args, 1, t, &date))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 4. */
     double newDate = MakeDate(MakeDay(YearFromTime(t), m, date), TimeWithinDay(t));
@@ -2203,12 +2203,12 @@ date_setUTCMonth_impl(JSContext *cx, CallArgs args)
     /* Step 2. */
     double m;
     if (!ToNumber(cx, args.get(0), &m))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 3. */
     double date;
     if (!GetDateOrDefault(cx, args, 1, t, &date))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 4. */
     double newDate = MakeDate(MakeDay(YearFromTime(t), m, date), TimeWithinDay(t));
@@ -2256,17 +2256,17 @@ date_setFullYear_impl(JSContext *cx, CallArgs args)
     /* Step 2. */
     double y;
     if (!ToNumber(cx, args.get(0), &y))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 3. */
     double m;
     if (!GetMonthOrDefault(cx, args, 1, t, &m))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 4. */
     double date;
     if (!GetDateOrDefault(cx, args, 2, t, &date))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 5. */
     double newDate = MakeDate(MakeDay(y, m, date), TimeWithinDay(t));
@@ -2298,17 +2298,17 @@ date_setUTCFullYear_impl(JSContext *cx, CallArgs args)
     /* Step 2. */
     double y;
     if (!ToNumber(cx, args.get(0), &y))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 3. */
     double m;
     if (!GetMonthOrDefault(cx, args, 1, t, &m))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 4. */
     double date;
     if (!GetDateOrDefault(cx, args, 2, t, &date))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 5. */
     double newDate = MakeDate(MakeDay(y, m, date), TimeWithinDay(t));
@@ -2340,7 +2340,7 @@ date_setYear_impl(JSContext *cx, CallArgs args)
     /* Step 2. */
     double y;
     if (!ToNumber(cx, args.get(0), &y))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 3. */
     if (IsNaN(y)) {
@@ -2427,7 +2427,7 @@ date_toGMTString_impl(JSContext *cx, CallArgs args)
 
     JSString *str = JS_NewStringCopyZ(cx, buf);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setString(str);
     return true;
 }
@@ -2446,7 +2446,7 @@ date_toISOString_impl(JSContext *cx, CallArgs args)
     double utctime = args.thisv().toObject().as<DateObject>().UTCTime().toNumber();
     if (!IsFinite(utctime)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_INVALID_DATE);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     char buf[100];
@@ -2454,7 +2454,7 @@ date_toISOString_impl(JSContext *cx, CallArgs args)
 
     JSString *str = JS_NewStringCopyZ(cx, buf);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setString(str);
     return true;
 
@@ -2476,12 +2476,12 @@ date_toJSON(JSContext *cx, unsigned argc, Value *vp)
     /* Step 1. */
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 2. */
     RootedValue tv(cx, ObjectValue(*obj));
     if (!ToPrimitive(cx, JSTYPE_NUMBER, &tv))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 3. */
     if (tv.isDouble() && !IsFinite(tv.toDouble())) {
@@ -2492,25 +2492,25 @@ date_toJSON(JSContext *cx, unsigned argc, Value *vp)
     /* Step 4. */
     RootedValue toISO(cx);
     if (!JSObject::getProperty(cx, obj, obj, cx->names().toISOString, &toISO))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 5. */
     if (!js_IsCallable(toISO)) {
         JS_ReportErrorFlagsAndNumber(cx, JSREPORT_ERROR, js_GetErrorMessage, nullptr,
                                      JSMSG_BAD_TOISOSTRING_PROP);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Step 6. */
     InvokeArgs args2(cx);
     if (!args2.init(0))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args2.setCallee(toISO);
     args2.setThis(ObjectValue(*obj));
 
     if (!Invoke(cx, args2))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().set(args2.rval());
     return true;
 }
@@ -2651,7 +2651,7 @@ date_format(JSContext *cx, double date, formatspec format, MutableHandleValue rv
 
     JSString *str = JS_NewStringCopyZ(cx, buf);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     rval.setString(str);
     return true;
 }
@@ -2697,7 +2697,7 @@ ToLocaleFormatHelper(JSContext *cx, HandleObject obj, const char *format, Mutabl
 
     JSString *str = JS_NewStringCopyZ(cx, buf);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     rval.setString(str);
     return true;
 }
@@ -2798,11 +2798,11 @@ date_toLocaleFormat_impl(JSContext *cx, CallArgs args)
 
     RootedString fmt(cx, ToString<CanGC>(cx, args[0]));
     if (!fmt)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSAutoByteString fmtbytes(cx, fmt);
     if (!fmtbytes)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return ToLocaleFormatHelper(cx, dateObj, fmtbytes.ptr(), args.rval());
 }
@@ -2853,12 +2853,12 @@ date_toSource_impl(JSContext *cx, CallArgs args)
         !NumberValueToStringBuffer(cx, args.thisv().toObject().as<DateObject>().UTCTime(), sb) ||
         !sb.append("))"))
     {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JSString *str = sb.finishString();
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setString(str);
     return true;
 }
@@ -2985,17 +2985,17 @@ js_Date(JSContext *cx, unsigned argc, Value *vp)
 
         /* Step 1. */
         if (!ToPrimitive(cx, args[0]))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (args[0].isString()) {
             /* Step 2. */
             JSString *str = args[0].toString();
             if (!str)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             JSLinearString *linearStr = str->ensureLinear(cx);
             if (!linearStr)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             if (!date_parseString(linearStr, &d, &cx->runtime()->dateTimeInfo))
                 d = GenericNaN();
@@ -3004,13 +3004,13 @@ js_Date(JSContext *cx, unsigned argc, Value *vp)
         } else {
             /* Step 3. */
             if (!ToNumber(cx, args[0], &d))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             d = TimeClip(d);
         }
     } else {
         double msec_time;
         if (!date_msecFromArgs(cx, args, &msec_time))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (IsFinite(msec_time)) {
             msec_time = UTC(msec_time, &cx->runtime()->dateTimeInfo);
@@ -3021,7 +3021,7 @@ js_Date(JSContext *cx, unsigned argc, Value *vp)
 
     JSObject *obj = js_NewDateObjectMsec(cx, d);
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setObject(*obj);
     return true;
@@ -3206,7 +3206,7 @@ js::IsReadOnlyDateMethod(IsAcceptableThis test, NativeImpl method)
 {
     /* Avoid a linear search in the common case by checking the |this| test. */
     if (test != IsDate)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Linear search, comparing function pointers. */
     unsigned max = sizeof(sReadOnlyDateMethods) / sizeof(sReadOnlyDateMethods[0]);
@@ -3214,5 +3214,5 @@ js::IsReadOnlyDateMethod(IsAcceptableThis test, NativeImpl method)
         if (method == sReadOnlyDateMethods[i])
             return true;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }

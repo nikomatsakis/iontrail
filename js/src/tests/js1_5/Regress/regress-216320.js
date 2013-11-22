@@ -24,7 +24,7 @@ ism='NO';
 scf='N';
 
 function vol(){
-  if(navigator.appName!="Netscape"){	if(!window.navigator.onLine){	alert(pbc0430);	return false;	} }
+  if(navigator.appName!="Netscape"){	if(!window.navigator.onLine){	alert(pbc0430);	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);	} }
   return true; }
 
 function vnid(formfield){
@@ -34,7 +34,7 @@ function vnid(formfield){
     if(nl!=2&&nl!=3){
       alert(pbc0420);
       formfield.focus();
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }}}
 
 function vnull(formfield){
@@ -42,7 +42,7 @@ function vnull(formfield){
   if(text.match(/^\s*$/)){
     alert(pbc0425);
     formfield.focus();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   return true;
 }
@@ -66,18 +66,18 @@ function vdt(formfield){
   if(hy1!="/"||hy2!="/"){
     alert(pbc0409);
     formfield.focus();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   if(month>12||day>31||month<=0||day<=0||(isNaN(month)==true)||(isNaN(day)==true)||(isNaN(year)==true)){
     alert(pbc0409);
     formfield.focus();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   if(((month==1||month==3||month==5||month==7||month==8||month==10||month==12)&&day>31)||(year%4==0&&month==2&&day>29)||(year%4!=0&&month==2&&day>28)||((month==4||month==6||month==9||month==11)&&day>30)){
     alert(pbc0409);
     formfield.focus();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   return true;
 }
@@ -97,24 +97,24 @@ function vkdt(formfield){
   if(date.match(/^\s*$/)){
     alert(pbc0425);
     formfield.focus();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   if(hy1!="/"||hy2!="/"){
     alert(pbc0409);
     formfield.focus();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   if(month>12||day>31||month<=0||day<=0||(isNaN(month)==true)||(isNaN(day)==true)||(isNaN(year)==true)){
     alert(pbc0409);
     formfield.focus();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   if(((month==1||month==3||month==5||month==7||month==8||month==10||month==12)&&day>31)||(year%4==0&&month==2&&day>29)||(year%4!=0&&month==2&&day>28)||((month==4||month==6||month==9||month==11)&&day>30)){
     alert(pbc0409);
     formfield.focus();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   return true;
 }
@@ -140,18 +140,18 @@ function ddif(month1,day1,year1,month2,day2,year2){
 }
 
 function vsub(form,status,ism,action){
-  if(!vol()){ return false; }
+  if(!vol()){ do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
   if(status<9||status==12){
     band=form.BAND.options[form.BAND.selectedIndex].value;
     if(band=="00"){
       alert(pbc0425);
       form.BAND.focus();
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
   }
 
   if((status>=0&&status<5)||(status==7)||(status>=5&&status<9&&ism=="YES")||(status==12&&ism=="YES")){
-    if(!vnull(form.PT))	{	return false;	}
+    if(!vnull(form.PT))	{	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);	}
     adt1=form.STD;
     adt2=form.END;
     stdt=adt1.value;
@@ -171,79 +171,79 @@ function vsub(form,status,ism,action){
     month=today.getMonth()+1;
     if(today.getYear()<2000)year=today.getYear()+1900;	else year=today.getYear();
     nextYear=year+1;
-    if(!vnull(form.STD)){	return false;	}
-    if(!vnull(form.END)){	return false;	}
+    if(!vnull(form.STD)){	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);	}
+    if(!vnull(form.END)){	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);	}
     if(start_hy1!="/"||start_hy2!="/"){
       alert(pbc0409);
       form.STD.focus();
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if(end_hy1!="/"||end_hy2!="/"){
       alert(pbc0409);
       form.END.focus();
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if(smon>12||sdy>31||smon<=0||sdy<=0||(isNaN(smon)==true)||(isNaN(sdy)==true)||(isNaN(syr)==true)){
       alert(pbc0409);
       form.STD.focus();
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if(emon>12||edy>31||emon<=0||edy<=0||(isNaN(emon)==true)||(isNaN(edy)==true)||(isNaN(eyr)==true)){
       alert(pbc0409);
       form.END.focus();
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if(((smon==1||smon==3||smon==5||smon==7||smon==8||smon==10||smon==12)&&sdy>31)||(syr%4==0&&smon==2&&sdy>29)||(syr%4!=0&&smon==2&&sdy>28)||((smon==4||smon==6||smon==9||smon==11)&&sdy>30)){
       alert(pbc0409);
       form.STD.focus();
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if(((emon==1||emon==3||emon==5||emon==7||emon==8||emon==10||emon==12)&&edy>31)||(eyr%4==0&&emon==2&&edy>29)||(eyr%4!=0&&emon==2&&edy>28)||((emon==4||emon==6||emon==9||emon==11)&&edy>30)){
       alert(pbc0409);
       form.END.focus();
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if ((eyr==nextYear)&&(syr==year)) {
       if ((emon>1)||(edy >31)) {
 	alert(pbc0401);
 	form.END.focus();
-	return false;
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
     } else {
 
       if ((syr!=eyr)){
 	alert(pbc0406);
 	form.STD.focus();
-	return false;
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
       if(smon>emon||(smon==emon&&sdy>=edy)){
 	alert(pbc0402);
 	form.STD.focus();
-	return false;
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
       if((eyr!=year)&&(eyr!=year-1)){
 	alert(pbc0405);
 	form.END.focus();
-	return false;
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
     }
     if(ism=='YES'&&(status==5||status==6||status==12)){
       if(ddif(month,date,year,emon,edy,eyr)>31){
 	alert(pbc0421);
 	form.END.focus();
-	return false;
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
     }
     if((status>2&&status<5)||(status==7)||((status>=5&&status<9||status==12)&&ism=="YES")){
       if(status!=5){
 	if(!vdt(form.IRD1)){
-	  return false;
+	  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	}
 	if(!vdt(form.IRD2)){
-	  return false;
+	  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	}
 	if(!vdt(form.IRD3)){
-	  return false;
+	  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	}
 	ird1=form.IRD1.value;
 	ird2=form.IRD2.value;
@@ -251,56 +251,56 @@ function vsub(form,status,ism,action){
 	if(((ird1==ird2)&&(!ird1.match(/^\s*$/)))||((ird1==ird3)&&(!ird1.match(/^\s*$/)))){
 	  alert(pbc0417);
 	  form.IRD1.focus();
-	  return false;
+	  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	}
 	else if((ird2==ird3)&&(!ird2.match(/^\s*$/))){
 	  alert(pbc0417);
 	  form.IRD2.focus();
-	  return false;
+	  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	}
-	if(!vdt(form.FRD1)){ return false;}
+	if(!vdt(form.FRD1)){ do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}
       }
       if(status==5){
-	if(!vdt(form.IRD1)){return false;}
-	if(!vdt(form.IRD2)){return false;}
-	if(!vdt(form.IRD3)){return false;}
+	if(!vdt(form.IRD1)){do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}
+	if(!vdt(form.IRD2)){do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}
+	if(!vdt(form.IRD3)){do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}
 	ird1=form.IRD1.value;
 	ird2=form.IRD2.value;
 	ird3=form.IRD3.value;
 	if(((ird1==ird2)&&(!ird1.match(/^\s*$/)))||((ird1==ird3)&&(!ird1.match(/^\s*$/)))){
 	  alert(pbc0417);
 	  form.IRD1.focus();
-	  return false;
+	  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	}
 	else if((ird2==ird3)&&(!ird2.match(/^\s*$/))){
 	  alert(pbc0417);
 	  form.IRD2.focus();
-	  return false;
+	  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	}
 	if(!vkdt(form.FRD1)){
-	  return false;
+	  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	}
       }
     }
   }
   if((status>=0&&status<2)||(status==3)||(status==7)||(status>=2&&status<9&&ism=="YES")||(status==12&&ism=="YES")){
     if(!vnull(form.WO)){
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if(!vnull(form.EO)){
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if(!vnull(form.TO)){
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
   }
   if((status==2||status==4)||(status>=5&&status<9&&ism=="YES")||(status==12&&ism=="YES")){
-    if(!vnull(form.WR)){return false;}
-    if(!vnull(form.ER)){return false;}
-    if(!vnull(form.TR)){return false;}
+    if(!vnull(form.WR)){do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}
+    if(!vnull(form.ER)){do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}
+    if(!vnull(form.TR)){do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}
   }
   if((status==5||status==6||status==12)&&ism=="YES"){
-    if(!vkdt(form.FRD1)){return false;}
+    if(!vkdt(form.FRD1)){do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}
     frdt=form.FRD1.value;
     fryr=frdt.substring(0,4);
     frmn=frdt.substring(5,7);
@@ -308,7 +308,7 @@ function vsub(form,status,ism,action){
     if(fryr<syr||(fryr==syr&&frmn<smon)||(fryr==syr&&frmn==smon&&frdy<=sdy)){
       alert(pbc0410);
       form.FRD1.focus();
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if((status==5||status==6||status==12)&&ism=="YES"){
       isnh="";
@@ -318,7 +318,7 @@ function vsub(form,status,ism,action){
       if(isnh==""){
 	alert(pbc0424);
 	form.INH[1].focus();
-	return false;
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
       if(isnh=="Y"){
 	beh="";
@@ -332,19 +332,19 @@ function vsub(form,status,ism,action){
 	if(beh==""){
 	  alert(pbc0408);
 	  form.NHB[0].focus();
-	  return false;
+	  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	}
 	if(skl==""){
 	  alert(pbc0426);
 	  form.NHS[0].focus();
-	  return false;
+	  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	}
 	if((beh=="N"||skl=="N")&&status!=12){
 	  if(form.RCD[3].checked==false){
 	    if(confirm(pbc0455))srdb(form.RCD,"4");
 	    else {
 	      form.NHB[0].focus();
-	      return false;
+	      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	    }}}}}
     rating="";
     if(status!=12){ for(i=0; i<form.RCD.length; i++){ if(form.RCD[i].checked==true)rating=form.RCD[i].value; } }
@@ -352,10 +352,10 @@ function vsub(form,status,ism,action){
     if(rating==""){
       alert(pbc0428);
       form.RCD[0].focus();
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if(rating=="4"){
-      if(!vkdt(form.SID)){ return false; }
+      if(!vkdt(form.SID)){ do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
       idt=form.SID.value;
       iyr=idt.substring(0,4);
       imon=idt.substring(5,7);
@@ -367,98 +367,98 @@ function vsub(form,status,ism,action){
       if(iyr<eyr||(iyr==eyr&&imon<emon)||(iyr==eyr&&imon==emon&&idy<=edy)){
 	alert(pbc0415);
 	form.SID.focus();
-	return false;
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
       if(iyr<fryr||(iyr==fryr&&imon<frmn)||(iyr==fryr&&imon==frmn&&idy<=frdy)){
 	alert(pbc0427);
 	form.SID.focus();
-	return false;
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
       if(ddif(emon,edy,eyr,imon,idy,iyr)<30){
 	alert(pbc0416);
 	form.SID.focus();
-	return false;
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
       if(ddif(emon,edy,eyr,imon,idy,iyr)>90){
 	if(!confirm(pbc0439+" "+pbc0442)){
 	  form.SID.focus();
-	  return false;
+	  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	}}} else {
 // MK/06-20-01 = If Rating Not equals to 4 blank out the sustained improve Date
       form.SID.value="";
     }
-    if(!vnull(form.OAT)){ return false; }
+    if(!vnull(form.OAT)){ do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
     if(form.MSRQ.checked==true){
       if(form.NEW_SIGN_MGR_ID.value.match(/^\s*$/)){
 	alert(pbc0418);
 	form.NEW_SIGN_MGR_ID.focus();
-	return false;
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
-      if(vnid(form.NEW_SIGN_MGR_ID)==false){	return false; }
+      if(vnid(form.NEW_SIGN_MGR_ID)==false){	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
     } else {
       if(!form.NEW_SIGN_MGR_ID.value.match(/^\s*$/)){
 	alert(pbc0422);
 	form.NEW_SIGN_MGR_ID.focus();
-	return false;
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
       if ( (form.TOC.value=="YES") && (form.RSRQ.checked==true) ) {
 	alert(pbc0429);
 	form.NEW_SEC_LINE_REV_ID.focus();
-	return false;
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
     }
     if(form.RSRQ.checked==true){
       if(form.NEW_SEC_LINE_REV_ID.value.match(/^\s*$/)){
 	alert(pbc0418);
 	form.NEW_SEC_LINE_REV_ID.focus();
-	return false;
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
-      if(vnid(form.NEW_SEC_LINE_REV_ID)==false){	return false; }
+      if(vnid(form.NEW_SEC_LINE_REV_ID)==false){	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
     } else {
       if(!form.NEW_SEC_LINE_REV_ID.value.match(/^\s*$/)) {
 	alert(pbc0423);
 	form.NEW_SEC_LINE_REV_ID.focus();
-	return false;
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
       if ( (form.TOC.value=="YES") && (form.MSRQ.checked==true) ) {
 	alert(pbc0431);
 	form.NEW_SEC_LINE_REV_ID.focus();
-	return false;
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }}}
   if(status!=9){
 /**for returned objectives **/
     if(status==3){
-      if(conf(pbc0466) == false) return false;
+      if(conf(pbc0466) == false) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if(ism=='NO'){
       if(status==0||status==1||status==3||status==7){
-	if(conf(pbc0456) == false) return false;
+	if(conf(pbc0456) == false) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
 
       if(status==2||status==4||status==8){
-	if(conf(pbc0457) == false) return false;
+	if(conf(pbc0457) == false) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
     } else if(ism=='YES'){
       if(status==0||status==1||status==3||status==7){
-	if(conf(pbc0458) == false)return false;
+	if(conf(pbc0458) == false)do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
       if(status==2||status==4||status==8){
-	if(conf(pbc0459) == false)return false;
+	if(conf(pbc0459) == false)do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
       if(status==5||status==6){
 	if(form.ESRQ.checked==false){
-	  if(conf(pbc0460) == false)return false;
+	  if(conf(pbc0460) == false)do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	} else {
-	  if(conf(pbc0461) == false)return false;
+	  if(conf(pbc0461) == false)do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	}}}}
   if(status==9){
     if(ism=='NO'){
-      if(conf(pbc0462) == false)return false;
+      if(conf(pbc0462) == false)do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else if(ism=='YES'){
-      if(conf(pbc0463) == false)return false;
+      if(conf(pbc0463) == false)do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else if(ism=='REVIEWER'){
-      if(conf(pbc0464) == false)return false;
+      if(conf(pbc0464) == false)do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }}
   sact(action);
   if(status>=9&&status<=11){ snul(); }
@@ -467,7 +467,7 @@ function vsub(form,status,ism,action){
 }
 
 function vsav(form,status,ism,action) {
-  if(!vol()){ return false; }
+  if(!vol()){ do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
   adt1=form.STD;
   adt2=form.END;
   stdt=adt1.value;
@@ -487,81 +487,81 @@ function vsav(form,status,ism,action) {
   month=today.getMonth()+1;
   if(today.getYear()<2000) year=today.getYear()+1900; else year=today.getYear();
   nextYear=year+1;
-  if(!vnull(form.STD)) return false;
-  if(!vnull(form.END)) return false;
+  if(!vnull(form.STD)) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
+  if(!vnull(form.END)) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if(start_hy1!="/"||start_hy2!="/"){
     alert(pbc0409);
     form.STD.focus();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   if(end_hy1!="/"||end_hy2!="/"){
     alert(pbc0409);
     form.END.focus();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   if(smon>12||sdy>31||smon<=0||sdy<=0||(isNaN(smon)==true)||(isNaN(sdy)==true)||(isNaN(syr)==true)){
     alert(pbc0409);
     form.STD.focus();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   if(emon>12||edy>31||emon<=0||edy<=0||(isNaN(emon)==true)||(isNaN(edy)==true)||(isNaN(eyr)==true)){
     alert(pbc0409);
     form.END.focus();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   if(((smon==1||smon==3||smon==5||smon==7||smon==8||smon==10||smon==12)&&sdy>31)||(syr%4==0&&smon==2&&sdy>29)||(syr%4!=0&&smon==2&&sdy>28)||((smon==4||smon==6||smon==9||smon==11)&&sdy>30)){
     alert(pbc0409);
     form.STD.focus();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   if(((emon==1||emon==3||emon==5||emon==7||emon==8||emon==10||emon==12)&&edy>31)||(eyr%4==0&&emon==2&&edy>29)||(eyr%4!=0&&emon==2&&edy>28)||((emon==4||emon==6||emon==9||emon==11)&&edy>30)){
     alert(pbc0409);
     form.END.focus();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   if ((eyr==nextYear)&&(syr==year)) {
     if ((emon>1)||(edy >31)) {
       alert(pbc0401);
       form.END.focus();
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
   } else {
     if ((syr<year-1) || (syr>year)) {
       alert(pbc0407);
       form.STD.focus();
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if((eyr!=year)&&(eyr!=year-1)){
       alert(pbc0405);
       form.END.focus();
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if(smon>emon||(smon==emon&&sdy>=edy)){
       alert(pbc0403);
       form.STD.focus();
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
   }
   if((status>2&&status<5)||(status>=5&&status<9&&ism=="YES")||(status==12&&ism=="YES")){
-    if(!vdt(form.IRD1)){return false;}
-    if(!vdt(form.IRD2)){return false;}
-    if(!vdt(form.IRD3)){	return false;	}
+    if(!vdt(form.IRD1)){do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}
+    if(!vdt(form.IRD2)){do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}
+    if(!vdt(form.IRD3)){	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);	}
     ird1=form.IRD1.value;
     ird2=form.IRD2.value;
     ird3=form.IRD3.value;
     if(((ird1==ird2)&&(!ird1.match(/^\s*$/)))||((ird1==ird3)&&(!ird1.match(/^\s*$/)))){
       alert(pbc0417);
       form.IRD1.focus();
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     else if((ird2==ird3)&&(!ird2.match(/^\s*$/))){
       alert(pbc0417);
       form.IRD2.focus();
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
-    if(!vdt(form.FRD1)){return false;}
+    if(!vdt(form.FRD1)){do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}
     if(ism=="YES"){
-      if(!vdt(form.FRD1)){return false;}
+      if(!vdt(form.FRD1)){do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}
     }
   }
   if((status==5||status==6)&&ism=="YES"){
@@ -593,16 +593,16 @@ function vsav(form,status,ism,action) {
 	  if(confirm(pbc0455))srdb(form.RCD,"4");
 	  else {
 	    form.NHB[0].focus();
-	    return false;
+	    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	  }
 	}
       }
-      if(!vdt(form.SID)){	return false;}
+      if(!vdt(form.SID)){	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}
     }
   }
   if((status==2||status==4 || status==8 || status==5 || status==6 || status==10)&&ism=='YES')
   {
-    if(!confirm(pbc0436)){	return false;}
+    if(!confirm(pbc0436)){	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}
     if(form.OBJECTIVE_CHANGED.value=='Y') {
       if(confirm(pbc0452+" "+pbc0453+" "+pbc0454)){form.MRQ.value=4; } else { form.MRQ.value=0; }
     }else if (( status==5 || status==6 || status==10) && (form.RESULTS_CHANGED.value=='Y')) {
@@ -621,13 +621,13 @@ function cft(formfield){
   if(nid.match(/^\s*$/)){
     alert(pbc0419);
     formfield.focus();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   nl=nid.split('/').length;
   if(nl!=2&&nl!=3){
     alert(pbc0420);
     formfield.focus();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   return true;
 }
@@ -694,27 +694,27 @@ function ccd(){
 }
 
 function crt(form,action){
-  if(!vol()){return false;}
+  if(!vol()){do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}
   band=form.BAND.options[form.BAND.selectedIndex].value;
   if(band=="00"){
     alert(pbc0425);
     form.BAND.focus();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
-  if(!confirm(pbc0450)){return false;}
+  if(!confirm(pbc0450)){do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}
   sact(action);
   form.submit();
   return true;
 }
 function cusat(form,action){
-  if(!vol()){return false;}
+  if(!vol()){do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}
   sact(action);
   form.action="unsatreq.jsp";
   form.submit();
   return true;
 }
 function cfrt(form,ism,action){
-  if(!vol()){return false;}
+  if(!vol()){do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}
   sact(action);
   if(ism=="NO"){
     if(confirm(pbc0449+" "+pbc0432)){
@@ -769,7 +769,7 @@ function seo(){
 }
 function cows(form,action){
   if(!vol()){
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   if(confirm(pbc0437)){
     sact(action);
@@ -836,7 +836,7 @@ function cnh(form){
     form.NHS[1].checked=false;
     form.NHB[0].checked=false;
     form.NHB[1].checked=false;
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   else
   {
@@ -846,7 +846,7 @@ function cnh(form){
       form.RCD[3].checked=true;
       return true;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 }
 
@@ -899,7 +899,7 @@ function testForCookie(){
 			}
  		else {
 		//	alert("Cookie test is bad");
-			return false;
+			do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 			}
 	}
 
@@ -944,7 +944,7 @@ return(cnum);
 }
 function checkForEditPage() {
  if(true==checkForm()){
-   if(!confirm(pbc0465)) return false;
+   if(!confirm(pbc0465)) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
  }
  return true;
 }
@@ -952,11 +952,11 @@ function checkForEditPage() {
 function checkForm() {
   var frms=document.forms["PBC_FORM"];
   if (navigator.appName=="Netscape") {
-    if (frms==undefined) return false;
-    if (frms.IS_EDIT==undefined) return false;
+    if (frms==undefined) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
+    if (frms.IS_EDIT==undefined) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   } else {
-    if(frms==null) return false;
-    if (frms.IS_EDIT==null) return false;
+    if(frms==null) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
+    if (frms.IS_EDIT==null) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   return true;
 }

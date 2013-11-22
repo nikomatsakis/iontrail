@@ -63,12 +63,12 @@ WatchpointMap::watch(JSContext *cx, HandleObject obj, HandleId id,
     JS_ASSERT(JSID_IS_STRING(id) || JSID_IS_INT(id));
 
     if (!obj->setWatched(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     Watchpoint w(handler, closure, false);
     if (!map.put(WatchKey(obj, id), w)) {
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     /*
      * For generational GC, we don't need to post-barrier writes to the
@@ -146,7 +146,7 @@ bool
 WatchpointMap::markCompartmentIteratively(JSCompartment *c, JSTracer *trc)
 {
     if (!c->watchpointMap)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return c->watchpointMap->markIteratively(trc);
 }
 

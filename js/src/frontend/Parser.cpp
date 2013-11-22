@@ -69,7 +69,7 @@ GenerateBlockId(TokenStream &ts, ParseContext<ParseHandler> *pc, uint32_t &block
 {
     if (pc->blockidGen == JS_BIT(20)) {
         ts.reportError(JSMSG_NEED_DIET, "program");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     JS_ASSERT(pc->blockidGen < JS_BIT(20));
     blockid = pc->blockidGen++;
@@ -146,13 +146,13 @@ ParseContext<FullParseHandler>::define(TokenStream &ts,
         dn->setOp(JSOP_GETARG);
         dn->pn_dflags |= PND_BOUND;
         if (!dn->pn_cookie.set(ts, staticLevel, args_.length()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!args_.append(dn))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (name == ts.names().empty)
             break;
         if (!decls_.addUnique(name, dn))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 
       case Definition::CONST:
@@ -161,12 +161,12 @@ ParseContext<FullParseHandler>::define(TokenStream &ts,
             dn->setOp(JSOP_GETLOCAL);
             dn->pn_dflags |= PND_BOUND;
             if (!dn->pn_cookie.set(ts, staticLevel, vars_.length()))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!vars_.append(dn))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (!decls_.addUnique(name, dn))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 
       case Definition::LET:
@@ -174,7 +174,7 @@ ParseContext<FullParseHandler>::define(TokenStream &ts,
         dn->pn_dflags |= (PND_LET | PND_BOUND);
         JS_ASSERT(dn->pn_cookie.level() == staticLevel); /* see bindLet */
         if (!decls_.addShadow(name, dn))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 
       default:
@@ -196,7 +196,7 @@ ParseContext<SyntaxParseHandler>::define(TokenStream &ts, HandlePropertyName nam
 
     // Keep track of the number of arguments in args_, for fun->nargs.
     if (kind == Definition::ARG && !args_.append((Definition *) nullptr))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return decls_.addUnique(name, kind);
 }
@@ -296,7 +296,7 @@ ParseContext<ParseHandler>::generateFunctionBindings(ExclusiveContext *cx, LifoA
     Binding *packedBindings = alloc.newArrayUninitialized<Binding>(count);
     if (!packedBindings) {
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     AppendPackedBindings(this, args_, packedBindings);
@@ -379,7 +379,7 @@ bool
 Parser<SyntaxParseHandler>::abortIfSyntaxParser()
 {
     abortedSyntaxParse = true;
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 template <typename ParseHandler>
@@ -749,7 +749,7 @@ Parser<ParseHandler>::reportBadReturn(Node pn, ParseReportKind kind,
     JSAtom *atom = pc->sc->asFunctionBox()->function()->atom();
     if (atom) {
         if (!AtomToPrintableString(context, atom, &name))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         errnum = anonerrnum;
     }
@@ -784,7 +784,7 @@ Parser<ParseHandler>::checkStrictAssignment(Node lhs, AssignmentFlavor flavor)
     if (atom == context->names().eval || atom == context->names().arguments) {
         JSAutoByteString name;
         if (!AtomToPrintableString(context, atom, &name))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         ParseReportKind kind;
         unsigned errnum;
@@ -796,7 +796,7 @@ Parser<ParseHandler>::checkStrictAssignment(Node lhs, AssignmentFlavor flavor)
             errnum = JSMSG_BAD_DESTRUCT_ASSIGN;
         }
         if (!report(kind, pc->sc->strict, lhs, errnum, name.ptr()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -817,7 +817,7 @@ Parser<ParseHandler>::checkStrictBinding(PropertyName *name, Node pn)
     if (name == context->names().eval || name == context->names().arguments || IsKeyword(name)) {
         JSAutoByteString bytes;
         if (!AtomToPrintableString(context, name, &bytes))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         return report(ParseStrictError, pc->sc->strict, pn,
                       JSMSG_BAD_BINDING, bytes.ptr());
     }
@@ -913,7 +913,7 @@ Parser<FullParseHandler>::checkFunctionArguments()
             pc->lexdeps->remove(arguments);
             dn->pn_dflags |= PND_IMPLICITARGUMENTS;
             if (!pc->define(tokenStream, arguments, dn, Definition::VAR))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             pc->sc->asFunctionBox()->usesArguments = true;
             break;
         }
@@ -929,7 +929,7 @@ Parser<FullParseHandler>::checkFunctionArguments()
     bool hasRest = pc->sc->asFunctionBox()->function()->hasRest();
     if (hasRest && argumentsHasLocalBinding) {
         report(ParseError, false, nullptr, JSMSG_ARGUMENTS_AND_REST);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /*
@@ -940,9 +940,9 @@ Parser<FullParseHandler>::checkFunctionArguments()
     if (!argumentsHasBinding && pc->sc->bindingsAccessedDynamically() && !hasRest) {
         ParseNode *pn = newName(arguments);
         if (!pn)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!pc->define(tokenStream, arguments, pn, Definition::VAR))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         argumentsHasBinding = true;
         argumentsHasLocalBinding = true;
     }
@@ -1010,13 +1010,13 @@ Parser<SyntaxParseHandler>::checkFunctionArguments()
         pc->sc->asFunctionBox()->usesArguments = true;
         if (hasRest) {
             report(ParseError, false, null(), JSMSG_ARGUMENTS_AND_REST);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     } else if (hasRest) {
         DefinitionNode maybeArgDef = pc->decls().lookupFirst(context->names().arguments);
         if (maybeArgDef && handler.getDefinitionKind(maybeArgDef) != Definition::ARG) {
             report(ParseError, false, null(), JSMSG_ARGUMENTS_AND_REST);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -1141,7 +1141,7 @@ Parser<FullParseHandler>::makeDefIntoUse(Definition *dn, ParseNode *pn, JSAtom *
         if (ParseNode *rhs = dn->expr()) {
             ParseNode *lhs = handler.makeAssignment(dn, rhs);
             if (!lhs)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             pn->dn_uses = lhs;
             dn->pn_link = nullptr;
             dn = (Definition *) lhs;
@@ -1245,12 +1245,12 @@ MatchOrInsertSemicolon(TokenStream &ts)
 {
     TokenKind tt = ts.peekTokenSameLine(TokenStream::Operand);
     if (tt == TOK_ERROR)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (tt != TOK_EOF && tt != TOK_EOL && tt != TOK_SEMI && tt != TOK_RC) {
         /* Advance the scanner for proper error location reporting. */
         ts.getToken(TokenStream::Operand);
         ts.reportError(JSMSG_SEMI_BEFORE_STMNT);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     (void) ts.matchToken(TOK_SEMI);
     return true;
@@ -1279,7 +1279,7 @@ ConvertDefinitionToNamedLambdaUse(TokenStream &ts, ParseContext<FullParseHandler
 {
     dn->setOp(JSOP_CALLEE);
     if (!dn->pn_cookie.set(ts, pc->staticLevel, UpvarCookie::CALLEE_SLOT))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     dn->pn_dflags |= PND_BOUND;
     JS_ASSERT(dn->kind() == Definition::NAMED_LAMBDA);
 
@@ -1324,7 +1324,7 @@ Parser<FullParseHandler>::leaveFunction(ParseNode *fn, ParseContext<FullParseHan
 
             if (atom == funbox->function()->name() && kind == Expression) {
                 if (!ConvertDefinitionToNamedLambdaUse(tokenStream, pc, funbox, dn))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 continue;
             }
 
@@ -1362,7 +1362,7 @@ Parser<FullParseHandler>::leaveFunction(ParseNode *fn, ParseContext<FullParseHan
                  */
                 outer_dn = getOrCreateLexicalDependency(outerpc, atom);
                 if (!outer_dn)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             /*
@@ -1449,17 +1449,17 @@ Parser<ParseHandler>::defineArg(Node funcpn, HandlePropertyName name,
         if (sc->needStrictChecks()) {
             JSAutoByteString bytes;
             if (!AtomToPrintableString(context, name, &bytes))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!report(ParseStrictError, pc->sc->strict, pn,
                         JSMSG_DUPLICATE_FORMAL, bytes.ptr()))
             {
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
 
         if (disallowDuplicateArgs) {
             report(ParseError, false, pn, JSMSG_BAD_DUP_ARGS);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (duplicatedArg)
@@ -1472,10 +1472,10 @@ Parser<ParseHandler>::defineArg(Node funcpn, HandlePropertyName name,
 
     Node argpn = newName(name);
     if (!argpn)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!checkStrictBinding(name, argpn))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     handler.addFunctionArgument(funcpn, argpn);
     return pc->define(tokenStream, name, argpn, Definition::ARG);
@@ -1492,11 +1492,11 @@ Parser<ParseHandler>::bindDestructuringArg(BindData<ParseHandler> *data,
 
     if (pc->decls().lookupFirst(name)) {
         parser->report(ParseError, false, null(), JSMSG_BAD_DUP_ARGS);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!parser->checkStrictBinding(name, data->pn))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return pc->define(parser->tokenStream, name, data->pn, Definition::VAR);
 }
@@ -1518,7 +1518,7 @@ Parser<ParseHandler>::functionArguments(FunctionSyntaxKind kind, Node *listp, No
         if (tokenStream.getToken() != TOK_LP) {
             report(ParseError, false, null(),
                    kind == Arrow ? JSMSG_BAD_ARROW_ARGS : JSMSG_PAREN_BEFORE_FORMAL);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         // Record the start of function source (for FunctionToString). If we
@@ -1528,7 +1528,7 @@ Parser<ParseHandler>::functionArguments(FunctionSyntaxKind kind, Node *listp, No
 
     Node argsbody = handler.newList(PNK_ARGSBODY);
     if (!argsbody)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     handler.setFunctionBody(funcpn, argsbody);
 
     if (parenFreeArrow || !tokenStream.matchToken(TOK_RP)) {
@@ -1541,7 +1541,7 @@ Parser<ParseHandler>::functionArguments(FunctionSyntaxKind kind, Node *listp, No
         do {
             if (*hasRest) {
                 report(ParseError, false, null(), JSMSG_PARAMETER_AFTER_REST);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             TokenKind tt = tokenStream.getToken();
@@ -1554,12 +1554,12 @@ Parser<ParseHandler>::functionArguments(FunctionSyntaxKind kind, Node *listp, No
                 /* See comment below in the TOK_NAME case. */
                 if (duplicatedArg) {
                     report(ParseError, false, duplicatedArg, JSMSG_BAD_DUP_ARGS);
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
 
                 if (hasDefaults) {
                     report(ParseError, false, null(), JSMSG_NONDEFAULT_FORMAL_AFTER_DEFAULT);
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
 
                 funbox->hasDestructuringArgs = true;
@@ -1576,7 +1576,7 @@ Parser<ParseHandler>::functionArguments(FunctionSyntaxKind kind, Node *listp, No
                 data.binder = bindDestructuringArg;
                 Node lhs = destructuringExpr(&data, tt);
                 if (!lhs)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 /*
                  * Synthesize a destructuring assignment from the single
@@ -1586,20 +1586,20 @@ Parser<ParseHandler>::functionArguments(FunctionSyntaxKind kind, Node *listp, No
                 HandlePropertyName name = context->names().empty;
                 Node rhs = newName(name);
                 if (!rhs)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 if (!pc->define(tokenStream, name, rhs, Definition::ARG))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 Node item = handler.newBinary(PNK_ASSIGN, lhs, rhs);
                 if (!item)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (list) {
                     handler.addList(list, item);
                 } else {
                     list = handler.newList(PNK_VAR, item);
                     if (!list)
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     *listp = list;
                 }
                 break;
@@ -1608,7 +1608,7 @@ Parser<ParseHandler>::functionArguments(FunctionSyntaxKind kind, Node *listp, No
 
               case TOK_YIELD:
                 if (!checkYieldNameValidity())
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 goto TOK_NAME;
 
               case TOK_TRIPLEDOT:
@@ -1618,7 +1618,7 @@ Parser<ParseHandler>::functionArguments(FunctionSyntaxKind kind, Node *listp, No
                 if (tt != TOK_NAME) {
                     if (tt != TOK_ERROR)
                         report(ParseError, false, null(), JSMSG_NO_REST_NAME);
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
                 goto TOK_NAME;
               }
@@ -1632,7 +1632,7 @@ Parser<ParseHandler>::functionArguments(FunctionSyntaxKind kind, Node *listp, No
                 RootedPropertyName name(context, tokenStream.currentName());
                 bool disallowDuplicateArgs = funbox->hasDestructuringArgs || hasDefaults;
                 if (!defineArg(funcpn, name, disallowDuplicateArgs, &duplicatedArg))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 if (tokenStream.matchToken(TOK_ASSIGN)) {
                     // A default argument without parentheses would look like:
@@ -1643,11 +1643,11 @@ Parser<ParseHandler>::functionArguments(FunctionSyntaxKind kind, Node *listp, No
 
                     if (*hasRest) {
                         report(ParseError, false, null(), JSMSG_REST_WITH_DEFAULT);
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     }
                     if (duplicatedArg) {
                         report(ParseError, false, duplicatedArg, JSMSG_BAD_DUP_ARGS);
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     }
                     if (!hasDefaults) {
                         hasDefaults = true;
@@ -1658,7 +1658,7 @@ Parser<ParseHandler>::functionArguments(FunctionSyntaxKind kind, Node *listp, No
                     }
                     Node def_expr = assignExprWithoutYield(JSMSG_YIELD_IN_DEFAULT);
                     if (!def_expr)
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     handler.setLastFunctionArgumentDefault(funcpn, def_expr);
                 }
 
@@ -1669,13 +1669,13 @@ Parser<ParseHandler>::functionArguments(FunctionSyntaxKind kind, Node *listp, No
                 report(ParseError, false, null(), JSMSG_MISSING_FORMAL);
                 /* FALL THROUGH */
               case TOK_ERROR:
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         } while (!parenFreeArrow && tokenStream.matchToken(TOK_COMMA));
 
         if (!parenFreeArrow && tokenStream.getToken() != TOK_RP) {
             report(ParseError, false, null(), JSMSG_PAREN_AFTER_FORMAL);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (!hasDefaults)
@@ -1715,7 +1715,7 @@ Parser<FullParseHandler>::checkFunctionDefinition(HandlePropertyName funName,
                     !report(reporter, false, nullptr, JSMSG_REDECLARED_VAR,
                             Definition::kindString(dn->kind()), name.ptr()))
                 {
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
 
@@ -1728,7 +1728,7 @@ Parser<FullParseHandler>::checkFunctionDefinition(HandlePropertyName funName,
              * declaration into a use.
              */
             if (bodyLevel && !makeDefIntoUse(dn, pn, funName))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else if (bodyLevel) {
             /*
              * If this function was used before it was defined, claim the
@@ -1751,7 +1751,7 @@ Parser<FullParseHandler>::checkFunctionDefinition(HandlePropertyName funName,
             }
 
             if (!pc->define(tokenStream, funName, pn, Definition::VAR))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (bodyLevel) {
@@ -1782,10 +1782,10 @@ Parser<FullParseHandler>::checkFunctionDefinition(HandlePropertyName funName,
             if (!pc->funcStmts) {
                 pc->funcStmts = context->new_<FuncStmtSet>(context);
                 if (!pc->funcStmts || !pc->funcStmts->init())
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             if (!pc->funcStmts->put(funName))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             /*
              * Due to the implicit declaration mechanism, 'arguments' will not
@@ -1814,10 +1814,10 @@ Parser<FullParseHandler>::checkFunctionDefinition(HandlePropertyName funName,
         FunctionBox *funbox = newFunctionBox(pn, fun, pc, Directives(/* strict = */ false),
                                              fun->generatorKind());
         if (!funbox)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!addFreeVariablesFromLazyFunction(fun, pc))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         // The position passed to tokenStream.advance() is relative to
         // userbuf.base() while LazyScript::{begin,end} offsets are relative to
@@ -1866,7 +1866,7 @@ Parser<ParseHandler>::addFreeVariablesFromLazyFunction(JSFunction *fun,
         if (!dn) {
             dn = getOrCreateLexicalDependency(pc, atom);
             if (!dn)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         /* Mark the outer dn as escaping. */
@@ -1900,7 +1900,7 @@ Parser<SyntaxParseHandler>::checkFunctionDefinition(HandlePropertyName funName,
                     !report(ParseError, false, null(), JSMSG_REDECLARED_VAR,
                             Definition::kindString(dn), name.ptr()))
                 {
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
         } else if (bodyLevel) {
@@ -1908,7 +1908,7 @@ Parser<SyntaxParseHandler>::checkFunctionDefinition(HandlePropertyName funName,
                 pc->lexdeps->remove(funName);
 
             if (!pc->define(tokenStream, funName, *pn, Definition::VAR))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (!bodyLevel && funName == context->names().arguments)
@@ -2006,7 +2006,7 @@ Parser<FullParseHandler>::finishFunctionDefinition(ParseNode *pn, FunctionBox *f
 
             block = ListNode::create(PNK_SEQ, &handler);
             if (!block)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             block->pn_pos = body->pn_pos;
             block->initList(body);
 
@@ -2015,7 +2015,7 @@ Parser<FullParseHandler>::finishFunctionDefinition(ParseNode *pn, FunctionBox *f
 
         ParseNode *item = UnaryNode::create(PNK_SEMI, &handler);
         if (!item)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         item->pn_pos.begin = item->pn_pos.end = body->pn_pos.begin;
         item->pn_kid = prelude;
@@ -2055,7 +2055,7 @@ Parser<SyntaxParseHandler>::finishFunctionDefinition(Node pn, FunctionBox *funbo
                                           funbox->bufStart, funbox->bufEnd,
                                           funbox->startLine, funbox->startColumn);
     if (!lazy)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     HeapPtrAtom *freeVariables = lazy->freeVariables();
     size_t i = 0;
@@ -2091,7 +2091,7 @@ Parser<FullParseHandler>::functionArgsAndBody(ParseNode *pn, HandleFunction fun,
     // Create box for fun->object early to protect against last-ditch GC.
     FunctionBox *funbox = newFunctionBox(pn, fun, pc, inheritedDirectives, generatorKind);
     if (!funbox)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Try a syntax parse for this inner function.
     do {
@@ -2109,7 +2109,7 @@ Parser<FullParseHandler>::functionArgsAndBody(ParseNode *pn, HandleFunction fun,
                                                    newDirectives, outerpc->staticLevel + 1,
                                                    outerpc->blockidGen);
             if (!funpc.init(tokenStream))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             if (!parser->functionArgsAndBodyGeneric(SyntaxParseHandler::NodeGeneric,
                                                     fun, type, kind, newDirectives))
@@ -2119,7 +2119,7 @@ Parser<FullParseHandler>::functionArgsAndBody(ParseNode *pn, HandleFunction fun,
                     parser->clearAbortedSyntaxParse();
                     break;
                 }
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             outerpc->blockidGen = funpc.blockidGen;
@@ -2130,7 +2130,7 @@ Parser<FullParseHandler>::functionArgsAndBody(ParseNode *pn, HandleFunction fun,
         }
 
         if (!addFreeVariablesFromLazyFunction(fun, pc))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         pn->pn_blockid = outerpc->blockid();
         PropagateTransitiveParseFlags(funbox, outerpc->sc);
@@ -2141,13 +2141,13 @@ Parser<FullParseHandler>::functionArgsAndBody(ParseNode *pn, HandleFunction fun,
     ParseContext<FullParseHandler> funpc(this, pc, pn, funbox, newDirectives,
                                          outerpc->staticLevel + 1, outerpc->blockidGen);
     if (!funpc.init(tokenStream))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!functionArgsAndBodyGeneric(pn, fun, type, kind, newDirectives))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!leaveFunction(pn, outerpc, kind))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     pn->pn_blockid = outerpc->blockid();
 
@@ -2174,19 +2174,19 @@ Parser<SyntaxParseHandler>::functionArgsAndBody(Node pn, HandleFunction fun,
     // Create box for fun->object early to protect against last-ditch GC.
     FunctionBox *funbox = newFunctionBox(pn, fun, pc, inheritedDirectives, generatorKind);
     if (!funbox)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Initialize early for possible flags mutation via destructuringExpr.
     ParseContext<SyntaxParseHandler> funpc(this, pc, handler.null(), funbox, newDirectives,
                                            outerpc->staticLevel + 1, outerpc->blockidGen);
     if (!funpc.init(tokenStream))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!functionArgsAndBodyGeneric(pn, fun, type, kind, newDirectives))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!leaveFunction(pn, outerpc, kind))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // This is a lazy function inner to another lazy function. Remember the
     // inner function so that if the outer function is eventually parsed we do
@@ -2254,7 +2254,7 @@ Parser<ParseHandler>::functionArgsAndBodyGeneric(Node pn, HandleFunction fun, Fu
     Node prelude = null();
     bool hasRest;
     if (!functionArguments(kind, &prelude, pn, &hasRest))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     FunctionBox *funbox = pc->sc->asFunctionBox();
 
@@ -2264,16 +2264,16 @@ Parser<ParseHandler>::functionArgsAndBodyGeneric(Node pn, HandleFunction fun, Fu
 
     if (type == Getter && fun->nargs > 0) {
         report(ParseError, false, null(), JSMSG_ACCESSOR_WRONG_ARGS, "getter", "no", "s");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (type == Setter && fun->nargs != 1) {
         report(ParseError, false, null(), JSMSG_ACCESSOR_WRONG_ARGS, "setter", "one", "");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (kind == Arrow && !tokenStream.matchToken(TOK_ARROW)) {
         report(ParseError, false, null(), JSMSG_BAD_ARROW_ARGS);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // Parse the function body.
@@ -2281,7 +2281,7 @@ Parser<ParseHandler>::functionArgsAndBodyGeneric(Node pn, HandleFunction fun, Fu
     if (tokenStream.getToken(TokenStream::Operand) != TOK_LC) {
         if (funbox->isStarGenerator()) {
             report(ParseError, false, null(), JSMSG_CURLY_BEFORE_BODY);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         tokenStream.ungetToken();
         bodyType = ExpressionBody;
@@ -2290,26 +2290,26 @@ Parser<ParseHandler>::functionArgsAndBodyGeneric(Node pn, HandleFunction fun, Fu
 
     Node body = functionBody(kind, bodyType);
     if (!body)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (fun->name() && !checkStrictBinding(fun->name(), pn))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #if JS_HAS_EXPR_CLOSURES
     if (bodyType == StatementListBody) {
 #endif
         if (!tokenStream.matchToken(TOK_RC)) {
             report(ParseError, false, null(), JSMSG_CURLY_AFTER_BODY);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         funbox->bufEnd = pos().begin + 1;
 #if JS_HAS_EXPR_CLOSURES
     } else {
         if (tokenStream.hadError())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         funbox->bufEnd = pos().end;
         if (kind == Statement && !MatchOrInsertSemicolon(tokenStream))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 #endif
 
@@ -2324,7 +2324,7 @@ Parser<ParseHandler>::checkYieldNameValidity()
     // strict mode, yield is a future reserved word.
     if (pc->isStarGenerator() || versionNumber() >= JSVERSION_1_7 || pc->sc->strict) {
         report(ParseError, false, null(), JSMSG_RESERVED_ID, "yield");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -2429,7 +2429,7 @@ Parser<SyntaxParseHandler>::asmJS(Node list)
     // encountered so that asm.js is always validated/compiled exactly once
     // during a full parse.
     JS_ALWAYS_FALSE(abortIfSyntaxParser());
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 template <>
@@ -2457,10 +2457,10 @@ Parser<FullParseHandler>::asmJS(Node list)
     // new directive has been encountered and returning 'false'.
     bool validated;
     if (!CompileAsmJS(context, *this, list, &validated))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!validated) {
         pc->newDirectives->setAsmJS();
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 #endif
 
@@ -2518,14 +2518,14 @@ Parser<ParseHandler>::maybeParseDirective(Node list, Node pn, bool *cont)
                 if (pc->sc->isFunctionBox()) {
                     // Request that this function be reparsed as strict.
                     pc->newDirectives->setStrict();
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 } else {
                     // We don't reparse global scopes, so we keep track of the
                     // one possible strict violation that could occur in the
                     // directive prologue -- octal escapes -- and complain now.
                     if (tokenStream.sawOctalEscape()) {
                         report(ParseError, false, null(), JSMSG_DEPRECATED_OCTAL);
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     }
                     pc->sc->strict = true;
                 }
@@ -2619,14 +2619,14 @@ Parser<ParseHandler>::matchLabel(MutableHandle<PropertyName*> label)
 {
     TokenKind tt = tokenStream.peekTokenSameLine(TokenStream::Operand);
     if (tt == TOK_ERROR)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (tt == TOK_NAME) {
         tokenStream.consumeKnownToken(TOK_NAME);
         label.set(tokenStream.currentName());
     } else if (tt == TOK_YIELD) {
         tokenStream.consumeKnownToken(TOK_YIELD);
         if (!checkYieldNameValidity())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         label.set(tokenStream.currentName());
     } else {
         label.set(nullptr);
@@ -2641,7 +2641,7 @@ Parser<ParseHandler>::reportRedeclaration(Node pn, bool isConst, JSAtom *atom)
     JSAutoByteString name;
     if (AtomToPrintableString(context, atom, &name))
         report(ParseError, false, pn, JSMSG_REDECLARED_VAR, isConst ? "const" : "variable", name.ptr());
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /*
@@ -2661,7 +2661,7 @@ Parser<FullParseHandler>::bindLet(BindData<FullParseHandler> *data,
     ParseContext<FullParseHandler> *pc = parser->pc;
     ParseNode *pn = data->pn;
     if (!parser->checkStrictBinding(name, pn))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ExclusiveContext *cx = parser->context;
 
@@ -2669,7 +2669,7 @@ Parser<FullParseHandler>::bindLet(BindData<FullParseHandler> *data,
     unsigned blockCount = blockObj->slotCount();
     if (blockCount == JS_BIT(16)) {
         parser->report(ParseError, false, pn, data->let.overflow);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /*
@@ -2680,7 +2680,7 @@ Parser<FullParseHandler>::bindLet(BindData<FullParseHandler> *data,
      * again to include script->nfixed.
      */
     if (!pn->pn_cookie.set(parser->tokenStream, pc->staticLevel, uint16_t(blockCount)))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * For bindings that are hoisted to the beginning of the block/function,
@@ -2692,7 +2692,7 @@ Parser<FullParseHandler>::bindLet(BindData<FullParseHandler> *data,
         if (dn && dn->pn_blockid == pc->blockid())
             return parser->reportRedeclaration(pn, dn->isConst(), name);
         if (!pc->define(parser->tokenStream, name, pn, Definition::LET))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /*
@@ -2705,7 +2705,7 @@ Parser<FullParseHandler>::bindLet(BindData<FullParseHandler> *data,
     if (!shape) {
         if (redeclared)
             parser->reportRedeclaration(pn, false, name);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Store pn in the static block object. */
@@ -2719,7 +2719,7 @@ Parser<SyntaxParseHandler>::bindLet(BindData<SyntaxParseHandler> *data,
                                     HandlePropertyName name, Parser<SyntaxParseHandler> *parser)
 {
     if (!parser->checkStrictBinding(name, data->pn))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }
@@ -2737,7 +2737,7 @@ ForEachLetDef(TokenStream &ts, ParseContext<ParseHandler> *pc,
             continue;
 
         if (!op(ts, pc, blockObj, shape, JSID_TO_ATOM(shape.propid())))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -2820,11 +2820,11 @@ OuterLet(ParseContext<ParseHandler> *pc, StmtInfoPC *stmt, HandleAtom atom)
     while (stmt->downScope) {
         stmt = LexicalLookup(pc, atom, nullptr, stmt->downScope);
         if (!stmt)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (stmt->type == STMT_BLOCK)
             return true;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 template <typename ParseHandler>
@@ -2841,7 +2841,7 @@ Parser<ParseHandler>::bindVarOrConst(BindData<ParseHandler> *data,
     parser->handler.setOp(pn, JSOP_NAME);
 
     if (!parser->checkStrictBinding(name, pn))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     StmtInfoPC *stmt = LexicalLookup(pc, name, nullptr, (StmtInfoPC *)nullptr);
 
@@ -2884,14 +2884,14 @@ Parser<ParseHandler>::bindVarOrConst(BindData<ParseHandler> *data,
     if (dn_kind == Definition::ARG) {
         JSAutoByteString bytes;
         if (!AtomToPrintableString(cx, name, &bytes))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (isConstDecl) {
             parser->report(ParseError, false, pn, JSMSG_REDECLARED_PARAM, bytes.ptr());
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (!parser->report(ParseExtraWarning, false, pn, JSMSG_VAR_HIDES_ARG, bytes.ptr()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         bool error = (isConstDecl ||
                       dn_kind == Definition::CONST ||
@@ -2908,7 +2908,7 @@ Parser<ParseHandler>::bindVarOrConst(BindData<ParseHandler> *data,
                 !parser->report(reporter, false, pn, JSMSG_REDECLARED_VAR,
                                 Definition::kindString(dn_kind), bytes.ptr()))
             {
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
     }
@@ -2928,7 +2928,7 @@ Parser<FullParseHandler>::makeSetCall(ParseNode *pn, unsigned msg)
               pn->isOp(JSOP_FUNCALL) || pn->isOp(JSOP_FUNAPPLY));
 
     if (!report(ParseStrictError, pc->sc->strict, pn, msg))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     handler.markAsSetCall(pn);
     return true;
 }
@@ -2955,7 +2955,7 @@ Parser<ParseHandler>::noteNameUse(HandlePropertyName name, Node pn)
          */
         dn = getOrCreateLexicalDependency(pc, name);
         if (!dn)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     handler.linkUseToDef(pn, dn);
@@ -2978,7 +2978,7 @@ Parser<FullParseHandler>::bindDestructuringVar(BindData<FullParseHandler> *data,
 
     data->pn = pn;
     if (!data->binder(data, name, this))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Select the appropriate name-setting opcode, respecting eager selection
@@ -3046,7 +3046,7 @@ Parser<FullParseHandler>::checkDestructuring(BindData<FullParseHandler> *data,
 
     if (left->isKind(PNK_ARRAYCOMP)) {
         report(ParseError, false, left, JSMSG_ARRAY_COMP_LEFTSIDE);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     Rooted<StaticBlockObject *> blockObj(context);
@@ -3062,7 +3062,7 @@ Parser<FullParseHandler>::checkDestructuring(BindData<FullParseHandler> *data,
                     if (data) {
                         if (!pn->isKind(PNK_NAME)) {
                             report(ParseError, false, pn, JSMSG_NO_VARIABLE_NAME);
-                            return false;
+                            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                         }
                         ok = bindDestructuringVar(data, pn);
                     } else {
@@ -3070,7 +3070,7 @@ Parser<FullParseHandler>::checkDestructuring(BindData<FullParseHandler> *data,
                     }
                 }
                 if (!ok)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
     } else {
@@ -3084,7 +3084,7 @@ Parser<FullParseHandler>::checkDestructuring(BindData<FullParseHandler> *data,
             } else if (data) {
                 if (!pn->isKind(PNK_NAME)) {
                     report(ParseError, false, pn, JSMSG_NO_VARIABLE_NAME);
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
                 ok = bindDestructuringVar(data, pn);
             } else {
@@ -3098,12 +3098,12 @@ Parser<FullParseHandler>::checkDestructuring(BindData<FullParseHandler> *data,
                 if (pair->pn_right == pair->pn_left) {
                     RootedPropertyName name(context, pn->pn_atom->asPropertyName());
                     if (!noteNameUse(name, pn))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
                 ok = checkAndMarkAsAssignmentLhs(pn, KeyedDestructuringAssignment);
             }
             if (!ok)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -3134,7 +3134,7 @@ Parser<FullParseHandler>::checkDestructuring(BindData<FullParseHandler> *data,
         bool redeclared;
         RootedId id(context, INT_TO_JSID(blockCountBefore));
         if (!StaticBlockObject::addVar(context, blockObj, id, blockCountBefore, &redeclared))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         JS_ASSERT(!redeclared);
         JS_ASSERT(blockObj->slotCount() == blockCountBefore + 1);
     }
@@ -4025,7 +4025,7 @@ Parser<ParseHandler>::matchInOrOf(bool *isForOfp)
         *isForOfp = true;
         return true;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 template <>
@@ -4036,9 +4036,9 @@ Parser<FullParseHandler>::isValidForStatementLHS(ParseNode *pn1, JSVersion versi
 {
     if (isForDecl) {
         if (pn1->pn_count > 1)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (pn1->isOp(JSOP_DEFCONST))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #if JS_HAS_DESTRUCTURING
         // In JS 1.7 only, for (var [K, V] in EXPR) has a special meaning.
@@ -4049,9 +4049,9 @@ Parser<FullParseHandler>::isValidForStatementLHS(ParseNode *pn1, JSVersion versi
                 lhs = lhs->pn_left;
 
             if (lhs->isKind(PNK_OBJECT))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (lhs->isKind(PNK_ARRAY) && lhs->pn_count != 2)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 #endif
         return true;
@@ -4075,7 +4075,7 @@ Parser<FullParseHandler>::isValidForStatementLHS(ParseNode *pn1, JSVersion versi
 #endif
 
       default:
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 }
 
@@ -5480,7 +5480,7 @@ Parser<FullParseHandler>::checkAndMarkAsAssignmentLhs(ParseNode *pn, AssignmentF
     switch (pn->getKind()) {
       case PNK_NAME:
         if (!checkStrictAssignment(pn, flavor))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (flavor == KeyedDestructuringAssignment) {
             /*
              * We may be called on a name node that has already been
@@ -5504,21 +5504,21 @@ Parser<FullParseHandler>::checkAndMarkAsAssignmentLhs(ParseNode *pn, AssignmentF
       case PNK_OBJECT:
         if (flavor == CompoundAssignment) {
             report(ParseError, false, null(), JSMSG_BAD_DESTRUCT_ASS);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (!checkDestructuring(nullptr, pn))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 #endif
 
       case PNK_CALL:
         if (!makeSetCall(pn, JSMSG_BAD_LEFTSIDE_OF_ASS))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 
       default:
         report(ParseError, false, pn, JSMSG_BAD_LEFTSIDE_OF_ASS);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -5641,18 +5641,18 @@ Parser<FullParseHandler>::checkAndMarkAsIncOperand(ParseNode *kid, TokenKind tt,
            kid->isOp(JSOP_FUNAPPLY))))
     {
         report(ParseError, false, null(), JSMSG_BAD_OPERAND, incop_name_str[tt == TOK_DEC]);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!checkStrictAssignment(kid, IncDecAssignment))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Mark.
     if (kid->isKind(PNK_NAME)) {
         kid->markAsAssigned();
     } else if (kid->isKind(PNK_CALL)) {
         if (!makeSetCall(kid, JSMSG_BAD_INCOP_OPERAND))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -5826,7 +5826,7 @@ AdjustBlockId(TokenStream &ts, ParseNode *pn, unsigned adjust, ParseContext<Pars
     JS_ASSERT(pn->isArity(PN_LIST) || pn->isArity(PN_CODE) || pn->isArity(PN_NAME));
     if (JS_BIT(20) - pn->pn_blockid <= adjust + 1) {
         ts.reportError(JSMSG_NEED_DIET, "program");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     pn->pn_blockid += adjust;
     if (pn->pn_blockid >= pc->blockidGen)
@@ -5846,11 +5846,11 @@ CompExprTransplanter::transplant(ParseNode *pn)
       case PN_LIST:
         for (ParseNode *pn2 = pn->pn_head; pn2; pn2 = pn2->pn_next) {
             if (!transplant(pn2))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (pn->pn_pos >= root->pn_pos) {
             if (!AdjustBlockId(parser->tokenStream, pn, adjust, pc))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         break;
 
@@ -5858,33 +5858,33 @@ CompExprTransplanter::transplant(ParseNode *pn)
         if (!transplant(pn->pn_kid1) ||
             !transplant(pn->pn_kid2) ||
             !transplant(pn->pn_kid3))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 
       case PN_BINARY:
         if (!transplant(pn->pn_left))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* Binary TOK_COLON nodes can have left == right. See bug 492714. */
         if (pn->pn_right != pn->pn_left) {
             if (!transplant(pn->pn_right))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         break;
 
       case PN_UNARY:
         if (!transplant(pn->pn_kid))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 
       case PN_CODE:
       case PN_NAME:
         if (!transplant(pn->maybeExpr()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (pn->isDefn()) {
             if (genexp && !BumpStaticLevel(parser->tokenStream, pn, pc))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else if (pn->isUsed()) {
             JS_ASSERT(pn->pn_cookie.isFree());
 
@@ -5902,9 +5902,9 @@ CompExprTransplanter::transplant(ParseNode *pn)
              */
             if (dn->isPlaceholder() && dn->pn_pos >= root->pn_pos && dn->dn_uses == pn) {
                 if (genexp && !BumpStaticLevel(parser->tokenStream, dn, pc))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (!AdjustBlockId(parser->tokenStream, dn, adjust, pc))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             RootedAtom atom(parser->context, pn->pn_atom);
@@ -5927,7 +5927,7 @@ CompExprTransplanter::transplant(ParseNode *pn)
                     Definition *dn2 = parser->handler.newPlaceholder(atom, parser->pc->blockid(),
                                                                      parser->pos());
                     if (!dn2)
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     dn2->pn_pos = root->pn_pos;
 
                     /*
@@ -5946,7 +5946,7 @@ CompExprTransplanter::transplant(ParseNode *pn)
                     *pnup = nullptr;
                     DefinitionSingle def = DefinitionSingle::new_<FullParseHandler>(dn2);
                     if (!pc->lexdeps->put(atom, def))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     if (dn->isClosed())
                         dn2->pn_dflags |= PND_CLOSED;
                 } else if (dn->isPlaceholder()) {
@@ -5958,7 +5958,7 @@ CompExprTransplanter::transplant(ParseNode *pn)
                     outerpc->lexdeps->remove(atom);
                     DefinitionSingle def = DefinitionSingle::new_<FullParseHandler>(dn);
                     if (!pc->lexdeps->put(atom, def))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 } else if (dn->isImplicitArguments()) {
                     /*
                      * Implicit 'arguments' Definition nodes (see
@@ -5969,11 +5969,11 @@ CompExprTransplanter::transplant(ParseNode *pn)
                      */
                     if (genexp && !visitedImplicitArguments.has(dn)) {
                         if (!BumpStaticLevel(parser->tokenStream, dn, pc))
-                            return false;
+                            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                         if (!AdjustBlockId(parser->tokenStream, dn, adjust, pc))
-                            return false;
+                            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                         if (!visitedImplicitArguments.put(dn))
-                            return false;
+                            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     }
                 }
             }
@@ -5981,7 +5981,7 @@ CompExprTransplanter::transplant(ParseNode *pn)
 
         if (pn->pn_pos >= root->pn_pos) {
             if (!AdjustBlockId(parser->tokenStream, pn, adjust, pc))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         break;
 
@@ -6259,7 +6259,7 @@ Parser<FullParseHandler>::arrayInitializerComprehensionTail(ParseNode *pn)
     ParseNode *pntop = comprehensionTail(pnexp, pn->pn_blockid, false, nullptr,
                                          PNK_ARRAYPUSH, JSOP_ARRAYPUSH);
     if (!pntop)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     pn->append(pntop);
     return true;
 }
@@ -6417,7 +6417,7 @@ Parser<ParseHandler>::argumentList(Node listNode, bool *isSpread)
 
         Node argNode = assignExpr();
         if (!argNode)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (spread) {
             argNode = handler.newUnary(PNK_SPREAD, JSOP_NOP, begin, argNode);
             if (!argNode)
@@ -6427,21 +6427,21 @@ Parser<ParseHandler>::argumentList(Node listNode, bool *isSpread)
         if (handler.isOperationWithoutParens(argNode, PNK_YIELD) &&
             tokenStream.peekToken() == TOK_COMMA) {
             report(ParseError, false, argNode, JSMSG_BAD_GENERATOR_SYNTAX, js_yield_str);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 #if JS_HAS_GENERATOR_EXPRS
         if (!spread && tokenStream.matchToken(TOK_FOR)) {
             if (pc->lastYieldOffset != startYieldOffset) {
                 reportWithOffset(ParseError, false, pc->lastYieldOffset,
                                  JSMSG_BAD_GENEXP_BODY, js_yield_str);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             argNode = generatorExpr(argNode);
             if (!argNode)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!arg0 || tokenStream.peekToken() == TOK_COMMA) {
                 report(ParseError, false, argNode, JSMSG_BAD_GENERATOR_SYNTAX, js_generator_str);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
 #endif
@@ -6452,7 +6452,7 @@ Parser<ParseHandler>::argumentList(Node listNode, bool *isSpread)
 
     if (tokenStream.getToken() != TOK_RP) {
         report(ParseError, false, null(), JSMSG_PAREN_AFTER_ARGS);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }

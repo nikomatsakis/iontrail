@@ -657,7 +657,7 @@ class TemporaryTypeSet : public TypeSet
     bool objectOrSentinel() {
         TypeFlags flags = TYPE_FLAG_UNDEFINED | TYPE_FLAG_NULL | TYPE_FLAG_ANYOBJECT;
         if (baseFlags() & (~flags & TYPE_FLAG_BASE_MASK))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         return hasAnyFlag(TYPE_FLAG_ANYOBJECT) || baseObjectCount() > 0;
     }

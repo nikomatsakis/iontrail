@@ -364,11 +364,11 @@ UpdateLineNumberNotes(ExclusiveContext *cx, BytecodeEmitter *bce, uint32_t offse
         bce->current->lastColumn  = 0;
         if (delta >= (unsigned)(2 + ((line > SN_3BYTE_OFFSET_MASK)<<1))) {
             if (NewSrcNote2(cx, bce, SRC_SETLINE, (ptrdiff_t)line) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             do {
                 if (NewSrcNote(cx, bce, SRC_NEWLINE) < 0)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } while (--delta != 0);
         }
     }
@@ -380,7 +380,7 @@ static bool
 UpdateSourceCoordNotes(ExclusiveContext *cx, BytecodeEmitter *bce, uint32_t offset)
 {
     if (!UpdateLineNumberNotes(cx, bce, offset))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     uint32_t columnIndex = bce->parser->tokenStream.srcCoords.columnIndex(offset);
     ptrdiff_t colspan = ptrdiff_t(columnIndex) - ptrdiff_t(bce->current->lastColumn);
@@ -396,7 +396,7 @@ UpdateSourceCoordNotes(ExclusiveContext *cx, BytecodeEmitter *bce, uint32_t offs
             return true;
         }
         if (NewSrcNote2(cx, bce, SRC_COLSPAN, colspan) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         bce->current->lastColumn = columnIndex;
     }
     return true;
@@ -430,7 +430,7 @@ EmitLoopEntry(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *nextpn)
         if (nextpn->isKind(PNK_STATEMENTLIST) && nextpn->pn_head)
             nextpn = nextpn->pn_head;
         if (!UpdateSourceCoordNotes(cx, bce, nextpn->pn_pos.begin))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /*
@@ -474,7 +474,7 @@ CheckTypeSet(ExclusiveContext *cx, BytecodeEmitter *bce, JSOp op)
 #define EMIT_UINT16_IMM_OP(op, i)                                             \
     JS_BEGIN_MACRO                                                            \
         if (Emit3(cx, bce, op, UINT16_HI(i), UINT16_LO(i)) < 0)               \
-            return false;                                                     \
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                                     \
         CheckTypeSet(cx, bce, op);                                            \
     JS_END_MACRO
 
@@ -482,7 +482,7 @@ CheckTypeSet(ExclusiveContext *cx, BytecodeEmitter *bce, JSOp op)
     JS_BEGIN_MACRO                                                            \
         ptrdiff_t off_ = EmitN(cx, bce, op, 2 * UINT16_LEN);                  \
         if (off_ < 0)                                                         \
-            return false;                                                     \
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                                     \
         jsbytecode *pc_ = bce->code(off_);                                    \
         SET_UINT16(pc_, i);                                                   \
         pc_ += UINT16_LEN;                                                    \
@@ -518,7 +518,7 @@ static bool
 PopIterator(ExclusiveContext *cx, BytecodeEmitter *bce)
 {
     if (Emit1(cx, bce, JSOP_ENDITER) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return true;
 }
 
@@ -537,21 +537,21 @@ EmitNonLocalJumpFixup(ExclusiveContext *cx, BytecodeEmitter *bce, StmtInfoBCE *t
     int depth = bce->stackDepth;
     int npops = 0;
 
-#define FLUSH_POPS() if (npops && !FlushPops(cx, bce, &npops)) return false
+#define FLUSH_POPS() if (npops && !FlushPops(cx, bce, &npops)) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
 
     for (StmtInfoBCE *stmt = bce->topStmt; stmt != toStmt; stmt = stmt->down) {
         switch (stmt->type) {
           case STMT_FINALLY:
             FLUSH_POPS();
             if (EmitBackPatchOp(cx, bce, &stmt->gosubs()) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             break;
 
           case STMT_WITH:
             /* There's a With object on the stack that we need to pop. */
             FLUSH_POPS();
             if (Emit1(cx, bce, JSOP_LEAVEWITH) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             break;
 
           case STMT_FOR_OF_LOOP:
@@ -561,7 +561,7 @@ EmitNonLocalJumpFixup(ExclusiveContext *cx, BytecodeEmitter *bce, StmtInfoBCE *t
           case STMT_FOR_IN_LOOP:
             FLUSH_POPS();
             if (!PopIterator(cx, bce))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             break;
 
           case STMT_SUBROUTINE:
@@ -589,13 +589,13 @@ EmitNonLocalJumpFixup(ExclusiveContext *cx, BytecodeEmitter *bce, StmtInfoBCE *t
                 if (stmt == toStmt)
                     break;
                 if (Emit1(cx, bce, JSOP_LEAVEFORLETIN) < 0)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (stmt->type == STMT_FOR_OF_LOOP) {
                     popCount += 2;
                 } else {
                     JS_ASSERT(stmt->type == STMT_FOR_IN_LOOP);
                     if (!PopIterator(cx, bce))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
                 EMIT_UINT16_IMM_OP(JSOP_POPN, popCount);
             } else {
@@ -685,7 +685,7 @@ PushBlockScopeBCE(BytecodeEmitter *bce, StmtInfoBCE *stmt, ObjectBox *objbox,
     unsigned scopeObjectIndex = bce->objectList.add(objbox);
     stmt->blockScopeIndex = bce->blockScopeList.length();
     if (!bce->blockScopeList.append(scopeObjectIndex, bce->offset()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     blockObj.initEnclosingStaticScope(EnclosingStaticScope(bce));
     FinishPushBlockScope(bce, stmt, blockObj);
@@ -703,7 +703,7 @@ PopStatementBCE(ExclusiveContext *cx, BytecodeEmitter *bce)
         (!BackPatch(cx, bce, stmt->breaks, bce->code().end(), JSOP_GOTO) ||
          !BackPatch(cx, bce, stmt->continues, bce->code(stmt->update), JSOP_GOTO)))
     {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (stmt->isBlockScope)
@@ -720,7 +720,7 @@ EmitIndex32(ExclusiveContext *cx, JSOp op, uint32_t index, BytecodeEmitter *bce)
     JS_ASSERT(len == size_t(js_CodeSpec[op].length));
     ptrdiff_t offset = EmitCheck(cx, bce, len);
     if (offset < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     jsbytecode *code = bce->code(offset);
     code[0] = jsbytecode(op);
@@ -737,7 +737,7 @@ EmitIndexOp(ExclusiveContext *cx, JSOp op, uint32_t index, BytecodeEmitter *bce)
     JS_ASSERT(len >= 1 + UINT32_INDEX_LEN);
     ptrdiff_t offset = EmitCheck(cx, bce, len);
     if (offset < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     jsbytecode *code = bce->code(offset);
     code[0] = jsbytecode(op);
@@ -759,7 +759,7 @@ EmitAtomOp(ExclusiveContext *cx, JSAtom *atom, JSOp op, BytecodeEmitter *bce)
 
     jsatomid index;
     if (!bce->makeAtomIndex(atom, &index))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return EmitIndexOp(cx, op, index, bce);
 }
@@ -804,7 +804,7 @@ EmitUnaliasedVarOp(ExclusiveContext *cx, JSOp op, uint16_t slot, BytecodeEmitter
     JS_ASSERT(JOF_OPTYPE(op) != JOF_SCOPECOORD);
     ptrdiff_t off = EmitN(cx, bce, op, sizeof(uint16_t));
     if (off < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     SET_UINT16(bce->code(off), slot);
     return true;
 }
@@ -823,7 +823,7 @@ EmitAliasedVarOp(ExclusiveContext *cx, JSOp op, ScopeCoordinate sc, BytecodeEmit
 
     ptrdiff_t off = EmitN(cx, bce, op, n);
     if (off < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     jsbytecode *pc = bce->code(off);
     SET_UINT16(pc, sc.hops);
@@ -864,7 +864,7 @@ LookupAliasedName(HandleScript script, PropertyName *name, uint16_t *pslot)
             slot++;
         }
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static bool
@@ -984,19 +984,19 @@ EmitVarIncDec(ExclusiveContext *cx, ParseNode *pn, BytecodeEmitter *bce)
     }
 
     if (!EmitVarOp(cx, pn->pn_kid, getOp, bce))              // V
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_POS) < 0)                        // N
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (post && Emit1(cx, bce, JSOP_DUP) < 0)                // N? N
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_ONE) < 0)                        // N? N 1
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, binop) < 0)                           // N? N+1
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!EmitVarOp(cx, pn->pn_kid, setOp, bce))              // N? N+1
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (post && Emit1(cx, bce, JSOP_POP) < 0)                // RESULT
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }
@@ -1041,7 +1041,7 @@ BytecodeEmitter::isAliasedName(ParseNode *pn)
       case Definition::MISSING:
         MOZ_ASSUME_UNREACHABLE("unexpected dn->kind");
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /*
@@ -1079,7 +1079,7 @@ EmitEnterBlock(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, JSOp o
     JS_ASSERT(scopeObjectIndex == bce->objectList.length - 1);
     JS_ASSERT(pn->pn_objbox == bce->objectList.lastbox);
     if (!EmitInternedObjectOp(cx, scopeObjectIndex, op, bce))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     Rooted<StaticBlockObject*> blockObj(cx, &pn->pn_objbox->object->as<StaticBlockObject>());
 
@@ -1095,7 +1095,7 @@ EmitEnterBlock(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, JSOp o
 
     int depthPlusFixed = AdjustBlockSlot(cx, bce, depth);
     if (depthPlusFixed < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (unsigned i = 0; i < blockObj->slotCount(); i++) {
         Definition *dn = blockObj->maybeDefinitionParseNode(i);
@@ -1110,7 +1110,7 @@ EmitEnterBlock(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, JSOp o
         JS_ASSERT(unsigned(dn->frameSlot() + depthPlusFixed) < JS_BIT(16));
         if (!dn->pn_cookie.set(bce->parser->tokenStream, dn->pn_cookie.level(),
                                uint16_t(dn->frameSlot() + depthPlusFixed)))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #ifdef DEBUG
         for (ParseNode *pnu = dn->dn_uses; pnu; pnu = pnu->pn_link) {
@@ -1168,22 +1168,22 @@ TryConvertFreeName(BytecodeEmitter *bce, ParseNode *pn)
         size_t hops = 0;
         FunctionBox *funbox = bce->sc->asFunctionBox();
         if (funbox->hasExtensibleScope())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (funbox->function()->isNamedLambda() && funbox->function()->atom() == pn->pn_atom)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (funbox->isHeavyweight()) {
             hops++;
             if (funbox->function()->isNamedLambda())
                 hops++;
         }
         if (bce->script->directlyInsideEval)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         RootedObject outerScope(bce->sc->context, bce->script->enclosingStaticScope());
         for (StaticScopeIter<CanGC> ssi(bce->sc->context, outerScope); !ssi.done(); ssi++) {
             if (ssi.type() != StaticScopeIter<CanGC>::FUNCTION) {
                 if (ssi.type() == StaticScopeIter<CanGC>::BLOCK) {
                     // Use generic ops if a catch block is encountered.
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
                 if (ssi.hasDynamicScopeObject())
                     hops++;
@@ -1191,7 +1191,7 @@ TryConvertFreeName(BytecodeEmitter *bce, ParseNode *pn)
             }
             RootedScript script(bce->sc->context, ssi.funScript());
             if (script->function()->atom() == pn->pn_atom)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (ssi.hasDynamicScopeObject()) {
                 uint16_t slot;
                 if (LookupAliasedName(script, pn->pn_atom->asPropertyName(), &slot)) {
@@ -1199,7 +1199,7 @@ TryConvertFreeName(BytecodeEmitter *bce, ParseNode *pn)
                     switch (pn->getOp()) {
                       case JSOP_NAME:     op = JSOP_GETALIASEDVAR; break;
                       case JSOP_SETNAME:  op = JSOP_SETALIASEDVAR; break;
-                      default: return false;
+                      default: do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     }
                     pn->setOp(op);
                     JS_ALWAYS_TRUE(pn->pn_cookie.set(bce->parser->tokenStream, hops, slot));
@@ -1209,18 +1209,18 @@ TryConvertFreeName(BytecodeEmitter *bce, ParseNode *pn)
             }
 
             if (script->funHasExtensibleScope || script->directlyInsideEval)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
     // Unbound names aren't recognizable global-property references if the
     // script isn't running against its global object.
     if (!bce->script->compileAndGo || !bce->hasGlobalScope)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Deoptimized names also aren't necessarily globals.
     if (pn->isDeoptimized())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (bce->sc->isFunctionBox()) {
         // Unbound names in function code may not be globals if new locals can
@@ -1228,7 +1228,7 @@ TryConvertFreeName(BytecodeEmitter *bce, ParseNode *pn)
         // reference.
         FunctionBox *funbox = bce->sc->asFunctionBox();
         if (funbox->mightAliasLocals())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // If this is eval code, being evaluated inside strict mode eval code,
@@ -1245,7 +1245,7 @@ TryConvertFreeName(BytecodeEmitter *bce, ParseNode *pn)
     // approximate.  If the outer eval code is strict, then this eval code will
     // be: thus, don't optimize if we're compiling strict code inside an eval.
     if (bce->insideEval && bce->sc->strict)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Beware: if you change anything here, you might also need to change
     // js::ReportIfUndeclaredVarAssignment.
@@ -1255,7 +1255,7 @@ TryConvertFreeName(BytecodeEmitter *bce, ParseNode *pn)
       case JSOP_SETNAME:  op = JSOP_SETGNAME; break;
       case JSOP_SETCONST:
         // Not supported.
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       default: MOZ_ASSUME_UNREACHABLE("gname");
     }
     pn->setOp(op);
@@ -1331,7 +1331,7 @@ BindNameToSlotHelper(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
                 if (!AtomToPrintableString(cx, pn->pn_atom, &name) ||
                     !bce->reportStrictModeError(pn, JSMSG_READ_ONLY, name.ptr()))
                 {
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
             pn->setOp(op = JSOP_NAME);
@@ -1502,7 +1502,7 @@ BindNameToSlotHelper(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
     JS_ASSERT(!pn->isOp(op));
     pn->setOp(op);
     if (!pn->pn_cookie.set(bce->parser->tokenStream, skip, dn->pn_cookie.slot()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     pn->pn_dflags |= PND_BOUND;
     return true;
@@ -1517,11 +1517,11 @@ static bool
 BindNameToSlot(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
 {
     if (!BindNameToSlotHelper(cx, bce, pn))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (bce->emitterMode == BytecodeEmitter::SelfHosting && !pn->isBound()) {
         bce->reportError(pn, JSMSG_SELFHOSTED_UNBOUND_NAME);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -1614,9 +1614,9 @@ CheckSideEffects(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, bool
                 *answer = true;
             } else {
                 if (!BindNameToSlot(cx, bce, pn2))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (!CheckSideEffects(cx, bce, pn->pn_right, answer))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (!*answer && (!pn->isOp(JSOP_NOP) || !pn2->isConst()))
                     *answer = true;
             }
@@ -1648,7 +1648,7 @@ CheckSideEffects(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, bool
             switch (pn2->getKind()) {
               case PNK_NAME:
                 if (!BindNameToSlot(cx, bce, pn2))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (pn2->isConst()) {
                     MOZ_ASSERT(*answer == false);
                     return true;
@@ -1696,7 +1696,7 @@ CheckSideEffects(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, bool
          */
         if (pn->isKind(PNK_NAME) && !pn->isOp(JSOP_NOP)) {
             if (!BindNameToSlot(cx, bce, pn))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!pn->isOp(JSOP_CALLEE) && pn->pn_cookie.isFree()) {
                 /*
                  * Not a use of an unshadowed named function expression's given
@@ -1727,14 +1727,14 @@ BytecodeEmitter::isInLoop()
         if (stmt->isLoop())
             return true;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
 BytecodeEmitter::checkSingletonContext()
 {
     if (!script->compileAndGo || sc->isFunctionBox() || isInLoop())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     hasSingletons = true;
     return true;
 }
@@ -1761,7 +1761,7 @@ BytecodeEmitter::needsImplicitThis()
         if (stmt->type == STMT_WITH)
             return true;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 void
@@ -1832,7 +1832,7 @@ EmitNewInit(ExclusiveContext *cx, BytecodeEmitter *bce, JSProtoKey key)
     const size_t len = 1 + UINT32_INDEX_LEN;
     ptrdiff_t offset = EmitCheck(cx, bce, len);
     if (offset < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     jsbytecode *code = bce->code(offset);
     code[0] = JSOP_NEWINIT;
@@ -1854,21 +1854,21 @@ IteratorResultShape(ExclusiveContext *cx, BytecodeEmitter *bce, unsigned *shape)
     gc::AllocKind kind = GuessObjectGCKind(2);
     obj = NewBuiltinClassInstance(cx, &JSObject::class_, kind);
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     Rooted<jsid> value_id(cx, AtomToId(cx->names().value));
     Rooted<jsid> done_id(cx, AtomToId(cx->names().done));
     RootedValue undefined(cx, UndefinedValue());
     if (!DefineNativeProperty(cx, obj, value_id, undefined, nullptr, nullptr,
                               JSPROP_ENUMERATE, 0, 0))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!DefineNativeProperty(cx, obj, done_id, undefined, nullptr, nullptr,
                               JSPROP_ENUMERATE, 0, 0))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ObjectBox *objbox = bce->parser->newObjectBox(obj);
     if (!objbox)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *shape = bce->objectList.add(objbox);
 
@@ -1881,7 +1881,7 @@ EmitPrepareIteratorResult(ExclusiveContext *cx, BytecodeEmitter *bce)
     if (bce->script->compileAndGo) {
         unsigned shape;
         if (!IteratorResultShape(cx, bce, &shape))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         return EmitIndex32(cx, JSOP_NEWOBJECT, shape, bce);
     }
 
@@ -1899,13 +1899,13 @@ EmitFinishIteratorResult(ExclusiveContext *cx, BytecodeEmitter *bce, bool done)
         return UINT_MAX;
 
     if (!EmitIndex32(cx, JSOP_INITPROP, value_id, bce))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, done ? JSOP_TRUE : JSOP_FALSE) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!EmitIndex32(cx, JSOP_INITPROP, done_id, bce))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_ENDINIT) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return true;
 }
 
@@ -1915,7 +1915,7 @@ EmitNameOp(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, bool callC
     JSOp op;
 
     if (!BindNameToSlot(cx, bce, pn))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     op = pn->getOp();
 
     if (callContext) {
@@ -1946,15 +1946,15 @@ EmitNameOp(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, bool callC
 
     if (op == JSOP_CALLEE) {
         if (Emit1(cx, bce, op) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         if (!pn->pn_cookie.isFree()) {
             JS_ASSERT(JOF_OPTYPE(op) != JOF_ATOM);
             if (!EmitVarOp(cx, pn, op, bce))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             if (!EmitAtomOp(cx, pn, op, bce))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -1962,13 +1962,13 @@ EmitNameOp(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, bool callC
     if (callContext) {
         if (op == JSOP_CALLNAME && bce->needsImplicitThis()) {
             if (!EmitAtomOp(cx, pn, JSOP_IMPLICITTHIS, bce))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             if (Emit1(cx, bce, JSOP_UNDEFINED) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (Emit1(cx, bce, JSOP_NOTEARG) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -1978,14 +1978,14 @@ static inline bool
 EmitElemOpBase(ExclusiveContext *cx, BytecodeEmitter *bce, JSOp op)
 {
     if (Emit1(cx, bce, op) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     CheckTypeSet(cx, bce, op);
 
     if (op == JSOP_CALLELEM) {
         if (Emit1(cx, bce, JSOP_SWAP) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (Emit1(cx, bce, JSOP_NOTEARG) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -2019,12 +2019,12 @@ EmitPropLHS(ExclusiveContext *cx, ParseNode *pn, JSOp op, BytecodeEmitter *bce)
 
         /* pndown is a primary expression, not a dotted property reference. */
         if (!EmitTree(cx, bce, pndown))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         do {
             /* Walk back up the list, emitting annotated name ops. */
             if (!EmitAtomOp(cx, pndot, JSOP_GETPROP, bce))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             /* Reverse the pn_expr link again. */
             pnup = pndot->pn_expr;
@@ -2044,19 +2044,19 @@ EmitPropOp(ExclusiveContext *cx, ParseNode *pn, JSOp op, BytecodeEmitter *bce)
     JS_ASSERT(pn->isArity(PN_NAME));
 
     if (!EmitPropLHS(cx, pn, op, bce))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (op == JSOP_CALLPROP && Emit1(cx, bce, JSOP_DUP) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!EmitAtomOp(cx, pn, op, bce))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (op == JSOP_CALLPROP && Emit1(cx, bce, JSOP_SWAP) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (op == JSOP_CALLPROP && Emit1(cx, bce, JSOP_NOTEARG) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }
@@ -2071,31 +2071,31 @@ EmitPropIncDec(ExclusiveContext *cx, ParseNode *pn, BytecodeEmitter *bce)
 
     JSOp get = JSOP_GETPROP;
     if (!EmitPropLHS(cx, pn->pn_kid, get, bce))     // OBJ
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_DUP) < 0)               // OBJ OBJ
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!EmitAtomOp(cx, pn->pn_kid, JSOP_GETPROP, bce)) // OBJ V
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_POS) < 0)               // OBJ N
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (post && Emit1(cx, bce, JSOP_DUP) < 0)       // OBJ N? N
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_ONE) < 0)               // OBJ N? N 1
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, binop) < 0)                  // OBJ N? N+1
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (post) {
         if (Emit2(cx, bce, JSOP_PICK, (jsbytecode)2) < 0)   // N? N+1 OBJ
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (Emit1(cx, bce, JSOP_SWAP) < 0)                  // N? OBJ N+1
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!EmitAtomOp(cx, pn->pn_kid, JSOP_SETPROP, bce))     // N? N+1
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (post && Emit1(cx, bce, JSOP_POP) < 0)       // RESULT
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }
@@ -2110,29 +2110,29 @@ EmitNameIncDec(ExclusiveContext *cx, ParseNode *pn, BytecodeEmitter *bce)
     JSOp binop = GetIncDecInfo(pn->getKind(), &post);
 
     if (!EmitAtomOp(cx, pn->pn_kid, global ? JSOP_BINDGNAME : JSOP_BINDNAME, bce))  // OBJ
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!EmitAtomOp(cx, pn->pn_kid, global ? JSOP_GETGNAME : JSOP_NAME, bce))       // OBJ V
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_POS) < 0)               // OBJ N
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (post && Emit1(cx, bce, JSOP_DUP) < 0)       // OBJ N? N
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_ONE) < 0)               // OBJ N? N 1
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, binop) < 0)                  // OBJ N? N+1
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (post) {
         if (Emit2(cx, bce, JSOP_PICK, (jsbytecode)2) < 0)   // N? N+1 OBJ
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (Emit1(cx, bce, JSOP_SWAP) < 0)                  // N? OBJ N+1
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!EmitAtomOp(cx, pn->pn_kid, global ? JSOP_SETGNAME : JSOP_SETNAME, bce)) // N? N+1
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (post && Emit1(cx, bce, JSOP_POP) < 0)       // RESULT
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }
@@ -2155,12 +2155,12 @@ EmitElemOperands(ExclusiveContext *cx, ParseNode *pn, JSOp op, BytecodeEmitter *
             left = bce->parser->handler.new_<NullaryNode>(
                 PNK_STRING, JSOP_BINDNAME, pn->pn_pos, pn->pn_atom);
             if (!left)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         right = bce->parser->handler.new_<NullaryNode>(
             PNK_STRING, JSOP_STRING, pn->pn_pos, pn->pn_atom);
         if (!right)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         JS_ASSERT(pn->isArity(PN_BINARY));
         left = pn->pn_left;
@@ -2168,13 +2168,13 @@ EmitElemOperands(ExclusiveContext *cx, ParseNode *pn, JSOp op, BytecodeEmitter *
     }
 
     if (!EmitTree(cx, bce, left))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (op == JSOP_CALLELEM && Emit1(cx, bce, JSOP_DUP) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!EmitTree(cx, bce, right))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }
@@ -2191,7 +2191,7 @@ EmitElemIncDec(ExclusiveContext *cx, ParseNode *pn, BytecodeEmitter *bce)
     JS_ASSERT(pn->pn_kid->getKind() == PNK_ELEM);
 
     if (!EmitElemOperands(cx, pn->pn_kid, JSOP_GETELEM, bce))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     bool post;
     JSOp binop = GetIncDecInfo(pn->getKind(), &post);
@@ -2202,33 +2202,33 @@ EmitElemIncDec(ExclusiveContext *cx, ParseNode *pn, BytecodeEmitter *bce)
      */
                                                     // OBJ KEY*
     if (Emit1(cx, bce, JSOP_TOID) < 0)              // OBJ KEY
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_DUP2) < 0)              // OBJ KEY OBJ KEY
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!EmitElemOpBase(cx, bce, JSOP_GETELEM))     // OBJ KEY V
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_POS) < 0)               // OBJ KEY N
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (post && Emit1(cx, bce, JSOP_DUP) < 0)       // OBJ KEY N? N
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_ONE) < 0)               // OBJ KEY N? N 1
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, binop) < 0)                  // OBJ KEY N? N+1
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (post) {
         if (Emit2(cx, bce, JSOP_PICK, (jsbytecode)3) < 0)   // KEY N N+1 OBJ
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (Emit2(cx, bce, JSOP_PICK, (jsbytecode)3) < 0)   // N N+1 OBJ KEY
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (Emit2(cx, bce, JSOP_PICK, (jsbytecode)2) < 0)   // N OBJ KEY N+1
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!EmitElemOpBase(cx, bce, JSOP_SETELEM))     // N? N+1
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (post && Emit1(cx, bce, JSOP_POP) < 0)       // RESULT
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }
@@ -2255,13 +2255,13 @@ EmitNumberOp(ExclusiveContext *cx, double dval, BytecodeEmitter *bce)
         } else if (u < JS_BIT(24)) {
             off = EmitN(cx, bce, JSOP_UINT24, 3);
             if (off < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             pc = bce->code(off);
             SET_UINT24(pc, u);
         } else {
             off = EmitN(cx, bce, JSOP_INT32, 4);
             if (off < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             pc = bce->code(off);
             SET_INT32(pc, ival);
         }
@@ -2269,7 +2269,7 @@ EmitNumberOp(ExclusiveContext *cx, double dval, BytecodeEmitter *bce)
     }
 
     if (!bce->constList.append(DoubleValue(dval)))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return EmitIndex32(cx, JSOP_DOUBLE, bce->constList.length() - 1, bce);
 }
@@ -2313,20 +2313,20 @@ EmitSwitch(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
         blockObjCount = pn2->pn_objbox->object->as<StaticBlockObject>().slotCount();
         for (uint32_t i = 0; i < blockObjCount; ++i) {
             if (Emit1(cx, bce, JSOP_UNDEFINED) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
     /* Push the discriminant. */
     if (!EmitTree(cx, bce, pn->pn_left))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (pn2->isKind(PNK_LEXICALSCOPE)) {
         if (!PushBlockScopeBCE(bce, &stmtInfo, pn2->pn_objbox, -1))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         stmtInfo.type = STMT_SWITCH;
         if (!EmitEnterBlock(cx, bce, pn2, JSOP_ENTERLET1))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Switch bytecodes run from here till end of final case. */
@@ -2350,7 +2350,7 @@ EmitSwitch(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
 
     if (caseCount > JS_BIT(16)) {
         bce->parser->tokenStream.reportError(JSMSG_TOO_MANY_CASES);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (caseCount == 0 ||
@@ -2422,7 +2422,7 @@ EmitSwitch(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
                     intmap = cx->pod_malloc<jsbitmap>(JS_BIT(16) / JS_BITMAP_NBITS);
                     if (!intmap) {
                         js_ReportOutOfMemory(cx);
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     }
                 }
                 memset(intmap, 0, size_t(intmap_bitlen) / CHAR_BIT);
@@ -2437,7 +2437,7 @@ EmitSwitch(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
         if (intmap && intmap != intmap_space)
             js_free(intmap);
         if (!ok)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /*
          * Compute table length and select condswitch instead if overlarge or
@@ -2466,11 +2466,11 @@ EmitSwitch(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
         noteIndex = NewSrcNote2(cx, bce, SRC_TABLESWITCH, 0);
     }
     if (noteIndex < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Emit switchOp followed by switchSize bytes of jump or lookup table. */
     if (EmitN(cx, bce, switchOp, switchSize) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     off = -1;
     if (switchOp == JSOP_CONDSWITCH) {
@@ -2481,11 +2481,11 @@ EmitSwitch(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
         for (pn3 = pn2->pn_head; pn3; pn3 = pn3->pn_next) {
             pn4 = pn3->pn_left;
             if (pn4 && !EmitTree(cx, bce, pn4))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (caseNoteIndex >= 0) {
                 /* off is the previous JSOP_CASE's bytecode offset. */
                 if (!SetSrcNoteOffset(cx, bce, (unsigned)caseNoteIndex, 0, bce->offset() - off))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             if (!pn4) {
                 JS_ASSERT(pn3->isKind(PNK_DEFAULT));
@@ -2493,10 +2493,10 @@ EmitSwitch(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
             }
             caseNoteIndex = NewSrcNote2(cx, bce, SRC_NEXTCASE, 0);
             if (caseNoteIndex < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             off = EmitJump(cx, bce, JSOP_CASE, 0);
             if (off < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             pn3->pn_offset = off;
             if (beforeCases) {
                 unsigned noteCount, noteCountDelta;
@@ -2504,7 +2504,7 @@ EmitSwitch(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
                 /* Switch note's second offset is to first JSOP_CASE. */
                 noteCount = bce->notes().length();
                 if (!SetSrcNoteOffset(cx, bce, (unsigned)noteIndex, 1, off - top))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 noteCountDelta = bce->notes().length() - noteCount;
                 if (noteCountDelta != 0)
                     caseNoteIndex += noteCountDelta;
@@ -2522,13 +2522,13 @@ EmitSwitch(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
             caseNoteIndex >= 0 &&
             !SetSrcNoteOffset(cx, bce, (unsigned)caseNoteIndex, 0, bce->offset() - off))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         /* Emit default even if no explicit default statement. */
         defaultOffset = EmitJump(cx, bce, JSOP_DEFAULT, 0);
         if (defaultOffset < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         JS_ASSERT(switchOp == JSOP_TABLESWITCH);
         pc = bce->code(top + JUMP_OFFSET_LEN);
@@ -2546,7 +2546,7 @@ EmitSwitch(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
         if (tableLength != 0) {
             table = cx->pod_calloc<ParseNode*>(tableLength);
             if (!table)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             for (pn3 = pn2->pn_head; pn3; pn3 = pn3->pn_next) {
                 if (pn3->isKind(PNK_DEFAULT))
                     continue;
@@ -2572,7 +2572,7 @@ EmitSwitch(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
             SetJumpOffsetAt(bce, pn3->pn_offset);
         pn4 = pn3->pn_right;
         if (!EmitTree(cx, bce, pn4))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         pn3->pn_offset = pn4->pn_offset;
         if (pn3->isKind(PNK_DEFAULT))
             off = pn3->pn_offset - top;
@@ -2600,7 +2600,7 @@ EmitSwitch(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
     /* Set the SRC_SWITCH note's offset operand to tell end of switch. */
     off = bce->offset() - top;
     if (!SetSrcNoteOffset(cx, bce, (unsigned)noteIndex, 0, off))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (switchOp == JSOP_TABLESWITCH) {
         /* Skip over the already-initialized switch bounds. */
@@ -2616,7 +2616,7 @@ EmitSwitch(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
     }
 
     if (!PopStatementBCE(cx, bce))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (pn->pn_right->isKind(PNK_LEXICALSCOPE))
         EMIT_UINT16_IMM_OP(JSOP_LEAVEBLOCK, blockObjCount);
@@ -2632,7 +2632,7 @@ BytecodeEmitter::isRunOnceLambda()
     // as a run once lambda.
 
     if (!(parent && parent->emittingRunOnceLambda) && !lazyRunOnceLambda)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     FunctionBox *funbox = sc->asFunctionBox();
     return !funbox->argumentsHasLocalBinding() &&
@@ -2655,7 +2655,7 @@ frontend::EmitFunctionScript(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNo
         JS_ASSERT(bce->offset() == 0);  /* See JSScript::argumentsBytecode. */
         bce->switchToProlog();
         if (Emit1(cx, bce, JSOP_ARGUMENTS) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         InternalBindingsHandle bindings(bce->script, &bce->script->bindings);
         unsigned varIndex = Bindings::argumentsVarIndex(cx, bindings);
         if (bce->script->varIsAliased(varIndex)) {
@@ -2663,20 +2663,20 @@ frontend::EmitFunctionScript(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNo
             sc.hops = 0;
             JS_ALWAYS_TRUE(LookupAliasedName(bce->script, cx->names().arguments, &sc.slot));
             if (!EmitAliasedVarOp(cx, JSOP_SETALIASEDVAR, sc, bce))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             if (!EmitUnaliasedVarOp(cx, JSOP_SETLOCAL, varIndex, bce))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (Emit1(cx, bce, JSOP_POP) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         bce->switchToMain();
     }
 
     if (funbox->isGenerator()) {
         bce->switchToProlog();
         if (Emit1(cx, bce, JSOP_GENERATOR) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         bce->switchToMain();
     }
 
@@ -2689,26 +2689,26 @@ frontend::EmitFunctionScript(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNo
     if (runOnce) {
         bce->switchToProlog();
         if (Emit1(cx, bce, JSOP_RUNONCE) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         bce->switchToMain();
     }
 
     if (!EmitTree(cx, bce, body))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // If we fall off the end of an ES6 generator, return a boxed iterator
     // result object of the form { value: undefined, done: true }.
     if (bce->sc->isFunctionBox() && bce->sc->asFunctionBox()->isStarGenerator()) {
         if (!EmitPrepareIteratorResult(cx, bce))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (Emit1(cx, bce, JSOP_UNDEFINED) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!EmitFinishIteratorResult(cx, bce, true))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         // No need to check for finally blocks, etc as in EmitReturn.
         if (Emit1(cx, bce, JSOP_RETURN) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /*
@@ -2716,10 +2716,10 @@ frontend::EmitFunctionScript(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNo
      * depend on this opcode, e.g. js_InternalInterpret.
      */
     if (Emit1(cx, bce, JSOP_RETRVAL) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!JSScript::fullyInitFromEmitter(cx, bce->script, bce))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * If this function is only expected to run once, mark the script so that
@@ -2750,7 +2750,7 @@ MaybeEmitVarDecl(ExclusiveContext *cx, BytecodeEmitter *bce, JSOp prologOp, Pars
         atomIndex = pn->pn_cookie.slot();
     } else {
         if (!bce->makeAtomIndex(pn->pn_atom, &atomIndex))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (JOF_OPTYPE(pn->getOp()) == JOF_ATOM &&
@@ -2758,9 +2758,9 @@ MaybeEmitVarDecl(ExclusiveContext *cx, BytecodeEmitter *bce, JSOp prologOp, Pars
     {
         bce->switchToProlog();
         if (!UpdateSourceCoordNotes(cx, bce, pn->pn_pos.begin))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!EmitIndexOp(cx, prologOp, atomIndex, bce))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         bce->switchToMain();
     }
 
@@ -2794,7 +2794,7 @@ EmitDestructuringDecl(ExclusiveContext *cx, BytecodeEmitter *bce, JSOp prologOp,
 {
     JS_ASSERT(pn->isKind(PNK_NAME));
     if (!BindNameToSlot(cx, bce, pn))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_ASSERT(!pn->isOp(JSOP_CALLEE));
     return MaybeEmitVarDecl(cx, bce, prologOp, pn, nullptr);
@@ -2814,7 +2814,7 @@ EmitDestructuringDecls(ExclusiveContext *cx, BytecodeEmitter *bce, JSOp prologOp
                       ? EmitDestructuringDecl
                       : EmitDestructuringDecls;
             if (!emitter(cx, bce, prologOp, pn2))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     } else {
         JS_ASSERT(pn->isKind(PNK_OBJECT));
@@ -2822,7 +2822,7 @@ EmitDestructuringDecls(ExclusiveContext *cx, BytecodeEmitter *bce, JSOp prologOp
             pn3 = pn2->pn_right;
             emitter = pn3->isKind(PNK_NAME) ? EmitDestructuringDecl : EmitDestructuringDecls;
             if (!emitter(cx, bce, prologOp, pn3))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
     return true;
@@ -2857,14 +2857,14 @@ EmitDestructuringLHS(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, 
      */
     if (pn->isKind(PNK_ARRAY) || pn->isKind(PNK_OBJECT)) {
         if (!EmitDestructuringOpsHelper(cx, bce, pn, emitOption))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (emitOption == InitializeVars) {
             /*
              * Per its post-condition, EmitDestructuringOpsHelper has left the
              * to-be-destructured value on top of the stack.
              */
             if (Emit1(cx, bce, JSOP_POP) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     } else if (emitOption == PushInitialValues) {
         // The lhs is a simple name so the to-be-destructured value is
@@ -2877,7 +2877,7 @@ EmitDestructuringLHS(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, 
         switch (pn->getKind()) {
           case PNK_NAME:
             if (!BindNameToSlot(cx, bce, pn))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             // Allow 'const [x,y] = o', make 'const x,y; [x,y] = o' a nop.
             if (pn->isConst() && !pn->isDefn())
@@ -2901,21 +2901,21 @@ EmitDestructuringLHS(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, 
                 // but it has special code to handle PNK_NAME nodes in this one
                 // case.
                 if (!EmitElemOp(cx, pn, JSOP_ENUMELEM, bce))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 break;
 
               case JSOP_SETCONST:
                 // As above.
                 if (!EmitElemOp(cx, pn, JSOP_ENUMCONSTELEM, bce))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 break;
 
               case JSOP_SETLOCAL:
               case JSOP_SETARG:
                 if (!EmitVarOp(cx, pn, pn->getOp(), bce))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (Emit1(cx, bce, JSOP_POP) < 0)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 break;
 
               default:
@@ -2937,13 +2937,13 @@ EmitDestructuringLHS(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, 
             // EmitElemOp has special code to handle PNK_DOT nodes in this one
             // case.
             if (!EmitElemOp(cx, pn, JSOP_ENUMELEM, bce))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             break;
 
           case PNK_CALL:
             JS_ASSERT(pn->pn_xflags & PNX_SETCALL);
             if (!EmitTree(cx, bce, pn))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             // Pop the call return value and the RHS, presumably for the
             // benefit of bytecode analysis. (The interpreter will never reach
@@ -2951,9 +2951,9 @@ EmitDestructuringLHS(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, 
             // always throws. It's possible no analyses actually depend on this
             // either.)
             if (Emit1(cx, bce, JSOP_POP) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (Emit1(cx, bce, JSOP_POP) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             break;
 
           default:
@@ -2998,7 +2998,7 @@ EmitDestructuringOpsHelper(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode
     for (pn2 = pn->pn_head; pn2; pn2 = pn2->pn_next) {
         /* Duplicate the value being destructured to use as a reference base. */
         if (Emit1(cx, bce, JSOP_DUP) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /*
          * Now push the property name currently being matched, which is either
@@ -3009,7 +3009,7 @@ EmitDestructuringOpsHelper(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode
         doElemOp = true;
         if (pn->isKind(PNK_ARRAY)) {
             if (!EmitNumberOp(cx, index, bce))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             pn3 = pn2;
         } else {
             JS_ASSERT(pn->isKind(PNK_OBJECT));
@@ -3017,7 +3017,7 @@ EmitDestructuringOpsHelper(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode
             pn3 = pn2->pn_left;
             if (pn3->isKind(PNK_NUMBER)) {
                 if (!EmitNumberOp(cx, pn3->pn_dval, bce))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else {
                 // The parser already checked for atoms representing indexes and
                 // used PNK_NUMBER instead, but also watch for ids which TI treats
@@ -3026,10 +3026,10 @@ EmitDestructuringOpsHelper(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode
                 jsid id = NameToId(pn3->pn_atom->asPropertyName());
                 if (id != types::IdToTypeId(id)) {
                     if (!EmitTree(cx, bce, pn3))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 } else {
                     if (!EmitAtomOp(cx, pn3, JSOP_GETPROP, bce))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     doElemOp = false;
                 }
             }
@@ -3043,7 +3043,7 @@ EmitDestructuringOpsHelper(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode
              * is one deeper than when we started.
              */
             if (!EmitElemOpBase(cx, bce, JSOP_GETELEM))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             JS_ASSERT(bce->stackDepth >= stackDepth + 1);
         }
 
@@ -3052,11 +3052,11 @@ EmitDestructuringOpsHelper(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode
             JS_ASSERT(pn->isKind(PNK_ARRAY));
             JS_ASSERT(pn2 == pn3);
             if (Emit1(cx, bce, JSOP_POP) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             int depthBefore = bce->stackDepth;
             if (!EmitDestructuringLHS(cx, bce, pn3, emitOption))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             if (emitOption == PushInitialValues) {
                 /*
@@ -3074,10 +3074,10 @@ EmitDestructuringOpsHelper(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode
                 if (pickDistance > 0) {
                     if (pickDistance > UINT8_MAX) {
                         bce->reportError(pn3, JSMSG_TOO_MANY_LOCALS);
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     }
                     if (Emit2(cx, bce, JSOP_PICK, (jsbytecode)pickDistance) < 0)
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
         }
@@ -3091,7 +3091,7 @@ EmitDestructuringOpsHelper(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode
          * of the stack. To achieve the post-condition, pop it.
          */
         if (Emit1(cx, bce, JSOP_POP) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -3119,13 +3119,13 @@ EmitGroupAssignment(ExclusiveContext *cx, BytecodeEmitter *bce, JSOp prologOp,
     for (pn = rhs->pn_head; pn; pn = pn->pn_next) {
         if (limit == JS_BIT(16)) {
             bce->reportError(rhs, JSMSG_ARRAY_INIT_TOO_BIG);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         /* MaybeEmitGroupAssignment won't call us if rhs is holey. */
         JS_ASSERT(!pn->isKind(PNK_ELISION));
         if (!EmitTree(cx, bce, pn))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         ++limit;
     }
 
@@ -3135,17 +3135,17 @@ EmitGroupAssignment(ExclusiveContext *cx, BytecodeEmitter *bce, JSOp prologOp,
         JS_ASSERT(i < limit);
         int slot = AdjustBlockSlot(cx, bce, i);
         if (slot < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!EmitUnaliasedVarOp(cx, JSOP_GETLOCAL, slot, bce))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (pn->isKind(PNK_ELISION)) {
             if (Emit1(cx, bce, JSOP_POP) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             if (!EmitDestructuringLHS(cx, bce, pn, InitializeVars))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -3177,9 +3177,9 @@ MaybeEmitGroupAssignment(ExclusiveContext *cx, BytecodeEmitter *bce, JSOp prolog
         lhs->pn_count <= rhs->pn_count)
     {
         if (groupOption == GroupIsDecl && !EmitDestructuringDecls(cx, bce, prologOp, lhs))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!EmitGroupAssignment(cx, bce, prologOp, lhs, rhs))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         *pop = JSOP_NOP;
     }
     return true;
@@ -3216,7 +3216,7 @@ MaybeEmitLetGroupDecl(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn,
 
         for (ParseNode *r = rhs->pn_head; r; r = r->pn_next) {
             if (!EmitTree(cx, bce, r))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         *pop = JSOP_NOP;
@@ -3252,7 +3252,7 @@ EmitVariables(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, VarEmit
                 JS_ASSERT(emitOption == DefineVars);
                 JS_ASSERT(pn->pn_count == 1);
                 if (!EmitDestructuringDecls(cx, bce, pn->getOp(), pn2))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 break;
             }
 #endif
@@ -3296,10 +3296,10 @@ EmitVariables(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, VarEmit
                 JS_ASSERT(!pn2->pn_next);
                 if (isLet) {
                     if (!MaybeEmitLetGroupDecl(cx, bce, pn2, &op))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 } else {
                     if (!MaybeEmitGroupAssignment(cx, bce, pn->getOp(), pn2, GroupIsDecl, &op))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
             if (op == JSOP_NOP) {
@@ -3307,13 +3307,13 @@ EmitVariables(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, VarEmit
             } else {
                 pn3 = pn2->pn_left;
                 if (!EmitDestructuringDecls(cx, bce, pn->getOp(), pn3))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 if (!EmitTree(cx, bce, pn2->pn_right))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 if (!EmitDestructuringOps(cx, bce, pn3, isLet))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             ptrdiff_t stackDepthAfter = bce->stackDepth;
 
@@ -3321,7 +3321,7 @@ EmitVariables(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, VarEmit
             JS_ASSERT(stackDepthBefore <= stackDepthAfter);
             if (isLet && stackDepthBefore == stackDepthAfter) {
                 if (Emit1(cx, bce, JSOP_UNDEFINED) < 0)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             /* If we are not initializing, nothing to pop. */
@@ -3344,7 +3344,7 @@ EmitVariables(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, VarEmit
 
      do_name:
         if (!BindNameToSlot(cx, bce, pn2))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 
         JSOp op;
@@ -3354,7 +3354,7 @@ EmitVariables(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, VarEmit
 
         jsatomid atomIndex;
         if (!MaybeEmitVarDecl(cx, bce, pn->getOp(), pn2, &atomIndex))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (pn3) {
             JS_ASSERT(emitOption != DefineVars);
@@ -3368,18 +3368,18 @@ EmitVariables(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, VarEmit
                 else
                     bindOp = JSOP_BINDINTRINSIC;
                 if (!EmitIndex32(cx, bindOp, atomIndex, bce))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             bool oldEmittingForInit = bce->emittingForInit;
             bce->emittingForInit = false;
             if (!EmitTree(cx, bce, pn3))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             bce->emittingForInit = oldEmittingForInit;
         } else if (isLet) {
             /* JSOP_ENTERLETx expects at least 1 slot to have been pushed. */
             if (Emit1(cx, bce, JSOP_UNDEFINED) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         /* If we are not initializing, nothing to pop. */
@@ -3392,10 +3392,10 @@ EmitVariables(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, VarEmit
         JS_ASSERT_IF(pn2->isDefn(), pn3 == pn2->pn_expr);
         if (!pn2->pn_cookie.isFree()) {
             if (!EmitVarOp(cx, pn2, op, bce))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             if (!EmitIndexOp(cx, op, atomIndex, bce))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
 #if JS_HAS_DESTRUCTURING
@@ -3404,12 +3404,12 @@ EmitVariables(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, VarEmit
         if (!next)
             break;
         if (Emit1(cx, bce, JSOP_POP) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (pn->pn_xflags & PNX_POPVAR) {
         if (Emit1(cx, bce, JSOP_POP) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -3429,10 +3429,10 @@ EmitAssignment(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *lhs, JSOp 
     switch (lhs->getKind()) {
       case PNK_NAME:
         if (!BindNameToSlot(cx, bce, lhs))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (lhs->pn_cookie.isFree()) {
             if (!bce->makeAtomIndex(lhs->pn_atom, &atomIndex))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!lhs->isConst()) {
                 JSOp bindOp;
                 if (lhs->isOp(JSOP_SETNAME))
@@ -3442,24 +3442,24 @@ EmitAssignment(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *lhs, JSOp 
                 else
                     bindOp = JSOP_BINDINTRINSIC;
                 if (!EmitIndex32(cx, bindOp, atomIndex, bce))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 offset++;
             }
         }
         break;
       case PNK_DOT:
         if (!EmitTree(cx, bce, lhs->expr()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         offset++;
         if (!bce->makeAtomIndex(lhs->pn_atom, &atomIndex))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
       case PNK_ELEM:
         JS_ASSERT(lhs->isArity(PN_BINARY));
         if (!EmitTree(cx, bce, lhs->pn_left))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!EmitTree(cx, bce, lhs->pn_right))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         offset += 2;
         break;
 #if JS_HAS_DESTRUCTURING
@@ -3470,9 +3470,9 @@ EmitAssignment(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *lhs, JSOp 
       case PNK_CALL:
         JS_ASSERT(lhs->pn_xflags & PNX_SETCALL);
         if (!EmitTree(cx, bce, lhs))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (Emit1(cx, bce, JSOP_POP) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
       default:
         JS_ASSERT(0);
@@ -3485,28 +3485,28 @@ EmitAssignment(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *lhs, JSOp 
             if (lhs->isConst()) {
                 if (lhs->isOp(JSOP_CALLEE)) {
                     if (Emit1(cx, bce, JSOP_CALLEE) < 0)
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 } else if (lhs->isOp(JSOP_NAME) || lhs->isOp(JSOP_GETGNAME)) {
                     if (!EmitIndex32(cx, lhs->getOp(), atomIndex, bce))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 } else {
                     JS_ASSERT(JOF_OPTYPE(lhs->getOp()) != JOF_ATOM);
                     if (!EmitVarOp(cx, lhs, lhs->getOp(), bce))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             } else if (lhs->isOp(JSOP_SETNAME)) {
                 if (Emit1(cx, bce, JSOP_DUP) < 0)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (!EmitIndex32(cx, JSOP_GETXPROP, atomIndex, bce))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else if (lhs->isOp(JSOP_SETGNAME)) {
                 JS_ASSERT(lhs->pn_cookie.isFree());
                 if (!EmitAtomOp(cx, lhs, JSOP_GETGNAME, bce))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else if (lhs->isOp(JSOP_SETINTRINSIC)) {
                 JS_ASSERT(lhs->pn_cookie.isFree());
                 if (!EmitAtomOp(cx, lhs, JSOP_GETINTRINSIC, bce))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else {
                 JSOp op;
                 switch (lhs->getOp()) {
@@ -3516,22 +3516,22 @@ EmitAssignment(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *lhs, JSOp 
                   default: MOZ_ASSUME_UNREACHABLE("Bad op");
                 }
                 if (!EmitVarOp(cx, lhs, op, bce))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             break;
           case PNK_DOT: {
             if (Emit1(cx, bce, JSOP_DUP) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             bool isLength = (lhs->pn_atom == cx->names().length);
             if (!EmitIndex32(cx, isLength ? JSOP_LENGTH : JSOP_GETPROP, atomIndex, bce))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             break;
           }
           case PNK_ELEM:
             if (Emit1(cx, bce, JSOP_DUP2) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!EmitElemOpBase(cx, bce, JSOP_GETELEM))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             break;
           case PNK_CALL:
             /*
@@ -3541,7 +3541,7 @@ EmitAssignment(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *lhs, JSOp 
              */
             JS_ASSERT(lhs->pn_xflags & PNX_SETCALL);
             if (Emit1(cx, bce, JSOP_NULL) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             break;
           default:;
         }
@@ -3550,7 +3550,7 @@ EmitAssignment(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *lhs, JSOp 
     /* Now emit the right operand (it may affect the namespace). */
     if (rhs) {
         if (!EmitTree(cx, bce, rhs))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         /*
          * The value to assign is the next enumeration value in a for-in or
@@ -3560,7 +3560,7 @@ EmitAssignment(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *lhs, JSOp 
          * the stack. Otherwise, rearrange the stack to put that value on top.
          */
         if (offset != 1 && Emit2(cx, bce, JSOP_PICK, offset - 1) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* If += etc., emit the binary operator with a source note. */
@@ -3572,10 +3572,10 @@ EmitAssignment(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *lhs, JSOp 
          */
         if (!lhs->isKind(PNK_NAME) || !lhs->isConst()) {
             if (NewSrcNote(cx, bce, SRC_ASSIGNOP) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (Emit1(cx, bce, op) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Finally, emit the specialized assignment bytecode. */
@@ -3584,21 +3584,21 @@ EmitAssignment(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *lhs, JSOp 
         if (lhs->isConst()) {
             if (!rhs) {
                 bce->reportError(lhs, JSMSG_BAD_FOR_LEFTSIDE);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             break;
         }
         if (lhs->isOp(JSOP_SETARG) || lhs->isOp(JSOP_SETLOCAL) || lhs->isOp(JSOP_SETALIASEDVAR)) {
             if (!EmitVarOp(cx, lhs, lhs->getOp(), bce))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             if (!EmitIndexOp(cx, lhs->getOp(), atomIndex, bce))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         break;
       case PNK_DOT:
         if (!EmitIndexOp(cx, JSOP_SETPROP, atomIndex, bce))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
       case PNK_CALL:
         /* Do nothing. The JSOP_SETCALL we emitted will always throw. */
@@ -3606,13 +3606,13 @@ EmitAssignment(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *lhs, JSOp 
         break;
       case PNK_ELEM:
         if (Emit1(cx, bce, JSOP_SETELEM) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 #if JS_HAS_DESTRUCTURING
       case PNK_ARRAY:
       case PNK_OBJECT:
         if (!EmitDestructuringOps(cx, bce, lhs))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 #endif
       default:
@@ -3641,24 +3641,24 @@ ParseNode::getConstantValue(ExclusiveContext *cx, bool strictChecks, MutableHand
         vp.setNull();
         return true;
       case PNK_SPREAD:
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       case PNK_ARRAY: {
         JS_ASSERT(isOp(JSOP_NEWINIT) && !(pn_xflags & PNX_NONCONST));
 
         RootedObject obj(cx,
                          NewDenseAllocatedArray(cx, pn_count, nullptr, MaybeSingletonObject));
         if (!obj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         unsigned idx = 0;
         RootedId id(cx);
         RootedValue value(cx);
         for (ParseNode *pn = pn_head; pn; idx++, pn = pn->pn_next) {
             if (!pn->getConstantValue(cx, strictChecks, &value))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             id = INT_TO_JSID(idx);
             if (!JSObject::defineGeneric(cx, obj, id, value, nullptr, nullptr, JSPROP_ENUMERATE))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         JS_ASSERT(idx == pn_count);
 
@@ -3673,12 +3673,12 @@ ParseNode::getConstantValue(ExclusiveContext *cx, bool strictChecks, MutableHand
         gc::AllocKind kind = GuessObjectGCKind(pn_count);
         RootedObject obj(cx, NewBuiltinClassInstance(cx, &JSObject::class_, kind, MaybeSingletonObject));
         if (!obj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         RootedValue value(cx), idvalue(cx);
         for (ParseNode *pn = pn_head; pn; pn = pn->pn_next) {
             if (!pn->pn_right->getConstantValue(cx, strictChecks, &value))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             ParseNode *pnid = pn->pn_left;
             if (pnid->isKind(PNK_NUMBER)) {
@@ -3694,7 +3694,7 @@ ParseNode::getConstantValue(ExclusiveContext *cx, bool strictChecks, MutableHand
                 if (!JSObject::defineElement(cx, obj, index, value, nullptr, nullptr,
                                              JSPROP_ENUMERATE))
                 {
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
 
                 continue;
@@ -3702,17 +3702,17 @@ ParseNode::getConstantValue(ExclusiveContext *cx, bool strictChecks, MutableHand
 
             JSAtom *name = ToAtom<CanGC>(cx, idvalue);
             if (!name)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             if (name->isIndex(&index)) {
                 if (!JSObject::defineElement(cx, obj, index, value,
                                              nullptr, nullptr, JSPROP_ENUMERATE))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else {
                 if (!JSObject::defineProperty(cx, obj, name->asPropertyName(), value,
                                               nullptr, nullptr, JSPROP_ENUMERATE))
                 {
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
         }
@@ -3724,7 +3724,7 @@ ParseNode::getConstantValue(ExclusiveContext *cx, bool strictChecks, MutableHand
       default:
         MOZ_ASSUME_UNREACHABLE("Unexpected node");
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static bool
@@ -3732,12 +3732,12 @@ EmitSingletonInitialiser(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *
 {
     RootedValue value(cx);
     if (!pn->getConstantValue(cx, bce->sc->needStrictChecks(), &value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_ASSERT(value.isObject());
     ObjectBox *objbox = bce->parser->newObjectBox(&value.toObject());
     if (!objbox)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return EmitObjectOp(cx, objbox, JSOP_OBJECT, bce);
 }
@@ -3777,14 +3777,14 @@ EmitCatch(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
 
     /* Pick up the pending exception and bind it to the catch variable. */
     if (Emit1(cx, bce, JSOP_EXCEPTION) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Dup the exception object if there is a guard for rethrowing to use
      * it later when rethrowing or in other catches.
      */
     if (pn->pn_kid2 && Emit1(cx, bce, JSOP_DUP) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ParseNode *pn2 = pn->pn_kid1;
     switch (pn2->getKind()) {
@@ -3792,9 +3792,9 @@ EmitCatch(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
       case PNK_ARRAY:
       case PNK_OBJECT:
         if (!EmitDestructuringOps(cx, bce, pn2))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (Emit1(cx, bce, JSOP_POP) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 #endif
 
@@ -3802,9 +3802,9 @@ EmitCatch(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
         /* Inline and specialize BindNameToSlot for pn2. */
         JS_ASSERT(!pn2->pn_cookie.isFree());
         if (!EmitVarOp(cx, pn2, JSOP_SETLOCAL, bce))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (Emit1(cx, bce, JSOP_POP) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 
       default:
@@ -3814,17 +3814,17 @@ EmitCatch(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
     /* Emit the guard expression, if there is one. */
     if (pn->pn_kid2) {
         if (!EmitTree(cx, bce, pn->pn_kid2))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* ifeq <next block> */
         guardJump = EmitJump(cx, bce, JSOP_IFEQ, 0);
         if (guardJump < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         stmt->guardJump() = guardJump;
 
         /* Pop duplicated exception object as we no longer need it. */
         if (Emit1(cx, bce, JSOP_POP) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Emit the catch body. */
@@ -3865,26 +3865,26 @@ EmitTry(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
     /* Mark try location for decompilation, then emit try block. */
     ptrdiff_t noteIndex = NewSrcNote(cx, bce, SRC_TRY);
     if (noteIndex < 0 || Emit1(cx, bce, JSOP_TRY) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     ptrdiff_t tryStart = bce->offset();
     if (!EmitTree(cx, bce, pn->pn_kid1))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JS_ASSERT(depth == bce->stackDepth);
 
     /* GOSUB to finally, if present. */
     if (pn->pn_kid3) {
         if (EmitBackPatchOp(cx, bce, &stmtInfo.gosubs()) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Source note points to the jump at the end of the try block. */
     if (!SetSrcNoteOffset(cx, bce, noteIndex, 0, bce->offset() - tryStart + JSOP_TRY_LENGTH))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Emit (hidden) jump over catch and/or finally. */
     ptrdiff_t catchJump = -1;
     if (EmitBackPatchOp(cx, bce, &catchJump) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ptrdiff_t tryEnd = bce->offset();
 
@@ -3936,7 +3936,7 @@ EmitTry(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
                  * the next catch.
                  */
                 if (Emit1(cx, bce, JSOP_THROWING) < 0)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 EMIT_UINT16_IMM_OP(JSOP_LEAVEBLOCK, count);
                 JS_ASSERT(bce->stackDepth == depth);
             }
@@ -3949,12 +3949,12 @@ EmitTry(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
             JS_ASSERT(pn3->isKind(PNK_LEXICALSCOPE));
             count = pn3->pn_objbox->object->as<StaticBlockObject>().slotCount();
             if (!EmitTree(cx, bce, pn3))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             /* gosub <finally>, if required */
             if (pn->pn_kid3) {
                 if (EmitBackPatchOp(cx, bce, &stmtInfo.gosubs()) < 0)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 JS_ASSERT(bce->stackDepth == depth);
             }
 
@@ -3963,7 +3963,7 @@ EmitTry(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
              * up to jump to after catch/finally.
              */
             if (EmitBackPatchOp(cx, bce, &catchJump) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             /*
              * Save a pointer to the last catch node to handle try-finally
@@ -3991,7 +3991,7 @@ EmitTry(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
          * to the exception handler.
          */
         if (Emit1(cx, bce, JSOP_THROW) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JS_ASSERT(bce->stackDepth == depth);
@@ -4004,39 +4004,39 @@ EmitTry(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
          * jumps to the finally code.
          */
         if (!BackPatch(cx, bce, stmtInfo.gosubs(), bce->code().end(), JSOP_GOSUB))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         finallyStart = bce->offset();
 
         /* Indicate that we're emitting a subroutine body. */
         stmtInfo.type = STMT_SUBROUTINE;
         if (!UpdateSourceCoordNotes(cx, bce, pn->pn_kid3->pn_pos.begin))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (Emit1(cx, bce, JSOP_FINALLY) < 0 ||
             !EmitTree(cx, bce, pn->pn_kid3) ||
             Emit1(cx, bce, JSOP_RETSUB) < 0)
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         JS_ASSERT(bce->stackDepth == depth);
     }
     if (!PopStatementBCE(cx, bce))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* ReconstructPCStack needs a NOP here to mark the end of the last catch block. */
     if (Emit1(cx, bce, JSOP_NOP) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Fix up the end-of-try/catch jumps to come here. */
     if (!BackPatch(cx, bce, catchJump, bce->code().end(), JSOP_GOTO))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Add the try note last, to let post-order give us the right ordering
      * (first to last for a given nesting level, inner to outer by level).
      */
     if (pn->pn_kid2 && !bce->tryNoteList.append(JSTRY_CATCH, depth, tryStart, tryEnd))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * If we've got a finally, mark try+catch region with additional
@@ -4044,7 +4044,7 @@ EmitTry(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
      * for the try{}finally{} case.
      */
     if (pn->pn_kid3 && !bce->tryNoteList.append(JSTRY_FINALLY, depth, tryStart, finallyStart))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }
@@ -4063,7 +4063,7 @@ EmitIf(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
   if_again:
     /* Emit code for the condition before pushing stmtInfo. */
     if (!EmitTree(cx, bce, pn->pn_kid1))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     ptrdiff_t top = bce->offset();
     if (stmtInfo.type == STMT_IF) {
         PushStatementBCE(bce, &stmtInfo, STMT_IF, top);
@@ -4077,21 +4077,21 @@ EmitIf(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
         stmtInfo.type = STMT_IF;
         stmtInfo.update = top;
         if (!SetSrcNoteOffset(cx, bce, noteIndex, 0, jmp - beq))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Emit an annotated branch-if-false around the then part. */
     ParseNode *pn3 = pn->pn_kid3;
     noteIndex = NewSrcNote(cx, bce, pn3 ? SRC_IF_ELSE : SRC_IF);
     if (noteIndex < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     beq = EmitJump(cx, bce, JSOP_IFEQ, 0);
     if (beq < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Emit code for the then and optional else parts. */
     if (!EmitTree(cx, bce, pn->pn_kid2))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (pn3) {
         /* Modify stmtInfo so we know we're in the else part. */
         stmtInfo.type = STMT_ELSE;
@@ -4104,7 +4104,7 @@ EmitIf(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
          */
         jmp = EmitGoto(cx, bce, &stmtInfo, &stmtInfo.breaks);
         if (jmp < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* Ensure the branch-if-false comes here, then emit the else. */
         SetJumpOffsetAt(bce, beq);
@@ -4114,7 +4114,7 @@ EmitIf(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
         }
 
         if (!EmitTree(cx, bce, pn3))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /*
          * Annotate SRC_IF_ELSE with the offset from branch to jump, for
@@ -4124,7 +4124,7 @@ EmitIf(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
          * the else clause.
          */
         if (!SetSrcNoteOffset(cx, bce, noteIndex, 0, jmp - beq))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         /* No else part, fixup the branch-if-false to come here. */
         SetJumpOffsetAt(bce, beq);
@@ -4175,26 +4175,26 @@ EmitLet(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pnLet)
     int letHeadDepth = bce->stackDepth;
 
     if (!EmitVariables(cx, bce, varList, PushInitialValues, true))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Push storage for hoisted let decls (e.g. 'let (x) { let y }'). */
     uint32_t alreadyPushed = unsigned(bce->stackDepth - letHeadDepth);
     uint32_t blockObjCount = blockObj->slotCount();
     for (uint32_t i = alreadyPushed; i < blockObjCount; ++i) {
         if (Emit1(cx, bce, JSOP_UNDEFINED) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     StmtInfoBCE stmtInfo(cx);
     if (!PushBlockScopeBCE(bce, &stmtInfo, letBody->pn_objbox, bce->offset()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     DebugOnly<ptrdiff_t> bodyBegin = bce->offset();
     if (!EmitEnterBlock(cx, bce, letBody, JSOP_ENTERLET0))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!EmitTree(cx, bce, letBody->pn_expr))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSOp leaveOp = letBody->getOp();
     JS_ASSERT(leaveOp == JSOP_LEAVEBLOCK || leaveOp == JSOP_LEAVEBLOCKEXPR);
@@ -4221,13 +4221,13 @@ EmitLexicalScope(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
     StaticBlockObject &blockObj = objbox->object->as<StaticBlockObject>();
     size_t slots = blockObj.slotCount();
     if (!PushBlockScopeBCE(bce, &stmtInfo, objbox, bce->offset()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!EmitEnterBlock(cx, bce, pn, JSOP_ENTERBLOCK))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!EmitTree(cx, bce, pn->pn_expr))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     EMIT_UINT16_IMM_OP(JSOP_LEAVEBLOCK, slots);
 
@@ -4239,15 +4239,15 @@ EmitWith(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
 {
     StmtInfoBCE stmtInfo(cx);
     if (!EmitTree(cx, bce, pn->pn_left))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     PushStatementBCE(bce, &stmtInfo, STMT_WITH, bce->offset());
     if (Emit1(cx, bce, JSOP_ENTERWITH) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!EmitTree(cx, bce, pn->pn_right))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_LEAVEWITH) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return PopStatementBCE(cx, bce);
 }
 
@@ -4273,7 +4273,7 @@ EmitForOf(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, ptrdiff_t t
     // lexicals are deeper on the stack than the iterator.
     for (uint32_t i = 0; i < blockObjCount; ++i) {
         if (Emit1(cx, bce, JSOP_UNDEFINED) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // If the left part is 'var x', emit code to define x if necessary using a
@@ -4283,39 +4283,39 @@ EmitForOf(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, ptrdiff_t t
         JS_ASSERT(decl->isKind(PNK_VAR) || decl->isKind(PNK_LET));
         bce->emittingForInit = true;
         if (!EmitVariables(cx, bce, decl, DefineVars))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         bce->emittingForInit = false;
     }
 
     // Compile the object expression to the right of 'of'.
     if (!EmitTree(cx, bce, forHead->pn_kid3))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Convert iterable to iterator.
     if (Emit1(cx, bce, JSOP_DUP) < 0)                          // OBJ OBJ
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!EmitAtomOp(cx, cx->names().std_iterator, JSOP_CALLPROP, bce)) // OBJ @@ITERATOR
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_SWAP) < 0)                         // @@ITERATOR OBJ
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_NOTEARG) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (EmitCall(cx, bce, JSOP_CALL, 0) < 0)                   // ITER
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     CheckTypeSet(cx, bce, JSOP_CALL);
 
     // Push a dummy result so that we properly enter iteration midstream.
     if (Emit1(cx, bce, JSOP_UNDEFINED) < 0)                    // ITER RESULT
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Enter the block before the loop body, after evaluating the obj.
     StmtInfoBCE letStmt(cx);
     if (letDecl) {
         if (!PushBlockScopeBCE(bce, &letStmt, pn1->pn_objbox, bce->offset()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         letStmt.isForLetBlock = true;
         if (!EmitEnterBlock(cx, bce, pn1, JSOP_ENTERLET2))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // Jump down to the loop condition to minimize overhead assuming at least
@@ -4323,15 +4323,15 @@ EmitForOf(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, ptrdiff_t t
     // find the loop-closing jump.
     int noteIndex = NewSrcNote(cx, bce, SRC_FOR_OF);
     if (noteIndex < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     ptrdiff_t jmp = EmitJump(cx, bce, JSOP_GOTO, 0);
     if (jmp < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     top = bce->offset();
     SET_STATEMENT_TOP(&stmtInfo, top);
     if (EmitLoopHead(cx, bce, nullptr) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #ifdef DEBUG
     int loopDepth = bce->stackDepth;
@@ -4339,20 +4339,20 @@ EmitForOf(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, ptrdiff_t t
 
     // Emit code to assign result.value to the iteration variable.
     if (Emit1(cx, bce, JSOP_DUP) < 0)                          // ITER RESULT RESULT
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!EmitAtomOp(cx, cx->names().value, JSOP_GETPROP, bce)) // ITER RESULT VALUE
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!EmitAssignment(cx, bce, forHead->pn_kid2, JSOP_NOP, nullptr)) // ITER RESULT VALUE
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_POP) < 0)                          // ITER RESULT
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // The stack should be balanced around the assignment opcode sequence.
     JS_ASSERT(bce->stackDepth == loopDepth);
 
     // Emit code for the loop body.
     if (!EmitTree(cx, bce, forBody))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Set loop and enclosing "update" offsets, for continue.
     StmtInfoBCE *stmt = &stmtInfo;
@@ -4363,51 +4363,51 @@ EmitForOf(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, ptrdiff_t t
     // COME FROM the beginning of the loop to here.
     SetJumpOffsetAt(bce, jmp);
     if (!EmitLoopEntry(cx, bce, nullptr))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (Emit1(cx, bce, JSOP_POP) < 0)                          // ITER
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_DUP) < 0)                          // ITER ITER
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_DUP) < 0)                          // ITER ITER ITER
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!EmitAtomOp(cx, cx->names().next, JSOP_CALLPROP, bce)) // ITER ITER NEXT
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_SWAP) < 0)                         // ITER NEXT ITER
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_NOTEARG) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_UNDEFINED) < 0)                    // ITER NEXT ITER UNDEFINED
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_NOTEARG) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (EmitCall(cx, bce, JSOP_CALL, 1) < 0)                   // ITER RESULT
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     CheckTypeSet(cx, bce, JSOP_CALL);
     if (Emit1(cx, bce, JSOP_DUP) < 0)                          // ITER RESULT RESULT
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!EmitAtomOp(cx, cx->names().done, JSOP_GETPROP, bce))  // ITER RESULT DONE?
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ptrdiff_t beq = EmitJump(cx, bce, JSOP_IFEQ, top - bce->offset()); // ITER RESULT
     if (beq < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_ASSERT(bce->stackDepth == loopDepth);
 
     // Let Ion know where the closing jump of this loop is.
     if (!SetSrcNoteOffset(cx, bce, (unsigned)noteIndex, 0, beq - jmp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Fixup breaks and continues.
     if (!PopStatementBCE(cx, bce))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (letDecl) {
         if (!PopStatementBCE(cx, bce))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (Emit1(cx, bce, JSOP_LEAVEFORLETIN) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // Pop result, iter, and slots from the lexical block (if any).
@@ -4453,7 +4453,7 @@ EmitForIn(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, ptrdiff_t t
          */
         for (uint32_t i = 0; i < blockObjCount; ++i) {
             if (Emit1(cx, bce, JSOP_UNDEFINED) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -4468,13 +4468,13 @@ EmitForIn(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, ptrdiff_t t
         JS_ASSERT(decl->isKind(PNK_VAR) || decl->isKind(PNK_LET));
         bce->emittingForInit = true;
         if (!EmitVariables(cx, bce, decl, DefineVars))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         bce->emittingForInit = false;
     }
 
     /* Compile the object expression to the right of 'in'. */
     if (!EmitTree(cx, bce, forHead->pn_kid3))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Emit a bytecode to convert top of stack value to the iterator
@@ -4483,22 +4483,22 @@ EmitForIn(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, ptrdiff_t t
      */
     JS_ASSERT(pn->isOp(JSOP_ITER));
     if (Emit2(cx, bce, JSOP_ITER, (uint8_t) pn->pn_iflags) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Enter the block before the loop body, after evaluating the obj. */
     StmtInfoBCE letStmt(cx);
     if (letDecl) {
         if (!PushBlockScopeBCE(bce, &letStmt, pn1->pn_objbox, bce->offset()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         letStmt.isForLetBlock = true;
         if (!EmitEnterBlock(cx, bce, pn1, JSOP_ENTERLET1))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Annotate so IonMonkey can find the loop-closing jump. */
     int noteIndex = NewSrcNote(cx, bce, SRC_FOR_IN);
     if (noteIndex < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Jump down to the loop condition to minimize overhead assuming at
@@ -4506,12 +4506,12 @@ EmitForIn(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, ptrdiff_t t
      */
     ptrdiff_t jmp = EmitJump(cx, bce, JSOP_GOTO, 0);
     if (jmp < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     top = bce->offset();
     SET_STATEMENT_TOP(&stmtInfo, top);
     if (EmitLoopHead(cx, bce, nullptr) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #ifdef DEBUG
     int loopDepth = bce->stackDepth;
@@ -4522,19 +4522,19 @@ EmitForIn(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, ptrdiff_t t
      * left hand side.
      */
     if (Emit1(cx, bce, JSOP_ITERNEXT) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!EmitAssignment(cx, bce, forHead->pn_kid2, JSOP_NOP, nullptr))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (Emit1(cx, bce, JSOP_POP) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* The stack should be balanced around the assignment opcode sequence. */
     JS_ASSERT(bce->stackDepth == loopDepth);
 
     /* Emit code for the loop body. */
     if (!EmitTree(cx, bce, forBody))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Set loop and enclosing "update" offsets, for continue. */
     StmtInfoBCE *stmt = &stmtInfo;
@@ -4547,32 +4547,32 @@ EmitForIn(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, ptrdiff_t t
      */
     SetJumpOffsetAt(bce, jmp);
     if (!EmitLoopEntry(cx, bce, nullptr))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_MOREITER) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     ptrdiff_t beq = EmitJump(cx, bce, JSOP_IFNE, top - bce->offset());
     if (beq < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Set the srcnote offset so we can find the closing jump. */
     if (!SetSrcNoteOffset(cx, bce, (unsigned)noteIndex, 0, beq - jmp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Fixup breaks and continues before JSOP_ITER (and JSOP_LEAVEFORINLET). */
     if (!PopStatementBCE(cx, bce))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (letDecl) {
         if (!PopStatementBCE(cx, bce))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (Emit1(cx, bce, JSOP_LEAVEFORLETIN) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!bce->tryNoteList.append(JSTRY_ITER, bce->stackDepth, top, bce->offset()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_ENDITER) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (letDecl)
         EMIT_UINT16_IMM_OP(JSOP_POPN, blockObjCount);
@@ -4602,14 +4602,14 @@ EmitNormalFor(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, ptrdiff
         if (pn3->isKind(PNK_ASSIGN)) {
             JS_ASSERT(pn3->isOp(JSOP_NOP));
             if (!MaybeEmitGroupAssignment(cx, bce, op, pn3, GroupIsNotDecl, &op))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 #endif
         if (op == JSOP_POP) {
             if (!UpdateSourceCoordNotes(cx, bce, pn3->pn_pos.begin))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!EmitTree(cx, bce, pn3))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (pn3->isKind(PNK_VAR) || pn3->isKind(PNK_CONST) || pn3->isKind(PNK_LET)) {
                 /*
                  * Check whether a destructuring-initialized var decl
@@ -4633,7 +4633,7 @@ EmitNormalFor(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, ptrdiff
      */
     int noteIndex = NewSrcNote(cx, bce, SRC_FOR);
     if (noteIndex < 0 || Emit1(cx, bce, op) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     ptrdiff_t tmp = bce->offset();
 
     ptrdiff_t jmp = -1;
@@ -4641,10 +4641,10 @@ EmitNormalFor(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, ptrdiff
         /* Goto the loop condition, which branches back to iterate. */
         jmp = EmitJump(cx, bce, JSOP_GOTO, 0);
         if (jmp < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         if (op != JSOP_NOP && Emit1(cx, bce, JSOP_NOP) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     top = bce->offset();
@@ -4652,11 +4652,11 @@ EmitNormalFor(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, ptrdiff
 
     /* Emit code for the loop body. */
     if (EmitLoopHead(cx, bce, forBody) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (jmp == -1 && !EmitLoopEntry(cx, bce, forBody))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!EmitTree(cx, bce, forBody))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Set the second note offset so we can find the update part. */
     JS_ASSERT(noteIndex != -1);
@@ -4672,27 +4672,27 @@ EmitNormalFor(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, ptrdiff
     pn3 = forHead->pn_kid3;
     if (pn3) {
         if (!UpdateSourceCoordNotes(cx, bce, pn3->pn_pos.begin))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         op = JSOP_POP;
 #if JS_HAS_DESTRUCTURING
         if (pn3->isKind(PNK_ASSIGN)) {
             JS_ASSERT(pn3->isOp(JSOP_NOP));
             if (!MaybeEmitGroupAssignment(cx, bce, op, pn3, GroupIsNotDecl, &op))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 #endif
         if (op == JSOP_POP && !EmitTree(cx, bce, pn3))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* Always emit the POP or NOP to help IonBuilder. */
         if (Emit1(cx, bce, op) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* Restore the absolute line number for source note readers. */
         uint32_t lineNum = bce->parser->tokenStream.srcCoords.lineNum(pn->pn_pos.end);
         if (bce->currentLine() != lineNum) {
             if (NewSrcNote2(cx, bce, SRC_SETLINE, ptrdiff_t(lineNum)) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             bce->current->currentLine = lineNum;
             bce->current->lastColumn = 0;
         }
@@ -4705,28 +4705,28 @@ EmitNormalFor(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, ptrdiff
         JS_ASSERT(jmp >= 0);
         SetJumpOffsetAt(bce, jmp);
         if (!EmitLoopEntry(cx, bce, forHead->pn_kid2))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!EmitTree(cx, bce, forHead->pn_kid2))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Set the first note offset so we can find the loop condition. */
     if (!SetSrcNoteOffset(cx, bce, (unsigned)noteIndex, 0, tmp3 - tmp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!SetSrcNoteOffset(cx, bce, (unsigned)noteIndex, 1, tmp2 - tmp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     /* The third note offset helps us find the loop-closing jump. */
     if (!SetSrcNoteOffset(cx, bce, (unsigned)noteIndex, 2, bce->offset() - tmp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* If no loop condition, just emit a loop-closing jump. */
     op = forHead->pn_kid2 ? JSOP_IFNE : JSOP_GOTO;
     if (EmitJump(cx, bce, op, top - bce->offset()) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!bce->tryNoteList.append(JSTRY_LOOP, bce->stackDepth, top, bce->offset()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Now fixup all breaks and continues. */
     return PopStatementBCE(cx, bce);
@@ -4780,7 +4780,7 @@ EmitFunc(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
             (bce->checkSingletonContext() ||
              (!bce->isInLoop() && bce->isRunOnceLambda()));
         if (!JSFunction::setTypeForScriptedFunction(cx, fun, singleton))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (fun->isInterpretedLazy()) {
             if (!fun->lazyScript()->sourceObject()) {
@@ -4816,7 +4816,7 @@ EmitFunc(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
                                                           sourceObject,
                                                           funbox->bufStart, funbox->bufEnd));
             if (!script)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             script->bindings = funbox->bindings;
 
@@ -4825,11 +4825,11 @@ EmitFunc(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
                                  bce->evalCaller, bce->hasGlobalScope, lineNum,
                                  bce->emitterMode);
             if (!bce2.init())
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             /* We measured the max scope depth when we parsed the function. */
             if (!EmitFunctionScript(cx, &bce2, pn->pn_body))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             if (funbox->usesArguments && funbox->usesApply)
                 script->usesArgumentsAndApply = true;
@@ -4860,9 +4860,9 @@ EmitFunc(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
         JS_ASSERT(!bce->topStmt);
         bce->switchToProlog();
         if (!EmitIndex32(cx, JSOP_DEFFUN, index, bce))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!UpdateSourceCoordNotes(cx, bce, pn->pn_pos.begin))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         bce->switchToMain();
     } else {
 #ifdef DEBUG
@@ -4874,13 +4874,13 @@ EmitFunc(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
 #endif
         pn->pn_index = index;
         if (!EmitIndexOp(cx, JSOP_LAMBDA, index, bce))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         JS_ASSERT(pn->getOp() == JSOP_GETLOCAL || pn->getOp() == JSOP_GETARG);
         JSOp setOp = pn->getOp() == JSOP_GETLOCAL ? JSOP_SETLOCAL : JSOP_SETARG;
         if (!EmitVarOp(cx, pn, setOp, bce))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (Emit1(cx, bce, JSOP_POP) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -4892,25 +4892,25 @@ EmitDo(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
     /* Emit an annotated nop so IonBuilder can recognize the 'do' loop. */
     ptrdiff_t noteIndex = NewSrcNote(cx, bce, SRC_WHILE);
     if (noteIndex < 0 || Emit1(cx, bce, JSOP_NOP) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ptrdiff_t noteIndex2 = NewSrcNote(cx, bce, SRC_WHILE);
     if (noteIndex2 < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Compile the loop body. */
     ptrdiff_t top = EmitLoopHead(cx, bce, pn->pn_left);
     if (top < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     StmtInfoBCE stmtInfo(cx);
     PushStatementBCE(bce, &stmtInfo, STMT_DO_LOOP, top);
 
     if (!EmitLoopEntry(cx, bce, nullptr))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!EmitTree(cx, bce, pn->pn_left))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Set loop and enclosing label update offsets, for continue. */
     ptrdiff_t off = bce->offset();
@@ -4921,14 +4921,14 @@ EmitDo(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
 
     /* Compile the loop condition, now that continues know where to go. */
     if (!EmitTree(cx, bce, pn->pn_right))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ptrdiff_t beq = EmitJump(cx, bce, JSOP_IFNE, top - bce->offset());
     if (beq < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!bce->tryNoteList.append(JSTRY_LOOP, bce->stackDepth, top, bce->offset()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Update the annotations with the update and back edge positions, for
@@ -4938,9 +4938,9 @@ EmitDo(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
      * note gets bigger.
      */
     if (!SetSrcNoteOffset(cx, bce, noteIndex2, 0, beq - top))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!SetSrcNoteOffset(cx, bce, noteIndex, 0, 1 + (off - top)))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return PopStatementBCE(cx, bce);
 }
@@ -4966,34 +4966,34 @@ EmitWhile(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, ptrdiff_t t
 
     ptrdiff_t noteIndex = NewSrcNote(cx, bce, SRC_WHILE);
     if (noteIndex < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ptrdiff_t jmp = EmitJump(cx, bce, JSOP_GOTO, 0);
     if (jmp < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     top = EmitLoopHead(cx, bce, pn->pn_right);
     if (top < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!EmitTree(cx, bce, pn->pn_right))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     SetJumpOffsetAt(bce, jmp);
     if (!EmitLoopEntry(cx, bce, pn->pn_left))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!EmitTree(cx, bce, pn->pn_left))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ptrdiff_t beq = EmitJump(cx, bce, JSOP_IFNE, top - bce->offset());
     if (beq < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!bce->tryNoteList.append(JSTRY_LOOP, bce->stackDepth, top, bce->offset()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!SetSrcNoteOffset(cx, bce, noteIndex, 0, beq - jmp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return PopStatementBCE(cx, bce);
 }
@@ -5041,26 +5041,26 @@ static bool
 EmitReturn(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
 {
     if (!UpdateSourceCoordNotes(cx, bce, pn->pn_pos.begin))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (bce->sc->isFunctionBox() && bce->sc->asFunctionBox()->isStarGenerator()) {
         if (!EmitPrepareIteratorResult(cx, bce))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Push a return value */
     if (ParseNode *pn2 = pn->pn_kid) {
         if (!EmitTree(cx, bce, pn2))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         /* No explicit return value provided */
         if (Emit1(cx, bce, JSOP_UNDEFINED) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (bce->sc->isFunctionBox() && bce->sc->asFunctionBox()->isStarGenerator()) {
         if (!EmitFinishIteratorResult(cx, bce, true))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /*
@@ -5077,13 +5077,13 @@ EmitReturn(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
     ptrdiff_t top = bce->offset();
 
     if (Emit1(cx, bce, JSOP_RETURN) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!EmitNonLocalJumpFixup(cx, bce, nullptr))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (top + JSOP_RETURN_LENGTH != bce->offset()) {
         bce->code()[top] = JSOP_SETRVAL;
         if (Emit1(cx, bce, JSOP_RETRVAL) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -5096,19 +5096,19 @@ EmitYieldStar(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *iter)
     JS_ASSERT(bce->sc->asFunctionBox()->isStarGenerator());
 
     if (!EmitTree(cx, bce, iter))                                // ITERABLE
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Convert iterable to iterator.
     if (Emit1(cx, bce, JSOP_DUP) < 0)                            // ITERABLE ITERABLE
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!EmitAtomOp(cx, cx->names().std_iterator, JSOP_CALLPROP, bce)) // ITERABLE @@ITERATOR
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_SWAP) < 0)                           // @@ITERATOR ITERABLE
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_NOTEARG) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (EmitCall(cx, bce, JSOP_CALL, 0) < 0)                     // ITER
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     CheckTypeSet(cx, bce, JSOP_CALL);
 
     int depth = bce->stackDepth;
@@ -5116,137 +5116,137 @@ EmitYieldStar(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *iter)
 
     // Initial send value is undefined.
     if (Emit1(cx, bce, JSOP_UNDEFINED) < 0)                      // ITER RECEIVED
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     ptrdiff_t initialSend = -1;
     if (EmitBackPatchOp(cx, bce, &initialSend) < 0)              // goto initialSend
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Try prologue.                                             // ITER RESULT
     StmtInfoBCE stmtInfo(cx);
     PushStatementBCE(bce, &stmtInfo, STMT_TRY, bce->offset());
     ptrdiff_t noteIndex = NewSrcNote(cx, bce, SRC_TRY);
     if (noteIndex < 0 || Emit1(cx, bce, JSOP_TRY) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     ptrdiff_t tryStart = bce->offset();                          // tryStart:
     JS_ASSERT(bce->stackDepth == depth + 1);
 
     // Yield RESULT as-is, without re-boxing.
     if (Emit1(cx, bce, JSOP_YIELD) < 0)                          // ITER RECEIVED
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Try epilogue.
     if (!SetSrcNoteOffset(cx, bce, noteIndex, 0, bce->offset() - tryStart + JSOP_TRY_LENGTH))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     ptrdiff_t subsequentSend = -1;
     if (EmitBackPatchOp(cx, bce, &subsequentSend) < 0)           // goto subsequentSend
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     ptrdiff_t tryEnd = bce->offset();                            // tryEnd:
 
     // Catch location.
     // THROW? = 'throw' in ITER                                  // ITER
     bce->stackDepth = (unsigned) depth;
     if (Emit1(cx, bce, JSOP_EXCEPTION) < 0)                      // ITER EXCEPTION
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_SWAP) < 0)                           // EXCEPTION ITER
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_DUP) < 0)                            // EXCEPTION ITER ITER
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!EmitAtomOp(cx, cx->names().throw_, JSOP_STRING, bce))   // EXCEPTION ITER ITER "throw"
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_SWAP) < 0)                           // EXCEPTION ITER "throw" ITER
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_IN) < 0)                             // EXCEPTION ITER THROW?
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     // if (THROW?) goto delegate
     ptrdiff_t checkThrow = EmitJump(cx, bce, JSOP_IFNE, 0);      // EXCEPTION ITER
     if (checkThrow < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_POP) < 0)                            // EXCEPTION
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_THROW) < 0)                          // throw EXCEPTION
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     SetJumpOffsetAt(bce, checkThrow);                            // delegate:
     // RESULT = ITER.throw(EXCEPTION)                            // EXCEPTION ITER
     bce->stackDepth = (unsigned) depth + 1;
     if (Emit1(cx, bce, JSOP_DUP) < 0)                            // EXCEPTION ITER ITER
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_DUP) < 0)                            // EXCEPTION ITER ITER ITER
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!EmitAtomOp(cx, cx->names().throw_, JSOP_CALLPROP, bce)) // EXCEPTION ITER ITER THROW
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_SWAP) < 0)                           // EXCEPTION ITER THROW ITER
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_NOTEARG) < 0)                        // EXCEPTION ITER THROW ITER
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit2(cx, bce, JSOP_PICK, (jsbytecode)3) < 0)            // ITER THROW ITER EXCEPTION
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_NOTEARG) < 0)                        // ITER THROW ITER EXCEPTION
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (EmitCall(cx, bce, JSOP_CALL, 1) < 0)                     // ITER RESULT
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     CheckTypeSet(cx, bce, JSOP_CALL);
     JS_ASSERT(bce->stackDepth == depth + 1);
     ptrdiff_t checkResult = -1;
     if (EmitBackPatchOp(cx, bce, &checkResult) < 0)              // goto checkResult
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Catch epilogue.
     if (!PopStatementBCE(cx, bce))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     // This is a peace offering to ReconstructPCStack.  See the note in EmitTry.
     if (Emit1(cx, bce, JSOP_NOP) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!bce->tryNoteList.append(JSTRY_CATCH, depth, tryStart, tryEnd))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // After the try/catch block: send the received value to the iterator.
     if (!BackPatch(cx, bce, initialSend, bce->code().end(), JSOP_GOTO)) // initialSend:
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!BackPatch(cx, bce, subsequentSend, bce->code().end(), JSOP_GOTO)) // subsequentSend:
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Send location.
     // result = iter.next(received)                              // ITER RECEIVED
     if (Emit1(cx, bce, JSOP_SWAP) < 0)                           // RECEIVED ITER
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_DUP) < 0)                            // RECEIVED ITER ITER
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_DUP) < 0)                            // RECEIVED ITER ITER ITER
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!EmitAtomOp(cx, cx->names().next, JSOP_CALLPROP, bce))   // RECEIVED ITER ITER NEXT
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_SWAP) < 0)                           // RECEIVED ITER NEXT ITER
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_NOTEARG) < 0)                        // RECEIVED ITER NEXT ITER
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit2(cx, bce, JSOP_PICK, (jsbytecode)3) < 0)            // ITER NEXT ITER RECEIVED
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_NOTEARG) < 0)                        // ITER NEXT ITER RECEIVED
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (EmitCall(cx, bce, JSOP_CALL, 1) < 0)                     // ITER RESULT
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     CheckTypeSet(cx, bce, JSOP_CALL);
     JS_ASSERT(bce->stackDepth == depth + 1);
 
     if (!BackPatch(cx, bce, checkResult, bce->code().end(), JSOP_GOTO)) // checkResult:
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     // if (!result.done) goto tryStart;                          // ITER RESULT
     if (Emit1(cx, bce, JSOP_DUP) < 0)                            // ITER RESULT RESULT
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!EmitAtomOp(cx, cx->names().done, JSOP_GETPROP, bce))    // ITER RESULT DONE
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     // if (!DONE) goto tryStart;
     if (EmitJump(cx, bce, JSOP_IFEQ, tryStart - bce->offset()) < 0) // ITER RESULT
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // result.value
     if (Emit1(cx, bce, JSOP_SWAP) < 0)                           // RESULT ITER
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_POP) < 0)                            // RESULT
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!EmitAtomOp(cx, cx->names().value, JSOP_GETPROP, bce))   // VALUE
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_ASSERT(bce->stackDepth == depth);
 
@@ -5268,7 +5268,7 @@ EmitStatementList(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, ptr
 
     for (ParseNode *pn2 = pnchild; pn2; pn2 = pn2->pn_next) {
         if (!EmitTree(cx, bce, pn2))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return PopStatementBCE(cx, bce);
@@ -5284,7 +5284,7 @@ EmitStatement(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
         return true;
 
     if (!UpdateSourceCoordNotes(cx, bce, pn->pn_pos.begin))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Top-level or called-from-a-native JS_Execute/EvaluateScript,
@@ -5306,7 +5306,7 @@ EmitStatement(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
     /* Don't eliminate expressions with side effects. */
     if (!useful) {
         if (!CheckSideEffects(cx, bce, pn2, &useful))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /*
          * Don't eliminate apparently useless expressions if they are
@@ -5330,21 +5330,21 @@ EmitStatement(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
             pn2->isKind(PNK_ASSIGN) &&
             !MaybeEmitGroupAssignment(cx, bce, op, pn2, GroupIsNotDecl, &op))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 #endif
         if (op != JSOP_NOP) {
             if (!EmitTree(cx, bce, pn2))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (Emit1(cx, bce, op) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     } else if (!pn->isDirectivePrologueMember()) {
         /* Don't complain about directive prologue members; just don't emit their code. */
         bce->current->currentLine = bce->parser->tokenStream.srcCoords.lineNum(pn2->pn_pos.begin);
         bce->current->lastColumn = 0;
         if (!bce->reportStrictWarning(pn2, JSMSG_USELESS_EXPR))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -5362,24 +5362,24 @@ EmitDelete(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
       case PNK_NAME:
       {
         if (!BindNameToSlot(cx, bce, pn2))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         JSOp op = pn2->getOp();
         if (op == JSOP_FALSE) {
             if (Emit1(cx, bce, op) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             if (!EmitAtomOp(cx, pn2, op, bce))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         break;
       }
       case PNK_DOT:
         if (!EmitPropOp(cx, pn2, JSOP_DELPROP, bce))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
       case PNK_ELEM:
         if (!EmitElemOp(cx, pn2, JSOP_DELELEM, bce))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
       default:
       {
@@ -5389,18 +5389,18 @@ EmitDelete(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
          */
         bool useful = false;
         if (!CheckSideEffects(cx, bce, pn2, &useful))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (useful) {
             JS_ASSERT_IF(pn2->isKind(PNK_CALL), !(pn2->pn_xflags & PNX_SETCALL));
             if (!EmitTree(cx, bce, pn2))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (Emit1(cx, bce, JSOP_POP) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (Emit1(cx, bce, JSOP_TRUE) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
     }
 
@@ -5436,7 +5436,7 @@ EmitCallOrNew(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
         bce->parser->tokenStream.reportError(callop
                                              ? JSMSG_TOO_MANY_FUN_ARGS
                                              : JSMSG_TOO_MANY_CON_ARGS);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool emitArgs = true;
@@ -5461,23 +5461,23 @@ EmitCallOrNew(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
              */
             if (pn->pn_count < 3) {
                 bce->reportError(pn, JSMSG_MORE_ARGS_NEEDED, "callFunction", "1", "s");
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             ParseNode *funNode = pn2->pn_next;
             if (!EmitTree(cx, bce, funNode))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             ParseNode *thisArg = funNode->pn_next;
             if (!EmitTree(cx, bce, thisArg))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (Emit1(cx, bce, JSOP_NOTEARG) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             bool oldEmittingForInit = bce->emittingForInit;
             bce->emittingForInit = false;
             for (ParseNode *argpn = thisArg->pn_next; argpn; argpn = argpn->pn_next) {
                 if (!EmitTree(cx, bce, argpn))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (Emit1(cx, bce, JSOP_NOTEARG) < 0)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             bce->emittingForInit = oldEmittingForInit;
             argc -= 2;
@@ -5485,15 +5485,15 @@ EmitCallOrNew(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
             break;
         }
         if (!EmitNameOp(cx, bce, pn2, callop))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
       case PNK_DOT:
         if (!EmitPropOp(cx, pn2, callop ? JSOP_CALLPROP : JSOP_GETPROP, bce))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
       case PNK_ELEM:
         if (!EmitElemOp(cx, pn2, callop ? JSOP_CALLELEM : JSOP_GETELEM, bce))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
       case PNK_FUNCTION:
         /*
@@ -5510,26 +5510,26 @@ EmitCallOrNew(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
         if (bce->checkSingletonContext()) {
             bce->emittingRunOnceLambda = true;
             if (!EmitTree(cx, bce, pn2))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             bce->emittingRunOnceLambda = false;
         } else {
             if (!EmitTree(cx, bce, pn2))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         callop = false;
         break;
       default:
         if (!EmitTree(cx, bce, pn2))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         callop = false;             /* trigger JSOP_UNDEFINED after */
         break;
     }
     if (!callop) {
         JSOp thisop = pn->isKind(PNK_GENEXP) ? JSOP_THIS : JSOP_UNDEFINED;
         if (Emit1(cx, bce, thisop) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (Emit1(cx, bce, JSOP_NOTEARG) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (emitArgs) {
@@ -5543,23 +5543,23 @@ EmitCallOrNew(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
         if (!spread) {
             for (ParseNode *pn3 = pn2->pn_next; pn3; pn3 = pn3->pn_next) {
                 if (!EmitTree(cx, bce, pn3))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (Emit1(cx, bce, JSOP_NOTEARG) < 0)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         } else {
             if (!EmitArray(cx, bce, pn2->pn_next, argc))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         bce->emittingForInit = oldEmittingForInit;
     }
 
     if (!spread) {
         if (EmitCall(cx, bce, pn->getOp(), argc) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         if (Emit1(cx, bce, pn->getOp()) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     CheckTypeSet(cx, bce, pn->getOp());
     if (pn->isOp(JSOP_EVAL) || pn->isOp(JSOP_SPREADEVAL)) {
@@ -5568,7 +5568,7 @@ EmitCallOrNew(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
     }
     if (pn->pn_xflags & PNX_SETCALL) {
         if (Emit1(cx, bce, JSOP_SETCALL) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -5588,14 +5588,14 @@ EmitLogical(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
 
     if (pn->isArity(PN_BINARY)) {
         if (!EmitTree(cx, bce, pn->pn_left))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         ptrdiff_t top = EmitJump(cx, bce, JSOP_BACKPATCH, 0);
         if (top < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (Emit1(cx, bce, JSOP_POP) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!EmitTree(cx, bce, pn->pn_right))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         ptrdiff_t off = bce->offset();
         jsbytecode *pc = bce->code(top);
         SET_JUMP_OFFSET(pc, off - top);
@@ -5609,28 +5609,28 @@ EmitLogical(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
     /* Left-associative operator chain: avoid too much recursion. */
     ParseNode *pn2 = pn->pn_head;
     if (!EmitTree(cx, bce, pn2))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     ptrdiff_t top = EmitJump(cx, bce, JSOP_BACKPATCH, 0);
     if (top < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (Emit1(cx, bce, JSOP_POP) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Emit nodes between the head and the tail. */
     ptrdiff_t jmp = top;
     while ((pn2 = pn2->pn_next)->pn_next) {
         if (!EmitTree(cx, bce, pn2))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         ptrdiff_t off = EmitJump(cx, bce, JSOP_BACKPATCH, 0);
         if (off < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (Emit1(cx, bce, JSOP_POP) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         SET_JUMP_OFFSET(bce->code(jmp), off - jmp);
         jmp = off;
     }
     if (!EmitTree(cx, bce, pn2))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     pn2 = pn->pn_head;
     ptrdiff_t off = bce->offset();
@@ -5657,22 +5657,22 @@ EmitIncOrDec(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
     switch (pn2->getKind()) {
       case PNK_DOT:
         if (!EmitPropIncDec(cx, pn, bce))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
       case PNK_ELEM:
         if (!EmitElemIncDec(cx, pn, bce))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
       case PNK_CALL:
         JS_ASSERT(pn2->pn_xflags & PNX_SETCALL);
         if (!EmitTree(cx, bce, pn2))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
       default:
         JS_ASSERT(pn2->isKind(PNK_NAME));
         pn2->setOp(JSOP_SETNAME);
         if (!BindNameToSlot(cx, bce, pn2))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         JSOp op = pn2->getOp();
         bool maySet;
         switch (op) {
@@ -5688,36 +5688,36 @@ EmitIncOrDec(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
         }
         if (op == JSOP_CALLEE) {
             if (Emit1(cx, bce, op) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else if (!pn2->pn_cookie.isFree()) {
             if (maySet) {
                 if (!EmitVarIncDec(cx, pn, bce))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else {
                 if (!EmitVarOp(cx, pn2, op, bce))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         } else {
             JS_ASSERT(JOF_OPTYPE(op) == JOF_ATOM);
             if (maySet) {
                 if (!EmitNameIncDec(cx, pn, bce))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else {
                 if (!EmitAtomOp(cx, pn2, op, bce))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             break;
         }
         if (pn2->isConst()) {
             if (Emit1(cx, bce, JSOP_POS) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             bool post;
             JSOp binop = GetIncDecInfo(pn->getKind(), &post);
             if (!post) {
                 if (Emit1(cx, bce, JSOP_ONE) < 0)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (Emit1(cx, bce, binop) < 0)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
     }
@@ -5737,20 +5737,20 @@ EmitLabeledStatement(ExclusiveContext *cx, BytecodeEmitter *bce, const LabeledSt
      */
     jsatomid index;
     if (!bce->makeAtomIndex(pn->label(), &index))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ptrdiff_t top = EmitJump(cx, bce, JSOP_LABEL, 0);
     if (top < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Emit code for the labeled statement. */
     StmtInfoBCE stmtInfo(cx);
     PushStatementBCE(bce, &stmtInfo, STMT_LABEL, bce->offset());
     stmtInfo.label = pn->label();
     if (!EmitTree(cx, bce, pn->statement()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!PopStatementBCE(cx, bce))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Patch the JSOP_LABEL offset. */
     SetJumpOffsetAt(bce, top);
@@ -5768,7 +5768,7 @@ EmitSyntheticStatements(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *p
         pn2 = pn2->pn_next;
     for (; pn2; pn2 = pn2->pn_next) {
         if (!EmitTree(cx, bce, pn2))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return PopStatementBCE(cx, bce);
 }
@@ -5778,18 +5778,18 @@ EmitConditionalExpression(ExclusiveContext *cx, BytecodeEmitter *bce, Conditiona
 {
     /* Emit the condition, then branch if false to the else part. */
     if (!EmitTree(cx, bce, &conditional.condition()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     ptrdiff_t noteIndex = NewSrcNote(cx, bce, SRC_COND);
     if (noteIndex < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     ptrdiff_t beq = EmitJump(cx, bce, JSOP_IFEQ, 0);
     if (beq < 0 || !EmitTree(cx, bce, &conditional.thenExpression()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Jump around else, fixup the branch, emit else, fixup jump. */
     ptrdiff_t jmp = EmitJump(cx, bce, JSOP_GOTO, 0);
     if (jmp < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     SetJumpOffsetAt(bce, beq);
 
     /*
@@ -5805,7 +5805,7 @@ EmitConditionalExpression(ExclusiveContext *cx, BytecodeEmitter *bce, Conditiona
     JS_ASSERT(bce->stackDepth > 0);
     bce->stackDepth--;
     if (!EmitTree(cx, bce, &conditional.elseExpression()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     SetJumpOffsetAt(bce, jmp);
     return SetSrcNoteOffset(cx, bce, noteIndex, 0, jmp - beq);
 }
@@ -5820,7 +5820,7 @@ EmitObject(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
 #if JS_HAS_DESTRUCTURING_SHORTHAND
     if (pn->pn_xflags & PNX_DESTRUCT) {
         bce->reportError(pn, JSMSG_BAD_OBJECT_INIT);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 #endif
 
@@ -5837,7 +5837,7 @@ EmitObject(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
      */
     ptrdiff_t offset = bce->offset();
     if (!EmitNewInit(cx, bce, JSProto_Object))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Try to construct the shape of the object as we go, so we can emit a
@@ -5848,7 +5848,7 @@ EmitObject(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
         gc::AllocKind kind = GuessObjectGCKind(pn->pn_count);
         obj = NewBuiltinClassInstance(cx, &JSObject::class_, kind);
         if (!obj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     for (ParseNode *pn2 = pn->pn_head; pn2; pn2 = pn2->pn_next) {
@@ -5857,7 +5857,7 @@ EmitObject(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
         bool isIndex = false;
         if (pn3->isKind(PNK_NUMBER)) {
             if (!EmitNumberOp(cx, pn3->pn_dval, bce))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             isIndex = true;
         } else {
             // The parser already checked for atoms representing indexes and
@@ -5867,14 +5867,14 @@ EmitObject(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
             jsid id = NameToId(pn3->pn_atom->asPropertyName());
             if (id != types::IdToTypeId(id)) {
                 if (!EmitTree(cx, bce, pn3))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 isIndex = true;
             }
         }
 
         /* Emit code for the property initializer. */
         if (!EmitTree(cx, bce, pn2->pn_right))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         JSOp op = pn2->getOp();
         JS_ASSERT(op == JSOP_INITPROP ||
@@ -5893,12 +5893,12 @@ EmitObject(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
               default: MOZ_ASSUME_UNREACHABLE("Invalid op");
             }
             if (Emit1(cx, bce, op) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             JS_ASSERT(pn3->isKind(PNK_NAME) || pn3->isKind(PNK_STRING));
             jsatomid index;
             if (!bce->makeAtomIndex(pn3->pn_atom, &index))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             /*
              * Disable NEWOBJECT on initializers that set __proto__, which has
@@ -5914,19 +5914,19 @@ EmitObject(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
                 if (!DefineNativeProperty(cx, obj, id, undefinedValue, nullptr,
                                           nullptr, JSPROP_ENUMERATE, 0, 0))
                 {
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
                 if (obj->inDictionaryMode())
                     obj = nullptr;
             }
 
             if (!EmitIndex32(cx, op, index, bce))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
     if (Emit1(cx, bce, JSOP_ENDINIT) < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (obj) {
         /*
@@ -5935,7 +5935,7 @@ EmitObject(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
          */
         ObjectBox *objbox = bce->parser->newObjectBox(obj);
         if (!objbox)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         unsigned index = bce->objectList.add(objbox);
         static_assert(JSOP_NEWINIT_LENGTH == JSOP_NEWOBJECT_LENGTH,
                       "newinit and newobject must have equal length to edit in-place");
@@ -5949,7 +5949,7 @@ static bool
 EmitArrayComp(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
 {
     if (!EmitNewInit(cx, bce, JSProto_Array))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Pass the new array's stack index to the PNK_ARRAYPUSH case via
@@ -5960,7 +5960,7 @@ EmitArrayComp(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
     unsigned saveDepth = bce->arrayCompDepth;
     bce->arrayCompDepth = (uint32_t) (bce->stackDepth - 1);
     if (!EmitTree(cx, bce, pn->pn_head))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     bce->arrayCompDepth = saveDepth;
 
     /* Emit the usual op needed for decompilation. */
@@ -5987,7 +5987,7 @@ EmitArray(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, uint32_t co
 
     ptrdiff_t off = EmitN(cx, bce, JSOP_NEWARRAY, 3);
     if (off < 0)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     CheckTypeSet(cx, bce, JSOP_NEWARRAY);
     jsbytecode *pc = bce->code(off);
 
@@ -5998,33 +5998,33 @@ EmitArray(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn, uint32_t co
     ParseNode *pn2 = pn;
     jsatomid atomIndex;
     if (nspread && !EmitNumberOp(cx, 0, bce))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     for (atomIndex = 0; pn2; atomIndex++, pn2 = pn2->pn_next) {
         if (pn2->isKind(PNK_ELISION)) {
             if (Emit1(cx, bce, JSOP_HOLE) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             ParseNode *expr = pn2->isKind(PNK_SPREAD) ? pn2->pn_kid : pn2;
             if (!EmitTree(cx, bce, expr))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (pn2->isKind(PNK_SPREAD)) {
             if (Emit1(cx, bce, JSOP_SPREAD) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else if (nspread) {
             if (Emit1(cx, bce, JSOP_INITELEM_INC) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             off = EmitN(cx, bce, JSOP_INITELEM_ARRAY, 3);
             if (off < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             SET_UINT24(bce->code(off), atomIndex);
         }
     }
     JS_ASSERT(atomIndex == count);
     if (nspread) {
         if (Emit1(cx, bce, JSOP_POP) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Emit an op to finish the array and aid in decompilation. */
@@ -6035,7 +6035,7 @@ static bool
 EmitUnary(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
 {
     if (!UpdateSourceCoordNotes(cx, bce, pn->pn_pos.begin))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     /* Unary op, including unary +/-. */
     JSOp op = pn->getOp();
     ParseNode *pn2 = pn->pn_kid;
@@ -6046,7 +6046,7 @@ EmitUnary(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
     bool oldEmittingForInit = bce->emittingForInit;
     bce->emittingForInit = false;
     if (!EmitTree(cx, bce, pn2))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     bce->emittingForInit = oldEmittingForInit;
     return Emit1(cx, bce, op) >= 0;
@@ -6062,25 +6062,25 @@ EmitDefaults(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
         if (!(arg->pn_dflags & PND_DEFAULT) || !arg->isKind(PNK_NAME))
             continue;
         if (!BindNameToSlot(cx, bce, arg))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!EmitVarOp(cx, arg, JSOP_GETARG, bce))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (Emit1(cx, bce, JSOP_UNDEFINED) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (Emit1(cx, bce, JSOP_STRICTEQ) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         // Emit source note to enable ion compilation.
         if (NewSrcNote(cx, bce, SRC_IF) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         ptrdiff_t jump = EmitJump(cx, bce, JSOP_IFEQ, 0);
         if (jump < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!EmitTree(cx, bce, arg->expr()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!EmitVarOp(cx, arg, JSOP_SETARG, bce))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (Emit1(cx, bce, JSOP_POP) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         SET_JUMP_OFFSET(bce->code(jump), bce->offset() - jump);
     }
 
@@ -6090,7 +6090,7 @@ EmitDefaults(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
 bool
 frontend::EmitTree(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     EmitLevelManager elm(bce);
 
@@ -6100,7 +6100,7 @@ frontend::EmitTree(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
 
     /* Emit notes to tell the current bytecode's source line number. */
     if (!UpdateLineNumberNotes(cx, bce, pn->pn_pos.begin))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     switch (pn->getKind()) {
       case PNK_FUNCTION:
@@ -6123,7 +6123,7 @@ frontend::EmitTree(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
             JS_ASSERT(pnchild->isKind(PNK_SEMI));
             JS_ASSERT(pnchild->pn_kid->isKind(PNK_VAR) || pnchild->pn_kid->isKind(PNK_CONST));
             if (!EmitTree(cx, bce, pnchild))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             pnchild = pnchild->pn_next;
         }
         if (pnlast->pn_xflags & PNX_FUNCDEFS) {
@@ -6139,7 +6139,7 @@ frontend::EmitTree(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
             for (ParseNode *pn2 = pnchild; pn2; pn2 = pn2->pn_next) {
                 if (pn2->isKind(PNK_FUNCTION) && pn2->functionIsHoisted()) {
                     if (!EmitTree(cx, bce, pn2))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
         }
@@ -6161,29 +6161,29 @@ frontend::EmitTree(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
                     rest = rest->pn_next;
                 restIsDefn = rest->isDefn();
                 if (Emit1(cx, bce, JSOP_REST) < 0)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 CheckTypeSet(cx, bce, JSOP_REST);
 
                 // Only set the rest parameter if it's not aliased by a nested
                 // function in the body.
                 if (restIsDefn) {
                     if (Emit1(cx, bce, JSOP_UNDEFINED) < 0)
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     if (!BindNameToSlot(cx, bce, rest))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     if (!EmitVarOp(cx, rest, JSOP_SETARG, bce))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     if (Emit1(cx, bce, JSOP_POP) < 0)
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
             if (!EmitDefaults(cx, bce, pn))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (fun->hasRest()) {
                 if (restIsDefn && !EmitVarOp(cx, rest, JSOP_SETARG, bce))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (Emit1(cx, bce, JSOP_POP) < 0)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
         for (ParseNode *pn2 = pn->pn_head; pn2 != pnlast; pn2 = pn2->pn_next) {
@@ -6192,18 +6192,18 @@ frontend::EmitTree(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
             if (!pn2->isDefn())
                 continue;
             if (!BindNameToSlot(cx, bce, pn2))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (pn2->pn_next == pnlast && fun->hasRest() && !hasDefaults) {
                 // Fill rest parameter. We handled the case with defaults above.
                 JS_ASSERT(!bce->sc->asFunctionBox()->argumentsHasLocalBinding());
                 bce->switchToProlog();
                 if (Emit1(cx, bce, JSOP_REST) < 0)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 CheckTypeSet(cx, bce, JSOP_REST);
                 if (!EmitVarOp(cx, pn2, JSOP_SETARG, bce))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (Emit1(cx, bce, JSOP_POP) < 0)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 bce->switchToMain();
             }
         }
@@ -6245,18 +6245,18 @@ frontend::EmitTree(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
 
       case PNK_TRY:
         if (!EmitTry(cx, bce, pn))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 
       case PNK_CATCH:
         if (!EmitCatch(cx, bce, pn))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 
       case PNK_VAR:
       case PNK_CONST:
         if (!EmitVariables(cx, bce, pn, InitializeVars))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 
       case PNK_RETURN:
@@ -6271,21 +6271,21 @@ frontend::EmitTree(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
         JS_ASSERT(bce->sc->isFunctionBox());
         if (bce->sc->asFunctionBox()->isStarGenerator()) {
             if (!EmitPrepareIteratorResult(cx, bce))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (pn->pn_kid) {
             if (!EmitTree(cx, bce, pn->pn_kid))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             if (Emit1(cx, bce, JSOP_UNDEFINED) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (bce->sc->asFunctionBox()->isStarGenerator()) {
             if (!EmitFinishIteratorResult(cx, bce, false))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (Emit1(cx, bce, JSOP_YIELD) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 
       case PNK_STATEMENTLIST:
@@ -6308,11 +6308,11 @@ frontend::EmitTree(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
       {
         for (ParseNode *pn2 = pn->pn_head; ; pn2 = pn2->pn_next) {
             if (!EmitTree(cx, bce, pn2))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!pn2->pn_next)
                 break;
             if (Emit1(cx, bce, JSOP_POP) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         break;
       }
@@ -6330,7 +6330,7 @@ frontend::EmitTree(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
       case PNK_DIVASSIGN:
       case PNK_MODASSIGN:
         if (!EmitAssignment(cx, bce, pn->pn_left, pn->getOp(), pn->pn_right))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 
       case PNK_CONDITIONAL:
@@ -6367,22 +6367,22 @@ frontend::EmitTree(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
             /* Left-associative operator chain: avoid too much recursion. */
             ParseNode *pn2 = pn->pn_head;
             if (!EmitTree(cx, bce, pn2))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             JSOp op = pn->getOp();
             while ((pn2 = pn2->pn_next) != nullptr) {
                 if (!EmitTree(cx, bce, pn2))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (Emit1(cx, bce, op) < 0)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         } else {
             /* Binary operators that evaluate both operands unconditionally. */
             if (!EmitTree(cx, bce, pn->pn_left))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!EmitTree(cx, bce, pn->pn_right))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (Emit1(cx, bce, pn->getOp()) < 0)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         break;
 
@@ -6435,7 +6435,7 @@ frontend::EmitTree(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
       case PNK_EXPORT:
        // TODO: Implement emitter support for modules
        bce->reportError(nullptr, JSMSG_MODULES_NOT_IMPLEMENTED);
-       return false;
+       do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
       case PNK_ARRAYPUSH: {
         int slot;
@@ -6447,12 +6447,12 @@ frontend::EmitTree(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
          * unaliased by blocks, so we can EmitUnaliasedVarOp.
          */
         if (!EmitTree(cx, bce, pn->pn_kid))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         slot = AdjustBlockSlot(cx, bce, bce->arrayCompDepth);
         if (slot < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!EmitUnaliasedVarOp(cx, pn->getOp(), slot, bce))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
       }
 
@@ -6473,7 +6473,7 @@ frontend::EmitTree(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
 
       case PNK_NAME:
         if (!EmitNameOp(cx, bce, pn, false))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 
       case PNK_STRING:
@@ -6493,14 +6493,14 @@ frontend::EmitTree(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
       case PNK_THIS:
       case PNK_NULL:
         if (Emit1(cx, bce, pn->getOp()) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 
       case PNK_DEBUGGER:
         if (!UpdateSourceCoordNotes(cx, bce, pn->pn_pos.begin))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (Emit1(cx, bce, JSOP_DEBUGGER) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 
       case PNK_NOP:
@@ -6514,7 +6514,7 @@ frontend::EmitTree(ExclusiveContext *cx, BytecodeEmitter *bce, ParseNode *pn)
     /* bce->emitLevel == 1 means we're last on the stack, so finish up. */
     if (ok && bce->emitLevel == 1) {
         if (!UpdateSourceCoordNotes(cx, bce, pn->pn_pos.end))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return ok;
@@ -6624,7 +6624,7 @@ frontend::AddToSrcNoteDelta(ExclusiveContext *cx, BytecodeEmitter *bce, jssrcnot
         jssrcnote xdelta;
         SN_MAKE_XDELTA(&xdelta, delta);
         if (!(sn = bce->main.notes.insert(sn, xdelta)))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -6635,7 +6635,7 @@ SetSrcNoteOffset(ExclusiveContext *cx, BytecodeEmitter *bce, unsigned index, uns
 {
     if (size_t(offset) > SN_MAX_OFFSET) {
         ReportStatementTooLarge(bce->parser->tokenStream, bce->topStmt);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     SrcNotesVector &notes = bce->notes();
@@ -6663,7 +6663,7 @@ SetSrcNoteOffset(ExclusiveContext *cx, BytecodeEmitter *bce, unsigned index, uns
                 !(sn = notes.insert(sn, dummy)))
             {
                 js_ReportOutOfMemory(cx);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
         *sn++ = (jssrcnote)(SN_3BYTE_OFFSET_FLAG | (offset >> 16));
@@ -6720,7 +6720,7 @@ frontend::FinishTakingSrcNotes(ExclusiveContext *cx, BytecodeEmitter *bce, jssrc
     if (prologCount && bce->prolog.currentLine != bce->firstLine) {
         bce->switchToProlog();
         if (NewSrcNote2(cx, bce, SRC_SETLINE, (ptrdiff_t)bce->firstLine) < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         prologCount = bce->prolog.notes.length();
         bce->switchToMain();
     } else {
@@ -6743,7 +6743,7 @@ frontend::FinishTakingSrcNotes(ExclusiveContext *cx, BytecodeEmitter *bce, jssrc
                 delta = offset;
             for (;;) {
                 if (!AddToSrcNoteDelta(cx, bce, sn, delta))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 offset -= delta;
                 if (offset == 0)
                     break;

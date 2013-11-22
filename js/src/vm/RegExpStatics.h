@@ -62,7 +62,7 @@ class RegExpStatics
         bufferLink = buffer;
         if (!buffer->matches.allocOrExpandArray(matches.length())) {
             js_ReportOutOfMemory(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         return true;
     }
@@ -227,7 +227,7 @@ RegExpStatics::createDependent(JSContext *cx, size_t start, size_t end, MutableH
     JS_ASSERT(end <= matchesInput->length());
     JSString *str = js_NewDependentString(cx, matchesInput, start, end - start);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     out.setString(str);
     return true;
 }
@@ -264,7 +264,7 @@ inline bool
 RegExpStatics::createLastMatch(JSContext *cx, MutableHandleValue out)
 {
     if (!executeLazy(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return makeMatch(cx, 0, 0, out);
 }
 
@@ -272,7 +272,7 @@ inline bool
 RegExpStatics::createLastParen(JSContext *cx, MutableHandleValue out)
 {
     if (!executeLazy(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (matches.empty() || matches.pairCount() == 1) {
         out.setString(cx->runtime()->emptyString);
@@ -293,7 +293,7 @@ RegExpStatics::createParen(JSContext *cx, size_t pairNum, MutableHandleValue out
 {
     JS_ASSERT(pairNum >= 1);
     if (!executeLazy(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (matches.empty() || pairNum >= matches.pairCount()) {
         out.setString(cx->runtime()->emptyString);
@@ -306,7 +306,7 @@ inline bool
 RegExpStatics::createLeftContext(JSContext *cx, MutableHandleValue out)
 {
     if (!executeLazy(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (matches.empty()) {
         out.setString(cx->runtime()->emptyString);
@@ -323,7 +323,7 @@ inline bool
 RegExpStatics::createRightContext(JSContext *cx, MutableHandleValue out)
 {
     if (!executeLazy(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (matches.empty()) {
         out.setString(cx->runtime()->emptyString);
@@ -476,7 +476,7 @@ RegExpStatics::updateFromMatchPairs(JSContext *cx, JSLinearString *input, MatchP
 
     if (!matches.initArrayFrom(newPairs)) {
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;

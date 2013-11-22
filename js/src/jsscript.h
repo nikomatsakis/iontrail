@@ -1022,7 +1022,7 @@ class JSScript : public js::gc::BarrieredCell<JSScript>
      */
     bool isEmpty() const {
         if (length > 3)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         jsbytecode *pc = code;
         if (noScriptRval && JSOp(*pc) == JSOP_FALSE)
@@ -1416,7 +1416,7 @@ struct ScriptBytecodeHasher
     static HashNumber hash(const Lookup &l) { return mozilla::HashBytes(l.code, l.length); }
     static bool match(SharedScriptData *entry, const Lookup &lookup) {
         if (entry->length != lookup.length)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         return mozilla::PodEqual<jsbytecode>(entry->data, lookup.code, lookup.length);
     }
 };

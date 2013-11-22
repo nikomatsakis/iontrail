@@ -297,7 +297,7 @@ class LifoAlloc
         }
         BumpChunk *latestBefore = latest;
         if (!getOrCreateChunk(n))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (latestBefore)
             latest = latestBefore;
         return true;

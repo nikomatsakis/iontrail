@@ -165,10 +165,10 @@ class SyntaxParseHandler
     void addFunctionArgument(Node pn, Node argpn) {}
     Node newLexicalScope(ObjectBox *blockbox) { return NodeGeneric; }
     bool isOperationWithoutParens(Node pn, ParseNodeKind kind) {
-        // It is OK to return false here, callers should only use this method
+        // It is OK to do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false) here, callers should only use this method
         // for reporting strict option warnings and parsing code which the
         // syntax parser does not handle.
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool finishInitializerAssignment(Node pn, Node init, JSOp op) { return true; }
@@ -189,7 +189,7 @@ class SyntaxParseHandler
         return NodeGeneric;
     }
     void addList(Node pn, Node kid) {}
-    bool isUnparenthesizedYield(Node pn) { return false; }
+    bool isUnparenthesizedYield(Node pn) { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
 
     void setOp(Node pn, JSOp op) {}
     void setBlockId(Node pn, unsigned blockid) {}
@@ -202,7 +202,7 @@ class SyntaxParseHandler
     }
     void setPrologue(Node pn) {}
 
-    bool isConstant(Node pn) { return false; }
+    bool isConstant(Node pn) { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
     PropertyName *isName(Node pn) {
         return (pn == NodeName) ? lastAtom->asPropertyName() : nullptr;
     }

@@ -70,14 +70,14 @@ bool
 Compressor::init()
 {
     if (inplen >= UINT32_MAX)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     // zlib is slow and we'd rather be done compression sooner
     // even if it means decompression is slower which penalizes
     // Function.toString()
     int ret = deflateInit(&zs, Z_BEST_SPEED);
     if (ret != Z_OK) {
         JS_ASSERT(ret == Z_MEM_ERROR);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -132,7 +132,7 @@ js::DecompressString(const unsigned char *inp, size_t inplen, unsigned char *out
     int ret = inflateInit(&zs);
     if (ret != Z_OK) {
         JS_ASSERT(ret == Z_MEM_ERROR);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     ret = inflate(&zs, Z_FINISH);
     JS_ASSERT(ret == Z_STREAM_END);

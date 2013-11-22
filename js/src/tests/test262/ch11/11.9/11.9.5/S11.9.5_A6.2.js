@@ -2,7 +2,7 @@
 // This code is governed by the BSD license found in the LICENSE file.
 
 /**
- * If Type(x) and Type(y) are Null-s, return false
+ * If Type(x) and Type(y) are Null-s, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
  *
  * @path ch11/11.9/11.9.5/S11.9.5_A6.2.js
  * @description null === null

@@ -82,7 +82,7 @@ FoldType(ExclusiveContext *cx, ParseNode *pn, ParseNodeKind kind)
             if (pn->isKind(PNK_STRING)) {
                 double d;
                 if (!StringToNumber(cx, pn->pn_atom, &d))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 pn->pn_dval = d;
                 pn->setKind(PNK_NUMBER);
                 pn->setOp(JSOP_DOUBLE);
@@ -93,7 +93,7 @@ FoldType(ExclusiveContext *cx, ParseNode *pn, ParseNodeKind kind)
             if (pn->isKind(PNK_NUMBER)) {
                 pn->pn_atom = NumberToAtom(cx, pn->pn_dval);
                 if (!pn->pn_atom)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 pn->setKind(PNK_STRING);
                 pn->setOp(JSOP_STRING);
             }
@@ -255,7 +255,7 @@ Fold(ExclusiveContext *cx, ParseNode **pnp,
     ParseNode *pn = *pnp;
     ParseNode *pn1 = nullptr, *pn2 = nullptr, *pn3 = nullptr;
 
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     // First, recursively fold constants on the children of this node.
     switch (pn->getArity()) {
@@ -270,7 +270,7 @@ Fold(ExclusiveContext *cx, ParseNode **pnp,
             if (pn->pn_body) {
                 if (!Fold(cx, &pn->pn_body, handler, options, pn->pn_funbox->inGenexpLambda,
                           SyntacticContext::Other))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
         break;
@@ -289,7 +289,7 @@ Fold(ExclusiveContext *cx, ParseNode **pnp,
 
         for (; *listp; listp = &(*listp)->pn_next) {
             if (!Fold(cx, listp, handler, options, inGenexpLambda, kidsc))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         // If the last node in the list was replaced, pn_tail points into the wrong node.
@@ -305,13 +305,13 @@ Fold(ExclusiveContext *cx, ParseNode **pnp,
         /* Any kid may be null (e.g. for (;;)). */
         if (pn->pn_kid1) {
             if (!Fold(cx, &pn->pn_kid1, handler, options, inGenexpLambda, condIf(pn, PNK_IF)))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         pn1 = pn->pn_kid1;
 
         if (pn->pn_kid2) {
             if (!Fold(cx, &pn->pn_kid2, handler, options, inGenexpLambda, condIf(pn, PNK_FORHEAD)))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (pn->isKind(PNK_FORHEAD) && pn->pn_kid2->isKind(PNK_TRUE)) {
                 handler.freeTree(pn->pn_kid2);
                 pn->pn_kid2 = nullptr;
@@ -321,7 +321,7 @@ Fold(ExclusiveContext *cx, ParseNode **pnp,
 
         if (pn->pn_kid3) {
             if (!Fold(cx, &pn->pn_kid3, handler, options, inGenexpLambda, SyntacticContext::Other))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         pn3 = pn->pn_kid3;
         break;
@@ -333,17 +333,17 @@ Fold(ExclusiveContext *cx, ParseNode **pnp,
             if (sc == SyntacticContext::Condition)
                 kidsc = sc;
             if (!Fold(cx, &pn->pn_left, handler, options, inGenexpLambda, kidsc))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!Fold(cx, &pn->pn_right, handler, options, inGenexpLambda, kidsc))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             /* First kid may be null (for default case in switch). */
             if (pn->pn_left) {
                 if (!Fold(cx, &pn->pn_left, handler, options, inGenexpLambda, condIf(pn, PNK_WHILE)))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             if (!Fold(cx, &pn->pn_right, handler, options, inGenexpLambda, condIf(pn, PNK_DOWHILE)))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         pn1 = pn->pn_left;
         pn2 = pn->pn_right;
@@ -370,7 +370,7 @@ Fold(ExclusiveContext *cx, ParseNode **pnp,
                 ? SyntacticContext::Delete
                 : SyntacticContext::Other;
             if (!Fold(cx, &pn->pn_kid, handler, options, inGenexpLambda, kidsc))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         pn1 = pn->pn_kid;
         break;
@@ -387,7 +387,7 @@ Fold(ExclusiveContext *cx, ParseNode **pnp,
             while (*lhsp && (*lhsp)->isArity(PN_NAME) && !(*lhsp)->isUsed())
                 lhsp = &(*lhsp)->pn_expr;
             if (*lhsp && !Fold(cx, lhsp, handler, options, inGenexpLambda, SyntacticContext::Other))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             pn1 = *lhsp;
         }
         break;
@@ -565,7 +565,7 @@ Fold(ExclusiveContext *cx, ParseNode **pnp,
             size_t length = 0;
             for (pn2 = pn1; pn2; pn2 = pn2->pn_next) {
                 if (!FoldType(cx, pn2, PNK_STRING))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 /* XXX fold only if all operands convert to string */
                 if (!pn2->isKind(PNK_STRING))
                     return true;
@@ -575,12 +575,12 @@ Fold(ExclusiveContext *cx, ParseNode **pnp,
             /* Allocate a new buffer and string descriptor for the result. */
             jschar *chars = cx->pod_malloc<jschar>(length + 1);
             if (!chars)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             chars[length] = 0;
             JSString *str = js_NewString<CanGC>(cx, chars, length);
             if (!str) {
                 js_free(chars);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             /* Fill the buffer, advancing chars and recycling kids as we go. */
@@ -595,7 +595,7 @@ Fold(ExclusiveContext *cx, ParseNode **pnp,
             /* Atomize the result string and mutate pn to refer to it. */
             pn->pn_atom = AtomizeString(cx, str);
             if (!pn->pn_atom)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             pn->setKind(PNK_STRING);
             pn->setOp(JSOP_STRING);
             pn->setArity(PN_NULLARY);
@@ -606,17 +606,17 @@ Fold(ExclusiveContext *cx, ParseNode **pnp,
         JS_ASSERT(pn->isArity(PN_BINARY));
         if (pn1->isKind(PNK_STRING) || pn2->isKind(PNK_STRING)) {
             if (!FoldType(cx, !pn1->isKind(PNK_STRING) ? pn1 : pn2, PNK_STRING))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!pn1->isKind(PNK_STRING) || !pn2->isKind(PNK_STRING))
                 return true;
             RootedString left(cx, pn1->pn_atom);
             RootedString right(cx, pn2->pn_atom);
             RootedString str(cx, ConcatStrings<CanGC>(cx, left, right));
             if (!str)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             pn->pn_atom = AtomizeString(cx, str);
             if (!pn->pn_atom)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             pn->setKind(PNK_STRING);
             pn->setOp(JSOP_STRING);
             pn->setArity(PN_NULLARY);
@@ -640,7 +640,7 @@ Fold(ExclusiveContext *cx, ParseNode **pnp,
             JS_ASSERT(pn->pn_count > 2);
             for (pn2 = pn1; pn2; pn2 = pn2->pn_next) {
                 if (!FoldType(cx, pn2, PNK_NUMBER))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             for (pn2 = pn1; pn2; pn2 = pn2->pn_next) {
                 /* XXX fold only if all operands convert to number */
@@ -653,22 +653,22 @@ Fold(ExclusiveContext *cx, ParseNode **pnp,
                 pn2 = pn1->pn_next;
                 pn3 = pn2->pn_next;
                 if (!FoldBinaryNumeric(cx, op, pn1, pn2, pn))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 while ((pn2 = pn3) != nullptr) {
                     pn3 = pn2->pn_next;
                     if (!FoldBinaryNumeric(cx, op, pn, pn2, pn))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
         } else {
             JS_ASSERT(pn->isArity(PN_BINARY));
             if (!FoldType(cx, pn1, PNK_NUMBER) ||
                 !FoldType(cx, pn2, PNK_NUMBER)) {
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             if (pn1->isKind(PNK_NUMBER) && pn2->isKind(PNK_NUMBER)) {
                 if (!FoldBinaryNumeric(cx, pn->getOp(), pn1, pn2, pn))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
         break;
@@ -755,7 +755,7 @@ Fold(ExclusiveContext *cx, ParseNode **pnp,
                 // which enables optimization 3 below.
                 JSAtom *atom = ToAtom<NoGC>(cx, DoubleValue(number));
                 if (!atom)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 name = atom->asPropertyName();
             }
         }
@@ -767,7 +767,7 @@ Fold(ExclusiveContext *cx, ParseNode **pnp,
             // considers to be indexes, to simplify downstream analysis.
             ParseNode *expr = handler.newPropertyAccess(pn->pn_left, name, pn->pn_pos.end);
             if (!expr)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             ReplaceNode(pnp, expr);
 
             pn->pn_left = nullptr;

@@ -203,7 +203,7 @@ SuppressCheckRoots(js::Vector<Rooter, 0, SystemAllocPolicy> &rooters)
     if (numMemories < NumStackMemories)
         numMemories++;
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static void

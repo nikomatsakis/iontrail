@@ -20,7 +20,7 @@ ComputeLocalTime(time_t local, struct tm *ptm)
 #else
     struct tm *otm = localtime(&local);
     if (!otm)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *ptm = *otm;
     return true;
 #endif
@@ -34,7 +34,7 @@ ComputeUTCTime(time_t t, struct tm *ptm)
 #else
     struct tm *otm = gmtime(&t);
     if (!otm)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *ptm = *otm;
     return true;
 #endif

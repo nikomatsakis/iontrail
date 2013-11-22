@@ -7,7 +7,7 @@ function testFilterMisc() {
       case 1: return "";
       case 2: return {};
       case 3: return [];
-      case 4: return false;
+      case 4: do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       case 5: return true;
     }
   }

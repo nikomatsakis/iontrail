@@ -404,7 +404,7 @@ SCInput::eof()
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                          JSMSG_SC_BAD_SERIALIZED_DATA, "truncated");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 SCInput::SCInput(JSContext *cx, uint64_t *data, size_t nbytes)
@@ -451,7 +451,7 @@ SCInput::getPair(uint32_t *tagp, uint32_t *datap)
 {
     uint64_t u;
     if (!get(&u))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *tagp = uint32_t(u >> 32);
     *datap = uint32_t(u);
@@ -481,7 +481,7 @@ SCInput::readDouble(double *p)
         double d;
     } pun;
     if (!read(&pun.u))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *p = CanonicalizeNaN(pun.d);
     return true;
 }
@@ -634,12 +634,12 @@ SCOutput::writeArray(const T *p, size_t nelems)
 
     if (nelems + sizeof(uint64_t) / sizeof(T) - 1 < nelems) {
         js_ReportAllocationOverflow(context());
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     size_t nwords = JS_HOWMANY(nelems, sizeof(uint64_t) / sizeof(T));
     size_t start = buf.length();
     if (!buf.growByUninitialized(nwords))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     buf.back() = 0;  /* zero-pad to an 8-byte boundary */
 
@@ -686,51 +686,51 @@ JSStructuredCloneWriter::parseTransferable()
 
     if (!transferable.isObject()) {
         reportErrorTransferable();
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JSContext *cx = context();
     RootedObject array(cx, &transferable.toObject());
     if (!JS_IsArrayObject(cx, array)) {
         reportErrorTransferable();
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     uint32_t length;
     if (!JS_GetArrayLength(cx, array, &length)) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedValue v(context());
 
     for (uint32_t i = 0; i < length; ++i) {
         if (!JS_GetElement(cx, array, i, &v)) {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (!v.isObject()) {
             reportErrorTransferable();
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         JSObject* tObj = CheckedUnwrap(&v.toObject());
         if (!tObj) {
             JS_ReportErrorNumber(context(), js_GetErrorMessage, nullptr, JSMSG_UNWRAP_DENIED);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (!tObj->is<ArrayBufferObject>()) {
             reportErrorTransferable();
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         // No duplicates allowed
         if (std::find(transferableObjects.begin(), transferableObjects.end(), tObj) != transferableObjects.end()) {
             JS_ReportErrorNumber(context(), js_GetErrorMessage, nullptr, JSMSG_SC_DUP_TRANSFERABLE);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (!transferableObjects.append(tObj))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -751,7 +751,7 @@ JSStructuredCloneWriter::writeString(uint32_t tag, JSString *str)
     size_t length = str->length();
     const jschar *chars = str->getChars(context());
     if (!chars)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return out.writePair(tag, uint32_t(length)) && out.writeChars(chars, length);
 }
 
@@ -803,14 +803,14 @@ JSStructuredCloneWriter::writeTypedArray(HandleObject obj)
 {
     Rooted<TypedArrayObject*> tarr(context(), &obj->as<TypedArrayObject>());
     if (!out.writePair(SCTAG_TYPED_ARRAY_OBJECT, tarr->length()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     uint64_t type = tarr->type();
     if (!out.write(type))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Write out the ArrayBuffer tag and contents
     if (!startWrite(TypedArrayObject::bufferValue(tarr)))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return out.write(tarr->byteOffset());
 }
@@ -831,12 +831,12 @@ JSStructuredCloneWriter::startObject(HandleObject obj, bool *backref)
     if ((*backref = p))
         return out.writePair(SCTAG_BACK_REFERENCE_OBJECT, p->value);
     if (!memory.add(p, obj, memory.count()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (memory.count() == UINT32_MAX) {
         JS_ReportErrorNumber(context(), js_GetErrorMessage, nullptr,
                              JSMSG_NEED_DIET, "object graph to serialize");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -851,14 +851,14 @@ JSStructuredCloneWriter::traverseObject(HandleObject obj)
      */
     size_t initialLength = ids.length();
     if (!GetPropertyNames(context(), obj, JSITER_OWNONLY, &ids))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     jsid *begin = ids.begin() + initialLength, *end = ids.end();
     size_t count = size_t(end - begin);
     Reverse(begin, end);
 
     /* Push obj and count to the stack. */
     if (!objs.append(ObjectValue(*obj)) || !counts.append(count))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     checkStack();
 
     /* Write the header for obj. */
@@ -870,7 +870,7 @@ PrimitiveToObject(JSContext *cx, Value *vp)
 {
     JSObject *obj = PrimitiveToObject(cx, *vp);
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     vp->setObject(*obj);
     return true;
@@ -899,14 +899,14 @@ JSStructuredCloneWriter::startWrite(const Value &v)
         obj = CheckedUnwrap(obj);
         if (!obj) {
             JS_ReportError(context(), "Permission denied to access object");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         AutoCompartment ac(context(), obj);
 
         bool backref;
         if (!startObject(obj, &backref))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (backref)
             return true;
 
@@ -938,7 +938,7 @@ JSStructuredCloneWriter::startWrite(const Value &v)
     }
 
     JS_ReportErrorNumber(context(), js_GetErrorMessage, nullptr, JSMSG_SC_UNSUPPORTED_TYPE);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -948,10 +948,10 @@ JSStructuredCloneWriter::writeTransferMap()
         return true;
 
     if (!out.writePair(SCTAG_TRANSFER_MAP_HEADER, (uint32_t)SCTAG_TM_UNREAD))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!out.write(transferableObjects.length()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (JS::AutoObjectVector::Range tr = transferableObjects.all();
          !tr.empty(); tr.popFront())
@@ -959,7 +959,7 @@ JSStructuredCloneWriter::writeTransferMap()
         JSObject *obj = tr.front();
 
         if (!memory.put(obj, memory.count()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         // Emit a placeholder pointer. We will steal the data and neuter the
         // transferable later.
@@ -967,7 +967,7 @@ JSStructuredCloneWriter::writeTransferMap()
             !out.writePtr(nullptr) ||
             !out.write(0))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -997,7 +997,7 @@ JSStructuredCloneWriter::transferOwnership()
         void *content;
         uint8_t *data;
         if (!JS_StealArrayBufferContents(context(), obj, &content, &data))
-            return false; // Destructor will clean up the already-transferred data
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); // Destructor will clean up the already-transferred data
 
         MOZ_ASSERT(uint32_t(LittleEndian::readUint64(point) >> 32) == SCTAG_TRANSFER_MAP_ENTRY);
         LittleEndian::writeUint64(point++, PairToUInt64(SCTAG_TRANSFER_MAP_ENTRY, SCTAG_TM_ALLOC_DATA));
@@ -1016,7 +1016,7 @@ bool
 JSStructuredCloneWriter::write(const Value &v)
 {
     if (!startWrite(v))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     while (!counts.empty()) {
         RootedObject obj(context(), &objs.back().toObject());
@@ -1036,7 +1036,7 @@ JSStructuredCloneWriter::write(const Value &v)
                 RootedShape prop(context());
                 if (!HasOwnProperty<CanGC>(context(), obj->getOps()->lookupGeneric, obj, id,
                                            &obj2, &prop)) {
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
 
                 if (prop) {
@@ -1044,7 +1044,7 @@ JSStructuredCloneWriter::write(const Value &v)
                     if (!writeId(id) ||
                         !JSObject::getGeneric(context(), obj, obj, id, &val) ||
                         !startWrite(val))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
         } else {
@@ -1066,7 +1066,7 @@ JSStructuredCloneReader::checkDouble(double d)
     if (!JSVAL_IS_DOUBLE_IMPL(l)) {
         JS_ReportErrorNumber(context(), js_GetErrorMessage, nullptr,
                              JSMSG_SC_BAD_SERIALIZED_DATA, "unrecognized NaN");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -1088,7 +1088,7 @@ class Chars {
             p[len] = jschar(0);
             return true;
         }
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     jschar *get() { return p; }
     void forget() { p = nullptr; }
@@ -1127,28 +1127,28 @@ JSStructuredCloneReader::readTypedArray(uint32_t arrayType, uint32_t nelems, Val
     if (arrayType > ScalarTypeRepresentation::TYPE_UINT8_CLAMPED) {
         JS_ReportErrorNumber(context(), js_GetErrorMessage, nullptr,
                              JSMSG_SC_BAD_SERIALIZED_DATA, "unhandled typed array element type");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // Push a placeholder onto the allObjs list to stand in for the typed array
     uint32_t placeholderIndex = allObjs.length();
     Value dummy = JSVAL_NULL;
     if (!allObjs.append(dummy))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Read the ArrayBuffer object and its contents (but no properties)
     RootedValue v(context());
     uint32_t byteOffset;
     if (v1Read) {
         if (!readV1ArrayBuffer(arrayType, nelems, v.address()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         byteOffset = 0;
     } else {
         if (!startRead(v.address()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         uint64_t n;
         if (!in.read(&n))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         byteOffset = n;
     }
     RootedObject buffer(context(), &v.toObject());
@@ -1187,7 +1187,7 @@ JSStructuredCloneReader::readTypedArray(uint32_t arrayType, uint32_t nelems, Val
     }
 
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     vp->setObject(*obj);
 
     allObjs[placeholderIndex] = *vp;
@@ -1200,7 +1200,7 @@ JSStructuredCloneReader::readArrayBuffer(uint32_t nbytes, Value *vp)
 {
     JSObject *obj = ArrayBufferObject::create(context(), nbytes);
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     vp->setObject(*obj);
     ArrayBufferObject &buffer = obj->as<ArrayBufferObject>();
     JS_ASSERT(buffer.byteLength() == nbytes);
@@ -1241,7 +1241,7 @@ JSStructuredCloneReader::readV1ArrayBuffer(uint32_t arrayType, uint32_t nelems, 
     uint32_t nbytes = nelems * bytesPerTypedArrayElement(arrayType);
     JSObject *obj = ArrayBufferObject::create(context(), nbytes);
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     vp->setObject(*obj);
     ArrayBufferObject &buffer = obj->as<ArrayBufferObject>();
     JS_ASSERT(buffer.byteLength() == nbytes);
@@ -1271,7 +1271,7 @@ JSStructuredCloneReader::startRead(Value *vp)
     uint32_t tag, data;
 
     if (!in.readPair(&tag, &data))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     switch (tag) {
       case SCTAG_NULL:
         vp->setNull();
@@ -1285,42 +1285,42 @@ JSStructuredCloneReader::startRead(Value *vp)
       case SCTAG_BOOLEAN_OBJECT:
         vp->setBoolean(!!data);
         if (tag == SCTAG_BOOLEAN_OBJECT && !PrimitiveToObject(context(), vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 
       case SCTAG_STRING:
       case SCTAG_STRING_OBJECT: {
         JSString *str = readString(data);
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         vp->setString(str);
         if (tag == SCTAG_STRING_OBJECT && !PrimitiveToObject(context(), vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
       }
 
       case SCTAG_NUMBER_OBJECT: {
         double d;
         if (!in.readDouble(&d) || !checkDouble(d))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         vp->setDouble(d);
         if (!PrimitiveToObject(context(), vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
       }
 
       case SCTAG_DATE_OBJECT: {
         double d;
         if (!in.readDouble(&d) || !checkDouble(d))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!IsNaN(d) && d != TimeClip(d)) {
             JS_ReportErrorNumber(context(), js_GetErrorMessage, nullptr,
                                  JSMSG_SC_BAD_SERIALIZED_DATA, "date");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         JSObject *obj = js_NewDateObjectMsec(context(), d);
         if (!obj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         vp->setObject(*obj);
         break;
       }
@@ -1329,25 +1329,25 @@ JSStructuredCloneReader::startRead(Value *vp)
         RegExpFlag flags = RegExpFlag(data);
         uint32_t tag2, nchars;
         if (!in.readPair(&tag2, &nchars))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (tag2 != SCTAG_STRING) {
             JS_ReportErrorNumber(context(), js_GetErrorMessage, nullptr,
                                  JSMSG_SC_BAD_SERIALIZED_DATA, "regexp");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         JSString *str = readString(nchars);
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         JSStableString *stable = str->ensureStable(context());
         if (!stable)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         size_t length = stable->length();
         const StableCharPtr chars = stable->chars();
         RegExpObject *reobj = RegExpObject::createNoStatics(context(), chars.get(), length,
                                                             flags, nullptr);
         if (!reobj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         vp->setObject(*reobj);
         break;
       }
@@ -1358,7 +1358,7 @@ JSStructuredCloneReader::startRead(Value *vp)
                         ? NewDenseEmptyArray(context())
                         : NewBuiltinClassInstance(context(), &JSObject::class_);
         if (!obj || !objs.append(ObjectValue(*obj)))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         vp->setObject(*obj);
         break;
       }
@@ -1368,7 +1368,7 @@ JSStructuredCloneReader::startRead(Value *vp)
             JS_ReportErrorNumber(context(), js_GetErrorMessage, nullptr,
                                  JSMSG_SC_BAD_SERIALIZED_DATA,
                                  "invalid back reference in input");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         *vp = allObjs[data];
         return true;
@@ -1379,25 +1379,25 @@ JSStructuredCloneReader::startRead(Value *vp)
         JS_ReportErrorNumber(context(), js_GetErrorMessage, nullptr,
                              JSMSG_SC_BAD_SERIALIZED_DATA,
                              "invalid input");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
       case SCTAG_TRANSFER_MAP_ENTRY:
         // A map cannot be here but just at the beginning of the buffer.
         JS_ReportErrorNumber(context(), js_GetErrorMessage, nullptr,
                              JSMSG_SC_BAD_SERIALIZED_DATA,
                              "invalid input");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
       case SCTAG_ARRAY_BUFFER_OBJECT:
         if (!readArrayBuffer(data, vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         break;
 
       case SCTAG_TYPED_ARRAY_OBJECT:
         // readTypedArray adds the array to allObjs
         uint64_t arrayType;
         if (!in.read(&arrayType))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         return readTypedArray(arrayType, data, vp);
         break;
 
@@ -1405,7 +1405,7 @@ JSStructuredCloneReader::startRead(Value *vp)
         if (tag <= SCTAG_FLOAT_MAX) {
             double d = ReinterpretPairAsDouble(tag, data);
             if (!checkDouble(d))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             vp->setNumber(d);
             break;
         }
@@ -1419,17 +1419,17 @@ JSStructuredCloneReader::startRead(Value *vp)
         if (!callbacks || !callbacks->read) {
             JS_ReportErrorNumber(context(), js_GetErrorMessage, nullptr,
                                  JSMSG_SC_BAD_SERIALIZED_DATA, "unsupported type");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         JSObject *obj = callbacks->read(context(), this, tag, data, closure);
         if (!obj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         vp->setObject(*obj);
       }
     }
 
     if (vp->isObject() && !allObjs.append(*vp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }
@@ -1439,7 +1439,7 @@ JSStructuredCloneReader::readId(jsid *idp)
 {
     uint32_t tag, data;
     if (!in.readPair(&tag, &data))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (tag == SCTAG_INDEX) {
         *idp = INT_TO_JSID(int32_t(data));
@@ -1448,10 +1448,10 @@ JSStructuredCloneReader::readId(jsid *idp)
     if (tag == SCTAG_STRING) {
         JSString *str = readString(data);
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         JSAtom *atom = AtomizeString(context(), str);
         if (!atom)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         *idp = NON_INTEGER_ATOM_TO_JSID(atom);
         return true;
     }
@@ -1461,7 +1461,7 @@ JSStructuredCloneReader::readId(jsid *idp)
     }
     JS_ReportErrorNumber(context(), js_GetErrorMessage, nullptr,
                          JSMSG_SC_BAD_SERIALIZED_DATA, "id");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -1471,7 +1471,7 @@ JSStructuredCloneReader::readTransferMap()
 
     uint32_t tag, data;
     if (!in.getPair(&tag, &data))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (tag != SCTAG_TRANSFER_MAP_HEADER || TransferableMapHeader(data) == SCTAG_TM_TRANSFERRED)
         return true;
@@ -1479,27 +1479,27 @@ JSStructuredCloneReader::readTransferMap()
     uint64_t numTransferables;
     MOZ_ALWAYS_TRUE(in.readPair(&tag, &data));
     if (!in.read(&numTransferables))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (uint64_t i = 0; i < numTransferables; i++) {
         uint64_t *pos = in.tell();
 
         if (!in.readPair(&tag, &data))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         JS_ASSERT(tag == SCTAG_TRANSFER_MAP_ENTRY);
         JS_ASSERT(data == SCTAG_TM_ALLOC_DATA);
 
         void *content;
         if (!in.readPtr(&content))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         uint64_t userdata;
         if (!in.read(&userdata))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         RootedObject obj(context(), JS_NewArrayBufferWithContents(context(), content));
         if (!obj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         // Rewind to the SCTAG_TRANSFER_MAP_ENTRY and mark this entry as unowned by
         // the input buffer.
@@ -1509,7 +1509,7 @@ JSStructuredCloneReader::readTransferMap()
         in.seek(next);
 
         if (!allObjs.append(ObjectValue(*obj)))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // Mark the whole transfer map as consumed
@@ -1525,24 +1525,24 @@ bool
 JSStructuredCloneReader::read(Value *vp)
 {
     if (!readTransferMap())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!startRead(vp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     while (objs.length() != 0) {
         RootedObject obj(context(), &objs.back().toObject());
 
         RootedId id(context());
         if (!readId(id.address()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (JSID_IS_VOID(id)) {
             objs.popBack();
         } else {
             RootedValue v(context());
             if (!startRead(v.address()) || !JSObject::defineGeneric(context(), obj, id, v))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -1563,7 +1563,7 @@ JS_ReadStructuredClone(JSContext *cx, uint64_t *buf, size_t nbytes,
 
     if (version > JS_STRUCTURED_CLONE_VERSION) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_BAD_CLONE_VERSION);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     const JSStructuredCloneCallbacks *callbacks =
         optionalCallbacks ?
@@ -1601,7 +1601,7 @@ JS_StructuredCloneHasTransferables(const uint64_t *data, size_t nbytes,
 {
     bool transferable;
     if (!StructuredCloneHasTransferObjects(data, nbytes, &transferable))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *hasTransferable = transferable;
     return true;
@@ -1620,7 +1620,7 @@ JS_StructuredClone(JSContext *cx, JS::HandleValue value, JS::MutableHandleValue 
     if (value.isString()) {
       RootedString strValue(cx, value.toString());
       if (!cx->compartment()->wrap(cx, strValue.address())) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
       vp.setString(strValue);
       return true;
@@ -1639,10 +1639,10 @@ JS_StructuredClone(JSContext *cx, JS::HandleValue value, JS::MutableHandleValue 
         if (value.isObject()) {
             AutoCompartment ac(cx, &value.toObject());
             if (!buf.write(cx, value, callbacks, closure))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             if (!buf.write(cx, value, callbacks, closure))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -1667,11 +1667,11 @@ JSAutoStructuredCloneBuffer::copy(const uint64_t *srcData, size_t nbytes, uint32
     bool hasTransferable;
     if (!StructuredCloneHasTransferObjects(data_, nbytes_, &hasTransferable) ||
         hasTransferable)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     uint64_t *newData = static_cast<uint64_t *>(js_malloc(nbytes));
     if (!newData)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     js_memcpy(newData, srcData, nbytes);
 
@@ -1781,18 +1781,18 @@ JS_ReadTypedArray(JSStructuredCloneReader *r, JS::Value *vp)
 {
     uint32_t tag, nelems;
     if (!r->input().readPair(&tag, &nelems))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (tag >= SCTAG_TYPED_ARRAY_V1_MIN && tag <= SCTAG_TYPED_ARRAY_V1_MAX) {
         return r->readTypedArray(TagToV1ArrayType(tag), nelems, vp, true);
     } else if (tag == SCTAG_TYPED_ARRAY_OBJECT) {
         uint64_t arrayType;
         if (!r->input().read(&arrayType))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         return r->readTypedArray(arrayType, nelems, vp);
     } else {
         JS_ReportErrorNumber(r->context(), js_GetErrorMessage, nullptr,
                              JSMSG_SC_BAD_SERIALIZED_DATA, "expected type array");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 }
 
@@ -1821,7 +1821,7 @@ JS_WriteTypedArray(JSStructuredCloneWriter *w, JS::Value v)
         obj = CheckedUnwrap(obj);
     if (!obj) {
         JS_ReportError(w->context(), "Permission denied to access object");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return w->writeTypedArray(obj);
 }

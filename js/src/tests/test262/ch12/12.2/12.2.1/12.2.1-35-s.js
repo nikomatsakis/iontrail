@@ -15,7 +15,7 @@ function testcase() {
 
   try {
     eval('for (var eval = 42 in null) {};');
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   catch (e) {
     return (e instanceof SyntaxError);

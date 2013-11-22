@@ -364,7 +364,7 @@ Arena::finalize(FreeOp *fop, AllocKind thingKind, size_t thingSize)
 #endif
     aheader.setFirstFreeSpan(&newListHead);
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /*
@@ -405,7 +405,7 @@ FinalizeTypedArenas(FreeOp *fop,
             dest.insert(aheader);
         budget.step(Arena::thingsPerArena(thingSize));
         if (budget.isOverBudget())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -927,7 +927,7 @@ InitGCZeal(JSRuntime *rt)
                 " 11: Verify post write barriers between instructions\n"
                 " 12: Verify post write barriers between paints\n"
                 " 13: Purge analysis state every F allocations (default: 100)\n");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     SetGCZeal(rt, zeal, frequency);
@@ -945,13 +945,13 @@ js_InitGC(JSRuntime *rt, uint32_t maxbytes)
     InitMemorySubsystem(rt);
 
     if (!rt->gcChunkSet.init(INITIAL_CHUNK_CAPACITY))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!rt->gcRootsHash.init(256))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!rt->gcHelperThread.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Separate gcMaxMallocBytes from gcMaxBytes but initialize to maxbytes
@@ -966,15 +966,15 @@ js_InitGC(JSRuntime *rt, uint32_t maxbytes)
 
 #ifdef JSGC_GENERATIONAL
     if (!rt->gcNursery.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!rt->gcStoreBuffer.enable())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
 
 #ifdef JS_GC_ZEAL
     if (!InitGCZeal(rt))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
 
     return true;
@@ -1822,7 +1822,7 @@ GCMarker::markDelayedChildren(SliceBudget &budget)
 
         budget.step(150);
         if (budget.isOverBudget())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } while (unmarkedArenaStackTop);
     JS_ASSERT(!markLaterArenas);
 
@@ -1968,13 +1968,13 @@ js::TriggerGC(JSRuntime *rt, JS::gcreason::Reason reason)
 
     /* Don't trigger GCs when allocating under the operation callback lock. */
     if (rt->currentThreadOwnsOperationCallbackLock())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_ASSERT(CurrentThreadCanAccessRuntime(rt));
 
     /* GC is already running. */
     if (rt->isHeapCollecting())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS::PrepareForFullGC(rt);
     TriggerOperationCallback(rt, reason);
@@ -1995,17 +1995,17 @@ js::TriggerZoneGC(Zone *zone, JS::gcreason::Reason reason)
 
     /* Zones in use by a thread with an exclusive context can't be collected. */
     if (zone->usedByExclusiveThread)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSRuntime *rt = zone->runtimeFromMainThread();
 
     /* Don't trigger GCs when allocating under the operation callback lock. */
     if (rt->currentThreadOwnsOperationCallbackLock())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* GC is already running. */
     if (rt->isHeapCollecting())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (rt->gcZeal() == ZealAllocValue) {
         TriggerGC(rt, reason);
@@ -2264,14 +2264,14 @@ GCHelperThread::init()
 
 #ifdef JS_THREADSAFE
     if (!(wakeup = PR_NewCondVar(rt->gcLock)))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!(done = PR_NewCondVar(rt->gcLock)))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     thread = PR_CreateThread(PR_USER_THREAD, threadMain, this, PR_PRIORITY_NORMAL,
                              PR_GLOBAL_THREAD, PR_JOINABLE_THREAD, 0);
     if (!thread)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     backgroundAllocation = (GetCPUCount() >= 2);
 #endif /* JS_THREADSAFE */
@@ -2581,7 +2581,7 @@ GCHelperThread::onBackgroundThread()
 #ifdef JS_THREADSAFE
     return PR_GetCurrentThread() == getThread();
 #else
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
 }
 
@@ -2701,7 +2701,7 @@ ShouldPreserveJITCode(JSCompartment *comp, int64_t currentTime)
 {
     JSRuntime *rt = comp->runtimeFromMainThread();
     if (rt->gcShouldCleanUpEverything || !comp->zone()->types.inferenceEnabled)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (rt->alwaysPreserveCode)
         return true;
@@ -2712,7 +2712,7 @@ ShouldPreserveJITCode(JSCompartment *comp, int64_t currentTime)
     }
 
     comp->lastCodeRelease = currentTime;
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 #ifdef DEBUG
@@ -2746,7 +2746,7 @@ InCrossCompartmentMap(JSObject *src, Cell *dst, JSGCTraceKind dstKind)
             return true;
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static void
@@ -2875,7 +2875,7 @@ BeginMarkPhase(JSRuntime *rt)
 
     /* Check that at least one zone is scheduled for collection. */
     if (!any)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * At the end of each incremental slice, we call prepareForIncrementalGC,
@@ -3606,11 +3606,11 @@ static bool
 RemoveFromGrayList(JSObject *wrapper)
 {
     if (!IsGrayListObject(wrapper))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     unsigned slot = ProxyObject::grayLinkSlot(wrapper);
     if (wrapper->getReservedSlot(slot).isUndefined())
-        return false;  /* Not on our list. */
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);  /* Not on our list. */
 
     JSObject *tail = wrapper->getReservedSlot(slot).toObjectOrNull();
     wrapper->setReservedSlot(slot, UndefinedValue());
@@ -3916,7 +3916,7 @@ SweepPhase(JSRuntime *rt, SliceBudget &sliceBudget)
 
     bool finished = DrainMarkStack(rt, sliceBudget, gcstats::PHASE_SWEEP_MARK);
     if (!finished)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (;;) {
         /* Finalize foreground finalized things. */
@@ -3930,7 +3930,7 @@ SweepPhase(JSRuntime *rt, SliceBudget &sliceBudget)
                     AllocKind kind = FinalizePhases[rt->gcSweepPhase][rt->gcSweepKindIndex];
 
                     if (!zone->allocator.arenas.foregroundFinalize(&fop, kind, sliceBudget))
-                        return false;  /* Yield to the mutator. */
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);  /* Yield to the mutator. */
 
                     ++rt->gcSweepKindIndex;
                 }
@@ -3955,7 +3955,7 @@ SweepPhase(JSRuntime *rt, SliceBudget &sliceBudget)
                     zone->allocator.arenas.gcShapeArenasToSweep = arena->next;
                     sliceBudget.step(Arena::thingsPerArena(Arena::thingSize(FINALIZE_SHAPE)));
                     if (sliceBudget.isOverBudget())
-                        return false;  /* Yield to the mutator. */
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);  /* Yield to the mutator. */
                 }
             }
         }
@@ -4632,7 +4632,7 @@ GCCycle(JSRuntime *rt, bool incremental, int64_t budget,
     }
 
     IncrementalCollectSlice(rt, budget, reason, gckind);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 #ifdef JS_GC_ZEAL
@@ -4642,11 +4642,11 @@ IsDeterministicGCReason(JS::gcreason::Reason reason)
     if (reason > JS::gcreason::DEBUG_GC &&
         reason != JS::gcreason::CC_FORCED && reason != JS::gcreason::SHUTDOWN_CC)
     {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (reason == JS::gcreason::MAYBEGC)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }
@@ -4829,7 +4829,7 @@ ZonesSelected(JSRuntime *rt)
         if (zone->isGCScheduled())
             return true;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 void
@@ -5290,7 +5290,7 @@ ArenaLists::containsArena(JSRuntime *rt, ArenaHeader *needle)
         if (aheader == needle)
             return true;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 

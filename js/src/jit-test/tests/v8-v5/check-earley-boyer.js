@@ -119,9 +119,9 @@ function sc_getprop(sym, key) {
 	if (key in ht)
 	    return ht[key];
 	else
-	    return false;
+	    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else
-	return false;
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /*** META ((export #t)) */
@@ -193,7 +193,7 @@ function sc_isInteger(n) {
 */
 // we don't have exact numbers...
 function sc_isExact(n) {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /*** META ((export #t)
@@ -211,7 +211,7 @@ function sc_isInexact(n) {
 function sc_equal(x) {
     for (var i = 1; i < arguments.length; i++)
 	if (x !== arguments[i])
-	    return false;
+	    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return true;
 }
 
@@ -222,7 +222,7 @@ function sc_equal(x) {
 function sc_less(x) {
     for (var i = 1; i < arguments.length; i++) {
 	if (x >= arguments[i])
-	    return false;
+	    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	x = arguments[i];
     }
     return true;
@@ -235,7 +235,7 @@ function sc_less(x) {
 function sc_greater(x, y) {
     for (var i = 1; i < arguments.length; i++) {
 	if (x <= arguments[i])
-	    return false;
+	    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	x = arguments[i];
     }
     return true;
@@ -248,7 +248,7 @@ function sc_greater(x, y) {
 function sc_lessEqual(x, y) {
     for (var i = 1; i < arguments.length; i++) {
 	if (x > arguments[i])
-	    return false;
+	    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	x = arguments[i];
     }
     return true;
@@ -261,7 +261,7 @@ function sc_lessEqual(x, y) {
 function sc_greaterEqual(x, y) {
     for (var i = 1; i < arguments.length; i++) {
 	if (x < arguments[i])
-	    return false;
+	    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	x = arguments[i];
     }
     return true;
@@ -496,24 +496,24 @@ function sc_number2jsstring(x, radix) {
 }
 
 function sc_jsstring2number(s, radix) {
-    if (s === "") return false;
+    if (s === "") do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (radix) {
 	var t = parseInt(s, radix);
-	if (!t && t !== 0) return false;
+	if (!t && t !== 0) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	// verify that each char is in range. (parseInt ignores leading
 	// white and trailing chars)
 	var allowedChars = "01234567890abcdefghijklmnopqrstuvwxyz".substring(0, radix+1);
 	if ((new RegExp("^["+allowedChars+"]*$", "i")).test(s))
 	    return t;
-	else return false;
+	else do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
 	var t = +s; // does not ignore trailing chars.
-	if (!t && t !== 0) return false;
+	if (!t && t !== 0) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	// simply verify that first char is not whitespace.
 	var c = s.charAt(0);
 	// if +c is 0, but the char is not "0", then we have a whitespace.
-	if (+c === 0 && c !== "0") return false;
+	if (+c === 0 && c !== "0") do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	return t;
     }
 }
@@ -775,9 +775,9 @@ function sc_isList(o) {
 		 (rabbit.cdr instanceof sc_Pair)) {
 	    rabbit = rabbit.cdr.cdr;
 	    turtle = turtle.cdr;
-	    if (rabbit === turtle) return false; // cycle
+	    if (rabbit === turtle) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); // cycle
 	} else
-	    return false; // not pair
+	    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); // not pair
     }
 }
 
@@ -968,7 +968,7 @@ function sc_memX(o, l, comp) {
 	    return l;
 	l = l.cdr;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 function sc_memq(o, l) { return sc_memX(o, l, sc_isEq); }
 function sc_memv(o, l) { return sc_memX(o, l, sc_isEqv); }
@@ -983,7 +983,7 @@ function sc_memq(o, l) {
 	    return l;
 	l = l.cdr;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 /*** META ((export #t)) */
 function sc_memv(o, l) {
@@ -992,7 +992,7 @@ function sc_memv(o, l) {
 	    return l;
 	l = l.cdr;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 /*** META ((export #t)) */
 function sc_member(o, l) {
@@ -1001,7 +1001,7 @@ function sc_member(o, l) {
 	    return l;
 	l = l.cdr;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /* // generic unoptimized versions
@@ -1011,7 +1011,7 @@ function sc_assX(o, al, comp) {
 	    return al.car;
 	al = al.cdr;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 function sc_assq(o, al) { return sc_assX(o, al, sc_isEq); }
 function sc_assv(o, al) { return sc_assX(o, al, sc_isEqv); }
@@ -1025,7 +1025,7 @@ function sc_assq(o, al) {
 	    return al.car;
 	al = al.cdr;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 /*** META ((export #t)) */
 function sc_assv(o, al) {
@@ -1034,7 +1034,7 @@ function sc_assv(o, al) {
 	    return al.car;
 	al = al.cdr;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 /*** META ((export #t)) */
 function sc_assoc(o, al) {
@@ -1043,7 +1043,7 @@ function sc_assoc(o, al) {
 	    return al.car;
 	al = al.cdr;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /* can be used for mutable strings and characters */
@@ -1366,9 +1366,9 @@ function sc_isVector(v) {
 
 // only applies to vectors
 function sc_isVectorEqual(v1, v2, comp) {
-    if (v1.length !== v2.length) return false;
+    if (v1.length !== v2.length) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     for (var i = 0; i < v1.length; i++)
-	if (!comp(v1[i], v2[i])) return false;
+	if (!comp(v1[i], v2[i])) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return true;
 }
 
@@ -1631,7 +1631,7 @@ function sc_any(proc, l) {
         if(tmp !== false) return tmp;
 	l = l.cdr;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /*** META ((export any?)
@@ -1647,7 +1647,7 @@ function sc_every(proc, l) {
     var tmp = true;
     while (l !== null) {
         tmp = proc(l.car);
-        if (tmp === false) return false;
+        if (tmp === false) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 	l = l.cdr;
     }
     return tmp;
@@ -1659,7 +1659,7 @@ function sc_every(proc, l) {
 function sc_everyPred(proc, l) {
     var tmp = sc_every(proc, l);
     if (tmp !== false) return true;
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /*** META ((export #t)
@@ -1884,7 +1884,7 @@ function sc_pregexpMatch(re, s) {
     var reg = (re instanceof RegExp) ? re : sc_pregexp(re);
     var tmp = reg.exec(sc_string2jsstring(s));
     
-    if (tmp == null) return false;
+    if (tmp == null) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     
     var res = null;
     for (var i = tmp.length-1; i >= 0; i--) {
@@ -1941,7 +1941,7 @@ function sc_pregexpSplit(re, s) {
    var jss = sc_string2jsstring(s);
    var tmp = jss.split(reg);
 
-   if (tmp == null) return false;
+   if (tmp == null) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
    return sc_vector2list(tmp);
 }
@@ -1996,7 +1996,7 @@ function sc_hashtableGet(ht, key) {
     if (hash in ht)
 	return ht[hash].val;
     else
-	return false;
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /*** META ((export #t)) */
@@ -2015,7 +2015,7 @@ function sc_hashtableContains(ht, key) {
     if (hash in ht)
 	return true;
     else
-	return false;
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 var SC_HASH_COUNTER = 0;
@@ -2134,7 +2134,7 @@ sc_ErrorInputPort.prototype.getNextChar = function() {
     throw "can't read from error-port.";
 };
 sc_ErrorInputPort.prototype.isCharReady = function() {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 };
     
 
@@ -3505,7 +3505,7 @@ var sc_const_4_nboyer;
                     break;
                 }
             else
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         })));
     };
     BgL_setupzd2boyerzd2 = function() {
@@ -3582,10 +3582,10 @@ var sc_const_4_nboyer;
                 return true;
             else
                 if ((((sc_tmp1125_9 = (is_term_equal_nboyer(sc_x_11, false_term_nboyer))), ((sc_tmp1125_9!== false)?sc_tmp1125_9:(is_term_member_nboyer(sc_x_11, false_lst))))!== false))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 else
                     if (!(sc_x_11 instanceof sc_Pair))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     else
                         if (((sc_x_11.car)===if_constructor_nboyer))
                             if ((((sc_x_8 = (sc_x_11.cdr.car)), (tmp1126 = (is_term_equal_nboyer(sc_x_8, true_term_nboyer))), ((tmp1126!== false)?tmp1126:(is_term_member_nboyer(sc_x_8, true_lst))))!== false))
@@ -3600,9 +3600,9 @@ var sc_const_4_nboyer;
                                             (sc_x_11 = (sc_x_11.cdr.cdr.cdr.car));
                                         }
                                     else
-                                        return false;
+                                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                         else
-                            return false;
+                            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     };
     (if_constructor_nboyer = "\u1E9C*");
@@ -3658,7 +3658,7 @@ var sc_const_4_nboyer;
             }
         else
             if (!(term1 instanceof sc_Pair))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             else
                 if (((term1.car)===(term2.car)))
                     {
@@ -3669,7 +3669,7 @@ var sc_const_4_nboyer;
                                 return (lst2 === null);
                             else
                                 if ((lst2 === null))
-                                    return false;
+                                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                                 else
                                     if (((one_way_unify1_nboyer((lst1.car), (lst2.car)))!== false))
                                         {
@@ -3677,11 +3677,11 @@ var sc_const_4_nboyer;
                                             (lst2 = (lst2.cdr));
                                         }
                                     else
-                                        return false;
+                                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                         }
                     }
                 else
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     };
     (false_term_nboyer = "\u1E9C*");
     (true_term_nboyer = "\u1E9C*");
@@ -3705,7 +3705,7 @@ var sc_const_4_nboyer;
                                 return (lst2 === null);
                             else
                                 if ((lst2 === null))
-                                    return false;
+                                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                                 else
                                     if (((is_term_equal_nboyer((lst1.car), (lst2.car)))!== false))
                                         {
@@ -3713,13 +3713,13 @@ var sc_const_4_nboyer;
                                             (lst2 = (lst2.cdr));
                                         }
                                     else
-                                        return false;
+                                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                         }
                     }
                 else
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             else
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         else
             return (sc_isEqual(x, y));
     };
@@ -3728,7 +3728,7 @@ var sc_const_4_nboyer;
         var lst;
         while (true) {
             if ((lst === null))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             else
                 if (((is_term_equal_nboyer(x, (lst.car)))!== false))
                     return true;
@@ -3800,7 +3800,7 @@ var sc_const_4_nboyer;
             if ((answer!== false))
                 return rewrite_count_nboyer;
             else
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     };
 }
@@ -3850,7 +3850,7 @@ var const_earley;
                             else
                                 (--i);
                         else
-                            return false;
+                            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     }
                 }
             };
@@ -4037,7 +4037,7 @@ var const_earley;
                                     else
                                         (--i);
                                 else
-                                    return false;
+                                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                             }
                         }
                     };
@@ -4250,11 +4250,11 @@ var const_earley;
                                                     (l = (l.cdr));
                                             }
                                         else
-                                            return false;
+                                            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                                     }
                                 }
                             else
-                                return false;
+                                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                         }
                     };
                     deriv_trees = function(sc_conf_91, i, j, sc_enders_92, sc_steps_93, sc_names_94, sc_toks_95, sc_states_96, BgL_sc_nbzd2nts_97zd2) {
@@ -4357,7 +4357,7 @@ var const_earley;
                                     return trees;
                                 }
                             else
-                                return false;
+                                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                         }
                     };
                     nb_deriv_trees = function(sc_conf_110, i, j, sc_enders_111, sc_steps_112, sc_toks_113, sc_states_114, BgL_sc_nbzd2nts_115zd2) {
@@ -4436,7 +4436,7 @@ var const_earley;
                                     return nb_trees;
                                 }
                             else
-                                return false;
+                                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                         }
                     };
                     (lexer = (parser_descr[(0)]));

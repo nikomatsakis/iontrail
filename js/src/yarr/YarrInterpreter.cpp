@@ -256,7 +256,7 @@ public:
                 pos += count;
                 return true;
             }
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         void uncheckInput(unsigned count)
@@ -307,7 +307,7 @@ public:
                     return true;
         }
 
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool checkCharacter(int testChar, unsigned negativeInputOffset)
@@ -332,7 +332,7 @@ public:
         unsigned matchSize = (unsigned)(matchEnd - matchBegin);
 
         if (!input.checkInput(matchSize))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (pattern->m_ignoreCase) {
             for (unsigned i = 0; i < matchSize; ++i) {
@@ -351,13 +351,13 @@ public:
                     continue;
 
                 input.uncheckInput(matchSize);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         } else {
             for (unsigned i = 0; i < matchSize; ++i) {
                 if (!checkCharacter(input.reread(matchBegin + i), negativeInputOffset + matchSize - i)) {
                     input.uncheckInput(matchSize);
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
         }
@@ -417,7 +417,7 @@ public:
             break;
         }
 
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool backtrackPatternCasedCharacter(ByteTerm& term, DisjunctionContext* context)
@@ -446,7 +446,7 @@ public:
             break;
         }
 
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool matchCharacterClass(ByteTerm& term, DisjunctionContext* context)
@@ -458,7 +458,7 @@ public:
         case QuantifierFixedCount: {
             for (unsigned matchAmount = 0; matchAmount < term.atom.quantityCount; ++matchAmount) {
                 if (!checkCharacterClass(term.atom.characterClass, term.invert(), term.inputPosition - matchAmount))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             return true;
         }
@@ -483,7 +483,7 @@ public:
         }
 
         ASSERT_NOT_REACHED();
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool backtrackCharacterClass(ByteTerm& term, DisjunctionContext* context)
@@ -513,7 +513,7 @@ public:
             break;
         }
 
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool matchBackReference(ByteTerm& term, DisjunctionContext* context)
@@ -544,7 +544,7 @@ public:
             for (unsigned matchAmount = 0; matchAmount < term.atom.quantityCount; ++matchAmount) {
                 if (!tryConsumeBackReference(matchBegin, matchEnd, term.inputPosition)) {
                     input.setPos(backTrack->begin);
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
             return true;
@@ -565,7 +565,7 @@ public:
         }
 
         ASSERT_NOT_REACHED();
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool backtrackBackReference(ByteTerm& term, DisjunctionContext* context)
@@ -577,12 +577,12 @@ public:
         unsigned matchEnd = output[(term.atom.subpatternId << 1) + 1];
 
         if (matchBegin == offsetNoMatch)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         ASSERT(matchBegin <= matchEnd);
 
         if (matchBegin == matchEnd)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         switch (term.atom.quantityType) {
         case QuantifierFixedCount:
@@ -607,7 +607,7 @@ public:
             break;
         }
 
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     void recordParenthesesMatch(ByteTerm& term, ParenthesesDisjunctionContext* context)
@@ -717,7 +717,7 @@ public:
             break;
         }
 
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool backtrackParenthesesOnceEnd(ByteTerm& term, DisjunctionContext* context)
@@ -731,7 +731,7 @@ public:
         case QuantifierGreedy:
             if (backTrack->begin == notFound) {
                 context->term -= term.atom.parenthesesWidth;
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         case QuantifierNonGreedy:
             if (backTrack->begin == notFound) {
@@ -756,7 +756,7 @@ public:
             break;
         }
 
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool matchParenthesesTerminalBegin(ByteTerm& term, DisjunctionContext* context)
@@ -778,7 +778,7 @@ public:
         BackTrackInfoParenthesesTerminal* backTrack = reinterpret_cast<BackTrackInfoParenthesesTerminal*>(context->frame + term.frameLocation);
         // Empty match is a failed match.
         if (backTrack->begin == input.getPos())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         // Successful match! Okay, what's next? - loop around and try to match moar!
         context->term -= (term.atom.parenthesesWidth + 1);
@@ -803,7 +803,7 @@ public:
         // 'Terminal' parentheses are at the end of the regex, and as such a match past end
         // should always be returned as a successful match - we should never backtrack to here.
         ASSERT_NOT_REACHED();
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool matchParentheticalAssertionBegin(ByteTerm& term, DisjunctionContext* context)
@@ -829,7 +829,7 @@ public:
         // We've reached the end of the parens; if they are inverted, this is failure.
         if (term.invert()) {
             context->term -= term.atom.parenthesesWidth;
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         return true;
@@ -846,7 +846,7 @@ public:
             return true;
         }
 
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool backtrackParentheticalAssertionEnd(ByteTerm& term, DisjunctionContext* context)
@@ -859,7 +859,7 @@ public:
         input.setPos(backTrack->begin);
 
         context->term -= term.atom.parenthesesWidth;
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JSRegExpResult matchParentheses(ByteTerm& term, DisjunctionContext* context)
@@ -1097,7 +1097,7 @@ public:
         if (((matchBegin && term.anchors.m_bol)
              || ((matchEnd != input.end()) && term.anchors.m_eol))
             && !pattern->m_multiline)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         context->matchBegin = matchBegin;
         context->matchEnd = matchEnd;

@@ -182,7 +182,7 @@ class RegExpShared
             return true;
         # endif
         #else
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         #endif
     }
     static void reportYarrError(ExclusiveContext *cx, TokenStream *ts, ErrorCode error);
@@ -220,8 +220,8 @@ class RegExpShared
     bool hasCode() const                { return codeBlock.has16BitCode(); }
     bool hasMatchOnlyCode() const       { return codeBlock.has16BitCodeMatchOnly(); }
 #else
-    bool hasCode() const                { return false; }
-    bool hasMatchOnlyCode() const       { return false; }
+    bool hasCode() const                { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
+    bool hasMatchOnlyCode() const       { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
 #endif
     bool hasBytecode() const            { return bytecode != nullptr; }
     bool isCompiled() const             { return hasBytecode() || hasCode() || hasMatchOnlyCode(); }
@@ -461,7 +461,7 @@ class RegExpObject : public JSObject
 };
 
 /*
- * Parse regexp flags. Report an error and return false if an invalid
+ * Parse regexp flags. Report an error and do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false) if an invalid
  * sequence of flags is encountered (repeat/invalid flag).
  *
  * N.B. flagStr must be rooted.

@@ -4579,7 +4579,7 @@ function isAllChildrenSelected(item)
     {
       if (!item.submenu.items[x].selected)
       {
-	return false;
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
     }
   }
@@ -5005,7 +5005,7 @@ function MTMakeBackground() {
 
 function MTMTrackTarget(thisTarget) {
   if(thisTarget.charAt(0) == "_") {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   } else {
     for(i = 0; i < MTMFrameNames.length; i++) {
       if(thisTarget == MTMFrameNames[i]) {
@@ -5013,7 +5013,7 @@ function MTMTrackTarget(thisTarget) {
       }
     }
   }
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 

@@ -180,7 +180,7 @@ bool
 StackFrame::copyRawFrameSlots(AutoValueVector *vec)
 {
     if (!vec->resize(numFormalArgs() + script()->nfixed))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     PodCopy(vec->begin(), argv(), numFormalArgs());
     PodCopy(vec->begin() + numFormalArgs(), slots(), script()->nfixed);
     return true;
@@ -243,7 +243,7 @@ StackFrame::initFunctionScopeObjects(JSContext *cx)
 {
     CallObject *callobj = CallObject::createForFunction(cx, this);
     if (!callobj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     pushOnScopeChain(*callobj);
     flags_ |= HAS_CALL_OBJ;
     return true;
@@ -261,7 +261,7 @@ StackFrame::prologue(JSContext *cx)
         if (script->strict) {
             CallObject *callobj = CallObject::createForStrictEval(cx, this);
             if (!callobj)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             pushOnScopeChain(*callobj);
             flags_ |= HAS_CALL_OBJ;
         }
@@ -278,14 +278,14 @@ StackFrame::prologue(JSContext *cx)
     AssertDynamicScopeMatchesStaticScope(cx, script, scopeChain());
 
     if (fun()->isHeavyweight() && !initFunctionScopeObjects(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (isConstructing()) {
         RootedObject callee(cx, &this->callee());
         JSObject *obj = CreateThisForFunction(cx, callee,
                                               useNewType() ? SingletonObject : GenericObject);
         if (!obj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         functionThis() = ObjectValue(*obj);
     }
 
@@ -357,7 +357,7 @@ StackFrame::pushBlock(JSContext *cx, StaticBlockObject &block)
         Rooted<StaticBlockObject *> blockHandle(cx, &block);
         ClonedBlockObject *clone = ClonedBlockObject::create(cx, blockHandle, this);
         if (!clone)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         pushOnScopeChain(*clone);
 
@@ -848,7 +848,7 @@ ScriptFrameIter::isEvalFrame() const
         if (data_.ionFrames_.isBaselineJS())
             return data_.ionFrames_.baselineFrame()->isEvalFrame();
         JS_ASSERT(!script()->isForEval());
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #else
         break;
 #endif
@@ -880,7 +880,7 @@ ScriptFrameIter::isGeneratorFrame() const
       case SCRIPTED:
         return interpFrame()->isGeneratorFrame();
       case JIT:
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     MOZ_ASSUME_UNREACHABLE("Unexpected state");
 }

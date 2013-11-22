@@ -62,11 +62,11 @@ Quote(JSContext *cx, StringBuffer &sb, JSString *str)
     size_t len = str->length();
     const jschar *buf = str->getChars(cx);
     if (!buf)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 1. */
     if (!sb.append('"'))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 2. */
     for (size_t i = 0; i < len; ++i) {
@@ -78,7 +78,7 @@ Quote(JSContext *cx, StringBuffer &sb, JSString *str)
         } while (++i < len);
         if (i > mark) {
             if (!sb.append(&buf[mark], i - mark))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (i == len)
                 break;
         }
@@ -86,7 +86,7 @@ Quote(JSContext *cx, StringBuffer &sb, JSString *str)
         jschar c = buf[i];
         if (c == '"' || c == '\\') {
             if (!sb.append('\\') || !sb.append(c))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else if (c == '\b' || c == '\f' || c == '\n' || c == '\r' || c == '\t') {
            jschar abbrev = (c == '\b')
                          ? 'b'
@@ -98,15 +98,15 @@ Quote(JSContext *cx, StringBuffer &sb, JSString *str)
                          ? 'r'
                          : 't';
            if (!sb.append('\\') || !sb.append(abbrev))
-               return false;
+               do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             JS_ASSERT(c < ' ');
             if (!sb.append("\\u00"))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             JS_ASSERT((c >> 4) < 10);
             uint8_t x = c >> 4, y = c % 16;
             if (!sb.append('0' + x) || !sb.append(y < 10 ? '0' + y : 'a' + (y - 10)))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -144,10 +144,10 @@ WriteIndent(JSContext *cx, StringifyContext *scx, uint32_t limit)
 {
     if (!scx->gap.empty()) {
         if (!scx->sb.append('\n'))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         for (uint32_t i = 0; i < limit; i++) {
             if (!scx->sb.append(scx->gap.begin(), scx->gap.end()))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -193,23 +193,23 @@ PreprocessValue(JSContext *cx, HandleObject holder, KeyType key, MutableHandleVa
         RootedValue toJSON(cx);
         RootedObject obj(cx, &vp.toObject());
         if (!JSObject::getProperty(cx, obj, obj, cx->names().toJSON, &toJSON))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (js_IsCallable(toJSON)) {
             keyStr = KeyStringifier<KeyType>::toString(cx, key);
             if (!keyStr)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             InvokeArgs args(cx);
             if (!args.init(1))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             args.setCallee(toJSON);
             args.setThis(vp);
             args[0].setString(keyStr);
 
             if (!Invoke(cx, args))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             vp.set(args.rval());
         }
     }
@@ -219,12 +219,12 @@ PreprocessValue(JSContext *cx, HandleObject holder, KeyType key, MutableHandleVa
         if (!keyStr) {
             keyStr = KeyStringifier<KeyType>::toString(cx, key);
             if (!keyStr)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         InvokeArgs args(cx);
         if (!args.init(2))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         args.setCallee(ObjectValue(*scx->replacer));
         args.setThis(ObjectValue(*holder));
@@ -232,7 +232,7 @@ PreprocessValue(JSContext *cx, HandleObject holder, KeyType key, MutableHandleVa
         args[1].set(vp);
 
         if (!Invoke(cx, args))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         vp.set(args.rval());
     }
 
@@ -242,12 +242,12 @@ PreprocessValue(JSContext *cx, HandleObject holder, KeyType key, MutableHandleVa
         if (ObjectClassIs(obj, ESClass_Number, cx)) {
             double d;
             if (!ToNumber(cx, vp, &d))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             vp.set(NumberValue(d));
         } else if (ObjectClassIs(obj, ESClass_String, cx)) {
             JSString *str = ToStringSlow<CanGC>(cx, vp);
             if (!str)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             vp.set(StringValue(str));
         } else if (ObjectClassIs(obj, ESClass_Boolean, cx)) {
             vp.setBoolean(BooleanGetPrimitiveValue(obj, cx));
@@ -287,14 +287,14 @@ JO(JSContext *cx, HandleObject obj, StringifyContext *scx)
     /* Steps 1-2, 11. */
     AutoCycleDetector detect(cx, obj);
     if (!detect.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (detect.foundCycle()) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CYCLIC_VALUE, js_object_str);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!scx->sb.append('{'))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Steps 5-7. */
     Maybe<AutoIdVector> ids;
@@ -306,7 +306,7 @@ JO(JSContext *cx, HandleObject obj, StringifyContext *scx)
         JS_ASSERT_IF(scx->replacer, scx->propertyList.length() == 0);
         ids.construct(cx);
         if (!GetPropertyNames(cx, obj, JSITER_OWNONLY, ids.addr()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         props = ids.addr();
     }
 
@@ -327,35 +327,35 @@ JO(JSContext *cx, HandleObject obj, StringifyContext *scx)
         id = propertyList[i];
         RootedValue outputValue(cx);
         if (!JSObject::getGeneric(cx, obj, obj, id, &outputValue))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!PreprocessValue(cx, obj, HandleId(id), &outputValue, scx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (IsFilteredValue(outputValue))
             continue;
 
         /* Output a comma unless this is the first member to write. */
         if (wroteMember && !scx->sb.append(','))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         wroteMember = true;
 
         if (!WriteIndent(cx, scx, scx->depth))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         JSString *s = IdToString(cx, id);
         if (!s)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!Quote(cx, scx->sb, s) ||
             !scx->sb.append(':') ||
             !(scx->gap.empty() || scx->sb.append(' ')) ||
             !Str(cx, outputValue, scx))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
     if (wroteMember && !WriteIndent(cx, scx, scx->depth - 1))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return scx->sb.append('}');
 }
@@ -377,25 +377,25 @@ JA(JSContext *cx, HandleObject obj, StringifyContext *scx)
     /* Steps 1-2, 11. */
     AutoCycleDetector detect(cx, obj);
     if (!detect.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (detect.foundCycle()) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CYCLIC_VALUE, js_object_str);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!scx->sb.append('['))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 6. */
     uint32_t length;
     if (!GetLengthProperty(cx, obj, &length))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Steps 7-10. */
     if (length != 0) {
         /* Steps 4, 10b(i). */
         if (!WriteIndent(cx, scx, scx->depth))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* Steps 7-10. */
         RootedValue outputValue(cx);
@@ -407,29 +407,29 @@ JA(JSContext *cx, HandleObject obj, StringifyContext *scx)
              * values as |null| in separate steps.
              */
             if (!JSObject::getElement(cx, obj, obj, i, &outputValue))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!PreprocessValue(cx, obj, i, &outputValue, scx))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (IsFilteredValue(outputValue)) {
                 if (!scx->sb.append("null"))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else {
                 if (!Str(cx, outputValue, scx))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             /* Steps 3, 4, 10b(i). */
             if (i < length - 1) {
                 if (!scx->sb.append(','))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (!WriteIndent(cx, scx, scx->depth))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
 
         /* Step 10(b)(iii). */
         if (!WriteIndent(cx, scx, scx->depth - 1))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return scx->sb.append(']');
@@ -441,7 +441,7 @@ Str(JSContext *cx, const Value &v, StringifyContext *scx)
     /* Step 11 must be handled by the caller. */
     JS_ASSERT(!IsFilteredValue(v));
 
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     /*
      * This method implements the Str algorithm in ES5 15.12.3, but:
@@ -477,7 +477,7 @@ Str(JSContext *cx, const Value &v, StringifyContext *scx)
 
         StringBuffer sb(cx);
         if (!NumberValueToStringBuffer(cx, v, sb))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         return scx->sb.append(sb.begin(), sb.length());
     }
@@ -552,7 +552,7 @@ js_Stringify(JSContext *cx, MutableHandleValue vp, JSObject *replacer_, Value sp
             const uint32_t MaxInitialSize = 1024;
             HashSet<jsid, JsidHasher> idSet(cx);
             if (!idSet.init(Min(len, MaxInitialSize)))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             /* Step 4b(iii). */
             uint32_t i = 0;
@@ -561,11 +561,11 @@ js_Stringify(JSContext *cx, MutableHandleValue vp, JSObject *replacer_, Value sp
             RootedValue v(cx);
             for (; i < len; i++) {
                 if (!JS_CHECK_OPERATION_LIMIT(cx))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 /* Step 4b(iv)(2). */
                 if (!JSObject::getElement(cx, replacer, replacer, i, &v))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 RootedId id(cx);
                 if (v.isNumber()) {
@@ -575,7 +575,7 @@ js_Stringify(JSContext *cx, MutableHandleValue vp, JSObject *replacer_, Value sp
                         id = INT_TO_JSID(n);
                     } else {
                         if (!ValueToId<CanGC>(cx, v, &id))
-                            return false;
+                            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     }
                 } else if (v.isString() ||
                            IsObjectWithClass(v, ESClass_String, cx) ||
@@ -583,7 +583,7 @@ js_Stringify(JSContext *cx, MutableHandleValue vp, JSObject *replacer_, Value sp
                 {
                     /* Step 4b(iv)(3), 4b(iv)(5). */
                     if (!ValueToId<CanGC>(cx, v, &id))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 } else {
                     continue;
                 }
@@ -593,7 +593,7 @@ js_Stringify(JSContext *cx, MutableHandleValue vp, JSObject *replacer_, Value sp
                 if (!p) {
                     /* Step 4b(iv)(6)(a). */
                     if (!idSet.add(p, id) || !propertyList.append(id))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
         } else {
@@ -607,12 +607,12 @@ js_Stringify(JSContext *cx, MutableHandleValue vp, JSObject *replacer_, Value sp
         if (ObjectClassIs(spaceObj, ESClass_Number, cx)) {
             double d;
             if (!ToNumber(cx, space, &d))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             space = NumberValue(d);
         } else if (ObjectClassIs(spaceObj, ESClass_String, cx)) {
             JSString *str = ToStringSlow<CanGC>(cx, space);
             if (!str)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             space = StringValue(str);
         }
     }
@@ -625,16 +625,16 @@ js_Stringify(JSContext *cx, MutableHandleValue vp, JSObject *replacer_, Value sp
         JS_ALWAYS_TRUE(ToInteger(cx, space, &d));
         d = Min(10.0, d);
         if (d >= 1 && !gap.appendN(' ', uint32_t(d)))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else if (space.isString()) {
         /* Step 7. */
         JSLinearString *str = space.toString()->ensureLinear(cx);
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         JS::Anchor<JSString *> anchor(str);
         size_t len = Min(size_t(10), space.toString()->length());
         if (!gap.append(str->chars(), len))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         /* Step 8. */
         JS_ASSERT(gap.empty());
@@ -643,20 +643,20 @@ js_Stringify(JSContext *cx, MutableHandleValue vp, JSObject *replacer_, Value sp
     /* Step 9. */
     RootedObject wrapper(cx, NewBuiltinClassInstance(cx, &JSObject::class_));
     if (!wrapper)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 10. */
     RootedId emptyId(cx, NameToId(cx->names().empty));
     if (!DefineNativeProperty(cx, wrapper, emptyId, vp, JS_PropertyStub, JS_StrictPropertyStub,
                               JSPROP_ENUMERATE, 0, 0))
     {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Step 11. */
     StringifyContext scx(cx, sb, gap, replacer, propertyList);
     if (!PreprocessValue(cx, wrapper, HandleId(emptyId), vp, &scx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (IsFilteredValue(vp))
         return true;
 
@@ -667,12 +667,12 @@ js_Stringify(JSContext *cx, MutableHandleValue vp, JSObject *replacer_, Value sp
 static bool
 Walk(JSContext *cx, HandleObject holder, HandleId name, HandleValue reviver, MutableHandleValue vp)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     /* Step 1. */
     RootedValue val(cx);
     if (!JSObject::getGeneric(cx, holder, holder, name, &val))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 2. */
     if (val.isObject()) {
@@ -682,37 +682,37 @@ Walk(JSContext *cx, HandleObject holder, HandleId name, HandleValue reviver, Mut
             /* Step 2a(ii). */
             uint32_t length;
             if (!GetLengthProperty(cx, obj, &length))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             /* Step 2a(i), 2a(iii-iv). */
             RootedId id(cx);
             RootedValue newElement(cx);
             for (uint32_t i = 0; i < length; i++) {
                 if (!IndexToId(cx, i, id.address()))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 /* Step 2a(iii)(1). */
                 if (!Walk(cx, obj, id, reviver, &newElement))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 if (newElement.isUndefined()) {
                     /* Step 2a(iii)(2). */
                     bool succeeded;
                     if (!JSObject::deleteByValue(cx, obj, IdToValue(id), &succeeded))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 } else {
                     /* Step 2a(iii)(3). */
                     // XXX This definition should ignore success/failure, when
                     //     our property-definition APIs indicate that.
                     if (!JSObject::defineGeneric(cx, obj, id, newElement))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
         } else {
             /* Step 2b(i). */
             AutoIdVector keys(cx);
             if (!GetPropertyNames(cx, obj, JSITER_OWNONLY, &keys))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             /* Step 2b(ii). */
             RootedId id(cx);
@@ -721,19 +721,19 @@ Walk(JSContext *cx, HandleObject holder, HandleId name, HandleValue reviver, Mut
                 /* Step 2b(ii)(1). */
                 id = keys[i];
                 if (!Walk(cx, obj, id, reviver, &newElement))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 if (newElement.isUndefined()) {
                     /* Step 2b(ii)(2). */
                     bool succeeded;
                     if (!JSObject::deleteByValue(cx, obj, IdToValue(id), &succeeded))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 } else {
                     /* Step 2b(ii)(3). */
                     // XXX This definition should ignore success/failure, when
                     //     our property-definition APIs indicate that.
                     if (!JSObject::defineGeneric(cx, obj, id, newElement))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
         }
@@ -742,11 +742,11 @@ Walk(JSContext *cx, HandleObject holder, HandleId name, HandleValue reviver, Mut
     /* Step 3. */
     RootedString key(cx, IdToString(cx, name));
     if (!key)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     InvokeArgs args(cx);
     if (!args.init(2))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.setCallee(reviver);
     args.setThis(ObjectValue(*holder));
@@ -754,7 +754,7 @@ Walk(JSContext *cx, HandleObject holder, HandleId name, HandleValue reviver, Mut
     args[1].set(val);
 
     if (!Invoke(cx, args))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     vp.set(args.rval());
     return true;
 }
@@ -764,10 +764,10 @@ Revive(JSContext *cx, HandleValue reviver, MutableHandleValue vp)
 {
     RootedObject obj(cx, NewBuiltinClassInstance(cx, &JSObject::class_));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!JSObject::defineProperty(cx, obj, cx->names().empty, vp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     Rooted<jsid> id(cx, NameToId(cx->names().empty));
     return Walk(cx, obj, id, reviver, vp);
@@ -780,7 +780,7 @@ js::ParseJSONWithReviver(JSContext *cx, StableCharPtr chars, size_t length, Hand
     /* 15.12.2 steps 2-3. */
     JSONParser parser(cx, chars, length);
     if (!parser.parse(vp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* 15.12.2 steps 4-5. */
     if (js_IsCallable(reviver))
@@ -808,11 +808,11 @@ json_parse(JSContext *cx, unsigned argc, Value *vp)
                     ? ToString<CanGC>(cx, args[0])
                     : cx->names().undefined;
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSStableString *stable = str->ensureStable(cx);
     if (!stable)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS::Anchor<JSString *> anchor(stable);
 
@@ -834,7 +834,7 @@ json_stringify(JSContext *cx, unsigned argc, Value *vp)
 
     StringBuffer sb(cx);
     if (!js_Stringify(cx, &value, replacer, space, sb))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // XXX This can never happen to nsJSON.cpp, but the JSON object
     // needs to support returning undefined. So this is a little awkward
@@ -842,7 +842,7 @@ json_stringify(JSContext *cx, unsigned argc, Value *vp)
     if (!sb.empty()) {
         JSString *str = sb.finishString();
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         vp->setString(str);
     } else {
         vp->setUndefined();

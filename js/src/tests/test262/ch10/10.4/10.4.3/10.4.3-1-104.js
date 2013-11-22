@@ -13,7 +13,7 @@
  
 function testcase(){
   Object.defineProperty(Object.prototype, "x", { get: function () { "use strict"; return this; } }); 
-  if(!((5).x === 5)) return false;
+  if(!((5).x === 5)) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   return true;
 }
 

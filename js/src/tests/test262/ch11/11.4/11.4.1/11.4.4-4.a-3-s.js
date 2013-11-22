@@ -23,7 +23,7 @@ function testcase() {
   // Now, deleting o.foo should throw TypeError because [[Configurable]] on foo is false.
   try {
     delete o.foo;
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   catch (e) {
     return (e instanceof TypeError);

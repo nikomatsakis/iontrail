@@ -19,7 +19,7 @@ function testcase() {
   try
   {
     eval("({foo : 1, set foo(x){}});");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   catch(e)
   {

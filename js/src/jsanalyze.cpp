@@ -58,7 +58,7 @@ ScriptAnalysis::addJump(JSContext *cx, unsigned offset,
         code = cx->typeLifoAlloc().new_<Bytecode>();
         if (!code) {
             setOOM(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         code->stackDepth = stackDepth;
     }
@@ -1274,7 +1274,7 @@ ScriptAnalysis::makePhi(JSContext *cx, uint32_t slot, uint32_t offset, SSAValue 
     SSAValue *options = cx->typeLifoAlloc().newArray<SSAValue>(PhiNodeCapacity(0));
     if (!node || !options) {
         setOOM(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     node->slot = slot;
     node->options = options;
@@ -1544,11 +1544,11 @@ ScriptAnalysis::needsArgsObj(JSContext *cx, SeenVector &seen, const SSAValue &v)
      * cannot hold the script's arguments object.
      */
     if (!trackUseChain(v))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (unsigned i = 0; i < seen.length(); i++) {
         if (v == seen[i])
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (!seen.append(v)) {
         cx->compartment()->types.setPendingNukeTypes(cx);
@@ -1562,7 +1562,7 @@ ScriptAnalysis::needsArgsObj(JSContext *cx, SeenVector &seen, const SSAValue &v)
         use = use->next;
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -1575,23 +1575,23 @@ ScriptAnalysis::needsArgsObj(JSContext *cx, SeenVector &seen, SSAUseChain *use)
     JSOp op = JSOp(*pc);
 
     if (op == JSOP_POP || op == JSOP_POPN)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* We can read the frame's arguments directly for f.apply(x, arguments). */
     if (op == JSOP_FUNAPPLY && GET_ARGC(pc) == 2 && use->u.which == 0) {
         argumentsContentsObserved_ = true;
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* arguments[i] can read fp->canonicalActualArg(i) directly. */
     if (op == JSOP_GETELEM && use->u.which == 1) {
         argumentsContentsObserved_ = true;
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* arguments.length length can read fp->numActualArgs() directly. */
     if (op == JSOP_LENGTH)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Allow assignments to non-closed locals (but not arguments). */
 
@@ -1634,7 +1634,7 @@ ScriptAnalysis::needsArgsObj(JSContext *cx)
      * mark the arguments optimization as having failed.
      */
     if (script_->bindingsAccessedDynamically)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Since let variables and are not tracked, we cannot soundly perform this
@@ -1658,7 +1658,7 @@ ScriptAnalysis::needsArgsObj(JSContext *cx)
     if (script_->funHasAnyAliasedFormal && argumentsContentsObserved_)
         return true;
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 #ifdef DEBUG

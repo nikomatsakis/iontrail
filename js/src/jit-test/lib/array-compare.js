@@ -17,11 +17,11 @@ function arraysEqual(a1, a2)
 {
   var len1 = a1.length, len2 = a2.length;
   if (len1 !== len2)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   for (var i = 0; i < len1; i++)
   {
     if (!SameValue(a1[i], a2[i]))
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   return true;
 }

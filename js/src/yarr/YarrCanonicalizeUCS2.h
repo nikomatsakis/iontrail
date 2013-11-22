@@ -120,7 +120,7 @@ inline bool areCanonicallyEquivalent(UChar a, UChar b)
             if (a == b)
                 return true;
         }
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     case CanonicalizeRangeLo:
         return (a == b) || (a + info->value == b);
@@ -133,7 +133,7 @@ inline bool areCanonicallyEquivalent(UChar a, UChar b)
     }
 
     ASSERT_NOT_REACHED();
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 } } // JSC::Yarr

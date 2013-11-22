@@ -54,11 +54,11 @@ bool_toSource_impl(JSContext *cx, CallArgs args)
 
     StringBuffer sb(cx);
     if (!sb.append("(new Boolean(") || !BooleanToStringBuffer(cx, b, sb) || !sb.append("))"))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSString *str = sb.finishString();
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setString(str);
     return true;
 }
@@ -125,7 +125,7 @@ Boolean(JSContext *cx, unsigned argc, Value *vp)
     if (args.isConstructing()) {
         JSObject *obj = BooleanObject::create(cx, b);
         if (!obj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args.rval().setObject(*obj);
     } else {
         args.rval().setBoolean(b);

@@ -240,7 +240,7 @@ EvalKernel(JSContext *cx, const CallArgs &args, EvalType evalType, AbstractFrame
     Rooted<GlobalObject*> scopeObjGlobal(cx, &scopeobj->global());
     if (!GlobalObject::isRuntimeCodeGenEnabled(cx, scopeObjGlobal)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CSP_BLOCKED_EVAL);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // ES5 15.1.2.1 step 1.
@@ -269,7 +269,7 @@ EvalKernel(JSContext *cx, const CallArgs &args, EvalType evalType, AbstractFrame
         // haven't wrapped that yet, do so now, before we make a copy of it for
         // the eval code to use.
         if (!ComputeThis(cx, caller))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         thisv = caller.thisValue();
     } else {
         JS_ASSERT(args.callee().global() == *scopeobj);
@@ -278,13 +278,13 @@ EvalKernel(JSContext *cx, const CallArgs &args, EvalType evalType, AbstractFrame
         // Use the global as 'this', modulo outerization.
         JSObject *thisobj = JSObject::thisObject(cx, scopeobj);
         if (!thisobj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         thisv = ObjectValue(*thisobj);
     }
 
     Rooted<JSStableString*> stableStr(cx, str->ensureStable(cx));
     if (!stableStr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     StableCharPtr chars = stableStr->chars();
     size_t length = stableStr->length();
@@ -320,7 +320,7 @@ EvalKernel(JSContext *cx, const CallArgs &args, EvalType evalType, AbstractFrame
                                                      scopeobj, callerScript, options,
                                                      chars.get(), length, stableStr, staticLevel);
         if (!compiled)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         MarkFunctionsWithinEvalScript(compiled);
 
@@ -342,7 +342,7 @@ js::DirectEvalFromIon(JSContext *cx,
     Rooted<GlobalObject*> scopeObjGlobal(cx, &scopeobj->global());
     if (!GlobalObject::isRuntimeCodeGenEnabled(cx, scopeObjGlobal)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CSP_BLOCKED_EVAL);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // ES5 15.1.2.1 steps 2-8.
@@ -351,7 +351,7 @@ js::DirectEvalFromIon(JSContext *cx,
 
     Rooted<JSStableString*> stableStr(cx, str->ensureStable(cx));
     if (!stableStr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     StableCharPtr chars = stableStr->chars();
     size_t length = stableStr->length();
@@ -385,7 +385,7 @@ js::DirectEvalFromIon(JSContext *cx,
                                                      scopeobj, callerScript, options,
                                                      chars.get(), length, stableStr, staticLevel);
         if (!compiled)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         MarkFunctionsWithinEvalScript(compiled);
 

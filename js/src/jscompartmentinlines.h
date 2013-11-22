@@ -58,7 +58,7 @@ JSCompartment::wrap(JSContext *cx, JS::MutableHandleValue vp, JS::HandleObject e
     if (vp.isString()) {
         JS::RootedString str(cx, vp.toString());
         if (!wrap(cx, str.address()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         vp.setString(str);
         return true;
     }
@@ -100,7 +100,7 @@ JSCompartment::wrap(JSContext *cx, JS::MutableHandleValue vp, JS::HandleObject e
 
     JS::RootedObject obj(cx, &vp.toObject());
     if (!wrap(cx, &obj, existing))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     vp.setObject(*obj);
     JS_ASSERT_IF(cacheResult, obj == cacheResult);
     return true;

@@ -187,7 +187,7 @@ struct BytecodeEmitter
 
         jsatomid index = atomIndices->count();
         if (!atomIndices->add(p, atom, index))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         *indexp = index;
         return true;

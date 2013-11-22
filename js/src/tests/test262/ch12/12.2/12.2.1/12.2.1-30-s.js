@@ -17,7 +17,7 @@ function testcase() {
 
   try {
     eval('function foo() { var a = 42, arguments;}');
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   catch (e) {
     return (e instanceof SyntaxError);

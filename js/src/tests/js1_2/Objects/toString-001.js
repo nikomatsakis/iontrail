@@ -72,15 +72,15 @@ test();
 function checkObjectToString(s, a) {
   var m = /^\{(.*)\}$/(s);
   if (!m)
-    return false;	// should begin and end with curly brackets
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);	// should begin and end with curly brackets
   var a2 = m[1].split(", ");
   if (a.length != a2.length)
-    return false;	// should be same length
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);	// should be same length
   a.sort();
   a2.sort();
   for (var i=0; i < a.length; i++) {
     if (a[i] != a2[i])
-      return false;	// should have identical elements
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);	// should have identical elements
   }
   return true;
 }

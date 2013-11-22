@@ -18,7 +18,7 @@ var getRight=function(){return "napravo";};
 resukt=(function(){
     with(__obj){
         p1="w1";
-        var getRight=function(){return false;};
+        var getRight=function(){do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);};
         return p1;
     }
 })();

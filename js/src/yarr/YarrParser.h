@@ -236,7 +236,7 @@ private:
 
         if (atEndOfPattern()) {
             m_err = EscapeUnterminated;
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         switch (peek()) {
@@ -247,7 +247,7 @@ private:
                 delegate.atomPatternCharacter('\b');
             else {
                 delegate.assertionWordBoundary(false);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             break;
         case 'B':
@@ -256,7 +256,7 @@ private:
                 delegate.atomPatternCharacter('B');
             else {
                 delegate.assertionWordBoundary(true);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             break;
 
@@ -722,7 +722,7 @@ private:
             unsigned newValue = accum * 10 + peekDigit();
             if (newValue < accum) { /* Overflow check. */
                 m_err = QuantifierTooLarge;
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             accum = newValue;
             consume();
@@ -743,7 +743,7 @@ private:
     bool tryConsume(UChar ch)
     {
         if (atEndOfPattern() || (m_data[m_index] != ch))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         ++m_index;
         return true;
     }

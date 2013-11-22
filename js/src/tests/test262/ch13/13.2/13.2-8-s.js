@@ -11,7 +11,7 @@
 
 
 function testcase() {
-            var foo = new Function("'use strict'; for (var tempIndex in this) {if (tempIndex===\"caller\") {return false;}}; return true;");
+            var foo = new Function("'use strict'; for (var tempIndex in this) {if (tempIndex===\"caller\") {do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}}; return true;");
             return foo();
     }
 runTestCase(testcase);

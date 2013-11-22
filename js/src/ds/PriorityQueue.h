@@ -59,7 +59,7 @@ class PriorityQueue
 
     bool insert(const T &v) {
         if (!heap.append(v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         siftUp(heap.length() - 1);
         return true;
     }

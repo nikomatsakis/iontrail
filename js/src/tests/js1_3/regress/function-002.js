@@ -32,11 +32,11 @@ new TestCase(
 
 
 bar = true;
-foo = bar ? function () { return true; } : function() { return false; };
+foo = bar ? function () { return true; } : function() { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); };
 
 new TestCase(
   SECTION,
-  "bar = true; foo = bar ? function () { return true; } : function() { return false; }; foo()",
+  "bar = true; foo = bar ? function () { return true; } : function() { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }; foo()",
   true,
   foo() );
 

@@ -81,7 +81,7 @@ bool
 ThreadPoolWorker::start()
 {
 #ifndef JS_THREADSAFE
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #else
     JS_ASSERT(state_ == CREATED);
 
@@ -96,7 +96,7 @@ ThreadPoolWorker::start()
     {
         // If the thread failed to start, call it TERMINATED.
         state_ = TERMINATED;
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -153,7 +153,7 @@ ThreadPoolWorker::submit(TaskExecutor *task)
     AutoLockMonitor lock(*this);
     JS_ASSERT(state_ == ACTIVE);
     if (!worklist_.append(task))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     lock.notify();
     return true;
 }
@@ -223,19 +223,19 @@ ThreadPool::lazyStartWorkers(JSContext *cx)
         ThreadPoolWorker *worker = js_new<ThreadPoolWorker>(workerId);
         if (!worker) {
             terminateWorkersAndReportOOM(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (!worker->init() || !workers_.append(worker)) {
             js_delete(worker);
             terminateWorkersAndReportOOM(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (!worker->start()) {
             // Note: do not delete worker here because it has been
             // added to the array and hence will be deleted by
             // |terminateWorkersAndReportOOM()|.
             terminateWorkersAndReportOOM(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -267,11 +267,11 @@ ThreadPool::submitAll(JSContext *cx, TaskExecutor *executor)
     JS_ASSERT(CurrentThreadCanAccessRuntime(runtime_));
 
     if (!lazyStartWorkers(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (size_t id = 0; id < numWorkers(); id++) {
         if (!workers_[id]->submit(executor))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }

@@ -1394,7 +1394,7 @@ public:
 #if WTF_MIPS_DOUBLE_FLOAT
         return true;
 #else
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
     }
 
@@ -1403,7 +1403,7 @@ public:
 #if WTF_MIPS_DOUBLE_FLOAT && WTF_MIPS_ISA_AT_LEAST(2)
         return true;
 #else
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
     }
 
@@ -1412,7 +1412,7 @@ public:
 #if WTF_MIPS_DOUBLE_FLOAT && WTF_MIPS_ISA_AT_LEAST(2)
         return true;
 #else
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
     }
 

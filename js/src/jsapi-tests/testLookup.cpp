@@ -56,17 +56,17 @@ document_resolve(JSContext *cx, JS::HandleObject obj, JS::HandleId id, unsigned 
     // If id is "all", resolve document.all=true.
     JS::RootedValue v(cx);
     if (!JS_IdToValue(cx, id, v.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (JSVAL_IS_STRING(v)) {
         JSString *str = JSVAL_TO_STRING(v);
         JSFlatString *flatStr = JS_FlattenString(cx, str);
         if (!flatStr)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (JS_FlatStringEqualsAscii(flatStr, "all")) {
             JS::Rooted<JSObject*> docAll(cx,
                                          JS_NewObject(cx, &DocumentAllClass, nullptr, nullptr));
             if (!docAll)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             JS::Rooted<JS::Value> allValue(cx, ObjectValue(*docAll));
             bool ok = JS_DefinePropertyById(cx, obj, id, allValue, nullptr, nullptr, 0);
             objp.set(ok ? obj.get() : nullptr);

@@ -15,7 +15,7 @@ function testcase() {
         function foo () {"use strict";}
         for (var tempIndex in foo) {
             if (tempIndex === "caller") {
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
         return true;

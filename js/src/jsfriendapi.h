@@ -1067,7 +1067,7 @@ JS_IsTypedArrayObject(JSObject *obj);
 
 /*
  * Check whether obj supports JS_GetArrayBufferView* APIs. Note that this may
- * return false if a security wrapper is encountered that denies the
+ * do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false) if a security wrapper is encountered that denies the
  * unwrapping. If this test or one of the more specific tests succeeds, then it
  * is safe to call the various ArrayBufferView accessor JSAPI calls defined
  * below.
@@ -1138,7 +1138,7 @@ JS_GetArrayBufferViewType(JSObject *obj);
 
 /*
  * Check whether obj supports the JS_GetArrayBuffer* APIs. Note that this may
- * return false if a security wrapper is encountered that denies the
+ * do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false) if a security wrapper is encountered that denies the
  * unwrapping. If this test succeeds, then it is safe to call the various
  * accessor JSAPI calls defined below.
  */
@@ -1200,7 +1200,7 @@ JS_GetTypedArrayByteLength(JSObject *obj);
 
 /*
  * Check whether obj supports JS_ArrayBufferView* APIs. Note that this may
- * return false if a security wrapper is encountered that denies the
+ * do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false) if a security wrapper is encountered that denies the
  * unwrapping.
  */
 extern JS_FRIEND_API(bool)

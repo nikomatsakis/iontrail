@@ -127,7 +127,7 @@ js_math_abs(JSContext *cx, unsigned argc, Value *vp)
 
     double x;
     if (!ToNumber(cx, args[0], &x))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     double z = Abs(x);
     args.rval().setNumber(z);
@@ -168,11 +168,11 @@ js::math_acos(JSContext *cx, unsigned argc, Value *vp)
 
     double x;
     if (!ToNumber(cx, args[0], &x))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     MathCache *mathCache = cx->runtime()->getMathCache(cx);
     if (!mathCache)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     double z = math_acos_impl(mathCache, x);
     args.rval().setDouble(z);
@@ -213,11 +213,11 @@ js::math_asin(JSContext *cx, unsigned argc, Value *vp)
 
     double x;
     if (!ToNumber(cx, args[0], &x))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     MathCache *mathCache = cx->runtime()->getMathCache(cx);
     if (!mathCache)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     double z = math_asin_impl(mathCache, x);
     args.rval().setDouble(z);
@@ -248,11 +248,11 @@ js::math_atan(JSContext *cx, unsigned argc, Value *vp)
 
     double x;
     if (!ToNumber(cx, args[0], &x))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     MathCache *mathCache = cx->runtime()->getMathCache(cx);
     if (!mathCache)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     double z = math_atan_impl(mathCache, x);
     args.rval().setDouble(z);
@@ -296,11 +296,11 @@ js::math_atan2(JSContext *cx, unsigned argc, Value *vp)
 
     double y;
     if (!ToNumber(cx, args.get(0), &y))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     double x;
     if (!ToNumber(cx, args.get(1), &x))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     double z = ecmaAtan2(y, x);
     args.rval().setDouble(z);
@@ -329,7 +329,7 @@ js::math_ceil(JSContext *cx, unsigned argc, Value *vp)
 
     double x;
     if (!ToNumber(cx, args[0], &x))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     double z = math_ceil_impl(x);
     args.rval().setNumber(z);
@@ -360,11 +360,11 @@ js::math_cos(JSContext *cx, unsigned argc, Value *vp)
 
     double x;
     if (!ToNumber(cx, args[0], &x))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     MathCache *mathCache = cx->runtime()->getMathCache(cx);
     if (!mathCache)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     double z = math_cos_impl(mathCache, x);
     args.rval().setDouble(z);
@@ -411,11 +411,11 @@ js::math_exp(JSContext *cx, unsigned argc, Value *vp)
 
     double x;
     if (!ToNumber(cx, args[0], &x))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     MathCache *mathCache = cx->runtime()->getMathCache(cx);
     if (!mathCache)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     double z = math_exp_impl(mathCache, x);
     args.rval().setNumber(z);
@@ -440,7 +440,7 @@ js::math_floor(JSContext *cx, unsigned argc, Value *vp)
 
     double x;
     if (!ToNumber(cx, args[0], &x))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     double z = math_floor_impl(x);
     args.rval().setNumber(z);
@@ -454,9 +454,9 @@ js::math_imul(JSContext *cx, unsigned argc, Value *vp)
 
     uint32_t a = 0, b = 0;
     if (args.hasDefined(0) && !ToUint32(cx, args[0], &a))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (args.hasDefined(1) && !ToUint32(cx, args[1], &b))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     uint32_t product = a * b;
     args.rval().setInt32(product > INT32_MAX
@@ -477,7 +477,7 @@ js::math_fround(JSContext *cx, unsigned argc, Value *vp)
 
     double x;
     if (!ToNumber(cx, args[0], &x))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     float f = x;
     args.rval().setDouble(static_cast<double>(f));
@@ -518,11 +518,11 @@ js::math_log(JSContext *cx, unsigned argc, Value *vp)
 
     double x;
     if (!ToNumber(cx, args[0], &x))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     MathCache *mathCache = cx->runtime()->getMathCache(cx);
     if (!mathCache)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     double z = math_log_impl(mathCache, x);
     args.rval().setNumber(z);
@@ -538,7 +538,7 @@ js_math_max(JSContext *cx, unsigned argc, Value *vp)
     for (unsigned i = 0; i < args.length(); i++) {
         double x;
         if (!ToNumber(cx, args[i], &x))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         // Math.max(num, NaN) => NaN, Math.max(-0, +0) => +0
         if (x > maxval || IsNaN(x) || (x == maxval && IsNegative(maxval)))
             maxval = x;
@@ -556,7 +556,7 @@ js_math_min(JSContext *cx, unsigned argc, Value *vp)
     for (unsigned i = 0; i < args.length(); i++) {
         double x;
         if (!ToNumber(cx, args[i], &x))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         // Math.min(num, NaN) => NaN, Math.min(-0, +0) => -0
         if (x < minval || IsNaN(x) || (x == minval && IsNegativeZero(x)))
             minval = x;
@@ -641,11 +641,11 @@ js_math_pow(JSContext *cx, unsigned argc, Value *vp)
 
     double x;
     if (!ToNumber(cx, args.get(0), &x))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     double y;
     if (!ToNumber(cx, args.get(1), &y))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Special case for square roots. Note that pow(x, 0.5) != sqrt(x)
@@ -796,7 +796,7 @@ js::math_round(JSContext *cx, unsigned argc, Value *vp)
 
     double x;
     if (!ToNumber(cx, args[0], &x))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     double z = math_round_impl(x);
     args.rval().setNumber(z);
@@ -827,11 +827,11 @@ js::math_sin(JSContext *cx, unsigned argc, Value *vp)
 
     double x;
     if (!ToNumber(cx, args[0], &x))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     MathCache *mathCache = cx->runtime()->getMathCache(cx);
     if (!mathCache)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     double z = math_sin_impl(mathCache, x);
     args.rval().setDouble(z);
@@ -850,11 +850,11 @@ js_math_sqrt(JSContext *cx, unsigned argc, Value *vp)
 
     double x;
     if (!ToNumber(cx, args[0], &x))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     MathCache *mathCache = cx->runtime()->getMathCache(cx);
     if (!mathCache)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     double z = mathCache->lookup(sqrt, x);
     args.rval().setDouble(z);
@@ -885,11 +885,11 @@ js::math_tan(JSContext *cx, unsigned argc, Value *vp)
 
     double x;
     if (!ToNumber(cx, args[0], &x))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     MathCache *mathCache = cx->runtime()->getMathCache(cx);
     if (!mathCache)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     double z = math_tan_impl(mathCache, x);
     args.rval().setDouble(z);
@@ -910,11 +910,11 @@ static bool math_function(JSContext *cx, unsigned argc, Value *vp)
 
     double x;
     if (!ToNumber(cx, args[0], &x))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     MathCache *mathCache = cx->runtime()->getMathCache(cx);
     if (!mathCache)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     double z = F(mathCache, x);
     args.rval().setNumber(z);
 
@@ -1299,9 +1299,9 @@ js::math_hypot(JSContext *cx, unsigned argc, Value *vp)
     if (args.length() == 2) {
         double x, y;
         if (!ToNumber(cx, args[0], &x))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!ToNumber(cx, args[1], &y))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         double result = ecmaHypot(x, y);
         args.rval().setNumber(result);
@@ -1317,7 +1317,7 @@ js::math_hypot(JSContext *cx, unsigned argc, Value *vp)
     for (unsigned i = 0; i < args.length(); i++) {
         double x;
         if (!ToNumber(cx, args[i], &x))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         isInfinite |= mozilla::IsInfinite(x);
         isNaN |= mozilla::IsNaN(x);

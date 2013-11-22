@@ -36,16 +36,16 @@ inline bool
 CanReuseFunctionForClone(JSContext *cx, HandleFunction fun)
 {
     if (!fun->hasSingletonType())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (fun->isInterpretedLazy()) {
         LazyScript *lazy = fun->lazyScript();
         if (lazy->hasBeenCloned())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         lazy->setHasBeenCloned();
     } else {
         JSScript *script = fun->nonLazyScript();
         if (script->hasBeenCloned)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         script->hasBeenCloned = true;
     }
     return true;

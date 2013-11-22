@@ -32,7 +32,7 @@ function looping( object ) {
   object.iterations--;
 
   if ( object.iterations <= 0 ) {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   } else {
     return true;
   }

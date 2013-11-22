@@ -13,7 +13,7 @@
    Boolean             input argument( no conversion )
    Number              returns false for 0, -0, and NaN
    otherwise return true
-   String              return false if the string is empty
+   String              do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false) if the string is empty
    (length is 0) otherwise the result is
    true
    Object              all return true

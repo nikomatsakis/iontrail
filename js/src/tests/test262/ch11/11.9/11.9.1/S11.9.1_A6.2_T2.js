@@ -2,7 +2,7 @@
 // This code is governed by the BSD license found in the LICENSE file.
 
 /**
- * If one expression is undefined or null and another is not, return false
+ * If one expression is undefined or null and another is not, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
  *
  * @path ch11/11.9/11.9.1/S11.9.1_A6.2_T2.js
  * @description y is null or undefined, x is not

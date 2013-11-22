@@ -51,7 +51,7 @@ ShapeTable::init(ThreadSafeContext *cx, Shape *lastProp)
      */
     entries = (Shape **) cx->calloc_(sizeOfEntries(JS_BIT(sizeLog2)));
     if (!entries)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     hashShift = HASH_BITS - sizeLog2;
     for (Shape::Range<NoGC> r(lastProp); !r.empty(); r.popFront()) {
@@ -113,7 +113,7 @@ Shape::makeOwnBaseShape(ThreadSafeContext *cx)
 
     BaseShape *nbase = js_NewGCBaseShape<NoGC>(cx);
     if (!nbase)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     new (nbase) BaseShape(StackBaseShape(this));
     nbase->setOwned(base()->toUnowned());
@@ -149,15 +149,15 @@ Shape::hashify(ThreadSafeContext *cx, Shape *shape)
     JS_ASSERT(!shape->hasTable());
 
     if (!shape->ensureOwnBaseShape(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ShapeTable *table = cx->new_<ShapeTable>(shape->entryCount());
     if (!table)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!table->init(cx, shape)) {
         js_free(table);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     shape->base()->setTable(table);
@@ -263,7 +263,7 @@ ShapeTable::change(int log2Delta, ThreadSafeContext *cx)
     uint32_t newsize = JS_BIT(newlog2);
     Shape **newTable = (Shape **) cx->calloc_(sizeOfEntries(newsize));
     if (!newTable)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Now that we have newTable allocated, update members. */
     hashShift = HASH_BITS - newlog2;
@@ -298,7 +298,7 @@ ShapeTable::grow(ThreadSafeContext *cx)
 
     if (!change(delta, cx) && entryCount + removedCount == size - 1) {
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -462,7 +462,7 @@ js::ObjectImpl::toDictionaryMode(ThreadSafeContext *cx)
         Shape *dprop = js_NewGCShape(cx);
         if (!dprop) {
             js_ReportOutOfMemory(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         HeapPtrShape *listp = dictionaryShape
@@ -479,7 +479,7 @@ js::ObjectImpl::toDictionaryMode(ThreadSafeContext *cx)
 
     if (!Shape::hashify(cx, root)) {
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JS_ASSERT((Shape **) root->listp == root.address());
@@ -745,7 +745,7 @@ CheckCanChangeAttrs(ThreadSafeContext *cx, JSObject *obj, Shape *shape, unsigned
     {
         if (cx->isJSContext())
             obj->reportNotConfigurable(cx->asJSContext(), shape->propid());
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -1031,7 +1031,7 @@ JSObject::removeProperty(ExclusiveContext *cx, jsid id_)
      */
     if (!self->inDictionaryMode() && (shape != self->lastProperty() || !self->canRemoveLastProperty())) {
         if (!self->toDictionaryMode(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         spp = self->lastProperty()->table().search(shape->propid(), false);
         shape = SHAPE_FETCH(spp);
     }
@@ -1047,7 +1047,7 @@ JSObject::removeProperty(ExclusiveContext *cx, jsid id_)
     if (self->inDictionaryMode()) {
         spare = js_NewGCShape(cx);
         if (!spare)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         new (spare) Shape(shape->base()->unowned(), 0);
         if (shape == self->lastProperty()) {
             /*
@@ -1061,7 +1061,7 @@ JSObject::removeProperty(ExclusiveContext *cx, jsid id_)
             base.updateGetterSetter(previous->attrs, previous->getter(), previous->setter());
             BaseShape *nbase = BaseShape::getUnowned(cx, base);
             if (!nbase)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             previous->base_ = nbase;
         }
     }
@@ -1242,14 +1242,14 @@ JSObject::clearParent(JSContext *cx, HandleObject obj)
 JSObject::setParent(JSContext *cx, HandleObject obj, HandleObject parent)
 {
     if (parent && !parent->setDelegate(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (obj->inDictionaryMode()) {
         StackBaseShape base(obj->lastProperty());
         base.parent = parent;
         UnownedBaseShape *nbase = BaseShape::getUnowned(cx, base);
         if (!nbase)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         obj->lastProperty()->base()->adoptUnowned(nbase);
         return true;
@@ -1257,7 +1257,7 @@ JSObject::setParent(JSContext *cx, HandleObject obj, HandleObject parent)
 
     Shape *newShape = Shape::setObjectParent(cx, parent, obj->getTaggedProto(), obj->shape_);
     if (!newShape)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     obj->shape_ = newShape;
     return true;
@@ -1284,7 +1284,7 @@ JSObject::setMetadata(JSContext *cx, HandleObject obj, HandleObject metadata)
         base.metadata = metadata;
         UnownedBaseShape *nbase = BaseShape::getUnowned(cx, base);
         if (!nbase)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         obj->lastProperty()->base()->adoptUnowned(nbase);
         return true;
@@ -1292,7 +1292,7 @@ JSObject::setMetadata(JSContext *cx, HandleObject obj, HandleObject metadata)
 
     Shape *newShape = Shape::setObjectMetadata(cx, metadata, obj->getTaggedProto(), obj->shape_);
     if (!newShape)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     obj->shape_ = newShape;
     return true;
@@ -1317,7 +1317,7 @@ js::ObjectImpl::preventExtensions(JSContext *cx, Handle<ObjectImpl*> obj)
 #ifdef DEBUG
     bool extensible;
     if (!JSObject::isExtensible(cx, obj, &extensible))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     MOZ_ASSERT(extensible,
                "Callers must ensure |obj| is extensible before calling "
                "preventExtensions");
@@ -1336,7 +1336,7 @@ js::ObjectImpl::preventExtensions(JSContext *cx, Handle<ObjectImpl*> obj)
      */
     AutoIdVector props(cx);
     if (!js::GetPropertyNames(cx, self, JSITER_HIDDEN | JSITER_OWNONLY, &props))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Convert all dense elements to sparse properties. This will shrink the
@@ -1345,7 +1345,7 @@ js::ObjectImpl::preventExtensions(JSContext *cx, Handle<ObjectImpl*> obj)
      * checks isExtensible().
      */
     if (self->isNative() && !JSObject::sparsifyDenseElements(cx, self))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return self->setFlag(cx, BaseShape::NOT_EXTENSIBLE, GENERATE_SHAPE);
 }
@@ -1363,12 +1363,12 @@ js::ObjectImpl::setFlag(ExclusiveContext *cx, /*BaseShape::Flag*/ uint32_t flag_
 
     if (inDictionaryMode()) {
         if (generateShape == GENERATE_SHAPE && !generateOwnShape(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         StackBaseShape base(self->lastProperty());
         base.flags |= flag;
         UnownedBaseShape *nbase = BaseShape::getUnowned(cx, base);
         if (!nbase)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         self->lastProperty()->base()->adoptUnowned(nbase);
         return true;
@@ -1377,7 +1377,7 @@ js::ObjectImpl::setFlag(ExclusiveContext *cx, /*BaseShape::Flag*/ uint32_t flag_
     Shape *newShape =
         Shape::setObjectFlag(cx, flag, self->getTaggedProto(), self->lastProperty());
     if (!newShape)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     self->shape_ = newShape;
     return true;
@@ -1395,7 +1395,7 @@ js::ObjectImpl::clearFlag(ExclusiveContext *cx, /*BaseShape::Flag*/ uint32_t fla
     base.flags &= ~flag;
     UnownedBaseShape *nbase = BaseShape::getUnowned(cx, base);
     if (!nbase)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     self->lastProperty()->base()->adoptUnowned(nbase);
     return true;

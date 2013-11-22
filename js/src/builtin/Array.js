@@ -123,7 +123,7 @@ function ArrayEvery(callbackfn/*, thisArg*/) {
         if (k in O) {
             /* Step c. */
             if (!callFunction(callbackfn, T, O[k], k, O))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -169,7 +169,7 @@ function ArraySome(callbackfn/*, thisArg*/) {
     }
 
     /* Step 8. */
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 function ArrayStaticSome(list, callbackfn/*, thisArg*/) {

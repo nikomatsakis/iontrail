@@ -7,7 +7,7 @@ function f() {
   return function () {
     for (var i = 0; i < arguments.length; i++) {
       if (!(typeof (arguments[i]) in _76)) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       }
     }
     return true;

@@ -13,7 +13,7 @@ for (var i = 0; i < 20; i++) {
 function bar(x) {
   if (x === x)
     return true;
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 for (var i = 0; i < 20; i++) {

@@ -25,7 +25,7 @@ function validId(IDtext)
 
   if(IDText.value==""){
     print("You must enter a valid battery #")
-      return false
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
       }
   else if(IDText.value=="x522"){
     //Checks for id entry
@@ -4396,7 +4396,7 @@ function validId(IDtext)
 
   else            {
     print("You have entered an Invalid Product Number...Please try 'Select Product Group' search.")
-      return false
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
       }
 
 }

@@ -75,7 +75,7 @@ js::Nursery::getForwardedPointer(T **ref)
     JS_ASSERT(isInside(*ref));
     const gc::RelocationOverlay *overlay = reinterpret_cast<const gc::RelocationOverlay *>(*ref);
     if (!overlay->isForwarded())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     /* This static cast from Cell* restricts T to valid (GC thing) types. */
     *ref = static_cast<T *>(overlay->forwardingAddress());
     return true;

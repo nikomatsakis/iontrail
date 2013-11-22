@@ -267,7 +267,7 @@ class AutoVectorRooter : protected AutoGCRooter
     bool growBy(size_t inc) {
         size_t oldLength = vector.length();
         if (!vector.growByUninitialized(inc))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         makeRangeGCSafe(oldLength);
         return true;
     }
@@ -279,7 +279,7 @@ class AutoVectorRooter : protected AutoGCRooter
             return true;
         }
         if (!vector.growByUninitialized(newLength - oldLength))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         makeRangeGCSafe(oldLength);
         return true;
     }
@@ -1092,7 +1092,7 @@ ToBoolean(HandleValue v)
     if (v.isInt32())
         return v.toInt32() != 0;
     if (v.isNullOrUndefined())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (v.isDouble()) {
         double d = v.toDouble();
         return !mozilla::IsNaN(d) && d != 0;
@@ -2094,7 +2094,7 @@ JS_IsMarkingGray(JSTracer *trc);
 /*
  * JS_IsAboutToBeFinalized checks if the given object is going to be finalized
  * at the end of the current GC. When called outside of the context of a GC,
- * this function will return false. Typically this function is used on weak
+ * this function will do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false). Typically this function is used on weak
  * references, where the reference should be nulled out or destroyed if the
  * given object is about to be finalized.
  *
@@ -3311,7 +3311,7 @@ extern JS_PUBLIC_API(JSObject *)
 JS_CloneFunctionObject(JSContext *cx, JSObject *funobj, JSObject *parent);
 
 /*
- * Given a buffer, return false if the buffer might become a valid
+ * Given a buffer, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false) if the buffer might become a valid
  * javascript statement with the addition of more lines.  Otherwise return
  * true.  The intent is to support interactive compilation - accumulate
  * lines in a buffer until JS_BufferIsCompilableUnit is true, then pass it to
@@ -3947,7 +3947,7 @@ JS_FileEscapedString(FILE *fp, JSString *str, char quote);
  *   // in a fallible context
  *   JSFlatString *fstr = JS_FlattenString(cx, str);
  *   if (!fstr)
- *     return false;
+ *     do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
  *   JS_ASSERT(fstr == JS_ASSERT_STRING_IS_FLAT(str));
  *
  *   // in an infallible context, for the same 'str'
@@ -4039,7 +4039,7 @@ JS_ConcatStrings(JSContext *cx, JS::HandleString left, JS::HandleString right);
  *
  * On errors, the functions report the error. In that case, *dstlenp contains
  * the number of characters or bytes transferred so far.  If cx is nullptr, no
- * error is reported on failure, and the functions simply return false.
+ * error is reported on failure, and the functions simply do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false).
  *
  * NB: This function does not store an additional zero byte or jschar after the
  * transcoded string.

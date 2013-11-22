@@ -74,7 +74,7 @@ ValueIsLength(const Value &v, uint32_t *len)
     if (v.isInt32()) {
         int32_t i = v.toInt32();
         if (i < 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         *len = i;
         return true;
     }
@@ -82,17 +82,17 @@ ValueIsLength(const Value &v, uint32_t *len)
     if (v.isDouble()) {
         double d = v.toDouble();
         if (IsNaN(d))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         uint32_t length = uint32_t(d);
         if (d != double(length))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         *len = length;
         return true;
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /*
@@ -105,7 +105,7 @@ ToClampedIndex(JSContext *cx, HandleValue v, uint32_t length, uint32_t *out)
 {
     int32_t result;
     if (!ToInt32(cx, v, &result))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (result < 0) {
         result += length;
         if (result < 0)
@@ -159,11 +159,11 @@ ArrayBufferObject::fun_slice_impl(JSContext *cx, CallArgs args)
 
     if (args.length() > 0) {
         if (!ToClampedIndex(cx, args[0], length, &begin))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (args.length() > 1) {
             if (!ToClampedIndex(cx, args[1], length, &end))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -172,7 +172,7 @@ ArrayBufferObject::fun_slice_impl(JSContext *cx, CallArgs args)
 
     JSObject *nobj = createSlice(cx, thisObj->as<ArrayBufferObject>(), begin, end);
     if (!nobj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setObject(*nobj);
     return true;
 }
@@ -193,7 +193,7 @@ ArrayBufferObject::class_constructor(JSContext *cx, unsigned argc, Value *vp)
     int32_t nbytes = 0;
     CallArgs args = CallArgsFromVp(argc, vp);
     if (argc > 0 && !ToInt32(cx, args[0], &nbytes))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (nbytes < 0) {
         /*
@@ -202,12 +202,12 @@ ArrayBufferObject::class_constructor(JSContext *cx, unsigned argc, Value *vp)
          * can fix.
          */
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_BAD_ARRAY_LENGTH);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JSObject *bufobj = create(cx, uint32_t(nbytes));
     if (!bufobj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setObject(*bufobj);
     return true;
 }
@@ -266,7 +266,7 @@ ArrayBufferObject::allocateSlots(JSContext *maybecx, uint32_t bytes, uint8_t *co
     if (bytes > sizeof(Value) * usableSlots) {
         ObjectElements *header = AllocateArrayBufferContents(maybecx, bytes, contents);
         if (!header)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         elements = header->elements();
     } else {
         elements = fixedElements();
@@ -346,7 +346,7 @@ ArrayBufferObject::neuterViews(JSContext *cx)
     // itself, but it only affects the behavior of views
     if (isAsmJSArrayBuffer()) {
         if (!ArrayBufferObject::neuterAsmJSArrayBuffer(cx, *this))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -406,7 +406,7 @@ ArrayBufferObject::copyData(JSContext *maybecx)
 {
     ObjectElements *newHeader = AllocateArrayBufferContents(maybecx, byteLength(), dataPointer());
     if (!newHeader)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     changeContents(maybecx, newHeader);
     return true;
@@ -478,11 +478,11 @@ ArrayBufferObject::prepareForAsmJS(JSContext *cx, Handle<ArrayBufferObject*> buf
 # ifdef XP_WIN
     p = VirtualAlloc(nullptr, AsmJSMappedSize, MEM_RESERVE, PAGE_NOACCESS);
     if (!p)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 # else
     p = mmap(nullptr, AsmJSMappedSize, PROT_NONE, MAP_PRIVATE | MAP_ANON, -1, 0);
     if (p == MAP_FAILED)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 # endif
 
     // Enable access to the valid region.
@@ -490,12 +490,12 @@ ArrayBufferObject::prepareForAsmJS(JSContext *cx, Handle<ArrayBufferObject*> buf
 # ifdef XP_WIN
     if (!VirtualAlloc(p, AsmJSPageSize + buffer->byteLength(), MEM_COMMIT, PAGE_READWRITE)) {
         VirtualFree(p, 0, MEM_RELEASE);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 # else
     if (mprotect(p, AsmJSPageSize + buffer->byteLength(), PROT_READ | PROT_WRITE)) {
         munmap(p, AsmJSMappedSize);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 # endif
 
@@ -539,7 +539,7 @@ ArrayBufferObject::prepareForAsmJS(JSContext *cx, Handle<ArrayBufferObject*> buf
         return true;
 
     if (!buffer->ensureNonInline(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JS_ASSERT(buffer->hasDynamicElements());
 
     buffer->getElementsHeader()->setIsAsmJSArrayBuffer();
@@ -566,7 +566,7 @@ ArrayBufferObject::neuterAsmJSArrayBuffer(JSContext *cx, ArrayBufferObject &buff
         return true;
 
     js_ReportOverRecursed(cx);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #else
     return true;
 #endif
@@ -677,7 +677,7 @@ ArrayBufferObject::stealContents(JSContext *cx, Handle<ArrayBufferObject*> buffe
     bool own;
     ObjectElements *header = reinterpret_cast<ObjectElements*>(buffer->getTransferableContents(cx, &own));
     if (!header)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JS_ASSERT(!IsInsideNursery(cx->runtime(), header));
     *contents = header;
     *data = reinterpret_cast<uint8_t *>(header + 1);
@@ -685,7 +685,7 @@ ArrayBufferObject::stealContents(JSContext *cx, Handle<ArrayBufferObject*> buffe
     // Neuter the views, which may also mprotect(PROT_NONE) the buffer. So do
     // it after copying out the data.
     if (!buffer->neuterViews(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!own) {
         // If header has dynamically allocated elements, revert it back to
@@ -838,7 +838,7 @@ ArrayBufferObject::saveArrayBufferList(JSCompartment *comp, ArrayBufferVector &v
     while (buffer) {
         JS_ASSERT(buffer != UNSET_BUFFER_LINK);
         if (!vector.append(buffer))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         ArrayBufferViewObject *view = GetViewList(buffer);
         JS_ASSERT(view);
@@ -868,7 +868,7 @@ ArrayBufferObject::obj_lookupGeneric(JSContext *cx, HandleObject obj, HandleId i
 {
     RootedObject delegate(cx, ArrayBufferDelegate(cx, obj));
     if (!delegate)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     bool delegateResult = JSObject::lookupGeneric(cx, delegate, id, objp, propp);
 
@@ -878,7 +878,7 @@ ArrayBufferObject::obj_lookupGeneric(JSContext *cx, HandleObject obj, HandleId i
      * found so look in the prototype chain.
      */
     if (!delegateResult)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (propp) {
         if (objp == delegate)
@@ -910,7 +910,7 @@ ArrayBufferObject::obj_lookupElement(JSContext *cx, HandleObject obj, uint32_t i
 {
     RootedObject delegate(cx, ArrayBufferDelegate(cx, obj));
     if (!delegate)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * If false, there was an error, so propagate it.
@@ -919,7 +919,7 @@ ArrayBufferObject::obj_lookupElement(JSContext *cx, HandleObject obj, uint32_t i
      * found so look in the prototype chain.
      */
     if (!JSObject::lookupElement(cx, delegate, index, objp, propp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (propp) {
         if (objp == delegate)
@@ -952,7 +952,7 @@ ArrayBufferObject::obj_defineGeneric(JSContext *cx, HandleObject obj, HandleId i
 
     RootedObject delegate(cx, ArrayBufferDelegate(cx, obj));
     if (!delegate)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return baseops::DefineGeneric(cx, delegate, id, v, getter, setter, attrs);
 }
 
@@ -973,7 +973,7 @@ ArrayBufferObject::obj_defineElement(JSContext *cx, HandleObject obj, uint32_t i
 
     RootedObject delegate(cx, ArrayBufferDelegate(cx, obj));
     if (!delegate)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return baseops::DefineElement(cx, delegate, index, v, getter, setter, attrs);
 }
 
@@ -991,7 +991,7 @@ ArrayBufferObject::obj_getGeneric(JSContext *cx, HandleObject obj, HandleObject 
 {
     RootedObject delegate(cx, ArrayBufferDelegate(cx, obj));
     if (!delegate)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return baseops::GetProperty(cx, delegate, receiver, id, vp);
 }
 
@@ -1001,7 +1001,7 @@ ArrayBufferObject::obj_getProperty(JSContext *cx, HandleObject obj, HandleObject
 {
     RootedObject delegate(cx, ArrayBufferDelegate(cx, obj));
     if (!delegate)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     Rooted<jsid> id(cx, NameToId(name));
     return baseops::GetProperty(cx, delegate, receiver, id, vp);
 }
@@ -1012,7 +1012,7 @@ ArrayBufferObject::obj_getElement(JSContext *cx, HandleObject obj,
 {
     RootedObject delegate(cx, ArrayBufferDelegate(cx, obj));
     if (!delegate)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return baseops::GetElement(cx, delegate, receiver, index, vp);
 }
 
@@ -1022,7 +1022,7 @@ ArrayBufferObject::obj_getElementIfPresent(JSContext *cx, HandleObject obj, Hand
 {
     RootedObject delegate(cx, ArrayBufferDelegate(cx, obj));
     if (!delegate)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return JSObject::getElementIfPresent(cx, delegate, receiver, index, vp, present);
 }
 
@@ -1041,7 +1041,7 @@ ArrayBufferObject::obj_setGeneric(JSContext *cx, HandleObject obj, HandleId id,
 {
     RootedObject delegate(cx, ArrayBufferDelegate(cx, obj));
     if (!delegate)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return baseops::SetPropertyHelper<SequentialExecution>(cx, delegate, obj, id, 0, vp, strict);
 }
@@ -1060,7 +1060,7 @@ ArrayBufferObject::obj_setElement(JSContext *cx, HandleObject obj,
 {
     RootedObject delegate(cx, ArrayBufferDelegate(cx, obj));
     if (!delegate)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return baseops::SetElementHelper(cx, delegate, obj, index, 0, vp, strict);
 }
@@ -1079,7 +1079,7 @@ ArrayBufferObject::obj_getGenericAttributes(JSContext *cx, HandleObject obj,
 {
     RootedObject delegate(cx, ArrayBufferDelegate(cx, obj));
     if (!delegate)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return baseops::GetAttributes(cx, delegate, id, attrsp);
 }
 
@@ -1089,7 +1089,7 @@ ArrayBufferObject::obj_setGenericAttributes(JSContext *cx, HandleObject obj,
 {
     RootedObject delegate(cx, ArrayBufferDelegate(cx, obj));
     if (!delegate)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return baseops::SetAttributes(cx, delegate, id, attrsp);
 }
 
@@ -1099,7 +1099,7 @@ ArrayBufferObject::obj_deleteProperty(JSContext *cx, HandleObject obj, HandlePro
 {
     RootedObject delegate(cx, ArrayBufferDelegate(cx, obj));
     if (!delegate)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return baseops::DeleteProperty(cx, delegate, name, succeeded);
 }
 
@@ -1109,7 +1109,7 @@ ArrayBufferObject::obj_deleteElement(JSContext *cx, HandleObject obj, uint32_t i
 {
     RootedObject delegate(cx, ArrayBufferDelegate(cx, obj));
     if (!delegate)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return baseops::DeleteElement(cx, delegate, index, succeeded);
 }
 
@@ -1119,7 +1119,7 @@ ArrayBufferObject::obj_deleteSpecial(JSContext *cx, HandleObject obj, HandleSpec
 {
     RootedObject delegate(cx, ArrayBufferDelegate(cx, obj));
     if (!delegate)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return baseops::DeleteSpecial(cx, delegate, sid, succeeded);
 }
 
@@ -1167,7 +1167,7 @@ TypedArrayObject::isArrayIndex(jsid id, uint32_t *ip)
         return true;
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 void
@@ -1247,7 +1247,7 @@ TypedArrayObject::obj_setGenericAttributes(JSContext *cx, HandleObject obj, Hand
                                            unsigned *attrsp)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_SET_ARRAY_ATTRS);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /* static */ int
@@ -1308,7 +1308,7 @@ js::ToDoubleForTypedArray(JSContext *cx, JS::HandleValue vp, double *d)
         JS_ASSERT(vp.isString() || vp.isUndefined() || vp.isBoolean());
         if (vp.isString()) {
             if (!ToNumber(cx, vp, d))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else if (vp.isUndefined()) {
             *d = GenericNaN();
         } else {
@@ -1464,7 +1464,7 @@ class TypedArrayObjectTemplate : public TypedArrayObject
 
         JSAtom *atom = ToAtom<CanGC>(cx, idval);
         if (!atom)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (atom->isIndex(&index))
             return obj_getElement(cx, obj, receiver, index, vp);
@@ -1508,7 +1508,7 @@ class TypedArrayObjectTemplate : public TypedArrayObject
 
         double d;
         if (!ToDoubleForTypedArray(cx, vp, &d))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         // If the array is an integer array, we only handle up to
         // 32-bit ints from this point on.  if we want to handle
@@ -1799,7 +1799,7 @@ class TypedArrayObjectTemplate : public TypedArrayObject
         CallArgs args = CallArgsFromVp(argc, vp);
         JSObject *obj = create(cx, args);
         if (!obj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args.rval().setObject(*obj);
         return true;
     }
@@ -1896,7 +1896,7 @@ class TypedArrayObjectTemplate : public TypedArrayObject
         JSObject *getter = NewFunction(cx, NullPtr(), Getter<ValueGetter>, 0,
                                        JSFunction::NATIVE_FUN, global, NullPtr());
         if (!getter)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         RootedValue value(cx, UndefinedValue());
         return DefineNativeProperty(cx, proto, id, value,
@@ -1908,16 +1908,16 @@ class TypedArrayObjectTemplate : public TypedArrayObject
     bool defineGetters(JSContext *cx, HandleObject proto)
     {
         if (!DefineGetter<lengthValue>(cx, cx->names().length, proto))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!DefineGetter<bufferValue>(cx, cx->names().buffer, proto))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!DefineGetter<byteLengthValue>(cx, cx->names().byteLength, proto))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!DefineGetter<byteOffsetValue>(cx, cx->names().byteOffset, proto))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         return true;
     }
@@ -1935,11 +1935,11 @@ class TypedArrayObjectTemplate : public TypedArrayObject
 
         if (args.length() > 0) {
             if (!ToClampedIndex(cx, args[0], length, &begin))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             if (args.length() > 1) {
                 if (!ToClampedIndex(cx, args[1], length, &end))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
 
@@ -1948,7 +1948,7 @@ class TypedArrayObjectTemplate : public TypedArrayObject
 
         JSObject *nobj = createSubarray(cx, tarray, begin, end);
         if (!nobj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args.rval().setObject(*nobj);
         return true;
     }
@@ -1970,7 +1970,7 @@ class TypedArrayObjectTemplate : public TypedArrayObject
 
         if (args.length() < 3) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_TYPED_ARRAY_BAD_ARGS);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         uint32_t srcBegin;
@@ -1984,7 +1984,7 @@ class TypedArrayObjectTemplate : public TypedArrayObject
             srcBegin > srcEnd)
         {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_TYPED_ARRAY_BAD_ARGS);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         uint32_t nelts = srcEnd - srcBegin;
@@ -1992,7 +1992,7 @@ class TypedArrayObjectTemplate : public TypedArrayObject
         JS_ASSERT(dest + nelts >= dest);
         if (dest + nelts > length) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_TYPED_ARRAY_BAD_ARGS);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         uint32_t byteDest = dest * sizeof(NativeType);
@@ -2035,49 +2035,49 @@ class TypedArrayObjectTemplate : public TypedArrayObject
         // first arg must be either a typed array or a JS array
         if (args.length() == 0 || !args[0].isObject()) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_TYPED_ARRAY_BAD_ARGS);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         int32_t offset = 0;
         if (args.length() > 1) {
             if (!ToInt32(cx, args[1], &offset))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             if (offset < 0 || uint32_t(offset) > tarray->length()) {
                 // the given offset is bogus
                 JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                                      JSMSG_TYPED_ARRAY_BAD_INDEX, "2");
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
 
         if (!args[0].isObject()) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_TYPED_ARRAY_BAD_ARGS);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         RootedObject arg0(cx, args[0].toObjectOrNull());
         if (arg0->is<TypedArrayObject>()) {
             if (arg0->as<TypedArrayObject>().length() > tarray->length() - offset) {
                 JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_BAD_ARRAY_LENGTH);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             if (!copyFromTypedArray(cx, tarray, arg0, offset))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             uint32_t len;
             if (!GetLengthProperty(cx, arg0, &len))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             // avoid overflow; we know that offset <= length
             if (len > tarray->length() - offset) {
                 JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_BAD_ARRAY_LENGTH);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             if (!copyFromArray(cx, tarray, arg0, len, offset))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         args.rval().setUndefined();
@@ -2294,7 +2294,7 @@ class TypedArrayObjectTemplate : public TypedArrayObject
             double dval;
             // ToNumber will only fail from OOM
             if (!ToNumber(cx, primitive, &dval))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             *result = nativeFromDouble(dval);
             return true;
         }
@@ -2326,7 +2326,7 @@ class TypedArrayObjectTemplate : public TypedArrayObject
 
             /*
              * The only way the code below can GC is if nativeFromValue fails,
-             * but in that case we return false immediately, so we do not need
+             * but in that case we do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false) immediately, so we do not need
              * to root |src| and |dest|.
              */
             const Value *src = ar->getDenseElements();
@@ -2334,7 +2334,7 @@ class TypedArrayObjectTemplate : public TypedArrayObject
             for (uint32_t i = 0; i < len; ++i) {
                 NativeType n;
                 if (!nativeFromValue(cx, src[i], &n))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 dest[i] = n;
             }
             JS_ASSERT(runtime->gcNumber == gcNumber);
@@ -2343,10 +2343,10 @@ class TypedArrayObjectTemplate : public TypedArrayObject
 
             for (uint32_t i = 0; i < len; ++i) {
                 if (!JSObject::getElement(cx, ar, ar, i, &v))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 NativeType n;
                 if (!nativeFromValue(cx, v, &n))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 /*
                  * Detect when a GC has occurred so we can update the dest
@@ -2459,7 +2459,7 @@ class TypedArrayObjectTemplate : public TypedArrayObject
         // there's overlap, and we have to convert types.
         void *srcbuf = cx->malloc_(byteLength);
         if (!srcbuf)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         js_memcpy(srcbuf, tarray->viewData(), byteLength);
 
         switch (tarray->type()) {
@@ -2610,7 +2610,7 @@ ArrayBufferObject::createTypedArrayFromBufferImpl(JSContext *cx, CallArgs args)
     MOZ_ASSERT(byteOffset == uint32_t(byteOffset));
     obj = ArrayType::fromBuffer(cx, buffer, uint32_t(byteOffset), args[1].toInt32(), proto);
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setObject(*obj);
     return true;
 }
@@ -2784,7 +2784,7 @@ DataViewObject::construct(JSContext *cx, JSObject *bufobj, const CallArgs &args,
     if (!bufobj->is<ArrayBufferObject>()) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_NOT_EXPECTED_TYPE,
                              "DataView", "ArrayBuffer", bufobj->getClass()->name);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     Rooted<ArrayBufferObject*> buffer(cx, &bufobj->as<ArrayBufferObject>());
@@ -2794,26 +2794,26 @@ DataViewObject::construct(JSContext *cx, JSObject *bufobj, const CallArgs &args,
 
     if (args.length() > 1) {
         if (!ToUint32(cx, args[1], &byteOffset))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (byteOffset > INT32_MAX) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                                  JSMSG_ARG_INDEX_OUT_OF_RANGE, "1");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (args.length() > 2) {
             if (!ToUint32(cx, args[2], &byteLength))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (byteLength > INT32_MAX) {
                 JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                                      JSMSG_ARG_INDEX_OUT_OF_RANGE, "2");
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         } else {
             if (byteOffset > bufferLength) {
                 JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                                      JSMSG_ARG_INDEX_OUT_OF_RANGE, "1");
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             byteLength = bufferLength - byteOffset;
@@ -2826,12 +2826,12 @@ DataViewObject::construct(JSContext *cx, JSObject *bufobj, const CallArgs &args,
 
     if (byteOffset + byteLength > bufferLength) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_ARG_INDEX_OUT_OF_RANGE, "1");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JSObject *obj = DataViewObject::create(cx, byteOffset, byteLength, buffer, proto);
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setObject(*obj);
     return true;
 }
@@ -2843,23 +2843,23 @@ DataViewObject::class_constructor(JSContext *cx, unsigned argc, Value *vp)
 
     RootedObject bufobj(cx);
     if (!GetFirstArgumentAsObject(cx, args, "DataView constructor", &bufobj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (bufobj->is<WrapperObject>() && UncheckedUnwrap(bufobj)->is<ArrayBufferObject>()) {
         Rooted<GlobalObject*> global(cx, cx->compartment()->maybeGlobal());
         Rooted<JSObject*> proto(cx, global->getOrCreateDataViewPrototype(cx));
         if (!proto)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         InvokeArgs args2(cx);
         if (!args2.init(args.length() + 1))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args2.setCallee(global->createDataViewForThis());
         args2.setThis(ObjectValue(*bufobj));
         PodCopy(args2.array(), args.array(), args.length());
         args2[argc].setObject(*proto);
         if (!Invoke(cx, args2))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args.rval().set(args2.rval());
         return true;
     }
@@ -2874,10 +2874,10 @@ DataViewObject::getDataPointer(JSContext *cx, Handle<DataViewObject*> obj,
     uint32_t offset;
     JS_ASSERT(args.length() > 0);
     if (!ToUint32(cx, args[0], &offset))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (offset > UINT32_MAX - typeSize || offset + typeSize > obj->byteLength()) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_ARG_INDEX_OUT_OF_RANGE, "1");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     *data = static_cast<uint8_t*>(obj->dataPointer()) + offset;
@@ -2966,12 +2966,12 @@ DataViewObject::read(JSContext *cx, Handle<DataViewObject*> obj,
     if (args.length() < 1) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                              JSMSG_MORE_ARGS_NEEDED, method, "0", "s");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     uint8_t *data;
     if (!getDataPointer(cx, obj, args, sizeof(NativeType), &data))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     bool fromLittleEndian = args.length() >= 2 && ToBoolean(args[1]);
     DataViewIO<NativeType>::fromBuffer(val, data, needToSwapBytes(fromLittleEndian));
@@ -2984,7 +2984,7 @@ WebIDLCast(JSContext *cx, HandleValue value, NativeType *out)
 {
     int32_t temp;
     if (!ToInt32(cx, value, &temp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     // Technically, the behavior of assigning an out of range value to a signed
     // variable is undefined. In practice, compilers seem to do what we want
     // without issuing any warnings.
@@ -2998,7 +2998,7 @@ WebIDLCast<float>(JSContext *cx, HandleValue value, float *out)
 {
     double temp;
     if (!ToNumber(cx, value, &temp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *out = static_cast<float>(temp);
     return true;
 }
@@ -3018,17 +3018,17 @@ DataViewObject::write(JSContext *cx, Handle<DataViewObject*> obj,
     if (args.length() < 2) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                              JSMSG_MORE_ARGS_NEEDED, method, "1", "");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     uint8_t *data;
     SkipRoot skipData(cx, &data);
     if (!getDataPointer(cx, obj, args, sizeof(NativeType), &data))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     NativeType value;
     if (!WebIDLCast(cx, args[1], &value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     bool toLittleEndian = args.length() >= 3 && ToBoolean(args[2]);
     DataViewIO<NativeType>::toBuffer(data, &value, needToSwapBytes(toLittleEndian));
@@ -3044,7 +3044,7 @@ DataViewObject::getInt8Impl(JSContext *cx, CallArgs args)
 
     int8_t val;
     if (!read(cx, thisView, args, &val, "getInt8"))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setInt32(val);
     return true;
 }
@@ -3065,7 +3065,7 @@ DataViewObject::getUint8Impl(JSContext *cx, CallArgs args)
 
     uint8_t val;
     if (!read(cx, thisView, args, &val, "getUint8"))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setInt32(val);
     return true;
 }
@@ -3086,7 +3086,7 @@ DataViewObject::getInt16Impl(JSContext *cx, CallArgs args)
 
     int16_t val;
     if (!read(cx, thisView, args, &val, "getInt16"))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setInt32(val);
     return true;
 }
@@ -3107,7 +3107,7 @@ DataViewObject::getUint16Impl(JSContext *cx, CallArgs args)
 
     uint16_t val;
     if (!read(cx, thisView, args, &val, "getUint16"))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setInt32(val);
     return true;
 }
@@ -3128,7 +3128,7 @@ DataViewObject::getInt32Impl(JSContext *cx, CallArgs args)
 
     int32_t val;
     if (!read(cx, thisView, args, &val, "getInt32"))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setInt32(val);
     return true;
 }
@@ -3149,7 +3149,7 @@ DataViewObject::getUint32Impl(JSContext *cx, CallArgs args)
 
     uint32_t val;
     if (!read(cx, thisView, args, &val, "getUint32"))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setNumber(val);
     return true;
 }
@@ -3170,7 +3170,7 @@ DataViewObject::getFloat32Impl(JSContext *cx, CallArgs args)
 
     float val;
     if (!read(cx, thisView, args, &val, "getFloat32"))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setDouble(CanonicalizeNaN(val));
     return true;
@@ -3192,7 +3192,7 @@ DataViewObject::getFloat64Impl(JSContext *cx, CallArgs args)
 
     double val;
     if (!read(cx, thisView, args, &val, "getFloat64"))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setDouble(CanonicalizeNaN(val));
     return true;
@@ -3213,7 +3213,7 @@ DataViewObject::setInt8Impl(JSContext *cx, CallArgs args)
     Rooted<DataViewObject*> thisView(cx, &args.thisv().toObject().as<DataViewObject>());
 
     if (!write<int8_t>(cx, thisView, args, "setInt8"))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setUndefined();
     return true;
 }
@@ -3233,7 +3233,7 @@ DataViewObject::setUint8Impl(JSContext *cx, CallArgs args)
     Rooted<DataViewObject*> thisView(cx, &args.thisv().toObject().as<DataViewObject>());
 
     if (!write<uint8_t>(cx, thisView, args, "setUint8"))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setUndefined();
     return true;
 }
@@ -3253,7 +3253,7 @@ DataViewObject::setInt16Impl(JSContext *cx, CallArgs args)
     Rooted<DataViewObject*> thisView(cx, &args.thisv().toObject().as<DataViewObject>());
 
     if (!write<int16_t>(cx, thisView, args, "setInt16"))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setUndefined();
     return true;
 }
@@ -3273,7 +3273,7 @@ DataViewObject::setUint16Impl(JSContext *cx, CallArgs args)
     Rooted<DataViewObject*> thisView(cx, &args.thisv().toObject().as<DataViewObject>());
 
     if (!write<uint16_t>(cx, thisView, args, "setUint16"))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setUndefined();
     return true;
 }
@@ -3293,7 +3293,7 @@ DataViewObject::setInt32Impl(JSContext *cx, CallArgs args)
     Rooted<DataViewObject*> thisView(cx, &args.thisv().toObject().as<DataViewObject>());
 
     if (!write<int32_t>(cx, thisView, args, "setInt32"))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setUndefined();
     return true;
 }
@@ -3313,7 +3313,7 @@ DataViewObject::setUint32Impl(JSContext *cx, CallArgs args)
     Rooted<DataViewObject*> thisView(cx, &args.thisv().toObject().as<DataViewObject>());
 
     if (!write<uint32_t>(cx, thisView, args, "setUint32"))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setUndefined();
     return true;
 }
@@ -3333,7 +3333,7 @@ DataViewObject::setFloat32Impl(JSContext *cx, CallArgs args)
     Rooted<DataViewObject*> thisView(cx, &args.thisv().toObject().as<DataViewObject>());
 
     if (!write<float>(cx, thisView, args, "setFloat32"))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setUndefined();
     return true;
 }
@@ -3353,7 +3353,7 @@ DataViewObject::setFloat64Impl(JSContext *cx, CallArgs args)
     Rooted<DataViewObject*> thisView(cx, &args.thisv().toObject().as<DataViewObject>());
 
     if (!write<double>(cx, thisView, args, "setFloat64"))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setUndefined();
     return true;
 }
@@ -3525,7 +3525,7 @@ const JSFunctionSpec _typedArray##Object::jsfuncs[] = {                         
   JS_FRIEND_API(bool) JS_Is ## Name ## Array(JSObject *obj)                                  \
   {                                                                                          \
       if (!(obj = CheckedUnwrap(obj)))                                                       \
-          return false;                                                                      \
+          do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                                                      \
       const Class *clasp = obj->getClass();                                                  \
       return (clasp == &TypedArrayObject::classes[TypedArrayObjectTemplate<NativeType>::ArrayTypeID()]); \
   }
@@ -3740,7 +3740,7 @@ js::IsTypedArrayThisCheck(JS::IsAcceptableThis test)
     CHECK(test, Float32ArrayObject);
     CHECK(test, Float64ArrayObject);
     CHECK(test, Uint8ClampedArrayObject);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 #undef CHECK
 
@@ -3866,7 +3866,7 @@ DataViewObject::defineGetter(JSContext *cx, PropertyName *name, HandleObject pro
     JSObject *getter = NewFunction(cx, NullPtr(), DataViewObject::getter<ValueGetter>, 0,
                                    JSFunction::NATIVE_FUN, global, NullPtr());
     if (!getter)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue value(cx, UndefinedValue());
     return DefineNativeProperty(cx, proto, id, value,
@@ -4037,12 +4037,12 @@ JS_NeuterArrayBuffer(JSContext *cx, HandleObject obj)
 {
     if (!obj->is<ArrayBufferObject>()) {
         JS_ReportError(cx, "ArrayBuffer object required");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     Rooted<ArrayBufferObject*> buffer(cx, &obj->as<ArrayBufferObject>());
     if (!buffer->neuterViews(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     buffer->neuter(cx);
     return true;
 }
@@ -4071,7 +4071,7 @@ JS_AllocateArrayBufferContents(JSContext *cx, uint32_t nbytes, void **contents, 
 {
     js::ObjectElements *header = AllocateArrayBufferContents(cx, nbytes, nullptr);
     if (!header)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ArrayBufferObject::updateElementsHeader(header, nbytes);
 
@@ -4085,7 +4085,7 @@ JS_ReallocateArrayBufferContents(JSContext *cx, uint32_t nbytes, void **contents
 {
     js::ObjectElements *header = AllocateArrayBufferContents(cx, nbytes, nullptr, *contents);
     if (!header)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ArrayBufferObject::initElementsHeader(header, nbytes);
 
@@ -4099,16 +4099,16 @@ JS_StealArrayBufferContents(JSContext *cx, HandleObject objArg, void **contents,
 {
     JSObject *obj = CheckedUnwrap(objArg);
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!obj->is<ArrayBufferObject>()) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_TYPED_ARRAY_BAD_ARGS);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     Rooted<ArrayBufferObject*> buffer(cx, &obj->as<ArrayBufferObject>());
     if (!ArrayBufferObject::stealContents(cx, buffer, contents, data))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }

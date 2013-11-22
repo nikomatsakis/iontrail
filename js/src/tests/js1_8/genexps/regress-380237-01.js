@@ -65,7 +65,7 @@ Object.prototype.toString = Object.prototype.toSource
 function all(seq) {
     for (let e in seq)
         if (!e)
-            return false
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
     return true
 }
 
@@ -73,7 +73,7 @@ function some(seq) {
     for (let e in seq)
         if (e)
             return e
-    return false
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
 }
 
 function cross(A, B) {
@@ -122,7 +122,7 @@ function parse_grid(grid) {
 
     for (let [s, d] in zip(squares, grid))
         if (digits.contains(d) && !assign(values, s, d))
-            return false
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
     return values
 }
 
@@ -130,7 +130,7 @@ function parse_grid(grid) {
 function assign(values, s, d) {
     if (all(eliminate(values, s, d2) for (d2 in values[s]) if (d2 != d)))
         return values
-    return false
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
 }
 
 // Eliminate d from values[s]; propagate when values or places <= 2.
@@ -139,22 +139,22 @@ function eliminate(values, s, d) {
         return values // Already eliminated
     values[s] = values[s].replace(d, '')
     if (values[s].length == 0)
-	return false  // Contradiction: removed last value
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)  // Contradiction: removed last value
     if (values[s].length == 1) {
 	// If there is only one value (d2) left in square, remove it from peers
         let d2 = values[s][0]
         if (!all(eliminate(values, s2, d2) for (s2 in peers[s])))
-            return false
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
     }
     // Now check the places where d appears in the units of s
     for (let u in units[s]) {
 	let dplaces = [s for (s in u) if (values[s].contains(d))]
 	if (dplaces.length == 0)
-	    return false
+	    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
 	if (dplaces.length == 1)
 	    // d can only be in one place in unit; assign it there
             if (!assign(values, dplaces[0], d))
-                return false
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
     }
     return values
 }
@@ -176,7 +176,7 @@ print_board(parse_grid(easy))
 // Using depth-first search and constraint propagation, try all possible values.
 function search(values) {
     if (!values)
-        return false    // Failed earlier
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)    // Failed earlier
     if (all(values[s].length == 1 for (s in squares))) 
         return values   // Solved!
 

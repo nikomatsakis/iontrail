@@ -115,7 +115,7 @@ SPSProfiler::enter(JSContext *cx, JSScript *script, JSFunction *maybeFun)
 {
     const char *str = profileString(cx, script, maybeFun);
     if (str == nullptr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_ASSERT_IF(*size_ > 0 && *size_ - 1 < max_ && stack_[*size_ - 1].js(),
                  stack_[*size_ - 1].pc() != nullptr);

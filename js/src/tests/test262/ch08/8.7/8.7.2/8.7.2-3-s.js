@@ -19,7 +19,7 @@ function testcase() {
 
         try {
             _8_7_2_3.b = 11;
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } catch (e) {
             return e instanceof TypeError;
         }

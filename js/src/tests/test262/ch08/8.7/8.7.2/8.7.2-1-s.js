@@ -14,7 +14,7 @@ function testcase() {
         "use strict";
         try {
             eval("_8_7_2_1 = 11;");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } catch (e) {
             return e instanceof ReferenceError;
         }

@@ -48,7 +48,7 @@ js::intrinsic_ToObject(JSContext *cx, unsigned argc, Value *vp)
     RootedValue val(cx, args[0]);
     RootedObject obj(cx, ToObject(cx, val));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setObject(*obj);
     return true;
 }
@@ -59,7 +59,7 @@ intrinsic_ToInteger(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     double result;
     if (!ToInteger(cx, args[0], &result))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setDouble(result);
     return true;
 }
@@ -93,7 +93,7 @@ js::intrinsic_ThrowError(JSContext *cx, unsigned argc, Value *vp)
         if (val.isInt32()) {
             JSString *str = ToString<CanGC>(cx, val);
             if (!str)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             errorArgs[i - 1] = JS_EncodeString(cx, str);
         } else if (val.isString()) {
             errorArgs[i - 1] = JS_EncodeString(cx, ToString<CanGC>(cx, val));
@@ -101,14 +101,14 @@ js::intrinsic_ThrowError(JSContext *cx, unsigned argc, Value *vp)
             errorArgs[i - 1] = DecompileValueGenerator(cx, JSDVG_SEARCH_STACK, val, NullPtr());
         }
         if (!errorArgs[i - 1])
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, errorNumber,
                          errorArgs[0], errorArgs[1], errorArgs[2]);
     for (unsigned i = 0; i < 3; i++)
         js_free(errorArgs[i]);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /**
@@ -134,7 +134,7 @@ intrinsic_AssertionFailed(JSContext *cx, unsigned argc, Value *vp)
     }
 #endif
     JS_ASSERT(false);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static bool
@@ -153,7 +153,7 @@ intrinsic_MakeConstructible(JSContext *cx, unsigned argc, Value *vp)
                                   JS_PropertyStub, JS_StrictPropertyStub,
                                   JSPROP_READONLY | JSPROP_ENUMERATE | JSPROP_PERMANENT))
     {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     ctor->as<JSFunction>().setIsSelfHostedConstructor();
@@ -190,10 +190,10 @@ intrinsic_DecompileArg(JSContext *cx, unsigned argc, Value *vp)
     RootedValue value(cx, args[1]);
     ScopedJSFreePtr<char> str(DecompileArgument(cx, args[0].toInt32(), value));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedAtom atom(cx, Atomize(cx, str, strlen(str)));
     if (!atom)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setString(atom);
     return true;
 }
@@ -230,13 +230,13 @@ intrinsic_SetScriptHints(JSContext *cx, unsigned argc, Value *vp)
 
     id = AtomToId(Atomize(cx, "cloneAtCallsite", strlen("cloneAtCallsite")));
     if (!JSObject::getGeneric(cx, flags, flags, id, &propv))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (ToBoolean(propv))
         funScript->shouldCloneAtCallsite = true;
 
     id = AtomToId(Atomize(cx, "inline", strlen("inline")));
     if (!JSObject::getGeneric(cx, flags, flags, id, &propv))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (ToBoolean(propv))
         funScript->shouldInline = true;
 
@@ -273,7 +273,7 @@ intrinsic_ParallelSpew(ThreadSafeContext *cx, unsigned argc, Value *vp)
 
     ScopedThreadSafeStringInspector inspector(args[0].toString());
     if (!inspector.ensureChars(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ScopedJSFreePtr<char> bytes(TwoByteCharsToNewUTF8CharsZ(cx, inspector.range()).c_str());
     parallel::Spew(parallel::SpewOps, bytes);
@@ -326,7 +326,7 @@ js::intrinsic_NewParallelArray(JSContext *cx, unsigned argc, Value *vp)
     RootedFunction init(cx, &args[0].toObject().as<JSFunction>());
     CallArgs args0 = CallArgsFromVp(argc - 1, vp + 1);
     if (!js::ParallelArrayObject::constructHelper(cx, &init, args0))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().set(args0.rval());
     return true;
 }
@@ -343,18 +343,18 @@ js::intrinsic_NewDenseArray(JSContext *cx, unsigned argc, Value *vp)
     // Check that index is an int32
     if (!args[0].isInt32()) {
         JS_ReportError(cx, "Expected int32 as second argument");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     uint32_t length = args[0].toInt32();
 
     // Make a new buffer and initialize it up to length.
     RootedObject buffer(cx, NewDenseAllocatedArray(cx, length));
     if (!buffer)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     types::TypeObject *newtype = types::GetTypeCallerInitObject(cx, JSProto_Array);
     if (!newtype)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     buffer->setType(newtype);
 
     JSObject::EnsureDenseResult edr = buffer->ensureDenseElements(cx, length, 0);
@@ -371,7 +371,7 @@ js::intrinsic_NewDenseArray(JSContext *cx, unsigned argc, Value *vp)
       case JSObject::ED_FAILED:
         break;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /*
@@ -393,7 +393,7 @@ js::intrinsic_UnsafePutElements(JSContext *cx, unsigned argc, Value *vp)
 
     if ((args.length() % 3) != 0) {
         JS_ReportError(cx, "Incorrect number of arguments, not divisible by 3");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     for (uint32_t base = 0; base < args.length(); base += 3) {
@@ -417,7 +417,7 @@ js::intrinsic_UnsafePutElements(JSContext *cx, unsigned argc, Value *vp)
             RootedValue tmp(cx, args[elemi]);
             // XXX: Always non-strict.
             if (!JSObject::setElement(cx, arrobj, arrobj, idx, &tmp, false))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -470,7 +470,7 @@ intrinsic_GetIteratorPrototype(JSContext *cx, unsigned argc, Value *vp)
 
     JSObject *obj = cx->global()->getOrCreateIteratorPrototype(cx);
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setObject(*obj);
     return true;
@@ -484,11 +484,11 @@ intrinsic_NewArrayIterator(JSContext *cx, unsigned argc, Value *vp)
 
     RootedObject proto(cx, cx->global()->getOrCreateArrayIteratorPrototype(cx));
     if (!proto)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSObject *obj = NewObjectWithGivenProto(cx, proto->getClass(), proto, cx->global());
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setObject(*obj);
     return true;
@@ -513,11 +513,11 @@ intrinsic_NewStringIterator(JSContext *cx, unsigned argc, Value *vp)
 
     RootedObject proto(cx, cx->global()->getOrCreateStringIteratorPrototype(cx));
     if (!proto)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSObject *obj = NewObjectWithGivenProto(cx, &StringIteratorObject::class_, proto, cx->global());
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setObject(*obj);
     return true;
@@ -584,12 +584,12 @@ intrinsic_RuntimeDefaultLocale(JSContext *cx, unsigned argc, Value *vp)
     const char *locale = cx->runtime()->getDefaultLocale();
     if (!locale) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEFAULT_LOCALE_ERROR);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedString jslocale(cx, JS_NewStringCopyZ(cx, locale));
     if (!jslocale)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setString(jslocale);
     return true;
@@ -723,7 +723,7 @@ JSRuntime::initSelfHosting(JSContext *cx)
                                  : nullptr);
     if (!(selfHostingGlobal_ = JS_NewGlobalObject(cx, &self_hosting_global_class,
                                                   nullptr, JS::DontFireOnNewGlobalHook)))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JSAutoCompartment ac(cx, selfHostingGlobal_);
     if (receivesDefaultObject)
         js::SetDefaultObjectForContext(cx, selfHostingGlobal_);
@@ -734,10 +734,10 @@ JSRuntime::initSelfHosting(JSContext *cx)
      * dependencies in the order of initialization.
      */
     if (!GlobalObject::initStandardClasses(cx, shg))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!JS_DefineFunctions(cx, shg, intrinsic_functions))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_FireOnNewGlobalObject(cx, shg);
 
@@ -786,7 +786,7 @@ JSRuntime::initSelfHosting(JSContext *cx)
         if (!src || !DecompressString(compressed, compressedLen,
                                       reinterpret_cast<unsigned char *>(src.get()), srcLen))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 #else
         const char *src = rawSources;
@@ -832,7 +832,7 @@ CloneProperties(JSContext *cx, HandleObject obj, HandleObject clone, CloneMemory
     {
         AutoCompartment ac(cx, obj);
         if (!GetPropertyNames(cx, obj, JSITER_OWNONLY, &ids))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     for (uint32_t i = 0; i < ids.length(); i++) {
         id = ids[i];
@@ -840,7 +840,7 @@ CloneProperties(JSContext *cx, HandleObject obj, HandleObject clone, CloneMemory
             !CloneValue(cx, &val, clonedObjects) ||
             !JS_DefinePropertyById(cx, clone, id, val.get(), nullptr, nullptr, 0))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -919,17 +919,17 @@ CloneValue(JSContext *cx, MutableHandleValue vp, CloneMemory &clonedObjects)
         RootedObject obj(cx, &vp.toObject());
         RootedObject clone(cx, CloneObject(cx, obj, clonedObjects));
         if (!clone)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         vp.setObject(*clone);
     } else if (vp.isBoolean() || vp.isNumber() || vp.isNullOrUndefined()) {
         // Nothing to do here: these are represented inline in the value
     } else if (vp.isString()) {
         Rooted<JSStableString*> str(cx, vp.toString()->ensureStable(cx));
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         RootedString clone(cx, js_NewStringCopyN<CanGC>(cx, str->chars().get(), str->length()));
         if (!clone)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         vp.setString(clone);
     } else {
         MOZ_ASSUME_UNREACHABLE("Self-hosting CloneValue can't clone given value.");
@@ -945,7 +945,7 @@ JSRuntime::cloneSelfHostedFunctionScript(JSContext *cx, Handle<PropertyName*> na
     RootedValue funVal(cx);
     RootedId id(cx, NameToId(name));
     if (!GetUnclonedValue(cx, shg, id, &funVal))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedFunction sourceFun(cx, &funVal.toObject().as<JSFunction>());
     // JSFunction::generatorKind can't handle lazy self-hosted functions, so we make sure there
@@ -955,7 +955,7 @@ JSRuntime::cloneSelfHostedFunctionScript(JSContext *cx, Handle<PropertyName*> na
     JS_ASSERT(!sourceScript->enclosingStaticScope());
     JSScript *cscript = CloneScript(cx, NullPtr(), targetFun, sourceScript);
     if (!cscript)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     targetFun->setScript(cscript);
     cscript->setFunction(targetFun);
     JS_ASSERT(sourceFun->nargs == targetFun->nargs);
@@ -970,7 +970,7 @@ JSRuntime::cloneSelfHostedValue(JSContext *cx, Handle<PropertyName*> name, Mutab
     RootedValue val(cx);
     RootedId id(cx, NameToId(name));
     if (!GetUnclonedValue(cx, shg, id, &val))
-         return false;
+         do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * We don't clone if we're operating in the self-hosting global, as that
@@ -980,7 +980,7 @@ JSRuntime::cloneSelfHostedValue(JSContext *cx, Handle<PropertyName*> name, Mutab
     if (cx->global() != selfHostingGlobal_) {
         CloneMemory clonedObjects(cx);
         if (!clonedObjects.init() || !CloneValue(cx, &val, clonedObjects))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     vp.set(val);
     return true;
@@ -991,7 +991,7 @@ JSRuntime::maybeWrappedSelfHostedFunction(JSContext *cx, HandleId id, MutableHan
 {
     RootedObject shg(cx, selfHostingGlobal_);
     if (!GetUnclonedValue(cx, shg, id, funVal))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_ASSERT(funVal.isObject());
     JS_ASSERT(funVal.toObject().isCallable());

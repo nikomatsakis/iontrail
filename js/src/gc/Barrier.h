@@ -173,7 +173,7 @@ class BarrieredCell : public gc::Cell
 #ifdef JSGC_INCREMENTAL
         return JS::shadow::Zone::asShadowZone(zone)->needsBarrier();
 #else
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
     }
 

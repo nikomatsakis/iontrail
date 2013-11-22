@@ -574,11 +574,11 @@ JSONParser::finishObject(MutableHandleValue vp, PropertyVector &properties)
 
     JSObject *obj = createFinishedObject(properties);
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     vp.setObject(*obj);
     if (!freeProperties.append(&properties))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     stack.popBack();
     return true;
 }
@@ -590,7 +590,7 @@ JSONParser::finishArray(MutableHandleValue vp, ElementVector &elements)
 
     JSObject *obj = NewDenseCopiedArray(cx, elements.length(), elements.begin());
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Try to assign a new type to the array according to its elements. */
     if (cx->typeInferenceEnabled())
@@ -598,7 +598,7 @@ JSONParser::finishArray(MutableHandleValue vp, ElementVector &elements)
 
     vp.setObject(*obj);
     if (!freeElements.append(&elements))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     stack.popBack();
     return true;
 }
@@ -622,12 +622,12 @@ JSONParser::parse(MutableHandleValue vp)
             token = advanceAfterProperty();
             if (token == ObjectClose) {
                 if (!finishObject(&value, properties))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 break;
             }
             if (token != Comma) {
                 if (token == OOM)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (token != Error)
                     error("expected ',' or '}' after property-value pair in object literal");
                 return errorReturn();
@@ -641,7 +641,7 @@ JSONParser::parse(MutableHandleValue vp)
                 jsid id = AtomToId(atomValue());
                 PropertyVector &properties = stack.back().properties();
                 if (!properties.append(IdValuePair(id)))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 token = advancePropertyColon();
                 if (token != Colon) {
                     JS_ASSERT(token == Error);
@@ -650,7 +650,7 @@ JSONParser::parse(MutableHandleValue vp)
                 goto JSONValue;
             }
             if (token == OOM)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (token != Error)
                 error("property names must be double-quoted strings");
             return errorReturn();
@@ -658,13 +658,13 @@ JSONParser::parse(MutableHandleValue vp)
           case FinishArrayElement: {
             ElementVector &elements = stack.back().elements();
             if (!elements.append(value.get()))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             token = advanceAfterArrayElement();
             if (token == Comma)
                 goto JSONValue;
             if (token == ArrayClose) {
                 if (!finishArray(&value, elements))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 break;
             }
             JS_ASSERT(token == Error);
@@ -700,15 +700,15 @@ JSONParser::parse(MutableHandleValue vp)
                 } else {
                     elements = cx->new_<ElementVector>(cx);
                     if (!elements)
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
                 if (!stack.append(elements))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 token = advance();
                 if (token == ArrayClose) {
                     if (!finishArray(&value, *elements))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     break;
                 }
                 goto JSONValueSwitch;
@@ -722,15 +722,15 @@ JSONParser::parse(MutableHandleValue vp)
                 } else {
                     properties = cx->new_<PropertyVector>(cx);
                     if (!properties)
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
                 if (!stack.append(properties))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 token = advanceAfterObjectOpen();
                 if (token == ObjectClose) {
                     if (!finishObject(&value, *properties))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     break;
                 }
                 goto JSONMember;
@@ -744,7 +744,7 @@ JSONParser::parse(MutableHandleValue vp)
                 return errorReturn();
 
               case OOM:
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
               case Error:
                 return errorReturn();

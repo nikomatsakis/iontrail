@@ -519,11 +519,11 @@ public:
     // generic, or decide that the MacroAssembler cannot practically be used to abstracted these
     // operations, and make clients go directly to the m_assembler to plant truncation instructions.
     // In short, FIXME:.
-    static bool supportsFloatingPointTruncate() { return false; }
+    static bool supportsFloatingPointTruncate() { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
 
     static bool supportsFloatingPointSqrt()
     {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     void loadDouble(ImplicitAddress address, FPRegisterID dest)

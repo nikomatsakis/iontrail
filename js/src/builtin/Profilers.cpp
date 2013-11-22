@@ -79,7 +79,7 @@ StartOSXProfiling(const char *profileName, pid_t pid)
             UnsafeError("Failed to start %s for %s", profiler, profileName);
         else
             UnsafeError("Failed to start %s", profiler);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -237,7 +237,7 @@ StartProfiling(JSContext *cx, unsigned argc, jsval *vp)
 
     RequiredStringArg profileName(cx, args, 0, "startProfiling");
     if (!profileName)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (args.length() == 1) {
         args.rval().setBoolean(JS_StartProfiling(profileName.mBytes, getpid()));
@@ -246,7 +246,7 @@ StartProfiling(JSContext *cx, unsigned argc, jsval *vp)
 
     if (!args[1].isInt32()) {
         JS_ReportError(cx, "startProfiling: invalid arguments (int expected)");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     pid_t pid = static_cast<pid_t>(args[1].toInt32());
     args.rval().setBoolean(JS_StartProfiling(profileName.mBytes, pid));
@@ -264,7 +264,7 @@ StopProfiling(JSContext *cx, unsigned argc, jsval *vp)
 
     RequiredStringArg profileName(cx, args, 0, "stopProfiling");
     if (!profileName)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setBoolean(JS_StopProfiling(profileName.mBytes));
     return true;
 }
@@ -280,7 +280,7 @@ PauseProfilers(JSContext *cx, unsigned argc, jsval *vp)
 
     RequiredStringArg profileName(cx, args, 0, "pauseProfiling");
     if (!profileName)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setBoolean(JS_PauseProfilers(profileName.mBytes));
     return true;
 }
@@ -296,7 +296,7 @@ ResumeProfilers(JSContext *cx, unsigned argc, jsval *vp)
 
     RequiredStringArg profileName(cx, args, 0, "resumeProfiling");
     if (!profileName)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setBoolean(JS_ResumeProfilers(profileName.mBytes));
     return true;
 }
@@ -312,14 +312,14 @@ DumpProfile(JSContext *cx, unsigned argc, jsval *vp)
     } else {
         RequiredStringArg filename(cx, args, 0, "dumpProfile");
         if (!filename)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (args.length() == 1) {
             ret = JS_DumpProfile(filename.mBytes, nullptr);
         } else {
             RequiredStringArg profileName(cx, args, 1, "dumpProfile");
             if (!profileName)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             ret = JS_DumpProfile(filename.mBytes, profileName.mBytes);
         }
@@ -369,7 +369,7 @@ DumpCallgrind(JSContext *cx, unsigned argc, jsval *vp)
 
     RequiredStringArg outFile(cx, args, 0, "dumpCallgrind");
     if (!outFile)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setBoolean(js_DumpCallgrind(outFile.mBytes));
     return true;
@@ -479,7 +479,7 @@ bool js_StartPerf()
 
     if (perfPid != 0) {
         UnsafeError("js_StartPerf: called while perf was already running!\n");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // Bail if MOZ_PROFILE_WITH_PERF is empty or undefined.
@@ -521,7 +521,7 @@ bool js_StartPerf()
 
         char *flags2 = (char *)js_malloc(strlen(flags) + 1);
         if (!flags2)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         strcpy(flags2, flags);
 
         // Split |flags2| on spaces.  (Don't bother to free it -- we're going to
@@ -550,7 +550,7 @@ bool js_StartPerf()
     }
     else {
         UnsafeError("js_StartPerf: fork() failed\n");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 }
 

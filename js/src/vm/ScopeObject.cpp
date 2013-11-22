@@ -365,7 +365,7 @@ with_LookupElement(JSContext *cx, HandleObject obj, uint32_t index,
 {
     RootedId id(cx);
     if (!IndexToId(cx, index, id.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return with_LookupGeneric(cx, obj, id, objp, propp);
 }
 
@@ -399,7 +399,7 @@ with_GetElement(JSContext *cx, HandleObject obj, HandleObject receiver, uint32_t
 {
     RootedId id(cx);
     if (!IndexToId(cx, index, id.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return with_GetGeneric(cx, obj, receiver, id, vp);
 }
 
@@ -688,13 +688,13 @@ js::XDRStaticBlockObject(XDRState<mode> *xdr, HandleObject enclosingScope,
     if (mode == XDR_DECODE) {
         obj = StaticBlockObject::create(cx);
         if (!obj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         obj->initEnclosingStaticScope(enclosingScope);
         *objp = obj;
     }
 
     if (!xdr->codeUint32(&depthAndCount))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (mode == XDR_DECODE) {
         uint32_t depth = uint16_t(depthAndCount >> 16);
@@ -708,7 +708,7 @@ js::XDRStaticBlockObject(XDRState<mode> *xdr, HandleObject enclosingScope,
         for (unsigned i = 0; i < count; i++) {
             RootedAtom atom(cx);
             if (!XDRAtom(xdr, &atom))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             /* The empty string indicates an int id. */
             RootedId id(cx, atom != cx->runtime()->emptyString
@@ -718,12 +718,12 @@ js::XDRStaticBlockObject(XDRState<mode> *xdr, HandleObject enclosingScope,
             bool redeclared;
             if (!StaticBlockObject::addVar(cx, obj, id, i, &redeclared)) {
                 JS_ASSERT(!redeclared);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             uint32_t aliased;
             if (!xdr->codeUint32(&aliased))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             JS_ASSERT(aliased == 0 || aliased == 1);
             obj->setAliased(i, !!aliased);
@@ -731,7 +731,7 @@ js::XDRStaticBlockObject(XDRState<mode> *xdr, HandleObject enclosingScope,
     } else {
         AutoShapeVector shapes(cx);
         if (!shapes.growBy(count))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         for (Shape::Range<NoGC> r(obj->lastProperty()); !r.empty(); r.popFront()) {
             Shape *shape = &r.front();
@@ -758,11 +758,11 @@ js::XDRStaticBlockObject(XDRState<mode> *xdr, HandleObject enclosingScope,
                    ? JSID_TO_ATOM(propid)
                    : cx->runtime()->emptyString;
             if (!XDRAtom(xdr, &atom))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             uint32_t aliased = obj->isAliased(i);
             if (!xdr->codeUint32(&aliased))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
     return true;
@@ -1092,19 +1092,19 @@ class DebugScopeProxy : public BaseProxyHandler
             CallObject &callobj = scope->as<CallObject>();
             RootedScript script(cx, callobj.callee().nonLazyScript());
             if (!script->ensureHasTypes(cx))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             Bindings &bindings = script->bindings;
             BindingIter bi(script);
             while (bi && NameToId(bi->name()) != id)
                 bi++;
             if (!bi)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             if (bi->kind() == VARIABLE || bi->kind() == CONSTANT) {
                 unsigned i = bi.frameIndex();
                 if (script->varIsAliased(i))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 if (maybeframe) {
                     if (action == GET)
@@ -1125,7 +1125,7 @@ class DebugScopeProxy : public BaseProxyHandler
                 JS_ASSERT(bi->kind() == ARGUMENT);
                 unsigned i = bi.frameIndex();
                 if (script->formalIsAliased(i))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 if (maybeframe) {
                     if (script->argsObjAliasesFormals() && maybeframe.hasArgsObj()) {
@@ -1162,11 +1162,11 @@ class DebugScopeProxy : public BaseProxyHandler
             Rooted<ClonedBlockObject *> block(cx, &scope->as<ClonedBlockObject>());
             Shape *shape = block->lastProperty()->search(cx, id);
             if (!shape)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             unsigned i = shape->shortid();
             if (block->staticBlock().isAliased(i))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             if (maybeframe) {
                 JSScript *script = maybeframe.script();
@@ -1189,7 +1189,7 @@ class DebugScopeProxy : public BaseProxyHandler
         /* The rest of the internal scopes do not have unaliased vars. */
         JS_ASSERT(scope->is<DeclEnvObject>() || scope->is<WithObject>() ||
                   scope->as<CallObject>().isForEval());
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     static bool isArguments(JSContext *cx, jsid id)
@@ -1235,7 +1235,7 @@ class DebugScopeProxy : public BaseProxyHandler
         if (!maybeframe) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEBUG_NOT_LIVE,
                                  "Debugger scope");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         *maybeArgsObj = ArgumentsObject::createUnexpected(cx, maybeframe);
@@ -1260,7 +1260,7 @@ class DebugScopeProxy : public BaseProxyHandler
     {
         // See above.
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_CHANGE_EXTENSIBILITY);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool getPropertyDescriptor(JSContext *cx, HandleObject proxy, HandleId id,
@@ -1279,7 +1279,7 @@ class DebugScopeProxy : public BaseProxyHandler
 
         RootedArgumentsObject maybeArgsObj(cx);
         if (!checkForMissingArguments(cx, id, *scope, maybeArgsObj.address()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (maybeArgsObj) {
             desc.object().set(debugScope);
@@ -1313,7 +1313,7 @@ class DebugScopeProxy : public BaseProxyHandler
 
         RootedArgumentsObject maybeArgsObj(cx);
         if (!checkForMissingArguments(cx, id, *scope, maybeArgsObj.address()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (maybeArgsObj) {
             vp.set(ObjectValue(*maybeArgsObj));
@@ -1343,7 +1343,7 @@ class DebugScopeProxy : public BaseProxyHandler
 
         bool found;
         if (!has(cx, proxy, id, &found))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (found)
             return Throw(cx, id, JSMSG_CANT_REDEFINE_PROP);
 
@@ -1358,11 +1358,11 @@ class DebugScopeProxy : public BaseProxyHandler
 
         if (isMissingArgumentsBinding(*scope)) {
             if (!props.append(NameToId(cx->names().arguments)))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (!GetPropertyNames(cx, scope, flags, &props))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /*
          * Function scopes are optimized to not contain unaliased variables so
@@ -1372,7 +1372,7 @@ class DebugScopeProxy : public BaseProxyHandler
             RootedScript script(cx, scope->as<CallObject>().callee().nonLazyScript());
             for (BindingIter bi(script); bi; bi++) {
                 if (!bi->aliased() && !props.append(NameToId(bi->name())))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
 
@@ -1402,7 +1402,7 @@ class DebugScopeProxy : public BaseProxyHandler
         bool found;
         RootedObject scope(cx, &scopeObj);
         if (!JS_HasPropertyById(cx, scope, id, &found))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /*
          * Function scopes are optimized to not contain unaliased variables so
@@ -1515,7 +1515,7 @@ DebugScopes::init()
         !proxiedScopes.init() ||
         !missingScopes.init())
     {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -1621,12 +1621,12 @@ DebugScopes::addDebugScope(JSContext *cx, ScopeObject &scope, DebugScopeObject &
 
     DebugScopes *scopes = ensureCompartmentData(cx);
     if (!scopes)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_ASSERT(!scopes->proxiedScopes.has(&scope));
     if (!scopes->proxiedScopes.put(&scope, &debugScope)) {
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     HashTableWriteBarrierPost(cx->runtime(), &scopes->proxiedScopes, &scope);
@@ -1660,18 +1660,18 @@ DebugScopes::addDebugScope(JSContext *cx, const ScopeIter &si, DebugScopeObject 
 
     DebugScopes *scopes = ensureCompartmentData(cx);
     if (!scopes)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_ASSERT(!scopes->missingScopes.has(si));
     if (!scopes->missingScopes.put(si, &debugScope)) {
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JS_ASSERT(!scopes->liveScopes.has(&debugScope.scope()));
     if (!scopes->liveScopes.put(&debugScope.scope(), si.frame())) {
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     HashTableWriteBarrierPost(cx->runtime(), &scopes->liveScopes, &debugScope.scope());
 
@@ -1856,7 +1856,7 @@ DebugScopes::onCompartmentLeaveDebugMode(JSCompartment *c)
 bool
 DebugScopes::updateLiveScopes(JSContext *cx)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     /*
      * Note that we must always update the top frame's scope objects' entries
@@ -1886,9 +1886,9 @@ DebugScopes::updateLiveScopes(JSContext *cx)
                 JS_ASSERT(si.scope().compartment() == cx->compartment());
                 DebugScopes *scopes = ensureCompartmentData(cx);
                 if (!scopes)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (!scopes->liveScopes.put(&si.scope(), frame))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 HashTableWriteBarrierPost(cx->runtime(), &scopes->liveScopes, &si.scope());
             }
         }
@@ -2147,10 +2147,10 @@ RemoveReferencedNames(JSContext *cx, HandleScript script, PropertyNameSet &remai
                 JSFunction *fun = &obj->as<JSFunction>();
                 RootedScript innerScript(cx, fun->getOrCreateScript(cx));
                 if (!innerScript)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 if (!RemoveReferencedNames(cx, innerScript, remainingNames))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
     }
@@ -2163,23 +2163,23 @@ AnalyzeEntrainedVariablesInScript(JSContext *cx, HandleScript script, HandleScri
 {
     PropertyNameSet remainingNames(cx);
     if (!remainingNames.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (BindingIter bi(script); bi; bi++) {
         if (bi->aliased()) {
             PropertyNameSet::AddPtr p = remainingNames.lookupForAdd(bi->name());
             if (!p && !remainingNames.add(p, bi->name()))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
     if (!RemoveReferencedNames(cx, innerScript, remainingNames))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!remainingNames.empty()) {
         Sprinter buf(cx);
         if (!buf.init())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         buf.printf("Script ");
 
@@ -2213,7 +2213,7 @@ AnalyzeEntrainedVariablesInScript(JSContext *cx, HandleScript script, HandleScri
                 JSFunction *fun = &obj->as<JSFunction>();
                 RootedScript innerInnerScript(cx, fun->nonLazyScript());
                 if (!AnalyzeEntrainedVariablesInScript(cx, script, innerInnerScript))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
     }
@@ -2245,15 +2245,15 @@ js::AnalyzeEntrainedVariables(JSContext *cx, HandleScript script)
             JSFunction *fun = &obj->as<JSFunction>();
             RootedScript innerScript(cx, fun->getOrCreateScript(cx));
             if (!innerScript)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             if (script->function() && script->function()->isHeavyweight()) {
                 if (!AnalyzeEntrainedVariablesInScript(cx, script, innerScript))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             if (!AnalyzeEntrainedVariables(cx, innerScript))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 

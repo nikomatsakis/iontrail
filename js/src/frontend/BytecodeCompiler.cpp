@@ -35,7 +35,7 @@ CheckLength(ExclusiveContext *cx, size_t length)
         if (cx->isJSContext())
             JS_ReportErrorNumber(cx->asJSContext(), js_GetErrorMessage, nullptr,
                                  JSMSG_SOURCE_TOO_LONG);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -45,7 +45,7 @@ SetSourceURL(ExclusiveContext *cx, TokenStream &tokenStream, ScriptSource *ss)
 {
     if (tokenStream.hasSourceURL()) {
         if (!ss->setSourceURL(cx, tokenStream.sourceURL()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -55,7 +55,7 @@ SetSourceMap(ExclusiveContext *cx, TokenStream &tokenStream, ScriptSource *ss)
 {
     if (tokenStream.hasSourceMapURL()) {
         if (!ss->setSourceMapURL(cx, tokenStream.sourceMapURL()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -67,7 +67,7 @@ CheckArgumentsWithinEval(JSContext *cx, Parser<FullParseHandler> &parser, Handle
         // It's an error to use |arguments| in a function that has a rest
         // parameter.
         parser.report(ParseError, false, nullptr, JSMSG_ARGUMENTS_AND_REST);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // Force construction of arguments objects for functions that use
@@ -75,13 +75,13 @@ CheckArgumentsWithinEval(JSContext *cx, Parser<FullParseHandler> &parser, Handle
     RootedScript script(cx, fun->nonLazyScript());
     if (script->argumentsHasVarBinding()) {
         if (!JSScript::argumentsOptimizationFailed(cx, script))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // It's an error to use |arguments| in a legacy generator expression.
     if (script->isGeneratorExp && script->isLegacyGenerator()) {
         parser.report(ParseError, false, nullptr, JSMSG_BAD_GENEXP_BODY, js_arguments_str);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -105,13 +105,13 @@ MaybeCheckEvalFreeVariables(ExclusiveContext *cxArg, HandleScript evalCaller, Ha
     for (AtomDefnRange r = pc.lexdeps->all(); !r.empty(); r.popFront()) {
         if (r.front().key() == arguments) {
             if (!CheckArgumentsWithinEval(cx, parser, fun))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
     for (AtomDefnListMap::Range r = pc.decls().all(); !r.empty(); r.popFront()) {
         if (r.front().key() == arguments) {
             if (!CheckArgumentsWithinEval(cx, parser, fun))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -126,7 +126,7 @@ MaybeCheckEvalFreeVariables(ExclusiveContext *cxArg, HandleScript evalCaller, Ha
                 RootedScript script(cx, scope->as<CallObject>().callee().nonLazyScript());
                 if (script->argumentsHasVarBinding()) {
                     if (!JSScript::argumentsOptimizationFailed(cx, script))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
             scope = scope->enclosingScope();
@@ -433,10 +433,10 @@ frontend::CompileLazyFunction(JSContext *cx, LazyScript *lazy, const jschar *cha
     ParseNode *pn = parser.standaloneLazyFunction(fun, staticLevel, lazy->strict(),
                                                   lazy->generatorKind());
     if (!pn)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!NameFunctions(cx, pn))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedObject enclosingScope(cx, lazy->enclosingScope());
     RootedScriptSource sourceObject(cx, lazy->sourceObject());
@@ -446,7 +446,7 @@ frontend::CompileLazyFunction(JSContext *cx, LazyScript *lazy, const jschar *cha
                                                   options, staticLevel,
                                                   sourceObject, lazy->begin(), lazy->end()));
     if (!script)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     script->bindings = pn->pn_funbox->bindings;
 
@@ -461,7 +461,7 @@ frontend::CompileLazyFunction(JSContext *cx, LazyScript *lazy, const jschar *cha
                         /* evalCaller = */ NullPtr(), /* hasGlobalScope = */ true,
                         options.lineno, BytecodeEmitter::LazyFunction);
     if (!bce.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (lazy->treatAsRunOnce())
         bce.lazyRunOnceLambda = true;
@@ -490,20 +490,20 @@ CompileFunctionBody(JSContext *cx, MutableHandleFunction fun, const ReadOnlyComp
     MaybeCallSourceHandler(cx, options, chars, length);
 
     if (!CheckLength(cx, length))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     ScriptSource *ss = cx->new_<ScriptSource>(options.originPrincipals());
     if (!ss)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (options.filename() && !ss->setFilename(cx, options.filename()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedScriptSource sourceObject(cx, ScriptSourceObject::create(cx, ss));
     if (!sourceObject)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     SourceCompressionTask sct(cx);
     JS_ASSERT(options.sourcePolicy != CompileOptions::LAZY_SOURCE);
     if (options.sourcePolicy == CompileOptions::SAVE_SOURCE) {
         if (!ss->setSourceCopy(cx, chars, length, true, &sct))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool canLazilyParse = CanLazilyParse(cx, options);
@@ -552,7 +552,7 @@ CompileFunctionBody(JSContext *cx, MutableHandleFunction fun, const ReadOnlyComp
             parser.clearAbortedSyntaxParse();
         } else {
             if (parser.tokenStream.hadError() || directives == newDirectives)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             // Assignment must be monotonic to prevent reparsing iloops
             JS_ASSERT_IF(directives.strict(), newDirectives.strict());
@@ -564,7 +564,7 @@ CompileFunctionBody(JSContext *cx, MutableHandleFunction fun, const ReadOnlyComp
     }
 
     if (!NameFunctions(cx, fn))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (fn->pn_funbox->function()->isInterpreted()) {
         JS_ASSERT(fun == fn->pn_funbox->function());
@@ -573,7 +573,7 @@ CompileFunctionBody(JSContext *cx, MutableHandleFunction fun, const ReadOnlyComp
                                                       /* staticLevel = */ 0, sourceObject,
                                                       /* sourceStart = */ 0, length));
         if (!script)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         script->bindings = fn->pn_funbox->bindings;
 
@@ -589,23 +589,23 @@ CompileFunctionBody(JSContext *cx, MutableHandleFunction fun, const ReadOnlyComp
                                fun->environment() && fun->environment()->is<GlobalObject>(),
                                options.lineno);
         if (!funbce.init())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!EmitFunctionScript(cx, &funbce, fn->pn_body))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         fun.set(fn->pn_funbox->function());
         JS_ASSERT(IsAsmJSModuleNative(fun->native()));
     }
 
     if (!SetSourceURL(cx, parser.tokenStream, ss))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!SetSourceMap(cx, parser.tokenStream, ss))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!sct.complete())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }

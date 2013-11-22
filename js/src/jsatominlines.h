@@ -50,7 +50,7 @@ ValueToIdPure(const Value &v, jsid *id)
     }
 
     if (!v.isString() || !v.toString()->isAtom())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *id = AtomToId(&v.toString()->asAtom());
     return true;
@@ -69,7 +69,7 @@ ValueToId(JSContext* cx, typename MaybeRooted<Value, allowGC>::HandleType v,
 
     JSAtom *atom = ToAtom<allowGC>(cx, v);
     if (!atom)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     idp.set(AtomToId(atom));
     return true;
@@ -126,7 +126,7 @@ IndexToIdPure(uint32_t index, jsid *idp)
         return true;
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static JS_ALWAYS_INLINE JSFlatString *
@@ -158,7 +158,7 @@ AtomHasher::match(const AtomStateEntry &entry, const Lookup &lookup)
     if (lookup.atom)
         return lookup.atom == key;
     if (key->length() != lookup.length)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return mozilla::PodEqual(key->chars(), lookup.chars, lookup.length);
 }
 

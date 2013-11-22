@@ -252,7 +252,7 @@ Scene.prototype.blocked = function(O, D, far) {
         return true;
     }
     
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 

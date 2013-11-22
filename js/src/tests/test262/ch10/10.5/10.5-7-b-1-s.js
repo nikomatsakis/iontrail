@@ -15,7 +15,7 @@ function testcase() {
 
         try {
             eval("(function _10_5_7_b_1_fun() { arguments = 10;} ());");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } catch (e) {
             return e instanceof SyntaxError;
         }

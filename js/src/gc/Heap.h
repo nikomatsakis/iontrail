@@ -698,7 +698,7 @@ struct ChunkBitmap
         uintptr_t *word, mask;
         getMarkWordAndMask(cell, BLACK, &word, &mask);
         if (*word & mask)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         *word |= mask;
         if (color != BLACK) {
             /*
@@ -707,7 +707,7 @@ struct ChunkBitmap
              */
             getMarkWordAndMask(cell, color, &word, &mask);
             if (*word & mask)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             *word |= mask;
         }
         return true;
@@ -1087,7 +1087,7 @@ inline bool
 InFreeList(ArenaHeader *aheader, void *thing)
 {
     if (!aheader->hasFreeThings())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     FreeSpan firstSpan(aheader->getFirstFreeSpan());
     uintptr_t addr = reinterpret_cast<uintptr_t>(thing);
@@ -1095,7 +1095,7 @@ InFreeList(ArenaHeader *aheader, void *thing)
     for (const FreeSpan *span = &firstSpan;;) {
         /* If the thing comes before the current span, it's not free. */
         if (addr < span->first)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /*
          * If we find it inside the span, it's dead. We use here "<=" and not

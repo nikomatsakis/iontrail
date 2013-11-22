@@ -2,7 +2,7 @@
 // This code is governed by the BSD license found in the LICENSE file.
 
 /**
- * If x and y are the same number value, return false
+ * If x and y are the same number value, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
  *
  * @path ch11/11.8/11.8.1/S11.8.1_A4.3.js
  * @description x and y are number primitives

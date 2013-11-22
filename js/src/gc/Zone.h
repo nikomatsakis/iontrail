@@ -192,10 +192,10 @@ struct Zone : public JS::shadow::Zone,
     bool canCollect() {
         // Zones cannot be collected while in use by other threads.
         if (usedByExclusiveThread)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         JSRuntime *rt = runtimeFromAnyThread();
         if (rt->isAtomsZone(this) && rt->exclusiveThreadsPresent())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         return true;
     }
 

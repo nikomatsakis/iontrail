@@ -242,7 +242,7 @@ IsAnyBitArrayElementSet(size_t *array, size_t length)
         if (array[i])
             return true;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static inline void

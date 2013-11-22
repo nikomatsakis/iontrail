@@ -28,7 +28,7 @@ function completesNormally(code) {
     eval(code);
     return true;
   } catch (exception) {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 }
 
@@ -42,7 +42,7 @@ function returns(value) {
     try {
       return eval(code) === value;
     } catch (exception) {
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
   }
 }
@@ -57,7 +57,7 @@ function returnsCopyOf(value) {
     try {
       return deepEqual(eval(code), value);
     } catch (exception) {
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
   }
 }
@@ -72,7 +72,7 @@ function raisesException(exception) {
   return function (code) {
     try {
       eval(code);
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } catch (actual) {
       return actual instanceof exception;
     }
@@ -88,7 +88,7 @@ function parsesSuccessfully(code) {
     Function(code);
     return true;
   } catch (exception) {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 };
 
@@ -100,7 +100,7 @@ function parseRaisesException(exception) {
   return function (code) {
     try {
       Function(code);
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } catch (actual) {
       return actual instanceof exception;
     }
@@ -124,20 +124,20 @@ function clean_uneval(val) {
  */
 function deepEqual(a, b) {
     if (typeof a != typeof b)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (typeof a == 'object') {
         var props = {};
         // For every property of a, does b have that property with an equal value?
         for (var prop in a) {
             if (!deepEqual(a[prop], b[prop]))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             props[prop] = true;
         }
         // Are all of b's properties present on a?
         for (var prop in b)
             if (!props[prop])
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         // length isn't enumerable, but we want to check it, too.
         return a.length == b.length;
     }

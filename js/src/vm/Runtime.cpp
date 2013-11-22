@@ -83,7 +83,7 @@ PerThreadData::init()
 {
     dtoaState = js_NewDtoaState();
     if (!dtoaState)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }
@@ -314,16 +314,16 @@ JitSupportsFloatingPoint()
 {
 #if defined(JS_ION)
     if (!JSC::MacroAssembler::supportsFloatingPoint())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #if defined(JS_ION) && WTF_ARM_ARCH_VERSION == 6
     if (!js::jit::hasVFP())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
 
     return true;
 #else
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
 }
 
@@ -335,30 +335,30 @@ JSRuntime::init(uint32_t maxbytes)
 
     operationCallbackLock = PR_NewLock();
     if (!operationCallbackLock)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     gcLock = PR_NewLock();
     if (!gcLock)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
 
 #ifdef JS_WORKER_THREADS
     exclusiveAccessLock = PR_NewLock();
     if (!exclusiveAccessLock)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
 
     if (!mainThread.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     js::TlsPerThreadData.set(&mainThread);
     mainThread.addToThreadList();
 
     if (!js_InitGC(this, maxbytes))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!gcMarker.init(gcMode()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     const char *size = getenv("JSGC_MARK_STACK_LIMIT");
     if (size)
@@ -366,12 +366,12 @@ JSRuntime::init(uint32_t maxbytes)
 
     ScopedJSDeletePtr<Zone> atomsZone(new_<Zone>(this));
     if (!atomsZone)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS::CompartmentOptions options;
     ScopedJSDeletePtr<JSCompartment> atomsCompartment(new_<JSCompartment>(atomsZone.get(), options));
     if (!atomsCompartment || !atomsCompartment->init(nullptr))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     zones.append(atomsZone.get());
     atomsZone->compartments.append(atomsCompartment.get());
@@ -384,18 +384,18 @@ JSRuntime::init(uint32_t maxbytes)
     this->atomsCompartment_ = atomsCompartment.forget();
 
     if (!InitAtoms(this))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!InitRuntimeNumberState(this))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     dateTimeInfo.updateTimeZoneAdjustment();
 
     if (!scriptDataTable_.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!evalCache.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     nativeStackBase = GetNativeStackBase();
 
@@ -670,7 +670,7 @@ bool
 JSRuntime::setDefaultLocale(const char *locale)
 {
     if (!locale)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     resetDefaultLocale();
     defaultLocale = JS_strdup(this, locale);
     return defaultLocale != nullptr;

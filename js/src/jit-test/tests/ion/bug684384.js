@@ -33,7 +33,7 @@ function f3() {
 	    for (var i=0; i<100; i++) {
 	    }
 	}
-	return false;
+	do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     assertEq(i, 100);
     return true;

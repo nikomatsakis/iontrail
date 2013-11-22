@@ -83,7 +83,7 @@ GenB.name = "B"
 InstanceOf( true, Boolean, false );
 InstanceOf( new Boolean(false), Boolean, true );
 
-// __proto__ of RelationalExpression is null.  should return false
+// __proto__ of RelationalExpression is null.  should do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
 genA = new GenA();
 genA.__proto__ = null;
 

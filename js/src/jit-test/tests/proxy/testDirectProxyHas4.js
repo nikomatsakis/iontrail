@@ -12,7 +12,7 @@ Object.preventExtensions(target);
 assertThrowsInstanceOf(function () {
     'foo' in new Proxy(target, {
         has: function (target, name) {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     });
 }, TypeError);

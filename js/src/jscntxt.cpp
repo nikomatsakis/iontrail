@@ -68,7 +68,7 @@ js::AutoCycleDetector::init()
     hashsetAddPointer = set.lookupForAdd(obj);
     if (!hashsetAddPointer) {
         if (!set.add(hashsetAddPointer, obj))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         cyclic = false;
         hashsetGenerationAtInit = set.generation();
     }
@@ -276,7 +276,7 @@ AutoResolving::alreadyStartedSlow() const
         if (object.get() == cursor->object && id.get() == cursor->id && kind == cursor->kind)
             return true;
     } while (!!(cursor = cursor->link));
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static void
@@ -455,7 +455,7 @@ js_ReportAllocationOverflow(ThreadSafeContext *cxArg)
  * Given flags and the state of cx, decide whether we should report an
  * error, a warning, or just continue execution normally.  Return
  * true if we should continue normally, without reporting anything;
- * otherwise, adjust *flags as appropriate and return false.
+ * otherwise, adjust *flags as appropriate and do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false).
  */
 static bool
 checkReportFlags(JSContext *cx, unsigned *flags)
@@ -483,7 +483,7 @@ checkReportFlags(JSContext *cx, unsigned *flags)
     if (JSREPORT_IS_WARNING(*flags) && cx->options().werror())
         *flags &= ~JSREPORT_WARNING;
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -500,7 +500,7 @@ js_ReportErrorVA(JSContext *cx, unsigned flags, const char *format, va_list ap)
 
     message = JS_vsmprintf(format, ap);
     if (!message)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     messagelen = strlen(message);
 
     PodZero(&report);
@@ -552,12 +552,12 @@ js::PrintError(JSContext *cx, FILE *file, const char *message, JSErrorReport *re
     if (!report) {
         fprintf(file, "%s\n", message);
         fflush(file);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Conditionally ignore reported warnings. */
     if (JSREPORT_IS_WARNING(report->flags) && !reportWarnings)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     char *prefix = nullptr;
     if (report->filename)
@@ -675,7 +675,7 @@ js_ExpandErrorArguments(ExclusiveContext *cx, JSErrorCallback callback,
             } else {
                 reportp->messageArgs = cx->pod_malloc<const jschar*>(argCount + 1);
                 if (!reportp->messageArgs)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 /* nullptr-terminate for easy copying. */
                 reportp->messageArgs[argCount] = nullptr;
             }
@@ -797,7 +797,7 @@ error:
         js_free((void *)*messagep);
         *messagep = nullptr;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -820,7 +820,7 @@ js_ReportErrorNumberVA(JSContext *cx, unsigned flags, JSErrorCallback callback,
 
     if (!js_ExpandErrorArguments(cx, callback, userRef, errorNumber,
                                  &message, &report, argumentsType, ap)) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     ReportError(cx, message, &report, callback, userRef);
@@ -863,7 +863,7 @@ js_ReportErrorNumberUCArray(JSContext *cx, unsigned flags, JSErrorCallback callb
     va_list dummy;
     if (!js_ExpandErrorArguments(cx, callback, userRef, errorNumber,
                                  &message, &report, ArgumentsAreUnicode, dummy)) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     ReportError(cx, message, &report, callback, userRef);
@@ -912,7 +912,7 @@ js_ReportIsNullOrUndefined(JSContext *cx, int spindex, HandleValue v,
 
     bytes = DecompileValueGenerator(cx, spindex, v, fallback);
     if (!bytes)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (strcmp(bytes, js_undefined_str) == 0 ||
         strcmp(bytes, js_null_str) == 0) {
@@ -971,7 +971,7 @@ js_ReportValueErrorFlags(JSContext *cx, unsigned flags, const unsigned errorNumb
     JS_ASSERT(js_ErrorFormatString[errorNumber].argCount <= 3);
     bytes = DecompileValueGenerator(cx, spindex, v, fallback);
     if (!bytes)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ok = JS_ReportErrorFlagsAndNumber(cx, flags, js_GetErrorMessage,
                                       nullptr, errorNumber, bytes, arg1, arg2);
@@ -1146,7 +1146,7 @@ bool
 JSContext::saveFrameChain()
 {
     if (!savedFrameChains_.append(SavedFrameChain(compartment(), enterCompartmentDepth_)))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (Activation *act = mainThread().activation())
         act->saveFrameChain();
@@ -1177,22 +1177,22 @@ JSContext::currentlyRunning() const
     for (ActivationIterator iter(runtime()); !iter.done(); ++iter) {
         if (iter.activation()->cx() == this) {
             if (iter.activation()->hasSavedFrameChain())
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             return true;
         }
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static bool
 ComputeIsJITBroken()
 {
 #if !defined(ANDROID) || defined(GONK)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #else  // ANDROID
     if (getenv("JS_IGNORE_JIT_BROKENNESS")) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     std::string line;
@@ -1206,7 +1206,7 @@ ComputeIsJITBroken()
     if (line.npos == line.find("2.6.29")) {
         // We're using something other than 2.6.29, so the JITs should work.
         __android_log_print(ANDROID_LOG_INFO, "Gecko", "JITs are not broken");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // We're using 2.6.29, and this causes trouble with the JITs on i9000.

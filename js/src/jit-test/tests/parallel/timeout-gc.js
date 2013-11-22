@@ -16,7 +16,7 @@ function iterate(x) {
 function timeoutfunc() {
   print("Timed out, invoking the GC");
   gc();
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 timeout(1, timeoutfunc);

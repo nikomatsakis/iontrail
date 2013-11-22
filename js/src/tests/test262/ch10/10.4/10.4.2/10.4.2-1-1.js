@@ -18,7 +18,7 @@ function testcase() {
        eval("\'str1\' === __10_4_2_1_1_1") === true) {   // direct eval
        return true;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   } finally {
     delete this.__10_4_2_1_1_1;
   }

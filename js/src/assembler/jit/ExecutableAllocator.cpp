@@ -75,7 +75,7 @@ bool
 ExecutableAllocator::codeContains(char* address)
 {
     if (!m_pools.initialized())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (ExecPoolHashSet::Range r = m_pools.all(); !r.empty(); r.popFront()) {
         ExecutablePool* pool = r.front();
@@ -83,7 +83,7 @@ ExecutableAllocator::codeContains(char* address)
             return true;
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 }

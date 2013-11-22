@@ -22,7 +22,7 @@ function testcase() {
         ]; 
         for (var i = 0; i < arr.length; i++) {
             if (tokenCodes[arr[i]] !== i) {
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             };
         }
         return true;

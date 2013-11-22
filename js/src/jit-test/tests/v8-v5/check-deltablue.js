@@ -202,7 +202,7 @@ Constraint.prototype.destroyConstraint = function () {
  * keybord, a clock, or some arbitraty piece of imperative code.
  */
 Constraint.prototype.isInput = function () {
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /* --- *
@@ -699,7 +699,7 @@ Planner.prototype.addPropagate = function (c, mark) {
     var d = todo.removeFirst();
     if (d.output().mark == mark) {
       this.incrementalRemove(c);
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     d.recalculate();
     this.addConstraintsConsumingTo(d.output(), todo);

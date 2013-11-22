@@ -31,21 +31,21 @@ function findAllPoints(blockId)
 function isMatchingDestructor(constructor, edge)
 {
     if (edge.Kind != "Call")
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     var callee = edge.Exp[0];
     if (callee.Kind != "Var")
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     var variable = callee.Variable;
     assert(variable.Kind == "Func");
     if (!/::~/.test(variable.Name[0]))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     var constructExp = constructor.PEdgeCallInstance.Exp;
     assert(constructExp.Kind == "Var");
 
     var destructExp = edge.PEdgeCallInstance.Exp;
     if (destructExp.Kind != "Var")
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return sameVariable(constructExp.Variable, destructExp.Variable);
 }
@@ -83,30 +83,30 @@ function allRAIIGuardedCallPoints(body, isConstructor)
 function isMatchingConstructor(destructor, edge)
 {
     if (edge.Kind != "Call")
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     var callee = edge.Exp[0];
     if (callee.Kind != "Var")
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     var variable = callee.Variable;
     if (variable.Kind != "Func")
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     var name = variable.Name[0];
     var destructorName = destructor.Exp[0].Variable.Name[0];
     var match = destructorName.match(/^(.*?::)~(\w+)\(/);
     if (!match) {
         printErr("Unhandled destructor syntax: " + destructorName);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     var constructorSubstring = match[1] + match[2];
     if (name.indexOf(constructorSubstring) == -1)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     var destructExp = destructor.PEdgeCallInstance.Exp;
     assert(destructExp.Kind == "Var");
 
     var constructExp = edge.PEdgeCallInstance.Exp;
     if (constructExp.Kind != "Var")
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return sameVariable(constructExp.Variable, destructExp.Variable);
 }

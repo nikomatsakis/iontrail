@@ -48,7 +48,7 @@ test(function() {
 /* Be sure to report the right statement */
 test(function() {
     function f() { return true; }
-    function g() { return false; }
+    function g() { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
 //234567890123456789012345678
     f(); g(); f(); if (f()) a += e;
 }, 28);

@@ -20,7 +20,7 @@ startTest();
 writeHeaderToLog( SECTION + " "+ TITLE);
 
 
-// 1. If Type(x) is different from Type(y) return false
+// 1. If Type(x) is different from Type(y) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
 
 StrictEquality( true, new Boolean(true), false );
 StrictEquality( new Boolean(), false, false );
@@ -29,11 +29,11 @@ StrictEquality( new String("hi"), "hi", false );
 
 // 2. If Type(x) is not Number go to step 9.
 
-// 3. If x is NaN, return false
+// 3. If x is NaN, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
 StrictEquality( NaN, NaN,   false );
 StrictEquality( NaN, 0,     false );
 
-// 4. If y is NaN, return false.
+// 4. If y is NaN, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false).
 StrictEquality( 0,  NaN,    false );
 
 // 5. if x is the same number value as y, return true
@@ -47,10 +47,10 @@ StrictEquality( 0,  NaN,    false );
 
 // 9.  If Type(x) is String, then return true if x and y are exactly
 //  the same sequence of characters ( same length and same characters
-//  in corresponding positions.) Otherwise return false.
+//  in corresponding positions.) Otherwise do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false).
 
 //  10. If Type(x) is Boolean, return true if x and y are both true or
-//  both false. otherwise return false.
+//  both false. otherwise do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false).
 
 
 //  Return true if x and y refer to the same object.  Otherwise return

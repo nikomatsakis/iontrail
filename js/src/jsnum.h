@@ -160,7 +160,7 @@ ToNumber(JSContext *cx, JS::MutableHandleValue vp)
     double d;
     extern JS_PUBLIC_API(bool) ToNumberSlow(JSContext *cx, Value v, double *dp);
     if (!ToNumberSlow(cx, vp, &d))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     vp.setNumber(d);
     return true;
@@ -226,7 +226,7 @@ IsDefinitelyIndex(const Value &v, uint32_t *indexp)
         return true;
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /* ES5 9.4 ToInteger. */
@@ -249,7 +249,7 @@ ToInteger(JSContext *cx, HandleValue v, double *dp)
     } else {
         extern JS_PUBLIC_API(bool) ToNumberSlow(JSContext *cx, Value v, double *dp);
         if (!ToNumberSlow(cx, v, dp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     *dp = ToInteger(*dp);
     return true;

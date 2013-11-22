@@ -552,10 +552,10 @@ OptionParser::addIntOption(char shortflag, const char *longflag, const char *met
                            const char *help, int defaultValue)
 {
     if (!options.reserve(options.length() + 1))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     IntOption *io = js_new<IntOption>(shortflag, longflag, help, metavar, defaultValue);
     if (!io)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     options.infallibleAppend(io);
     return true;
 }
@@ -564,10 +564,10 @@ bool
 OptionParser::addBoolOption(char shortflag, const char *longflag, const char *help)
 {
     if (!options.reserve(options.length() + 1))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     BoolOption *bo = js_new<BoolOption>(shortflag, longflag, help);
     if (!bo)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     options.infallibleAppend(bo);
     return true;
 }
@@ -577,10 +577,10 @@ OptionParser::addStringOption(char shortflag, const char *longflag, const char *
                               const char *help)
 {
     if (!options.reserve(options.length() + 1))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     StringOption *so = js_new<StringOption>(shortflag, longflag, help, metavar);
     if (!so)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     options.infallibleAppend(so);
     return true;
 }
@@ -590,10 +590,10 @@ OptionParser::addMultiStringOption(char shortflag, const char *longflag, const c
                                    const char *help)
 {
     if (!options.reserve(options.length() + 1))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     MultiStringOption *mso = js_new<MultiStringOption>(shortflag, longflag, help, metavar);
     if (!mso)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     options.infallibleAppend(mso);
     return true;
 }
@@ -604,10 +604,10 @@ bool
 OptionParser::addOptionalStringArg(const char *name, const char *help)
 {
     if (!arguments.reserve(arguments.length() + 1))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     StringOption *so = js_new<StringOption>(1, name, help, (const char *) nullptr);
     if (!so)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     arguments.infallibleAppend(so);
     return true;
 }
@@ -617,10 +617,10 @@ OptionParser::addOptionalMultiStringArg(const char *name, const char *help)
 {
     JS_ASSERT_IF(!arguments.empty(), !arguments.back()->isVariadic());
     if (!arguments.reserve(arguments.length() + 1))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     MultiStringOption *mso = js_new<MultiStringOption>(1, name, help, (const char *) nullptr);
     if (!mso)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     arguments.infallibleAppend(mso);
     return true;
 }

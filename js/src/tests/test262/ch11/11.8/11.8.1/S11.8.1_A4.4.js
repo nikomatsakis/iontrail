@@ -2,7 +2,7 @@
 // This code is governed by the BSD license found in the LICENSE file.
 
 /**
- * If x and y are +0 and -0, return false
+ * If x and y are +0 and -0, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
  *
  * @path ch11/11.8/11.8.1/S11.8.1_A4.4.js
  * @description Checking all combinations

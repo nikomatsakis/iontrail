@@ -29,7 +29,7 @@ probes::CallTrackingActive(JSContext *cx)
     if (cx->functionCallback)
         return true;
 #endif
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 inline bool

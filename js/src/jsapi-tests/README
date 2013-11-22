@@ -80,7 +80,7 @@ tests.h:
 
     CHECK(bool cond);
 
-        If the condition is not true, print an error message and return false,
+        If the condition is not true, print an error message and do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false),
         failing the test.
 
     CHECK_SAME(jsval a, jsval b);
@@ -102,7 +102,7 @@ tests.h:
         this of course will not help, so you should add something like
 
             knownFail = true;  // see bug 123456
-            return false;  // the code below crashes!
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);  // the code below crashes!
 
         as the first two lines of the test.
 

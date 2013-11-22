@@ -90,11 +90,11 @@ class JSAPITest
     virtual const char * name() = 0;
     virtual bool run(JS::HandleObject global) = 0;
 
-#define EXEC(s) do { if (!exec(s, __FILE__, __LINE__)) return false; } while (false)
+#define EXEC(s) do { if (!exec(s, __FILE__, __LINE__)) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); } while (false)
 
     bool exec(const char *bytes, const char *filename, int lineno);
 
-#define EVAL(s, vp) do { if (!evaluate(s, __FILE__, __LINE__, vp)) return false; } while (false)
+#define EVAL(s, vp) do { if (!evaluate(s, __FILE__, __LINE__, vp)) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); } while (false)
 
     bool evaluate(const char *bytes, const char *filename, int lineno, jsval *vp);
 
@@ -178,7 +178,7 @@ class JSAPITest
 #define CHECK_EQUAL(actual, expected) \
     do { \
         if (!checkEqual(actual, expected, #actual, #expected, __FILE__, __LINE__)) \
-            return false; \
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); \
     } while (false)
 
     bool checkSame(jsval actualArg, jsval expectedArg,
@@ -195,7 +195,7 @@ class JSAPITest
 #define CHECK_SAME(actual, expected) \
     do { \
         if (!checkSame(actual, expected, #actual, #expected, __FILE__, __LINE__)) \
-            return false; \
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); \
     } while (false)
 
 #define CHECK(expr) \
@@ -219,7 +219,7 @@ class JSAPITest
         }
         fprintf(stderr, "%s:%d:%.*s\n", filename, lineno, (int) msg.length(), msg.begin());
         msgs += msg;
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JSAPITestString messages() const { return msgs; }
@@ -242,10 +242,10 @@ class JSAPITest
         for (unsigned i = 0; i < args.length(); i++) {
             JSString *str = JS::ToString(cx, args[i]);
             if (!str)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             char *bytes = JS_EncodeString(cx, str);
             if (!bytes)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             printf("%s%s", i ? " " : "", bytes);
             JS_free(cx, bytes);
         }

@@ -14,7 +14,7 @@ function testcase() {
 
         try {
             eval("var \u0070\u0075\u0062\u006c\u0069\u0063 = 123;");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } catch (e) {
             return e instanceof SyntaxError;
         }

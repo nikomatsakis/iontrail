@@ -570,7 +570,7 @@ class MOZ_STACK_CLASS TokenStream
         if (getToken(modifier) == tt)
             return true;
         ungetToken();
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     void consumeKnownToken(TokenKind tt) {
@@ -581,7 +581,7 @@ class MOZ_STACK_CLASS TokenStream
         if (getToken() == TOK_NAME && currentToken().name() == keyword)
             return true;
         ungetToken();
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool nextTokenEndsExpr() {
@@ -648,7 +648,7 @@ class MOZ_STACK_CLASS TokenStream
     // true with *ttp unchanged.
     //
     // If it is a reserved word in this version and strictness mode, and thus
-    // can't be present in correct code, report a SyntaxError and return false.
+    // can't be present in correct code, report a SyntaxError and do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false).
     //
     // If it is a keyword, like "if", the behavior depends on ttp. If ttp is
     // null, report a SyntaxError ("if is a reserved identifier") and return
@@ -780,7 +780,7 @@ class MOZ_STACK_CLASS TokenStream
                 ptr++;
                 return true;
             }
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         bool matchRawCharBackwards(jschar c) {
@@ -789,7 +789,7 @@ class MOZ_STACK_CLASS TokenStream
                 ptr--;
                 return true;
             }
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         void ungetRawChar() {

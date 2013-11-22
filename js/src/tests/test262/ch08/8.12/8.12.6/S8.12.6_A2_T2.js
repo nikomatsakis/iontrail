@@ -3,7 +3,7 @@
 
 /**
  * When the [[HasProperty]] method of O is called with property name P and if O has not a property with name P
- * then If the [[Prototype]] of O is null, return false or call the [[HasProperty]] method of [[Prototype]] with property name P
+ * then If the [[Prototype]] of O is null, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false) or call the [[HasProperty]] method of [[Prototype]] with property name P
  *
  * @path ch08/8.12/8.12.6/S8.12.6_A2_T2.js
  * @description Try find not existent property of any Object, but existent property of this Object prototype

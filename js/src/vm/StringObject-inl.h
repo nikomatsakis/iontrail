@@ -23,11 +23,11 @@ StringObject::init(JSContext *cx, HandleString str)
     if (nativeEmpty()) {
         if (isDelegate()) {
             if (!assignInitialShape(cx))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             RootedShape shape(cx, assignInitialShape(cx));
             if (!shape)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             RootedObject proto(cx, self->getProto());
             EmptyShape::insertInitialShape(cx, shape, proto);
         }

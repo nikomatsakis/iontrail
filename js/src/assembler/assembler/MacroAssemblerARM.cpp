@@ -77,7 +77,7 @@ static bool isVFPPresent()
 #ifdef WTF_OS_ANDROID
     FILE *fp = fopen("/proc/cpuinfo", "r");
     if (!fp)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     char buf[1024];
     fread(buf, sizeof(char), sizeof(buf), fp);
@@ -86,7 +86,7 @@ static bool isVFPPresent()
         return true;
 #endif
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 const bool MacroAssemblerARM::s_isVFPPresent = isVFPPresent();

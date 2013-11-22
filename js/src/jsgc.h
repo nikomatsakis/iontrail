@@ -284,7 +284,7 @@ TryIncrementAllocKind(AllocKind *kindp)
 {
     size_t next = size_t(*kindp) + 2;
     if (next >= size_t(FINALIZE_OBJECT_LIMIT))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *kindp = AllocKind(next);
     return true;
 }
@@ -462,9 +462,9 @@ class ArenaLists
              * done.
              */
             if (backgroundFinalizeState[i] != BFS_DONE)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (arenaLists[i].head)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         return true;
     }
@@ -566,7 +566,7 @@ class ArenaLists
             JS_ASSERT(aheader->getFirstFreeSpan().isSameNonEmptySpan(headSpan));
             return true;
         }
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JS_ALWAYS_INLINE void *allocateFromFreeList(AllocKind thingKind, size_t thingSize) {
@@ -966,7 +966,7 @@ struct MarkStack {
         JS_ASSERT(!stack_);
         T *newStack = js_pod_malloc<T>(baseCapacity_);
         if (!newStack)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         setStack(newStack, 0, baseCapacity_);
         return true;
@@ -984,7 +984,7 @@ struct MarkStack {
     bool push(T item) {
         if (tos_ == end_) {
             if (!enlarge())
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         JS_ASSERT(tos_ < end_);
         *tos_++ = item;
@@ -995,7 +995,7 @@ struct MarkStack {
         T *nextTos = tos_ + 3;
         if (nextTos > end_) {
             if (!enlarge())
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             nextTos = tos_ + 3;
         }
         JS_ASSERT(nextTos <= end_);
@@ -1034,7 +1034,7 @@ struct MarkStack {
 
     bool enlarge() {
         if (capacity() == maxCapacity_)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         size_t newCapacity = capacity() * 2;
         if (newCapacity > maxCapacity_)
@@ -1044,7 +1044,7 @@ struct MarkStack {
 
         T *newStack = (T *)js_realloc(stack_, sizeof(T) * newCapacity);
         if (!newStack)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         setStack(newStack, tosIndex, newCapacity);
         return true;
@@ -1096,7 +1096,7 @@ struct SliceBudget {
 
     bool isOverBudget() {
         if (counter >= 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         return checkOverBudget();
     }
 };

@@ -7,7 +7,7 @@
 //-----------------------------------------------------------------------------
 function compareArray(aExpected, aActual) {
     if (aActual.length != aExpected.length) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     aExpected.sort();
@@ -16,7 +16,7 @@ function compareArray(aExpected, aActual) {
     var s;
     for (var i = 0; i < aExpected.length; i++) {
         if (aActual[i] !== aExpected[i]) {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
     return true;
@@ -34,7 +34,7 @@ function arrayContains(arr, expected) {
             }
         }
         if (!found) {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
     return true;
@@ -93,7 +93,7 @@ function ConvertToFileUrl(pathStr) {
 //-----------------------------------------------------------------------------
 function fnExists(/*arguments*/) {
     for (var i = 0; i < arguments.length; i++) {
-        if (typeof (arguments[i]) !== "function") return false;
+        if (typeof (arguments[i]) !== "function") do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -109,7 +109,7 @@ function fnSupportsStrict() {
     "use strict";
     try {
         eval('with ({}) {}');
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } catch (e) {
         return true;
     }
@@ -118,7 +118,7 @@ function fnSupportsStrict() {
 //-----------------------------------------------------------------------------
 //Verify all attributes specified data property of given object:
 //value, writable, enumerable, configurable
-//If all attribute values are expected, return true, otherwise, return false
+//If all attribute values are expected, return true, otherwise, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
 function dataPropertyAttributesAreCorrect(obj,
                                           name,
                                           value,
@@ -193,7 +193,7 @@ function dataPropertyAttributesAreCorrect(obj,
 //-----------------------------------------------------------------------------
 //Verify all attributes specified accessor property of given object:
 //get, set, enumerable, configurable
-//If all attribute values are expected, return true, otherwise, return false
+//If all attribute values are expected, return true, otherwise, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
 function accessorPropertyAttributesAreCorrect(obj,
                                               name,
                                               get,

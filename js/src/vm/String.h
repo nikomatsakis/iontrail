@@ -1031,7 +1031,7 @@ JSString::getChar(js::ExclusiveContext *cx, size_t index, jschar *code)
     }
 
     if (!chars)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *code = chars[index];
     return true;

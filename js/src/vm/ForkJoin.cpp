@@ -104,7 +104,7 @@ bool
 ForkJoinSlice::setPendingAbortFatal(ParallelBailoutCause cause)
 {
     MOZ_ASSUME_UNREACHABLE("Not THREADSAFE build");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 void
@@ -135,13 +135,13 @@ ParallelBailoutRecord::addTrace(JSScript *script,
 bool
 js::InExclusiveParallelSection()
 {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
 js::ParallelTestsShouldPass(JSContext *cx)
 {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 #endif // !JS_THREADSAFE || !JS_ION
@@ -160,14 +160,14 @@ ExecuteSequentially(JSContext *cx, HandleValue funVal, bool *complete)
     for (uint32_t i = 0; i < numSlices; i++) {
         InvokeArgs &args = fig.args();
         if (!args.init(3))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args.setCallee(funVal);
         args.setThis(UndefinedValue());
         args[0].setInt32(i);
         args[1].setInt32(numSlices);
         args[2].setBoolean(!!cx->runtime()->parallelWarmup);
         if (!fig.invoke(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         allComplete = allComplete & args.rval().toBoolean();
     }
     *complete = allComplete;
@@ -518,7 +518,7 @@ js::ForkJoin(JSContext *cx, CallArgs &args)
     ParallelDo op(cx, fun, mode);
     ExecutionStatus status = op.apply();
     if (status == ExecutionFatal)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     switch (mode) {
       case ForkJoinModeNormal:
@@ -555,7 +555,7 @@ js::ForkJoin(JSContext *cx, CallArgs &args)
     if (ParallelTestsShouldPass(cx)) {
         JS_ReportError(cx, "ForkJoin: mode=%s status=%s bailouts=%d",
                        ForkJoinModeString(mode), statusString, op.bailouts);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         return true;
     }
@@ -972,11 +972,11 @@ js::ParallelDo::addToWorklist(HandleScript script)
     // Method_Compiled and not Method_Skipped if we have a worklist full of
     // already-compiled functions.
     if (!worklist_.append(script))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // we have not yet enqueued the callees of this script
     if (!worklistData_.append(WorklistData()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     worklistData_[worklistData_.length() - 1].reset();
 
     return true;
@@ -1140,12 +1140,12 @@ js::ParallelDo::invalidateBailedOutScripts()
         types::RecompileInfo co = script->parallelIonScript()->recompileInfo();
 
         if (!invalid.append(co))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         // any script that we have marked for invalidation will need
         // to be recompiled
         if (!addToWorklist(script))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     Invalidate(cx_, invalid);
@@ -1255,7 +1255,7 @@ js::ParallelDo::hasScript(Vector<types::RecompileInfo> &scripts, JSScript *scrip
         if (scripts[i] == script->parallelIonScript()->recompileInfo())
             return true;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 // Can only enter callees with a valid IonScript.
@@ -1343,24 +1343,24 @@ ForkJoinShared::init()
     // main thread would be permitted to write to any object it wants.
 
     if (!Monitor::init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     rendezvousEnd_ = PR_NewCondVar(lock_);
     if (!rendezvousEnd_)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     cxLock_ = PR_NewLock();
     if (!cxLock_)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (unsigned i = 0; i < numSlices_; i++) {
         Allocator *allocator = cx_->new_<Allocator>(cx_->zone());
         if (!allocator)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!allocators_.append(allocator)) {
             js_delete(allocator);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -1521,7 +1521,7 @@ ForkJoinShared::check(ForkJoinSlice &slice)
     JS_ASSERT(cx_->runtime()->interrupt);
 
     if (abort_)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (slice.isMainThread()) {
         JS_ASSERT(!cx_->runtime()->gcIsNeeded);
@@ -1539,7 +1539,7 @@ ForkJoinShared::check(ForkJoinSlice &slice)
             //     return setAbortFlag(true);
             slice.bailoutRecord->setCause(ParallelBailoutInterrupt);
             setAbortFlag(false);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     } else if (rendezvous_) {
         joinRendezvous(slice);
@@ -1752,7 +1752,7 @@ ForkJoinSlice::InitializeTLS()
 {
     if (!TLSInitialized) {
         if (PR_NewThreadPrivateIndex(&ThreadPrivateIndex, nullptr) != PR_SUCCESS)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         TLSInitialized = true;
     }
     return true;
@@ -1779,7 +1779,7 @@ ForkJoinSlice::setPendingAbortFatal(ParallelBailoutCause cause)
 {
     shared->setPendingAbortFatal();
     bailoutRecord->setCause(cause);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /////////////////////////////////////////////////////////////////////////////

@@ -65,7 +65,7 @@ ComputeAccurateDecimalInteger(ThreadSafeContext *cx,
     size_t length = end - start;
     char *cstr = cx->pod_malloc<char>(length + 1);
     if (!cstr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (size_t i = 0; i < length; i++) {
         char c = char(start[i]);
@@ -80,7 +80,7 @@ ComputeAccurateDecimalInteger(ThreadSafeContext *cx,
     if (err == JS_DTOA_ENOMEM) {
         js_ReportOutOfMemory(cx);
         js_free(cstr);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     js_free(cstr);
     return true;
@@ -275,7 +275,7 @@ num_isNaN(JSContext *cx, unsigned argc, Value *vp)
 
     double x;
     if (!ToNumber(cx, args[0], &x))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setBoolean(mozilla::IsNaN(x));
     return true;
@@ -293,7 +293,7 @@ num_isFinite(JSContext *cx, unsigned argc, Value *vp)
 
     double x;
     if (!ToNumber(cx, args[0], &x))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setBoolean(mozilla::IsFinite(x));
     return true;
@@ -310,15 +310,15 @@ num_parseFloat(JSContext *cx, unsigned argc, Value *vp)
     }
     JSString *str = ToString<CanGC>(cx, args[0]);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     const jschar *bp = str->getChars(cx);
     if (!bp)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     const jschar *end = bp + str->length();
     const jschar *ep;
     double d;
     if (!js_strtod(cx, bp, end, &ep, &d))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (ep == bp) {
         args.rval().setNaN();
         return true;
@@ -377,7 +377,7 @@ js::num_parseInt(JSContext *cx, unsigned argc, Value *vp)
     /* Step 1. */
     RootedString inputString(cx, ToString<CanGC>(cx, args[0]));
     if (!inputString)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args[0].setString(inputString);
 
     /* Steps 6-9. */
@@ -387,7 +387,7 @@ js::num_parseInt(JSContext *cx, unsigned argc, Value *vp)
         radix = 10;
     } else {
         if (!ToInt32(cx, args[1], &radix))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (radix == 0) {
             radix = 10;
         } else {
@@ -406,7 +406,7 @@ js::num_parseInt(JSContext *cx, unsigned argc, Value *vp)
     {
         const jschar *ws = inputString->getChars(cx);
         if (!ws)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         end = ws + inputString->length();
         s = SkipSpace(ws, end);
 
@@ -433,7 +433,7 @@ js::num_parseInt(JSContext *cx, unsigned argc, Value *vp)
     const jschar *actualEnd;
     double number;
     if (!GetPrefixInteger(cx, s, end, radix, &actualEnd, &number))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (s == actualEnd)
         args.rval().setNaN();
     else
@@ -471,7 +471,7 @@ Number(JSContext *cx, unsigned argc, Value *vp)
 
     if (args.length() > 0) {
         if (!ToNumber(cx, args[0]))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args.rval().set(args[0]);
     } else {
         args.rval().setInt32(0);
@@ -482,7 +482,7 @@ Number(JSContext *cx, unsigned argc, Value *vp)
 
     JSObject *obj = NumberObject::create(cx, args.rval().toNumber());
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setObject(*obj);
     return true;
 }
@@ -512,12 +512,12 @@ num_toSource_impl(JSContext *cx, CallArgs args)
         !NumberValueToStringBuffer(cx, NumberValue(d), sb) ||
         !sb.append("))"))
     {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JSString *str = sb.finishString();
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setString(str);
     return true;
 }
@@ -693,11 +693,11 @@ num_toString_impl(JSContext *cx, CallArgs args)
     if (args.hasDefined(0)) {
         double d2;
         if (!ToInteger(cx, args[0], &d2))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (d2 < 2 || d2 > 36) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_BAD_RADIX);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         base = int32_t(d2);
@@ -705,7 +705,7 @@ num_toString_impl(JSContext *cx, CallArgs args)
     JSString *str = js_NumberToStringWithBase<CanGC>(cx, d, base);
     if (!str) {
         JS_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     args.rval().setString(str);
     return true;
@@ -729,7 +729,7 @@ num_toLocaleString_impl(JSContext *cx, CallArgs args)
     Rooted<JSString*> str(cx, js_NumberToStringWithBase<CanGC>(cx, d, 10));
     if (!str) {
         JS_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /*
@@ -738,10 +738,10 @@ num_toLocaleString_impl(JSContext *cx, CallArgs args)
      */
     JSAutoByteString numBytes(cx, str);
     if (!numBytes)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     const char *num = numBytes.ptr();
     if (!num)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Find the first non-integer value, whether it be a letter as in
@@ -795,7 +795,7 @@ num_toLocaleString_impl(JSContext *cx, CallArgs args)
 
     char *buf = cx->pod_malloc<char>(buflen + 1);
     if (!buf)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     char *tmpDest = buf;
     const char *tmpSrc = num;
@@ -839,7 +839,7 @@ num_toLocaleString_impl(JSContext *cx, CallArgs args)
     str = js_NewStringCopyN<CanGC>(cx, buf, buflen);
     js_free(buf);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setString(str);
     return true;
@@ -876,7 +876,7 @@ ComputePrecisionInRange(JSContext *cx, int minPrecision, int maxPrecision, Handl
 {
     double prec;
     if (!ToInteger(cx, v, &prec))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (minPrecision <= prec && prec <= maxPrecision) {
         *precision = int(prec);
         return true;
@@ -885,7 +885,7 @@ ComputePrecisionInRange(JSContext *cx, int minPrecision, int maxPrecision, Handl
     ToCStringBuf cbuf;
     if (char *numStr = NumberToCString(cx, &cbuf, prec, 10))
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_PRECISION_RANGE, numStr);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static bool
@@ -895,11 +895,11 @@ DToStrResult(JSContext *cx, double d, JSDToStrMode mode, int precision, CallArgs
     char *numStr = js_dtostr(cx->mainThread().dtoaState, buf, sizeof buf, mode, precision, d);
     if (!numStr) {
         JS_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     JSString *str = js_NewStringCopyZ<CanGC>(cx, numStr);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setString(str);
     return true;
 }
@@ -918,7 +918,7 @@ num_toFixed_impl(JSContext *cx, CallArgs args)
         precision = 0;
     } else {
         if (!ComputePrecisionInRange(cx, -20, MAX_PRECISION, args[0], &precision))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return DToStrResult(cx, Extract(args.thisv()), DTOSTR_FIXED, precision, args);
@@ -944,7 +944,7 @@ num_toExponential_impl(JSContext *cx, CallArgs args)
     } else {
         mode = DTOSTR_EXPONENTIAL;
         if (!ComputePrecisionInRange(cx, 0, MAX_PRECISION, args[0], &precision))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return DToStrResult(cx, Extract(args.thisv()), mode, precision + 1, args);
@@ -968,7 +968,7 @@ num_toPrecision_impl(JSContext *cx, CallArgs args)
         JSString *str = js_NumberToStringWithBase<CanGC>(cx, d, 10);
         if (!str) {
             JS_ReportOutOfMemory(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         args.rval().setString(str);
         return true;
@@ -982,7 +982,7 @@ num_toPrecision_impl(JSContext *cx, CallArgs args)
     } else {
         mode = DTOSTR_PRECISION;
         if (!ComputePrecisionInRange(cx, 1, MAX_PRECISION, args[0], &precision))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return DToStrResult(cx, d, mode, precision, args);
@@ -1067,7 +1067,7 @@ Number_toInteger(JSContext *cx, unsigned argc, Value *vp)
     }
     double asint;
     if (!ToInteger(cx, args[0], &asint))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setNumber(asint);
     return true;
 }
@@ -1184,7 +1184,7 @@ js::InitRuntimeNumberState(JSRuntime *rt)
                                         decimalPointSize +
                                         groupingSize);
     if (!storage)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     js_memcpy(storage, thousandsSeparator, thousandsSeparatorSize);
     rt->thousandsSeparator = storage;
@@ -1463,7 +1463,7 @@ js::NumberValueToStringBuffer(JSContext *cx, const Value &v, StringBuffer &sb)
         cstr = NumberToCString(cx, &cbuf, v.toDouble());
         if (!cstr) {
             JS_ReportOutOfMemory(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         cstrlen = strlen(cstr);
     }
@@ -1533,7 +1533,7 @@ js::StringToNumber(ThreadSafeContext *cx, JSString *str, double *result)
 {
     ScopedThreadSafeStringInspector inspector(str);
     if (!inspector.ensureChars(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     CharsToNumber(cx, inspector.chars(), str->length(), result);
     return true;
 }
@@ -1599,11 +1599,11 @@ js::ToNumberSlow(ExclusiveContext *cx, Value v, double *out)
             return NonObjectToNumberSlow(cx, v, out);
 
         if (!cx->isJSContext())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         RootedValue v2(cx, v);
         if (!ToPrimitive(cx->asJSContext(), JSTYPE_NUMBER, &v2))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         v = v2;
         if (v.isObject())
             break;
@@ -1636,7 +1636,7 @@ js::ToInt64Slow(JSContext *cx, const HandleValue v, int64_t *out)
         d = v.toDouble();
     } else {
         if (!ToNumberSlow(cx, v, &d))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     *out = ToInt64(d);
     return true;
@@ -1655,7 +1655,7 @@ js::ToUint64Slow(JSContext *cx, const HandleValue v, uint64_t *out)
         d = v.toDouble();
     } else {
         if (!ToNumberSlow(cx, v, &d))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     *out = ToUint64(d);
     return true;
@@ -1673,7 +1673,7 @@ ToInt32SlowImpl(ContextType *cx, const ValueType v, int32_t *out)
         d = v.toDouble();
     } else {
         if (!ToNumberSlowFn(cx, v, &d))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     *out = ToInt32(d);
     return true;
@@ -1703,7 +1703,7 @@ ToUint32SlowImpl(ContextType *cx, const ValueType v, uint32_t *out)
         d = v.toDouble();
     } else {
         if (!ToNumberSlowFn(cx, v, &d))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     *out = ToUint32(d);
     return true;
@@ -1729,7 +1729,7 @@ js::ToUint16Slow(JSContext *cx, const HandleValue v, uint16_t *out)
     if (v.isDouble()) {
         d = v.toDouble();
     } else if (!ToNumberSlow(cx, v, &d)) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (d == 0 || !mozilla::IsFinite(d)) {
@@ -1771,7 +1771,7 @@ js_strtod(ThreadSafeContext *cx, const jschar *s, const jschar *send,
     if (length >= sizeof cbuf) {
         cstr = (char *) cx->malloc_(length + 1);
         if (!cstr)
-           return false;
+           do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         cstr = cbuf;
     }

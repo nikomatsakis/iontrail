@@ -94,7 +94,7 @@ ReportMoreArgsNeeded(JSContext *cx, const char *name, unsigned required)
     s[1] = '\0';
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MORE_ARGS_NEEDED,
                          name, s, required == 2 ? "" : "s");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 #define REQUIRE_ARGC(name, n)                                                 \
@@ -107,20 +107,20 @@ static bool
 ReportObjectRequired(JSContext *cx)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_NOT_NONNULL_OBJECT);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static bool
 ValueToIdentifier(JSContext *cx, HandleValue v, MutableHandleId id)
 {
     if (!ValueToId<CanGC>(cx, v, id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!JSID_IS_ATOM(id) || !IsIdentifier(JSID_TO_ATOM(id))) {
         RootedValue val(cx, v);
         js_ReportValueErrorFlags(cx, JSREPORT_ERROR, JSMSG_UNEXPECTED_TYPE,
                                  JSDVG_SEARCH_STACK, val, NullPtr(), "not an identifier",
                                  nullptr);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -316,7 +316,7 @@ BreakpointSite::hasBreakpoint(Breakpoint *bp)
     for (Breakpoint *p = firstBreakpoint(); p; p = p->nextInSite())
         if (p == bp)
             return true;
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 Breakpoint::Breakpoint(Debugger *debugger, BreakpointSite *site, JSObject *handler)
@@ -437,14 +437,14 @@ Debugger::getScriptFrame(JSContext *cx, AbstractFramePtr frame, MutableHandleVal
         JSObject *frameobj =
             NewObjectWithGivenProto(cx, &DebuggerFrame_class, proto, nullptr);
         if (!frameobj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         frameobj->setPrivate(frame.raw());
         frameobj->setReservedSlot(JSSLOT_DEBUGFRAME_OWNER, ObjectValue(*object));
 
         if (!frames.add(p, frame, frameobj)) {
             js_ReportOutOfMemory(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
     vp.setObject(*p->value);
@@ -463,7 +463,7 @@ bool
 Debugger::hasAnyLiveHooks() const
 {
     if (!enabled)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (getHook(OnDebuggerStatement) ||
         getHook(OnExceptionUnwind) ||
@@ -486,7 +486,7 @@ Debugger::hasAnyLiveHooks() const
             return true;
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 JSTrapStatus
@@ -541,7 +541,7 @@ Debugger::slowPathOnLeaveFrame(JSContext *cx, AbstractFramePtr frame, bool frame
     for (FrameRange r(frame, global); !r.empty(); r.popFront()) {
         if (!frames.append(r.frontFrame())) {
             cx->clearPendingException();
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -625,11 +625,11 @@ Debugger::slowPathOnLeaveFrame(JSContext *cx, AbstractFramePtr frame, bool frame
 
       case JSTRAP_THROW:
         cx->setPendingException(value);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
       case JSTRAP_ERROR:
         JS_ASSERT(!cx->isExceptionPending());
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
       default:
         MOZ_ASSUME_UNREACHABLE("bad final trap status");
@@ -659,19 +659,19 @@ Debugger::wrapEnvironment(JSContext *cx, Handle<Env*> env, MutableHandleValue rv
         JSObject *proto = &object->getReservedSlot(JSSLOT_DEBUG_ENV_PROTO).toObject();
         envobj = NewObjectWithGivenProto(cx, &DebuggerEnv_class, proto, nullptr, TenuredObject);
         if (!envobj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         envobj->setPrivateGCThing(env);
         envobj->setReservedSlot(JSSLOT_DEBUGENV_OWNER, ObjectValue(*object));
         if (!environments.relookupOrAdd(p, env, envobj)) {
             js_ReportOutOfMemory(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         CrossCompartmentKey key(CrossCompartmentKey::DebuggerEnvironment, object, env);
         if (!object->compartment()->putWrapper(key, ObjectValue(*envobj))) {
             environments.remove(env);
             js_ReportOutOfMemory(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
     rval.setObject(*envobj);
@@ -695,12 +695,12 @@ Debugger::wrapDebuggeeValue(JSContext *cx, MutableHandleValue vp)
             JSObject *dobj =
                 NewObjectWithGivenProto(cx, &DebuggerObject_class, proto, nullptr, TenuredObject);
             if (!dobj)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             dobj->setPrivateGCThing(obj);
             dobj->setReservedSlot(JSSLOT_DEBUGOBJECT_OWNER, ObjectValue(*object));
             if (!objects.relookupOrAdd(p, obj, dobj)) {
                 js_ReportOutOfMemory(cx);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             if (obj->compartment() != object->compartment()) {
@@ -708,7 +708,7 @@ Debugger::wrapDebuggeeValue(JSContext *cx, MutableHandleValue vp)
                 if (!object->compartment()->putWrapper(key, ObjectValue(*dobj))) {
                     objects.remove(obj);
                     js_ReportOutOfMemory(cx);
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
 
@@ -716,7 +716,7 @@ Debugger::wrapDebuggeeValue(JSContext *cx, MutableHandleValue vp)
         }
     } else if (!cx->compartment()->wrap(cx, vp)) {
         vp.setUndefined();
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -731,7 +731,7 @@ Debugger::unwrapDebuggeeValue(JSContext *cx, MutableHandleValue vp)
         if (dobj->getClass() != &DebuggerObject_class) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_NOT_EXPECTED_TYPE,
                                  "Debugger", "Debugger.Object", dobj->getClass()->name);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         Value owner = dobj->getReservedSlot(JSSLOT_DEBUGOBJECT_OWNER);
@@ -740,7 +740,7 @@ Debugger::unwrapDebuggeeValue(JSContext *cx, MutableHandleValue vp)
                                  owner.isUndefined()
                                  ? JSMSG_DEBUG_OBJECT_PROTO
                                  : JSMSG_DEBUG_OBJECT_WRONG_OWNER);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         vp.setObject(*static_cast<JSObject*>(dobj->getPrivate()));
@@ -840,7 +840,7 @@ Debugger::newCompletionValue(JSContext *cx, JSTrapStatus status, Value value_,
         !DefineNativeProperty(cx, obj, key, value, JS_PropertyStub, JS_StrictPropertyStub,
                               JSPROP_ENUMERATE, 0, 0))
     {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     result.setObject(*obj);
@@ -920,7 +920,7 @@ CallMethodIfPresent(JSContext *cx, HandleObject obj, const char *name, int argc,
     rval.setUndefined();
     JSAtom *atom = Atomize(cx, name, strlen(name));
     if (!atom)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedId id(cx, AtomToId(atom));
     RootedValue fval(cx);
@@ -1071,7 +1071,7 @@ AddNewScriptRecipients(GlobalObject::DebuggerVector *src, AutoValueVector *dest)
             (wasEmpty || Find(dest->begin(), dest->end(), v) == dest->end()) &&
             !dest->append(v))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
     return true;
@@ -1702,7 +1702,7 @@ Debugger::fromThisValue(JSContext *cx, const CallArgs &args, const char *fnname)
     CallArgs args = CallArgsFromVp(argc, vp);                                \
     Debugger *dbg = Debugger::fromThisValue(cx, args, fnname);               \
     if (!dbg)                                                                \
-        return false
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
 
 bool
 Debugger::getEnabled(JSContext *cx, unsigned argc, Value *vp)
@@ -1770,7 +1770,7 @@ Debugger::setHookImpl(JSContext *cx, unsigned argc, Value *vp, Hook which)
             return ReportIsNotFunction(cx, args[0], args.length() - 1);
     } else if (!args[0].isUndefined()) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_NOT_CALLABLE_OR_UNDEFINED);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     dbg->object->setReservedSlot(JSSLOT_DEBUG_HOOK_START + which, args[0]);
     args.rval().setUndefined();
@@ -1838,7 +1838,7 @@ Debugger::setOnNewGlobalObject(JSContext *cx, unsigned argc, Value *vp)
     RootedObject oldHook(cx, dbg->getHook(OnNewGlobalObject));
 
     if (!setHookImpl(cx, argc, vp, OnNewGlobalObject))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Add or remove ourselves from the runtime's list of Debuggers that
@@ -1877,7 +1877,7 @@ Debugger::setUncaughtExceptionHook(JSContext *cx, unsigned argc, Value *vp)
     if (!args[0].isNull() && (!args[0].isObject() || !args[0].toObject().isCallable())) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_ASSIGN_FUNCTION_OR_NULL,
                              "uncaughtExceptionHook");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     dbg->uncaughtExceptionHook = args[0].toObjectOrNull();
@@ -1933,14 +1933,14 @@ Debugger::addDebuggee(JSContext *cx, unsigned argc, Value *vp)
     THIS_DEBUGGER(cx, argc, vp, "addDebuggee", args, dbg);
     Rooted<GlobalObject*> global(cx, dbg->unwrapDebuggeeArgument(cx, args[0]));
     if (!global)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!dbg->addDebuggeeGlobal(cx, global))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue v(cx, ObjectValue(*global));
     if (!dbg->wrapDebuggeeValue(cx, &v))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().set(v);
     return true;
 }
@@ -1958,7 +1958,7 @@ Debugger::addAllGlobalsAsDebuggees(JSContext *cx, unsigned argc, Value *vp)
         if (global) {
             Rooted<GlobalObject*> rg(cx, global);
             if (!dbg->addDebuggeeGlobal(cx, rg, dmgc))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -1973,7 +1973,7 @@ Debugger::removeDebuggee(JSContext *cx, unsigned argc, Value *vp)
     THIS_DEBUGGER(cx, argc, vp, "removeDebuggee", args, dbg);
     GlobalObject *global = dbg->unwrapDebuggeeArgument(cx, args[0]);
     if (!global)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (dbg->debuggees.has(global))
         dbg->removeDebuggeeGlobal(cx->runtime()->defaultFreeOp(), global, nullptr, nullptr);
     args.rval().setUndefined();
@@ -1998,7 +1998,7 @@ Debugger::hasDebuggee(JSContext *cx, unsigned argc, Value *vp)
     THIS_DEBUGGER(cx, argc, vp, "hasDebuggee", args, dbg);
     GlobalObject *global = dbg->unwrapDebuggeeArgument(cx, args[0]);
     if (!global)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setBoolean(!!dbg->debuggees.lookup(global));
     return true;
 }
@@ -2009,13 +2009,13 @@ Debugger::getDebuggees(JSContext *cx, unsigned argc, Value *vp)
     THIS_DEBUGGER(cx, argc, vp, "getDebuggees", args, dbg);
     RootedObject arrobj(cx, NewDenseAllocatedArray(cx, dbg->debuggees.count()));
     if (!arrobj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     arrobj->ensureDenseInitializedLength(cx, 0, dbg->debuggees.count());
     unsigned i = 0;
     for (GlobalObjectSet::Enum e(dbg->debuggees); !e.empty(); e.popFront()) {
         RootedValue v(cx, ObjectValue(*e.front()));
         if (!dbg->wrapDebuggeeValue(cx, &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         arrobj->setDenseElement(i++, v);
     }
     args.rval().setObject(*arrobj);
@@ -2070,7 +2070,7 @@ Debugger::construct(JSContext *cx, unsigned argc, Value *vp)
         if (!argobj->is<CrossCompartmentWrapperObject>()) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CCW_REQUIRED,
                                  "Debugger");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -2078,7 +2078,7 @@ Debugger::construct(JSContext *cx, unsigned argc, Value *vp)
     RootedValue v(cx);
     RootedObject callee(cx, &args.callee());
     if (!JSObject::getProperty(cx, callee, callee, cx->names().prototype, &v))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedObject proto(cx, &v.toObject());
     JS_ASSERT(proto->getClass() == &Debugger::jsclass);
 
@@ -2089,17 +2089,17 @@ Debugger::construct(JSContext *cx, unsigned argc, Value *vp)
      */
     RootedObject obj(cx, NewObjectWithGivenProto(cx, &Debugger::jsclass, proto, nullptr));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     for (unsigned slot = JSSLOT_DEBUG_PROTO_START; slot < JSSLOT_DEBUG_PROTO_STOP; slot++)
         obj->setReservedSlot(slot, proto->getReservedSlot(slot));
 
     Debugger *dbg = cx->new_<Debugger>(cx, obj.get());
     if (!dbg)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     obj->setPrivate(dbg);
     if (!dbg->init(cx)) {
         js_delete(dbg);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Add the initial debuggees, if any. */
@@ -2107,7 +2107,7 @@ Debugger::construct(JSContext *cx, unsigned argc, Value *vp)
         Rooted<GlobalObject*>
             debuggee(cx, &args[i].toObject().as<ProxyObject>().private_().toObject().global());
         if (!dbg->addDebuggeeGlobal(cx, debuggee))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args.rval().setObject(*obj);
@@ -2137,7 +2137,7 @@ Debugger::addDebuggeeGlobal(JSContext *cx,
     if (debuggeeCompartment->options().invisibleToDebugger()) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                              JSMSG_DEBUG_CANT_DEBUG_GLOBAL);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /*
@@ -2148,12 +2148,12 @@ Debugger::addDebuggeeGlobal(JSContext *cx,
      */
     Vector<JSCompartment *> visited(cx);
     if (!visited.append(object->compartment()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     for (size_t i = 0; i < visited.length(); i++) {
         JSCompartment *c = visited[i];
         if (c == debuggeeCompartment) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEBUG_LOOP);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         /*
@@ -2165,7 +2165,7 @@ Debugger::addDebuggeeGlobal(JSContext *cx,
             for (Debugger **p = v->begin(); p != v->end(); p++) {
                 JSCompartment *next = (*p)->object->compartment();
                 if (Find(visited, next) == visited.end() && !visited.append(next))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
     }
@@ -2173,7 +2173,7 @@ Debugger::addDebuggeeGlobal(JSContext *cx,
     /* Refuse to enable debug mode for a compartment that has running scripts. */
     if (!debuggeeCompartment->debugMode() && debuggeeCompartment->hasScriptsOnStack()) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEBUG_NOT_IDLE);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /*
@@ -2199,7 +2199,7 @@ Debugger::addDebuggeeGlobal(JSContext *cx,
         JS_ASSERT(v->back() == this);
         v->popBack();
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 void
@@ -2285,7 +2285,7 @@ class Debugger::ScriptQuery {
     {}
 
     /*
-     * Initialize this ScriptQuery. Raise an error and return false if we
+     * Initialize this ScriptQuery. Raise an error and do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false) if we
      * haven't enough memory.
      */
     bool init() {
@@ -2293,7 +2293,7 @@ class Debugger::ScriptQuery {
             !innermostForCompartment.init())
         {
             js_ReportOutOfMemory(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         return true;
@@ -2310,13 +2310,13 @@ class Debugger::ScriptQuery {
          */
         RootedValue global(cx);
         if (!JSObject::getProperty(cx, query, query, cx->names().global, &global))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (global.isUndefined()) {
             matchAllDebuggeeGlobals();
         } else {
             GlobalObject *globalObject = debugger->unwrapDebuggeeArgument(cx, global);
             if (!globalObject)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             /*
              * If the given global isn't a debuggee, just leave the set of
@@ -2324,35 +2324,35 @@ class Debugger::ScriptQuery {
              */
             if (debugger->debuggees.has(globalObject)) {
                 if (!matchSingleGlobal(globalObject))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
 
         /* Check for a 'url' property. */
         if (!JSObject::getProperty(cx, query, query, cx->names().url, &url))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!url.isUndefined() && !url.isString()) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_UNEXPECTED_TYPE,
                                  "query object's 'url' property", "neither undefined nor a string");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         /* Check for a 'line' property. */
         RootedValue lineProperty(cx);
         if (!JSObject::getProperty(cx, query, query, cx->names().line, &lineProperty))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (lineProperty.isUndefined()) {
             hasLine = false;
         } else if (lineProperty.isNumber()) {
             if (url.isUndefined()) {
                 JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                                      JSMSG_QUERY_LINE_WITHOUT_URL);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             double doubleLine = lineProperty.toNumber();
             if (doubleLine <= 0 || (unsigned int) doubleLine != doubleLine) {
                 JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEBUG_BAD_LINE);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             hasLine = true;
             line = doubleLine;
@@ -2360,21 +2360,21 @@ class Debugger::ScriptQuery {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_UNEXPECTED_TYPE,
                                  "query object's 'line' property",
                                  "neither undefined nor an integer");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         /* Check for an 'innermost' property. */
         PropertyName *innermostName = cx->names().innermost;
         RootedValue innermostProperty(cx);
         if (!JSObject::getProperty(cx, query, query, innermostName, &innermostProperty))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         innermost = ToBoolean(innermostProperty);
         if (innermost) {
             /* Technically, we need only check hasLine, but this is clearer. */
             if (url.isUndefined() || !hasLine) {
                 JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                                      JSMSG_QUERY_INNERMOST_WITHOUT_LINE_URL);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
 
@@ -2395,7 +2395,7 @@ class Debugger::ScriptQuery {
      */
     bool findScripts(AutoScriptVector *v) {
         if (!prepareQuery())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* Search each compartment for debuggee scripts. */
         vector = v;
@@ -2403,7 +2403,7 @@ class Debugger::ScriptQuery {
         IterateScripts(cx->runtime(), nullptr, this, considerScript);
         if (oom) {
             js_ReportOutOfMemory(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         /*
@@ -2418,7 +2418,7 @@ class Debugger::ScriptQuery {
                  r.popFront()) {
                 if (!v->append(r.front().value)) {
                     js_ReportOutOfMemory(cx);
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
         }
@@ -2475,7 +2475,7 @@ class Debugger::ScriptQuery {
         JS_ASSERT(compartments.count() == 0);
         if (!compartments.put(global->compartment())) {
             js_ReportOutOfMemory(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         return true;
     }
@@ -2490,7 +2490,7 @@ class Debugger::ScriptQuery {
         for (GlobalObjectSet::Range r = debugger->debuggees.all(); !r.empty(); r.popFront()) {
             if (!compartments.put(r.front()->compartment())) {
                 js_ReportOutOfMemory(cx);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
         return true;
@@ -2504,7 +2504,7 @@ class Debugger::ScriptQuery {
         /* Compute urlCString, if a url was given. */
         if (url.isString()) {
             if (!urlCString.encodeLatin1(cx, url.toString()))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         return true;
@@ -2582,15 +2582,15 @@ Debugger::findScripts(JSContext *cx, unsigned argc, Value *vp)
 
     ScriptQuery query(cx, dbg);
     if (!query.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (argc >= 1) {
         RootedObject queryObject(cx, NonNullObject(cx, args[0]));
         if (!queryObject || !query.parseQuery(queryObject))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         if (!query.omittedQuery())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /*
@@ -2601,18 +2601,18 @@ Debugger::findScripts(JSContext *cx, unsigned argc, Value *vp)
     AutoScriptVector scripts(cx);
 
     if (!query.findScripts(&scripts))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedObject result(cx, NewDenseAllocatedArray(cx, scripts.length()));
     if (!result)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     result->ensureDenseInitializedLength(cx, 0, scripts.length());
 
     for (size_t i = 0; i < scripts.length(); i++) {
         JSObject *scriptObject = dbg->wrapScript(cx, scripts.handleAt(i));
         if (!scriptObject)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         result->setDenseElement(i, ObjectValue(*scriptObject));
     }
 
@@ -2627,7 +2627,7 @@ Debugger::findAllGlobals(JSContext *cx, unsigned argc, Value *vp)
 
     RootedObject result(cx, NewDenseEmptyArray(cx));
     if (!result)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (CompartmentsIter c(cx->runtime(), SkipAtoms); !c.done(); c.next()) {
         c->zone()->scheduledForDestruction = false;
@@ -2643,9 +2643,9 @@ Debugger::findAllGlobals(JSContext *cx, unsigned argc, Value *vp)
 
             RootedValue globalValue(cx, ObjectValue(*global));
             if (!dbg->wrapDebuggeeValue(cx, &globalValue))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!js_NewbornArrayPush(cx, result, globalValue))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -2661,7 +2661,7 @@ Debugger::makeGlobalObjectReference(JSContext *cx, unsigned argc, Value *vp)
 
     Rooted<GlobalObject *> global(cx, dbg->unwrapDebuggeeArgument(cx, args[0]));
     if (!global)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setObject(*global);
     return dbg->wrapDebuggeeValue(cx, args.rval());
@@ -2812,7 +2812,7 @@ DebuggerScript_checkThis(JSContext *cx, const CallArgs &args, const char *fnname
     CallArgs args = CallArgsFromVp(argc, vp);                                       \
     RootedObject obj(cx, DebuggerScript_checkThis(cx, args, fnname));               \
     if (!obj)                                                                       \
-        return false;                                                               \
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                                               \
     Rooted<JSScript*> script(cx, GetScriptReferent(obj))
 
 static bool
@@ -2823,7 +2823,7 @@ DebuggerScript_getUrl(JSContext *cx, unsigned argc, Value *vp)
     if (script->filename()) {
         JSString *str = js_NewStringCopyZ<CanGC>(cx, script->filename());
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args.rval().setString(str);
     } else {
         args.rval().setNull();
@@ -2858,7 +2858,7 @@ DebuggerScript_getSource(JSContext *cx, unsigned argc, Value *vp)
     RootedScriptSource source(cx, script->sourceObject());
     RootedObject sourceObject(cx, dbg->wrapSource(cx, source));
     if (!sourceObject)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setObject(*sourceObject);
     return true;
@@ -2899,7 +2899,7 @@ DebuggerScript_getSourceMapUrl(JSContext *cx, unsigned argc, Value *vp)
     if (source->hasSourceMapURL()) {
         JSString *str = JS_NewUCStringCopyZ(cx, source->sourceMapURL());
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args.rval().setString(str);
     } else {
         args.rval().setNull();
@@ -2916,7 +2916,7 @@ DebuggerScript_getChildScripts(JSContext *cx, unsigned argc, Value *vp)
 
     RootedObject result(cx, NewDenseEmptyArray(cx));
     if (!result)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (script->hasObjects()) {
         /*
          * script->savedCallerFun indicates that this is a direct eval script
@@ -2935,7 +2935,7 @@ DebuggerScript_getChildScripts(JSContext *cx, unsigned argc, Value *vp)
                 funScript = fun->nonLazyScript();
                 s = dbg->wrapScript(cx, funScript);
                 if (!s || !js_NewbornArrayPush(cx, result, ObjectValue(*s)))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
     }
@@ -2956,7 +2956,7 @@ ScriptOffset(JSContext *cx, JSScript *script, const Value &v, size_t *offsetp)
     }
     if (!ok || off != d || !IsValidBytecodeOffset(cx, script, off)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEBUG_BAD_OFFSET);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     *offsetp = off;
     return true;
@@ -2969,7 +2969,7 @@ DebuggerScript_getOffsetLine(JSContext *cx, unsigned argc, Value *vp)
     THIS_DEBUGSCRIPT_SCRIPT(cx, argc, vp, "getOffsetLine", args, obj, script);
     size_t offset;
     if (!ScriptOffset(cx, script, args[0], &offset))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     unsigned lineno = JS_PCToLineNumber(cx, script, script->code + offset);
     args.rval().setNumber(lineno);
     return true;
@@ -3145,7 +3145,7 @@ class FlowGraphSummary {
 
     bool populate(JSContext *cx, JSScript *script) {
         if (!entries_.growBy(script->length))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         unsigned mainOffset = script->main() - script->code;
         entries_[mainOffset] = Entry::createWithMultipleEdgesFromMultipleLines();
         for (size_t i = mainOffset + 1; i < script->length; i++)
@@ -3218,12 +3218,12 @@ DebuggerScript_getAllOffsets(JSContext *cx, unsigned argc, Value *vp)
      */
     FlowGraphSummary flowData(cx);
     if (!flowData.populate(cx, script))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Second pass: build the result array. */
     RootedObject result(cx, NewDenseEmptyArray(cx));
     if (!result)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     for (BytecodeRangeWithPosition r(cx, script); !r.empty(); r.popFront()) {
         size_t offset = r.frontOffset();
         size_t lineno = r.frontLineNumber();
@@ -3238,9 +3238,9 @@ DebuggerScript_getAllOffsets(JSContext *cx, unsigned argc, Value *vp)
 
             bool found;
             if (!JSObject::hasProperty(cx, result, id, &found))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (found && !JSObject::getGeneric(cx, result, result, id, &offsetsv))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             if (offsetsv.isObject()) {
                 offsets = &offsetsv.toObject();
@@ -3257,17 +3257,17 @@ DebuggerScript_getAllOffsets(JSContext *cx, unsigned argc, Value *vp)
                 if (!offsets ||
                     !ValueToId<CanGC>(cx, v, &id))
                 {
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
 
                 RootedValue value(cx, ObjectValue(*offsets));
                 if (!JSObject::defineGeneric(cx, result, id, value))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             /* Append the current offset to the offsets array. */
             if (!js_NewbornArrayPush(cx, offsets, NumberValue(offset)))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -3286,12 +3286,12 @@ DebuggerScript_getAllColumnOffsets(JSContext *cx, unsigned argc, Value *vp)
      */
     FlowGraphSummary flowData(cx);
     if (!flowData.populate(cx, script))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Second pass: build the result array. */
     RootedObject result(cx, NewDenseEmptyArray(cx));
     if (!result)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     for (BytecodeRangeWithPosition r(cx, script); !r.empty(); r.popFront()) {
         size_t lineno = r.frontLineNumber();
         size_t column = r.frontColumnNumber();
@@ -3303,24 +3303,24 @@ DebuggerScript_getAllColumnOffsets(JSContext *cx, unsigned argc, Value *vp)
              flowData[offset].column() != column)) {
             RootedObject entry(cx, NewBuiltinClassInstance(cx, &JSObject::class_));
             if (!entry)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             RootedId id(cx, NameToId(cx->names().lineNumber));
             RootedValue value(cx, NumberValue(lineno));
             if (!JSObject::defineGeneric(cx, entry, id, value))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             value = NumberValue(column);
             if (!JSObject::defineProperty(cx, entry, cx->names().columnNumber, value))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             id = NameToId(cx->names().offset);
             value = NumberValue(offset);
             if (!JSObject::defineGeneric(cx, entry, id, value))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             if (!js_NewbornArrayPush(cx, result, ObjectValue(*entry)))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -3344,7 +3344,7 @@ DebuggerScript_getLineOffsets(JSContext *cx, unsigned argc, Value *vp)
     }
     if (!ok) {
         JS_ReportErrorNumber(cx,  js_GetErrorMessage, nullptr, JSMSG_DEBUG_BAD_LINE);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /*
@@ -3353,12 +3353,12 @@ DebuggerScript_getLineOffsets(JSContext *cx, unsigned argc, Value *vp)
      */
     FlowGraphSummary flowData(cx);
     if (!flowData.populate(cx, script))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Second pass: build the result array. */
     RootedObject result(cx, NewDenseEmptyArray(cx));
     if (!result)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     for (BytecodeRangeWithPosition r(cx, script); !r.empty(); r.popFront()) {
         size_t offset = r.frontOffset();
 
@@ -3368,7 +3368,7 @@ DebuggerScript_getLineOffsets(JSContext *cx, unsigned argc, Value *vp)
             flowData[offset].lineno() != lineno)
         {
             if (!js_NewbornArrayPush(cx, result, NumberValue(offset)))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -3386,7 +3386,7 @@ bool
 Debugger::observesScript(JSScript *script) const
 {
     if (!enabled)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return observesGlobal(&script->global()) && !script->selfHosted;
 }
 
@@ -3405,7 +3405,7 @@ Debugger::handleBaselineOsr(JSContext *cx, StackFrame *from, jit::BaselineFrame 
         DebuggerFrame_freeScriptFrameIterData(cx->runtime()->defaultFreeOp(), frameobj);
         ScriptFrameIter::Data *data = iter.copyData();
         if (!data)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         frameobj->setPrivate(data);
 
         // Remove the old entry before mutating the HashMap.
@@ -3414,7 +3414,7 @@ Debugger::handleBaselineOsr(JSContext *cx, StackFrame *from, jit::BaselineFrame 
         // Add the frame object with |to| as key.
         if (!dbg->frames.putNew(to, frameobj)) {
             js_ReportOutOfMemory(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -3430,21 +3430,21 @@ DebuggerScript_setBreakpoint(JSContext *cx, unsigned argc, Value *vp)
 
     if (!dbg->observesScript(script)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEBUG_NOT_DEBUGGING);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     size_t offset;
     if (!ScriptOffset(cx, script, args[0], &offset))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSObject *handler = NonNullObject(cx, args[1]);
     if (!handler)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     jsbytecode *pc = script->code + offset;
     BreakpointSite *site = script->getOrCreateBreakpointSite(cx, pc);
     if (!site)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     site->inc(cx->runtime()->defaultFreeOp());
     if (cx->runtime()->new_<Breakpoint>(dbg, site, handler)) {
         args.rval().setUndefined();
@@ -3452,7 +3452,7 @@ DebuggerScript_setBreakpoint(JSContext *cx, unsigned argc, Value *vp)
     }
     site->dec(cx->runtime()->defaultFreeOp());
     site->destroyIfEmpty(cx->runtime()->defaultFreeOp());
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static bool
@@ -3465,7 +3465,7 @@ DebuggerScript_getBreakpoints(JSContext *cx, unsigned argc, Value *vp)
     if (argc > 0) {
         size_t offset;
         if (!ScriptOffset(cx, script, args[0], &offset))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         pc = script->code + offset;
     } else {
         pc = nullptr;
@@ -3473,7 +3473,7 @@ DebuggerScript_getBreakpoints(JSContext *cx, unsigned argc, Value *vp)
 
     RootedObject arr(cx, NewDenseEmptyArray(cx));
     if (!arr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (unsigned i = 0; i < script->length; i++) {
         BreakpointSite *site = script->getBreakpointSite(script->code + i);
@@ -3482,7 +3482,7 @@ DebuggerScript_getBreakpoints(JSContext *cx, unsigned argc, Value *vp)
                 if (bp->debugger == dbg &&
                     !js_NewbornArrayPush(cx, arr, ObjectValue(*bp->getHandler())))
                 {
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
         }
@@ -3500,7 +3500,7 @@ DebuggerScript_clearBreakpoint(JSContext *cx, unsigned argc, Value *vp)
 
     JSObject *handler = NonNullObject(cx, args[0]);
     if (!handler)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     script->clearBreakpointsIn(cx->runtime()->defaultFreeOp(), dbg, handler);
     args.rval().setUndefined();
@@ -3525,7 +3525,7 @@ DebuggerScript_isInCatchScope(JSContext *cx, unsigned argc, Value* vp)
 
     size_t offset;
     if (!ScriptOffset(cx, script, args[0], &offset))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Try note ranges are relative to the mainOffset of the script, so adjust
@@ -3556,7 +3556,7 @@ DebuggerScript_construct(JSContext *cx, unsigned argc, Value *vp)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_NO_CONSTRUCTOR,
                          "Debugger.Script");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static const JSPropertySpec DebuggerScript_properties[] = {
@@ -3671,7 +3671,7 @@ DebuggerSource_construct(JSContext *cx, unsigned argc, Value *vp)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_NO_CONSTRUCTOR,
                          "Debugger.Source");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static JSObject *
@@ -3702,10 +3702,10 @@ DebuggerSource_checkThis(JSContext *cx, const CallArgs &args, const char *fnname
     CallArgs args = CallArgsFromVp(argc, vp);                                       \
     RootedObject obj(cx, DebuggerSource_checkThis(cx, args, fnname));               \
     if (!obj)                                                                       \
-        return false;                                                               \
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                                               \
     RootedScriptSource sourceObject(cx, GetSourceReferent(obj));                    \
     if (!sourceObject)                                                              \
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 static bool
 DebuggerSource_getText(JSContext *cx, unsigned argc, Value *vp)
@@ -3715,12 +3715,12 @@ DebuggerSource_getText(JSContext *cx, unsigned argc, Value *vp)
     ScriptSource *ss = sourceObject->source();
     bool hasSourceData = ss->hasSourceData();
     if (!ss->hasSourceData() && !JSScript::loadSource(cx, ss, &hasSourceData))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSString *str = hasSourceData ? ss->substring(cx, 0, ss->length())
                                   : js_NewStringCopyZ<CanGC>(cx, "[no source]");
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setString(str);
     return true;
@@ -3735,7 +3735,7 @@ DebuggerSource_getUrl(JSContext *cx, unsigned argc, Value *vp)
     if (ss->filename()) {
         JSString *str = js_NewStringCopyZ<CanGC>(cx, ss->filename());
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args.rval().setString(str);
     } else {
         args.rval().setNull();
@@ -3754,7 +3754,7 @@ DebuggerSource_getDisplayURL(JSContext *cx, unsigned argc, Value *vp)
     if (ss->hasSourceURL()) {
         JSString *str = JS_NewUCStringCopyZ(cx, ss->sourceURL());
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args.rval().setString(str);
     } else {
         args.rval().setNull();
@@ -3854,7 +3854,7 @@ CheckThisFrame(JSContext *cx, const CallArgs &args, const char *fnname, bool che
     CallArgs args = CallArgsFromVp(argc, vp);                                  \
     RootedObject thisobj(cx, CheckThisFrame(cx, args, fnname, true));          \
     if (!thisobj)                                                              \
-        return false
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
 
 #define THIS_FRAME(cx, argc, vp, fnname, args, thisobj, frame)                 \
     THIS_FRAME_THISOBJ(cx, argc, vp, fnname, args, thisobj);                   \
@@ -3879,7 +3879,7 @@ CheckThisFrame(JSContext *cx, const CallArgs &args, const char *fnname, bool che
                 ++iter;                                                        \
             AbstractFramePtr data = iter.copyDataAsAbstractFramePtr();         \
             if (!data)                                                         \
-                return false;                                                  \
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                                  \
             thisobj->setPrivate(data.raw());                                   \
         }                                                                      \
     }                                                                          \
@@ -3920,7 +3920,7 @@ DebuggerFrame_getEnvironment(JSContext *cx, unsigned argc, Value *vp)
         AutoCompartment ac(cx, frame.scopeChain());
         env = GetDebugScopeForFrame(cx, frame);
         if (!env)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return dbg->wrapEnvironment(cx, env, args.rval());
@@ -3932,7 +3932,7 @@ DebuggerFrame_getCallee(JSContext *cx, unsigned argc, Value *vp)
     THIS_FRAME(cx, argc, vp, "get callee", args, thisobj, frame);
     RootedValue calleev(cx, frame.isNonEvalFunctionFrame() ? frame.calleev() : NullValue());
     if (!Debugger::fromChildJSObject(thisobj)->wrapDebuggeeValue(cx, &calleev))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().set(calleev);
     return true;
 }
@@ -3961,11 +3961,11 @@ DebuggerFrame_getThis(JSContext *cx, unsigned argc, Value *vp)
     {
         AutoCompartment ac(cx, iter.scopeChain());
         if (!iter.computeThis(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         thisv = iter.thisv();
     }
     if (!Debugger::fromChildJSObject(thisobj)->wrapDebuggeeValue(cx, &thisv))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().set(thisv);
     return true;
 }
@@ -4002,13 +4002,13 @@ DebuggerArguments_getArg(JSContext *cx, unsigned argc, Value *vp)
     /* Check that the this value is an Arguments object. */
     if (!args.thisv().isObject()) {
         ReportObjectRequired(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     RootedObject argsobj(cx, &args.thisv().toObject());
     if (argsobj->getClass() != &DebuggerArguments_class) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_INCOMPATIBLE_PROTO,
                              "Arguments", "getArgument", argsobj->getClass()->name);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /*
@@ -4044,7 +4044,7 @@ DebuggerArguments_getArg(JSContext *cx, unsigned argc, Value *vp)
     }
 
     if (!Debugger::fromChildJSObject(thisobj)->wrapDebuggeeValue(cx, &arg))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().set(arg);
     return true;
 }
@@ -4067,10 +4067,10 @@ DebuggerFrame_getArguments(JSContext *cx, unsigned argc, Value *vp)
         global = &args.callee().global();
         JSObject *proto = global->getOrCreateArrayPrototype(cx);
         if (!proto)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         argsobj = NewObjectWithGivenProto(cx, &DebuggerArguments_class, proto, global);
         if (!argsobj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         SetReservedSlot(argsobj, JSSLOT_DEBUGARGUMENTS_FRAME, ObjectValue(*thisobj));
 
         JS_ASSERT(frame.numActualArgs() <= 0x7fffffff);
@@ -4080,7 +4080,7 @@ DebuggerFrame_getArguments(JSContext *cx, unsigned argc, Value *vp)
                                   fargcVal, nullptr, nullptr,
                                   JSPROP_PERMANENT | JSPROP_READONLY, 0, 0))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         Rooted<jsid> id(cx);
@@ -4091,14 +4091,14 @@ DebuggerFrame_getArguments(JSContext *cx, unsigned argc, Value *vp)
                                  JSFunction::NATIVE_FUN, global, NullPtr(),
                                  JSFunction::ExtendedFinalizeKind);
             if (!getobj)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             id = INT_TO_JSID(i);
             if (!getobj ||
                 !DefineNativeProperty(cx, argsobj, id, undefinedValue,
                                       JS_DATA_TO_FUNC_PTR(PropertyOp, getobj.get()), nullptr,
                                       JSPROP_ENUMERATE | JSPROP_SHARED | JSPROP_GETTER, 0, 0))
             {
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             getobj->setExtendedSlot(0, Int32Value(i));
         }
@@ -4123,7 +4123,7 @@ DebuggerFrame_getScript(JSContext *cx, unsigned argc, Value *vp)
             RootedScript script(cx, callee->nonLazyScript());
             scriptObject = debug->wrapScript(cx, script);
             if (!scriptObject)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     } else {
         /*
@@ -4133,7 +4133,7 @@ DebuggerFrame_getScript(JSContext *cx, unsigned argc, Value *vp)
         RootedScript script(cx, frame.script());
         scriptObject = debug->wrapScript(cx, script);
         if (!scriptObject)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     args.rval().setObjectOrNull(scriptObject);
     return true;
@@ -4159,7 +4159,7 @@ DebuggerFrame_getLive(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     JSObject *thisobj = CheckThisFrame(cx, args, "get live", false);
     if (!thisobj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     bool hasFrame = !!thisobj->getPrivate();
     args.rval().setBoolean(hasFrame);
     return true;
@@ -4189,7 +4189,7 @@ DebuggerFrame_setOnStep(JSContext *cx, unsigned argc, Value *vp)
     THIS_FRAME(cx, argc, vp, "set onStep", args, thisobj, frame);
     if (!IsValidHook(args[0])) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_NOT_CALLABLE_OR_UNDEFINED);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     Value prior = thisobj->getReservedSlot(JSSLOT_DEBUGFRAME_ONSTEP_HANDLER);
@@ -4198,7 +4198,7 @@ DebuggerFrame_setOnStep(JSContext *cx, unsigned argc, Value *vp)
         /* Try to adjust this frame's script single-step mode count. */
         AutoCompartment ac(cx, frame.scopeChain());
         if (!frame.script()->changeStepModeCount(cx, delta))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Now that the step mode switch has succeeded, we can install the handler. */
@@ -4226,7 +4226,7 @@ DebuggerFrame_setOnPop(JSContext *cx, unsigned argc, Value *vp)
     (void) frame;  // Silence GCC warning
     if (!IsValidHook(args[0])) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_NOT_CALLABLE_OR_UNDEFINED);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     thisobj->setReservedSlot(JSSLOT_DEBUGFRAME_ONPOP_HANDLER, args[0]);
@@ -4272,7 +4272,7 @@ js::EvaluateInEnv(JSContext *cx, Handle<Env*> env, HandleValue thisv, AbstractFr
                                                     /* source = */ nullptr,
                                                     /* staticLevel = */ frame ? 1 : 0));
     if (!script)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     script->isActiveEval = true;
     ExecuteType type = !frame ? EXECUTE_DEBUG_GLOBAL : EXECUTE_DEBUG;
@@ -4295,11 +4295,11 @@ DebuggerGenericEval(JSContext *cx, const char *fullMethodName, const Value &code
     if (!code.isString()) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_NOT_EXPECTED_TYPE,
                              fullMethodName, "string", InformalValueTypeName(code));
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     Rooted<JSStableString *> stable(cx, code.toString()->ensureStable(cx));
     if (!stable)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Gather keys and values of bindings, if any. This must be done in the
@@ -4314,14 +4314,14 @@ DebuggerGenericEval(JSContext *cx, const char *fullMethodName, const Value &code
             !GetPropertyNames(cx, bindingsobj, JSITER_OWNONLY, &keys) ||
             !values.growBy(keys.length()))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         for (size_t i = 0; i < keys.length(); i++) {
             MutableHandleValue valp = values.handleAt(i);
             if (!JSObject::getGeneric(cx, bindingsobj, bindingsobj, keys.handleAt(i), valp) ||
                 !dbg->unwrapDebuggeeValue(cx, valp))
             {
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
     }
@@ -4335,20 +4335,20 @@ DebuggerGenericEval(JSContext *cx, const char *fullMethodName, const Value &code
         RootedValue v(cx);
 
         if (!JS_GetProperty(cx, opts, "url", &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!v.isUndefined()) {
             RootedString url_str(cx, ToString<CanGC>(cx, v));
             if (!url_str)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             url = JS_EncodeString(cx, url_str);
         }
 
         if (!JS_GetProperty(cx, opts, "lineNumber", &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!v.isUndefined()) {
             uint32_t lineno;
             if (!ToUint32(cx, v, &lineno))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             lineNumber = lineno;
         }
     }
@@ -4364,11 +4364,11 @@ DebuggerGenericEval(JSContext *cx, const char *fullMethodName, const Value &code
     if (iter) {
         /* ExecuteInEnv requires 'fp' to have a computed 'this" value. */
         if (!iter->computeThis(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         thisv = iter->thisv();
         env = GetDebugScopeForFrame(cx, iter->abstractFramePtr());
         if (!env)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         /*
          * Use the global as 'this'. If the global is an inner object, it
@@ -4377,7 +4377,7 @@ DebuggerGenericEval(JSContext *cx, const char *fullMethodName, const Value &code
          */
         JSObject *thisObj = JSObject::thisObject(cx, scope);
         if (!thisObj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         thisv = ObjectValue(*thisObj);
         env = scope;
     }
@@ -4387,7 +4387,7 @@ DebuggerGenericEval(JSContext *cx, const char *fullMethodName, const Value &code
         /* TODO - This should probably be a Call object, like ES5 strict eval. */
         env = NewObjectWithGivenProto(cx, &JSObject::class_, nullptr, env);
         if (!env)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         RootedId id(cx);
         for (size_t i = 0; i < keys.length(); i++) {
             id = keys[i];
@@ -4395,7 +4395,7 @@ DebuggerGenericEval(JSContext *cx, const char *fullMethodName, const Value &code
             if (!cx->compartment()->wrap(cx, val) ||
                 !DefineNativeProperty(cx, env, id, val, nullptr, nullptr, 0, 0, 0))
             {
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
     }
@@ -4438,7 +4438,7 @@ DebuggerFrame_construct(JSContext *cx, unsigned argc, Value *vp)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_NO_CONSTRUCTOR,
                          "Debugger.Frame");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static const JSPropertySpec DebuggerFrame_properties[] = {
@@ -4524,7 +4524,7 @@ DebuggerObject_checkThis(JSContext *cx, const CallArgs &args, const char *fnname
     CallArgs args = CallArgsFromVp(argc, vp);                                 \
     RootedObject obj(cx, DebuggerObject_checkThis(cx, args, fnname));         \
     if (!obj)                                                                 \
-        return false;                                                         \
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                                         \
     obj = (JSObject *) obj->getPrivate();                                     \
     JS_ASSERT(obj)
 
@@ -4532,7 +4532,7 @@ DebuggerObject_checkThis(JSContext *cx, const CallArgs &args, const char *fnname
     CallArgs args = CallArgsFromVp(argc, vp);                                 \
     RootedObject obj(cx, DebuggerObject_checkThis(cx, args, fnname));         \
     if (!obj)                                                                 \
-        return false;                                                         \
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                                         \
     Debugger *dbg = Debugger::fromChildJSObject(obj);                         \
     obj = (JSObject *) obj->getPrivate();                                     \
     JS_ASSERT(obj)
@@ -4542,7 +4542,7 @@ DebuggerObject_construct(JSContext *cx, unsigned argc, Value *vp)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_NO_CONSTRUCTOR,
                          "Debugger.Object");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static bool
@@ -4553,11 +4553,11 @@ DebuggerObject_getProto(JSContext *cx, unsigned argc, Value *vp)
     {
         AutoCompartment ac(cx, refobj);
         if (!JSObject::getProto(cx, refobj, &proto))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     RootedValue protov(cx, ObjectOrNullValue(proto));
     if (!dbg->wrapDebuggeeValue(cx, &protov))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().set(protov);
     return true;
 }
@@ -4573,7 +4573,7 @@ DebuggerObject_getClass(JSContext *cx, unsigned argc, Value *vp)
     }
     JSAtom *str = Atomize(cx, className, strlen(className));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setString(str);
     return true;
 }
@@ -4603,7 +4603,7 @@ DebuggerObject_getName(JSContext *cx, unsigned argc, Value *vp)
 
     RootedValue namev(cx, StringValue(name));
     if (!dbg->wrapDebuggeeValue(cx, &namev))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().set(namev);
     return true;
 }
@@ -4625,7 +4625,7 @@ DebuggerObject_getDisplayName(JSContext *cx, unsigned argc, Value *vp)
 
     RootedValue namev(cx, StringValue(name));
     if (!dbg->wrapDebuggeeValue(cx, &namev))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().set(namev);
     return true;
 }
@@ -4649,7 +4649,7 @@ DebuggerObject_getParameterNames(JSContext *cx, unsigned argc, Value *vp)
 
     RootedObject result(cx, NewDenseAllocatedArray(cx, fun->nargs));
     if (!result)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     result->ensureDenseInitializedLength(cx, 0, fun->nargs);
 
     if (fun->isInterpreted()) {
@@ -4659,7 +4659,7 @@ DebuggerObject_getParameterNames(JSContext *cx, unsigned argc, Value *vp)
             AutoCompartment ac(cx, fun);
             script = fun->getOrCreateScript(cx);
             if (!script)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         JS_ASSERT(fun->nargs == script->bindings.numArgs());
@@ -4667,7 +4667,7 @@ DebuggerObject_getParameterNames(JSContext *cx, unsigned argc, Value *vp)
         if (fun->nargs > 0) {
             BindingVector bindings(cx);
             if (!FillBindingVector(script, &bindings))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             for (size_t i = 0; i < fun->nargs; i++) {
                 Value v;
                 if (bindings[i].name()->length() == 0)
@@ -4709,7 +4709,7 @@ DebuggerObject_getScript(JSContext *cx, unsigned argc, Value *vp)
 
         script = fun->getOrCreateScript(cx);
         if (!script)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Only hand out debuggee scripts. */
@@ -4720,7 +4720,7 @@ DebuggerObject_getScript(JSContext *cx, unsigned argc, Value *vp)
 
     RootedObject scriptObject(cx, dbg->wrapScript(cx, script));
     if (!scriptObject)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setObject(*scriptObject);
     return true;
@@ -4749,7 +4749,7 @@ DebuggerObject_getEnvironment(JSContext *cx, unsigned argc, Value *vp)
         RootedFunction fun(cx, &obj->as<JSFunction>());
         env = GetDebugScopeForFunction(cx, fun);
         if (!env)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return dbg->wrapEnvironment(cx, env, args.rval());
@@ -4762,7 +4762,7 @@ DebuggerObject_getGlobal(JSContext *cx, unsigned argc, Value *vp)
 
     RootedValue v(cx, ObjectValue(obj->global()));
     if (!dbg->wrapDebuggeeValue(cx, &v))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().set(v);
     return true;
 }
@@ -4774,7 +4774,7 @@ DebuggerObject_getOwnPropertyDescriptor(JSContext *cx, unsigned argc, Value *vp)
 
     RootedId id(cx);
     if (!ValueToId<CanGC>(cx, args.get(0), &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Bug: This can cause the debuggee to run! */
     Rooted<PropertyDescriptor> desc(cx);
@@ -4782,28 +4782,28 @@ DebuggerObject_getOwnPropertyDescriptor(JSContext *cx, unsigned argc, Value *vp)
         Maybe<AutoCompartment> ac;
         ac.construct(cx, obj);
         if (!cx->compartment()->wrapId(cx, id.address()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         ErrorCopier ec(ac, dbg->toJSObject());
         if (!GetOwnPropertyDescriptor(cx, obj, id, &desc))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (desc.object()) {
         /* Rewrap the debuggee values in desc for the debugger. */
         if (!dbg->wrapDebuggeeValue(cx, desc.value()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (desc.hasGetterObject()) {
             RootedValue get(cx, ObjectOrNullValue(desc.getterObject()));
             if (!dbg->wrapDebuggeeValue(cx, &get))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             desc.setGetterObject(get.toObjectOrNull());
         }
         if (desc.hasSetterObject()) {
             RootedValue set(cx, ObjectOrNullValue(desc.setterObject()));
             if (!dbg->wrapDebuggeeValue(cx, &set))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             desc.setSetterObject(set.toObjectOrNull());
         }
     }
@@ -4822,34 +4822,34 @@ DebuggerObject_getOwnPropertyNames(JSContext *cx, unsigned argc, Value *vp)
         ac.construct(cx, obj);
         ErrorCopier ec(ac, dbg->toJSObject());
         if (!GetPropertyNames(cx, obj, JSITER_OWNONLY | JSITER_HIDDEN, &keys))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     AutoValueVector vals(cx);
     if (!vals.resize(keys.length()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (size_t i = 0, len = keys.length(); i < len; i++) {
          jsid id = keys[i];
          if (JSID_IS_INT(id)) {
              JSString *str = Int32ToString<CanGC>(cx, JSID_TO_INT(id));
              if (!str)
-                 return false;
+                 do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
              vals[i].setString(str);
          } else if (JSID_IS_ATOM(id)) {
              vals[i].setString(JSID_TO_STRING(id));
              if (!cx->compartment()->wrap(cx, vals.handleAt(i)))
-                 return false;
+                 do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
          } else {
              vals[i].setObject(*JSID_TO_OBJECT(id));
              if (!dbg->wrapDebuggeeValue(cx, vals.handleAt(i)))
-                 return false;
+                 do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
          }
     }
 
     JSObject *aobj = NewDenseCopiedArray(cx, vals.length(), vals.begin());
     if (!aobj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setObject(*aobj);
     return true;
 }
@@ -4862,37 +4862,37 @@ DebuggerObject_defineProperty(JSContext *cx, unsigned argc, Value *vp)
 
     RootedId id(cx);
     if (!ValueToId<CanGC>(cx, args[0], &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     AutoPropDescArrayRooter descs(cx);
     if (!descs.reserve(3)) // desc, unwrappedDesc, rewrappedDesc
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     PropDesc *desc = descs.append();
     if (!desc || !desc->initialize(cx, args[1], false))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     desc->clearPd();
 
     PropDesc *unwrappedDesc = descs.append();
     if (!unwrappedDesc || !desc->unwrapDebuggerObjectsInto(cx, dbg, obj, unwrappedDesc))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!unwrappedDesc->checkGetter(cx) || !unwrappedDesc->checkSetter(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     {
         PropDesc *rewrappedDesc = descs.append();
         if (!rewrappedDesc)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         RootedId wrappedId(cx);
 
         Maybe<AutoCompartment> ac;
         ac.construct(cx, obj);
         if (!unwrappedDesc->wrapInto(cx, obj, id, wrappedId.address(), rewrappedDesc))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         ErrorCopier ec(ac, dbg->toJSObject());
         bool dummy;
         if (!DefineProperty(cx, obj, wrappedId, *rewrappedDesc, true, &dummy))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args.rval().setUndefined();
@@ -4908,22 +4908,22 @@ DebuggerObject_defineProperties(JSContext *cx, unsigned argc, Value *vp)
     RootedValue arg(cx, args[0]);
     RootedObject props(cx, ToObject(cx, arg));
     if (!props)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     AutoIdVector ids(cx);
     AutoPropDescArrayRooter descs(cx);
     if (!ReadPropertyDescriptors(cx, props, false, &ids, &descs))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     size_t n = ids.length();
 
     AutoPropDescArrayRooter unwrappedDescs(cx);
     for (size_t i = 0; i < n; i++) {
         if (!unwrappedDescs.append())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!descs[i].unwrapDebuggerObjectsInto(cx, dbg, obj, &unwrappedDescs[i]))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!unwrappedDescs[i].checkGetter(cx) || !unwrappedDescs[i].checkSetter(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     {
@@ -4935,10 +4935,10 @@ DebuggerObject_defineProperties(JSContext *cx, unsigned argc, Value *vp)
         RootedId id(cx);
         for (size_t i = 0; i < n; i++) {
             if (!rewrappedIds.append(JSID_VOID) || !rewrappedDescs.append())
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             id = ids[i];
             if (!unwrappedDescs[i].wrapInto(cx, obj, id, &rewrappedIds[i], &rewrappedDescs[i]))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         ErrorCopier ec(ac, dbg->toJSObject());
@@ -4947,7 +4947,7 @@ DebuggerObject_defineProperties(JSContext *cx, unsigned argc, Value *vp)
             if (!DefineProperty(cx, obj, rewrappedIds.handleAt(i),
                                 rewrappedDescs[i], true, &dummy))
             {
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
     }
@@ -4969,12 +4969,12 @@ DebuggerObject_deleteProperty(JSContext *cx, unsigned argc, Value *vp)
     Maybe<AutoCompartment> ac;
     ac.construct(cx, obj);
     if (!cx->compartment()->wrap(cx, &nameArg))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     bool succeeded;
     ErrorCopier ec(ac, dbg->toJSObject());
     if (!JSObject::deleteByValue(cx, obj, nameArg, &succeeded))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setBoolean(succeeded);
     return true;
 }
@@ -4998,7 +4998,7 @@ DebuggerObject_sealHelper(JSContext *cx, unsigned argc, Value *vp, SealHelperOp 
         JS_ASSERT(op == PreventExtensions);
         bool extensible;
         if (!JSObject::isExtensible(cx, obj, &extensible))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!extensible) {
             args.rval().setUndefined();
             return true;
@@ -5006,7 +5006,7 @@ DebuggerObject_sealHelper(JSContext *cx, unsigned argc, Value *vp, SealHelperOp 
         ok = JSObject::preventExtensions(cx, obj);
     }
     if (!ok)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setUndefined();
     return true;
 }
@@ -5041,13 +5041,13 @@ DebuggerObject_isSealedHelper(JSContext *cx, unsigned argc, Value *vp, SealHelpe
     bool r;
     if (op == Seal) {
         if (!JSObject::isSealed(cx, obj, &r))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else if (op == Freeze) {
         if (!JSObject::isFrozen(cx, obj, &r))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         if (!JSObject::isExtensible(cx, obj, &r))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     args.rval().setBoolean(r);
     return true;
@@ -5086,7 +5086,7 @@ ApplyOrCall(JSContext *cx, unsigned argc, Value *vp, ApplyOrCallMode mode)
     if (!obj->isCallable()) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_INCOMPATIBLE_PROTO,
                              "Debugger.Object", "apply", obj->getClass()->name);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /*
@@ -5095,7 +5095,7 @@ ApplyOrCall(JSContext *cx, unsigned argc, Value *vp, ApplyOrCallMode mode)
      */
     RootedValue thisv(cx, args.get(0));
     if (!dbg->unwrapDebuggeeValue(cx, &thisv))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     unsigned callArgc = 0;
     Value *callArgv = nullptr;
     AutoValueVector argv(cx);
@@ -5104,14 +5104,14 @@ ApplyOrCall(JSContext *cx, unsigned argc, Value *vp, ApplyOrCallMode mode)
             if (!args[1].isObject()) {
                 JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_BAD_APPLY_ARGS,
                                      js_apply_str);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             RootedObject argsobj(cx, &args[1].toObject());
             if (!GetLengthProperty(cx, argsobj, &callArgc))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             callArgc = unsigned(Min(callArgc, ARGS_LENGTH_MAX));
             if (!argv.growBy(callArgc) || !GetElements(cx, argsobj, callArgc, argv.begin()))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             callArgv = argv.begin();
         }
     } else {
@@ -5122,7 +5122,7 @@ ApplyOrCall(JSContext *cx, unsigned argc, Value *vp, ApplyOrCallMode mode)
     AutoArrayRooter callArgvRooter(cx, callArgc, callArgv);
     for (unsigned i = 0; i < callArgc; i++) {
         if (!dbg->unwrapDebuggeeValue(cx, callArgvRooter.handleAt(i)))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /*
@@ -5132,12 +5132,12 @@ ApplyOrCall(JSContext *cx, unsigned argc, Value *vp, ApplyOrCallMode mode)
     Maybe<AutoCompartment> ac;
     ac.construct(cx, obj);
     if (!cx->compartment()->wrap(cx, &calleev) || !cx->compartment()->wrap(cx, &thisv))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue arg(cx);
     for (unsigned i = 0; i < callArgc; i++) {
         if (!cx->compartment()->wrap(cx, callArgvRooter.handleAt(i)))
-             return false;
+             do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /*
@@ -5176,13 +5176,13 @@ DebuggerObject_makeDebuggeeValue(JSContext *cx, unsigned argc, Value *vp)
         {
             AutoCompartment ac(cx, referent);
             if (!cx->compartment()->wrap(cx, &arg0))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         // Back in the debugger's compartment, produce a new Debugger.Object
         // instance referring to the wrapped argument.
         if (!dbg->wrapDebuggeeValue(cx, &arg0))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args.rval().set(arg0);
@@ -5219,7 +5219,7 @@ RequireGlobalObject(JSContext *cx, HandleValue dbgobj, HandleObject referent)
                                      JSDVG_SEARCH_STACK, dbgobj, NullPtr(),
                                      "a global object", nullptr);
         }
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -5231,7 +5231,7 @@ DebuggerObject_evalInGlobal(JSContext *cx, unsigned argc, Value *vp)
     REQUIRE_ARGC("Debugger.Object.prototype.evalInGlobal", 1);
     THIS_DEBUGOBJECT_OWNER_REFERENT(cx, argc, vp, "evalInGlobal", args, dbg, referent);
     if (!RequireGlobalObject(cx, args.thisv(), referent))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return DebuggerGenericEval(cx, "Debugger.Object.prototype.evalInGlobal",
                                args[0], EvalWithDefaultBindings, JS::UndefinedHandleValue,
@@ -5244,7 +5244,7 @@ DebuggerObject_evalInGlobalWithBindings(JSContext *cx, unsigned argc, Value *vp)
     REQUIRE_ARGC("Debugger.Object.prototype.evalInGlobalWithBindings", 2);
     THIS_DEBUGOBJECT_OWNER_REFERENT(cx, argc, vp, "evalInGlobalWithBindings", args, dbg, referent);
     if (!RequireGlobalObject(cx, args.thisv(), referent))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return DebuggerGenericEval(cx, "Debugger.Object.prototype.evalInGlobalWithBindings",
                                args[0], EvalHasExtraBindings, args[1], args.get(2),
@@ -5263,7 +5263,7 @@ DebuggerObject_unwrap(JSContext *cx, unsigned argc, Value *vp)
 
     args.rval().setObject(*unwrapped);
     if (!dbg->wrapDebuggeeValue(cx, args.rval()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return true;
 }
 
@@ -5273,7 +5273,7 @@ DebuggerObject_unsafeDereference(JSContext *cx, unsigned argc, Value *vp)
     THIS_DEBUGOBJECT_REFERENT(cx, argc, vp, "unsafeDereference", args, referent);
     args.rval().setObject(*referent);
     if (!cx->compartment()->wrap(cx, args.rval()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Wrapping should outerize inner objects.
     JS_ASSERT(!IsInnerObject(&args.rval().toObject()));
@@ -5391,7 +5391,7 @@ DebuggerEnv_checkThis(JSContext *cx, const CallArgs &args, const char *fnname,
     CallArgs args = CallArgsFromVp(argc, vp);                                 \
     JSObject *envobj = DebuggerEnv_checkThis(cx, args, fnname);               \
     if (!envobj)                                                              \
-        return false;                                                         \
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                                         \
     Rooted<Env*> env(cx, static_cast<Env *>(envobj->getPrivate()));           \
     JS_ASSERT(env);                                                           \
     JS_ASSERT(!env->is<ScopeObject>())
@@ -5405,7 +5405,7 @@ DebuggerEnv_construct(JSContext *cx, unsigned argc, Value *vp)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_NO_CONSTRUCTOR,
                          "Debugger.Environment");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static bool
@@ -5436,7 +5436,7 @@ DebuggerEnv_getType(JSContext *cx, unsigned argc, Value *vp)
 
     JSAtom *str = Atomize(cx, s, strlen(s), InternAtom);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setString(str);
     return true;
 }
@@ -5462,7 +5462,7 @@ DebuggerEnv_getObject(JSContext *cx, unsigned argc, Value *vp)
      */
     if (IsDeclarative(env)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEBUG_NO_SCOPE_OBJECT);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JSObject *obj;
@@ -5475,7 +5475,7 @@ DebuggerEnv_getObject(JSContext *cx, unsigned argc, Value *vp)
 
     args.rval().setObject(*obj);
     if (!dbg->wrapDebuggeeValue(cx, args.rval()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return true;
 }
 
@@ -5499,7 +5499,7 @@ DebuggerEnv_getCallee(JSContext *cx, unsigned argc, Value *vp)
 
     args.rval().setObject(callobj.callee());
     if (!dbg->wrapDebuggeeValue(cx, args.rval()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return true;
 }
 
@@ -5509,7 +5509,7 @@ DebuggerEnv_getInspectable(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     JSObject *envobj = DebuggerEnv_checkThis(cx, args, "get inspectable", false);
     if (!envobj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     Rooted<Env*> env(cx, static_cast<Env *>(envobj->getPrivate()));
     JS_ASSERT(env);
     JS_ASSERT(!env->is<ScopeObject>());
@@ -5531,20 +5531,20 @@ DebuggerEnv_names(JSContext *cx, unsigned argc, Value *vp)
         ac.construct(cx, env);
         ErrorCopier ec(ac, dbg->toJSObject());
         if (!GetPropertyNames(cx, env, JSITER_HIDDEN, &keys))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedObject arr(cx, NewDenseEmptyArray(cx));
     if (!arr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedId id(cx);
     for (size_t i = 0, len = keys.length(); i < len; i++) {
         id = keys[i];
         if (JSID_IS_ATOM(id) && IsIdentifier(JSID_TO_ATOM(id))) {
             if (!cx->compartment()->wrapId(cx, id.address()))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!js_NewbornArrayPush(cx, arr, StringValue(JSID_TO_STRING(id))))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
     args.rval().setObject(*arr);
@@ -5559,13 +5559,13 @@ DebuggerEnv_find(JSContext *cx, unsigned argc, Value *vp)
 
     RootedId id(cx);
     if (!ValueToIdentifier(cx, args[0], &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     {
         Maybe<AutoCompartment> ac;
         ac.construct(cx, env);
         if (!cx->compartment()->wrapId(cx, id.address()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* This can trigger resolve hooks. */
         ErrorCopier ec(ac, dbg->toJSObject());
@@ -5573,7 +5573,7 @@ DebuggerEnv_find(JSContext *cx, unsigned argc, Value *vp)
         RootedObject pobj(cx);
         for (; env && !prop; env = env->enclosingScope()) {
             if (!JSObject::lookupGeneric(cx, env, id, &pobj, &prop))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (prop)
                 break;
         }
@@ -5590,23 +5590,23 @@ DebuggerEnv_getVariable(JSContext *cx, unsigned argc, Value *vp)
 
     RootedId id(cx);
     if (!ValueToIdentifier(cx, args[0], &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue v(cx);
     {
         Maybe<AutoCompartment> ac;
         ac.construct(cx, env);
         if (!cx->compartment()->wrapId(cx, id.address()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* This can trigger getters. */
         ErrorCopier ec(ac, dbg->toJSObject());
         if (!JSObject::getGeneric(cx, env, env, id, &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!dbg->wrapDebuggeeValue(cx, &v))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().set(v);
     return true;
 }
@@ -5619,17 +5619,17 @@ DebuggerEnv_setVariable(JSContext *cx, unsigned argc, Value *vp)
 
     RootedId id(cx);
     if (!ValueToIdentifier(cx, args[0], &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue v(cx, args[1]);
     if (!dbg->unwrapDebuggeeValue(cx, &v))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     {
         Maybe<AutoCompartment> ac;
         ac.construct(cx, env);
         if (!cx->compartment()->wrapId(cx, id.address()) || !cx->compartment()->wrap(cx, &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* This can trigger setters. */
         ErrorCopier ec(ac, dbg->toJSObject());
@@ -5637,15 +5637,15 @@ DebuggerEnv_setVariable(JSContext *cx, unsigned argc, Value *vp)
         /* Make sure the environment actually has the specified binding. */
         bool has;
         if (!JSObject::hasProperty(cx, env, id, &has))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!has) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEBUG_VARIABLE_NOT_FOUND);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         /* Just set the property. */
         if (!JSObject::setGeneric(cx, env, env, id, &v, true))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args.rval().setUndefined();
@@ -5690,7 +5690,7 @@ JS_DefineDebuggerObject(JSContext *cx, JSObject *obj_)
 
     objProto = obj->as<GlobalObject>().getOrCreateObjectPrototype(cx);
     if (!objProto)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 
     debugProto = js_InitClass(cx, obj,
@@ -5698,42 +5698,42 @@ JS_DefineDebuggerObject(JSContext *cx, JSObject *obj_)
                               1, Debugger::properties, Debugger::methods, nullptr, nullptr,
                               debugCtor.address());
     if (!debugProto)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     frameProto = js_InitClass(cx, debugCtor, objProto, &DebuggerFrame_class,
                               DebuggerFrame_construct, 0,
                               DebuggerFrame_properties, DebuggerFrame_methods,
                               nullptr, nullptr);
     if (!frameProto)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     scriptProto = js_InitClass(cx, debugCtor, objProto, &DebuggerScript_class,
                                DebuggerScript_construct, 0,
                                DebuggerScript_properties, DebuggerScript_methods,
                                nullptr, nullptr);
     if (!scriptProto)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     sourceProto = js_InitClass(cx, debugCtor, sourceProto, &DebuggerSource_class,
                                DebuggerSource_construct, 0,
                                DebuggerSource_properties, DebuggerSource_methods,
                                nullptr, nullptr);
     if (!sourceProto)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     objectProto = js_InitClass(cx, debugCtor, objProto, &DebuggerObject_class,
                                DebuggerObject_construct, 0,
                                DebuggerObject_properties, DebuggerObject_methods,
                                nullptr, nullptr);
     if (!objectProto)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     envProto = js_InitClass(cx, debugCtor, objProto, &DebuggerEnv_class,
                                       DebuggerEnv_construct, 0,
                                       DebuggerEnv_properties, DebuggerEnv_methods,
                                       nullptr, nullptr);
     if (!envProto)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     debugProto->setReservedSlot(Debugger::JSSLOT_DEBUG_FRAME_PROTO, ObjectValue(*frameProto));
     debugProto->setReservedSlot(Debugger::JSSLOT_DEBUG_OBJECT_PROTO, ObjectValue(*objectProto));

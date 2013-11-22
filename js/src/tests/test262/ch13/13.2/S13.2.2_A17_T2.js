@@ -18,7 +18,7 @@ try {
 	(function(){
         with(__obj){
             p1="w1";
-            getRight=function(){return false;}
+            getRight=function(){do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);}
             throw p1;
         }
     })();

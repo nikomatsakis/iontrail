@@ -67,7 +67,7 @@ js::GetLengthProperty(JSContext *cx, HandleObject obj, uint32_t *lengthp)
 
     RootedValue value(cx);
     if (!JSObject::getProperty(cx, obj, obj, cx->names().length, &value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (value.isInt32()) {
         *lengthp = uint32_t(value.toInt32()); // uint32_t cast does ToUint32
@@ -104,18 +104,18 @@ js::StringIsArrayIndex(JSLinearString *str, uint32_t *indexp)
     const jschar *end = s + length;
 
     if (length == 0 || length > (sizeof("4294967294") - 1) || !JS7_ISDEC(*s))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     uint32_t c = 0, previous = 0;
     uint32_t index = JS7_UNDEC(*s++);
 
     /* Don't allow leading zeros. */
     if (index == 0 && s != end)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (; s < end; s++) {
         if (!JS7_ISDEC(*s))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         previous = index;
         c = JS7_UNDEC(*s);
@@ -130,7 +130,7 @@ js::StringIsArrayIndex(JSLinearString *str, uint32_t *indexp)
         return true;
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static bool
@@ -155,19 +155,19 @@ DoGetElement(JSContext *cx, HandleObject obj, double index, bool *hole, MutableH
     RootedId id(cx);
 
     if (!DoubleIndexToId(cx, index, &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedObject obj2(cx);
     RootedShape prop(cx);
     if (!JSObject::lookupGeneric(cx, obj, id, &obj2, &prop))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!prop) {
         vp.setUndefined();
         *hole = true;
     } else {
         if (!JSObject::getGeneric(cx, obj, obj, id, vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         *hole = false;
     }
     return true;
@@ -178,7 +178,7 @@ DoGetElement(JSContext *cx, HandleObject obj, uint32_t index, bool *hole, Mutabl
 {
     bool present;
     if (!JSObject::getElementIfPresent(cx, obj, obj, index, vp, &present))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *hole = !present;
     if (*hole)
@@ -228,7 +228,7 @@ GetElementsSlow(JSContext *cx, HandleObject aobj, uint32_t length, Value *vp)
 {
     for (uint32_t i = 0; i < length; i++) {
         if (!JSObject::getElement(cx, aobj, aobj, i, MutableHandleValue::fromMarkedLocation(&vp[i])))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -279,7 +279,7 @@ SetArrayElement(JSContext *cx, HandleObject obj, double index, HandleValue v)
             if (idx >= arr->length() && !arr->lengthIsWritable()) {
                 JS_ReportErrorFlagsAndNumber(cx, JSREPORT_ERROR, js_GetErrorMessage, nullptr,
                                              JSMSG_CANT_REDEFINE_ARRAY_LENGTH);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             result = arr->ensureDenseElements(cx, idx, 1);
             if (result != JSObject::ED_OK)
@@ -291,13 +291,13 @@ SetArrayElement(JSContext *cx, HandleObject obj, double index, HandleValue v)
         } while (false);
 
         if (result == JSObject::ED_FAILED)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         JS_ASSERT(result == JSObject::ED_SPARSE);
     }
 
     RootedId id(cx);
     if (!DoubleIndexToId(cx, index, &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue tmp(cx, v);
     return JSObject::setGeneric(cx, obj, obj, id, &tmp, true);
@@ -308,7 +308,7 @@ SetArrayElement(JSContext *cx, HandleObject obj, double index, HandleValue v)
  * |obj.[[Delete]](index)|.
  *
  * If an error occurs while attempting to delete the element (that is, the call
- * to [[Delete]] threw), return false.
+ * to [[Delete]] threw), do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false).
  *
  * Otherwise set *succeeded to indicate whether the deletion attempt succeeded
  * (that is, whether the call to [[Delete]] returned true or false).  (Deletes
@@ -328,7 +328,7 @@ DeleteArrayElement(JSContext *cx, HandleObject obj, double index, bool *succeede
                 obj->markDenseElementsNotPacked(cx);
                 obj->setDenseElement(idx, MagicValue(JS_ELEMENTS_HOLE));
                 if (!js_SuppressDeletedElement(cx, obj, idx))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
 
@@ -348,14 +348,14 @@ DeletePropertyOrThrow(JSContext *cx, HandleObject obj, double index)
 {
     bool succeeded;
     if (!DeleteArrayElement(cx, obj, index, &succeeded))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (succeeded)
         return true;
 
     RootedId id(cx);
     RootedValue indexv(cx, NumberValue(index));
     if (!ValueToId<CanGC>(cx, indexv, &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return obj->reportNotConfigurable(cx, id, JSREPORT_ERROR);
 }
 
@@ -383,7 +383,7 @@ array_length_getter(JSContext *cx, HandleObject obj_, HandleId id, MutableHandle
             return true;
         }
         if (!JSObject::getProto(cx, obj, &obj))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } while (obj);
     return true;
 }
@@ -420,19 +420,19 @@ js::CanonicalizeArrayLengthValue(typename ExecutionModeTraits<mode>::ContextType
 
     if (mode == ParallelExecution) {
         if (v.isObject())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!NonObjectToUint32(cx, v, newLen))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!NonObjectToNumber(cx, v, &d))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         if (!ToUint32(cx->asJSContext(), v, newLen))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!ToNumber(cx->asJSContext(), v, &d))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (d == *newLen)
@@ -441,7 +441,7 @@ js::CanonicalizeArrayLengthValue(typename ExecutionModeTraits<mode>::ContextType
     if (cx->isJSContext())
         JS_ReportErrorNumber(cx->asJSContext(), js_GetErrorMessage, nullptr,
                              JSMSG_BAD_ARRAY_LENGTH);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 template bool
@@ -466,7 +466,7 @@ js::ArraySetLength(typename ExecutionModeTraits<mode>::ContextType cxArg,
     /* Steps 3-5. */
     uint32_t newLen;
     if (!CanonicalizeArrayLengthValue<mode>(cxArg, value, &newLen))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Abort if we're being asked to change enumerability or configurability.
     // (The length property of arrays is non-configurable, so such attempts
@@ -483,7 +483,7 @@ js::ArraySetLength(typename ExecutionModeTraits<mode>::ContextType cxArg,
         // Bail for strict mode in parallel execution, as we need to go back
         // to sequential mode to throw the error.
         if (mode == ParallelExecution)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         return Throw(cxArg->asJSContext(), id, JSMSG_CANT_REDEFINE_PROP);
     }
 
@@ -505,7 +505,7 @@ js::ArraySetLength(typename ExecutionModeTraits<mode>::ContextType cxArg,
             return true;
 
         if (!cxArg->isJSContext())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (setterIsStrict) {
             return JS_ReportErrorFlagsAndNumber(cxArg->asJSContext(),
@@ -553,7 +553,7 @@ js::ArraySetLength(typename ExecutionModeTraits<mode>::ContextType cxArg,
         // Bail from parallel execution if need to perform step 15, which is
         // unsafe and isn't a common case.
         if (mode == ParallelExecution)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         JSContext *cx = cxArg->asJSContext();
 
@@ -589,7 +589,7 @@ js::ArraySetLength(typename ExecutionModeTraits<mode>::ContextType cxArg,
                 /* Steps 15b-d. */
                 bool deleteSucceeded;
                 if (!JSObject::deleteElement(cx, arr, oldLen, &deleteSucceeded))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (!deleteSucceeded) {
                     newLen = oldLen + 1;
                     succeeded = false;
@@ -613,11 +613,11 @@ js::ArraySetLength(typename ExecutionModeTraits<mode>::ContextType cxArg,
             {
                 AutoIdVector props(cx);
                 if (!GetPropertyNames(cx, arr, JSITER_OWNONLY | JSITER_HIDDEN, &props))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 for (size_t i = 0; i < props.length(); i++) {
                     if (!JS_CHECK_OPERATION_LIMIT(cx))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                     uint32_t index;
                     if (!js_IdIsIndex(props[i], &index))
@@ -625,7 +625,7 @@ js::ArraySetLength(typename ExecutionModeTraits<mode>::ContextType cxArg,
 
                     if (index >= newLen && index < oldLen) {
                         if (!indexes.append(index))
-                            return false;
+                            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     }
                 }
             }
@@ -636,7 +636,7 @@ js::ArraySetLength(typename ExecutionModeTraits<mode>::ContextType cxArg,
                 // enough that we'll punt til someone complains.
                 Vector<uint32_t> scratch(cx);
                 if (!scratch.resize(count))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 MOZ_ALWAYS_TRUE(MergeSort(indexes.begin(), count, scratch.begin(),
                                           ReverseIndexComparator()));
             }
@@ -649,7 +649,7 @@ js::ArraySetLength(typename ExecutionModeTraits<mode>::ContextType cxArg,
                 /* Steps 15b-d. */
                 bool deleteSucceeded;
                 if (!JSObject::deleteElement(cx, arr, index, &deleteSucceeded))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (!deleteSucceeded) {
                     newLen = index + 1;
                     succeeded = false;
@@ -672,14 +672,14 @@ js::ArraySetLength(typename ExecutionModeTraits<mode>::ContextType cxArg,
                                         JSPROP_PERMANENT | JSPROP_READONLY | JSPROP_SHARED,
                                         array_length_getter, array_length_setter))
     {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedValue v(cxArg, NumberValue(newLen));
     if (mode == ParallelExecution) {
         // Overflowing int32 requires changing TI state.
         if (newLen > INT32_MAX)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         arr->setLengthInt32(newLen);
     } else {
         JSContext *cx = cxArg->asJSContext();
@@ -717,7 +717,7 @@ js::ArraySetLength(typename ExecutionModeTraits<mode>::ContextType cxArg,
         JSContext *cx = cxArg->asJSContext();
         RootedId elementId(cx);
         if (!IndexToId(cx, newLen - 1, elementId.address()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         return arr->reportNotConfigurable(cx, elementId);
     }
 
@@ -827,7 +827,7 @@ js::ObjectMayHaveExtraIndexedProperties(JSObject *obj)
             return true;
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 const Class ArrayObject::class_ = {
@@ -889,28 +889,28 @@ array_toSource_impl(JSContext *cx, CallArgs args)
 
     AutoCycleDetector detector(cx, obj);
     if (!detector.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     StringBuffer sb(cx);
 
     if (detector.foundCycle()) {
         if (!sb.append("[]"))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         goto make_string;
     }
 
     if (!sb.append('['))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     uint32_t length;
     if (!GetLengthProperty(cx, obj, &length))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (uint32_t index = 0; index < length; index++) {
         bool hole;
         if (!JS_CHECK_OPERATION_LIMIT(cx) ||
             !GetElement(cx, obj, index, &hole, &elt)) {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         /* Get element's character string. */
@@ -920,29 +920,29 @@ array_toSource_impl(JSContext *cx, CallArgs args)
         } else {
             str = ValueToSource(cx, elt);
             if (!str)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         /* Append element to buffer. */
         if (!sb.append(str))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (index + 1 != length) {
             if (!sb.append(", "))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else if (hole) {
             if (!sb.append(','))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
     /* Finalize the buffer. */
     if (!sb.append(']'))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
   make_string:
     JSString *str = sb.finishString();
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setString(str);
     return true;
@@ -951,7 +951,7 @@ array_toSource_impl(JSContext *cx, CallArgs args)
 static bool
 array_toSource(JSContext *cx, unsigned argc, Value *vp)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     CallArgs args = CallArgsFromVp(argc, vp);
     return CallNonGenericMethod<IsArray, array_toSource_impl>(cx, args);
 }
@@ -996,19 +996,19 @@ ArrayJoinKernel(JSContext *cx, SeparatorOp sepOp, HandleObject obj, uint32_t len
         uint32_t initLength = obj->getDenseInitializedLength();
         while (i < initLength) {
             if (!JS_CHECK_OPERATION_LIMIT(cx))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             const Value &elem = obj->getDenseElement(i);
 
             if (elem.isString()) {
                 if (!sb.append(elem.toString()))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else if (elem.isNumber()) {
                 if (!NumberValueToStringBuffer(cx, elem, sb))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else if (elem.isBoolean()) {
                 if (!BooleanToStringBuffer(cx, elem.toBoolean(), sb))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else if (elem.isObject()) {
                 /*
                  * Object stringifying could modify the initialized length or make
@@ -1021,7 +1021,7 @@ ArrayJoinKernel(JSContext *cx, SeparatorOp sepOp, HandleObject obj, uint32_t len
             }
 
             if (++i != length && !sepOp(cx, sb))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -1029,26 +1029,26 @@ ArrayJoinKernel(JSContext *cx, SeparatorOp sepOp, HandleObject obj, uint32_t len
         RootedValue v(cx);
         while (i < length) {
             if (!JS_CHECK_OPERATION_LIMIT(cx))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             bool hole;
             if (!GetElement(cx, obj, i, &hole, &v))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!hole && !v.isNullOrUndefined()) {
                 if (Locale) {
                     JSObject *robj = ToObject(cx, v);
                     if (!robj)
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     RootedId id(cx, NameToId(cx->names().toLocaleString));
                     if (!robj->callMethod(cx, id, 0, nullptr, &v))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
                 if (!ValueToStringBuffer(cx, v, sb))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             if (++i != length && !sepOp(cx, sb))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -1066,11 +1066,11 @@ ArrayJoin(JSContext *cx, CallArgs &args)
     // Step 1
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     AutoCycleDetector detector(cx, obj);
     if (!detector.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (detector.foundCycle()) {
         args.rval().setString(cx->names().empty);
@@ -1080,7 +1080,7 @@ ArrayJoin(JSContext *cx, CallArgs &args)
     // Steps 2 and 3
     uint32_t length;
     if (!GetLengthProperty(cx, obj, &length))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Steps 4 and 5
     RootedString sepstr(cx, nullptr);
@@ -1089,10 +1089,10 @@ ArrayJoin(JSContext *cx, CallArgs &args)
     if (!Locale && args.hasDefined(0)) {
         sepstr = ToString<CanGC>(cx, args[0]);
         if (!sepstr)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         sepchars = sepstr->getChars(cx);
         if (!sepchars)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         seplen = sepstr->length();
     } else {
         static const jschar comma = ',';
@@ -1107,21 +1107,21 @@ ArrayJoin(JSContext *cx, CallArgs &args)
     // The separator will be added |length - 1| times, reserve space for that
     // so that we don't have to unnecessarily grow the buffer.
     if (length > 0 && !sb.reserve(seplen * (length - 1)))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Various optimized versions of steps 7-10
     if (seplen == 0) {
         EmptySeparatorOp op;
         if (!ArrayJoinKernel<Locale>(cx, op, obj, length, sb))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else if (seplen == 1) {
         CharSeparatorOp op(sepchars[0]);
         if (!ArrayJoinKernel<Locale>(cx, op, obj, length, sb))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         StringSeparatorOp op(sepchars, seplen);
         if (!ArrayJoinKernel<Locale>(cx, op, obj, length, sb))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // Ensure that sepstr stays alive longer than sepchars.
@@ -1130,7 +1130,7 @@ ArrayJoin(JSContext *cx, CallArgs &args)
     // Step 11
     JSString *str = sb.finishString();
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setString(str);
     return true;
 }
@@ -1139,35 +1139,35 @@ ArrayJoin(JSContext *cx, CallArgs &args)
 static bool
 array_toString(JSContext *cx, unsigned argc, Value *vp)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue join(cx, args.calleev());
     if (!JSObject::getProperty(cx, obj, obj, cx->names().join, &join))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!js_IsCallable(join)) {
         JSString *str = JS_BasicObjectToString(cx, obj);
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args.rval().setString(str);
         return true;
     }
 
     InvokeArgs args2(cx);
     if (!args2.init(0))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args2.setCallee(join);
     args2.setThis(ObjectValue(*obj));
 
     /* Do the call. */
     if (!Invoke(cx, args2))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().set(args2.rval());
     return true;
 }
@@ -1176,7 +1176,7 @@ array_toString(JSContext *cx, unsigned argc, Value *vp)
 static bool
 array_toLocaleString(JSContext *cx, unsigned argc, Value *vp)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     CallArgs args = CallArgsFromVp(argc, vp);
     return ArrayJoin<true>(cx, args);
@@ -1186,7 +1186,7 @@ array_toLocaleString(JSContext *cx, unsigned argc, Value *vp)
 static bool
 array_join(JSContext *cx, unsigned argc, Value *vp)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    JS_CHECK_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     CallArgs args = CallArgsFromVp(argc, vp);
     return ArrayJoin<false>(cx, args);
@@ -1200,7 +1200,7 @@ InitArrayTypes(JSContext *cx, TypeObject *type, const Value *vector, unsigned co
 
         HeapTypeSet *types = type->getProperty(cx, JSID_VOID);
         if (!types)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         for (unsigned i = 0; i < count; i++) {
             if (vector[i].isMagic(JS_ELEMENTS_HOLE))
@@ -1229,9 +1229,9 @@ InitArrayElements(JSContext *cx, HandleObject obj, uint32_t start, uint32_t coun
 
     types::TypeObject *type = obj->getType(cx);
     if (!type)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (updateTypes && !InitArrayTypes(cx, type, vector, count))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Optimize for dense arrays so long as adding the given set of elements
@@ -1255,7 +1255,7 @@ InitArrayElements(JSContext *cx, HandleObject obj, uint32_t start, uint32_t coun
         JSObject::EnsureDenseResult result = arr->ensureDenseElements(cx, start, count);
         if (result != JSObject::ED_OK) {
             if (result == JSObject::ED_FAILED)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             JS_ASSERT(result == JSObject::ED_SPARSE);
             break;
         }
@@ -1274,7 +1274,7 @@ InitArrayElements(JSContext *cx, HandleObject obj, uint32_t start, uint32_t coun
     while (vector < end && start <= MAX_ARRAY_INDEX) {
         if (!JS_CHECK_OPERATION_LIMIT(cx) ||
             !SetArrayElement(cx, obj, start++, HandleValue::fromMarkedLocation(vector++))) {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -1292,7 +1292,7 @@ InitArrayElements(JSContext *cx, HandleObject obj, uint32_t start, uint32_t coun
         if (!ValueToId<CanGC>(cx, indexv, &id) ||
             !JSObject::setGeneric(cx, obj, obj, id, &value, true))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         index += 1;
     } while (vector != end);
@@ -1306,11 +1306,11 @@ array_reverse(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     uint32_t len;
     if (!GetLengthProperty(cx, obj, &len))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     do {
         if (!obj->is<ArrayObject>())
@@ -1336,7 +1336,7 @@ array_reverse(JSContext *cx, unsigned argc, Value *vp)
         JSObject::EnsureDenseResult result = obj->ensureDenseElements(cx, len, 0);
         if (result != JSObject::ED_OK) {
             if (result == JSObject::ED_FAILED)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             JS_ASSERT(result == JSObject::ED_SPARSE);
             break;
         }
@@ -1353,12 +1353,12 @@ array_reverse(JSContext *cx, unsigned argc, Value *vp)
             obj->setDenseElement(lo, orighi);
             if (orighi.isMagic(JS_ELEMENTS_HOLE) &&
                 !js_SuppressDeletedProperty(cx, obj, INT_TO_JSID(lo))) {
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             obj->setDenseElement(hi, origlo);
             if (origlo.isMagic(JS_ELEMENTS_HOLE) &&
                 !js_SuppressDeletedProperty(cx, obj, INT_TO_JSID(hi))) {
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
 
@@ -1378,24 +1378,24 @@ array_reverse(JSContext *cx, unsigned argc, Value *vp)
             !GetElement(cx, obj, i, &hole, &lowval) ||
             !GetElement(cx, obj, len - i - 1, &hole2, &hival))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (!hole && !hole2) {
             if (!SetArrayElement(cx, obj, i, hival))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!SetArrayElement(cx, obj, len - i - 1, lowval))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else if (hole && !hole2) {
             if (!SetArrayElement(cx, obj, i, hival))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!DeletePropertyOrThrow(cx, obj, len - i - 1))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else if (!hole && hole2) {
             if (!DeletePropertyOrThrow(cx, obj, i))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!SetArrayElement(cx, obj, len - i - 1, lowval))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             // No action required.
         }
@@ -1410,13 +1410,13 @@ inline bool
 CompareStringValues(JSContext *cx, const Value &a, const Value &b, bool *lessOrEqualp)
 {
     if (!JS_CHECK_OPERATION_LIMIT(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSString *astr = a.toString();
     JSString *bstr = b.toString();
     int32_t result;
     if (!CompareStrings(cx, astr, bstr, &result))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *lessOrEqualp = (result <= 0);
     return true;
@@ -1489,11 +1489,11 @@ CompareSubStringValues(JSContext *cx, const jschar *s1, size_t l1,
                        const jschar *s2, size_t l2, bool *lessOrEqualp)
 {
     if (!JS_CHECK_OPERATION_LIMIT(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     int32_t result;
     if (!s1 || !s2 || !CompareChars(s1, l1, s2, l2, &result))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *lessOrEqualp = (result <= 0);
     return true;
@@ -1568,11 +1568,11 @@ SortComparatorFunction::operator()(const Value &a, const Value &b, bool *lessOrE
     JS_ASSERT(!a.isMagic() && !b.isUndefined());
 
     if (!JS_CHECK_OPERATION_LIMIT(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     InvokeArgs &args = fig.args();
     if (!args.init(2))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.setCallee(fval);
     args.setThis(UndefinedValue());
@@ -1580,11 +1580,11 @@ SortComparatorFunction::operator()(const Value &a, const Value &b, bool *lessOrE
     args[1].set(b);
 
     if (!fig.invoke(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     double cmp;
     if (!ToNumber(cx, args.rval(), &cmp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * XXX eport some kind of error here if cmp is NaN? ECMA talks about
@@ -1718,7 +1718,7 @@ MergeSortByKey(K keys, size_t len, K scratch, C comparator, AutoValueVector *vec
 
     /* Sort keys. */
     if (!MergeSort(keys, len, scratch, comparator))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Reorder vec by keys in-place, going element by element.  When an out-of-
@@ -1771,16 +1771,16 @@ SortLexicographically(JSContext *cx, AutoValueVector *vec, size_t len)
 
     /* MergeSort uses the upper half as scratch space. */
     if (!strElements.reserve(2 * len))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Convert Values to strings. */
     size_t cursor = 0;
     for (size_t i = 0; i < len; i++) {
         if (!JS_CHECK_OPERATION_LIMIT(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!ValueToStringBuffer(cx, (*vec)[i], sb))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         StringifiedElement el = { cursor, sb.length(), i };
         strElements.infallibleAppend(el);
@@ -1810,16 +1810,16 @@ SortNumerically(JSContext *cx, AutoValueVector *vec, size_t len, ComparatorMatch
 
     /* MergeSort uses the upper half as scratch space. */
     if (!numElements.reserve(2 * len))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Convert Values to numerics. */
     for (size_t i = 0; i < len; i++) {
         if (!JS_CHECK_OPERATION_LIMIT(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         double dv;
         if (!ToNumber(cx, vec->handleAt(i), &dv))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         NumericElement el = { dv, i };
         numElements.infallibleAppend(el);
@@ -1846,7 +1846,7 @@ js::array_sort(JSContext *cx, unsigned argc, Value *vp)
     if (args.hasDefined(0)) {
         if (args[0].isPrimitive()) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_BAD_SORT_ARG);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         fval = args[0];     /* non-default compare function */
     } else {
@@ -1855,11 +1855,11 @@ js::array_sort(JSContext *cx, unsigned argc, Value *vp)
 
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     uint32_t len;
     if (!GetLengthProperty(cx, obj, &len))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (len < 2) {
         /* [] and [a] remain unchanged when sorted. */
         args.rval().setObject(*obj);
@@ -1875,7 +1875,7 @@ js::array_sort(JSContext *cx, unsigned argc, Value *vp)
 #if JS_BITS_PER_WORD == 32
     if (size_t(len) > size_t(-1) / (2 * sizeof(Value))) {
         js_ReportAllocationOverflow(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 #endif
 
@@ -1892,7 +1892,7 @@ js::array_sort(JSContext *cx, unsigned argc, Value *vp)
     {
         AutoValueVector vec(cx);
         if (!vec.reserve(2 * size_t(len)))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /*
          * By ECMA 262, 15.4.4.11, a property that does not exist (which we
@@ -1908,12 +1908,12 @@ js::array_sort(JSContext *cx, unsigned argc, Value *vp)
         RootedValue v(cx);
         for (uint32_t i = 0; i < len; i++) {
             if (!JS_CHECK_OPERATION_LIMIT(cx))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             /* Clear vec[newlen] before including it in the rooted set. */
             bool hole;
             if (!GetElement(cx, obj, i, &hole, &v))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (hole)
                 continue;
             if (v.isUndefined()) {
@@ -1945,30 +1945,30 @@ js::array_sort(JSContext *cx, unsigned argc, Value *vp)
             if (allStrings) {
                 JS_ALWAYS_TRUE(vec.resize(n * 2));
                 if (!MergeSort(vec.begin(), n, vec.begin() + n, SortComparatorStrings(cx)))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else if (allInts) {
                 JS_ALWAYS_TRUE(vec.resize(n * 2));
                 if (!MergeSort(vec.begin(), n, vec.begin() + n,
                                SortComparatorLexicographicInt32(cx))) {
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             } else {
                 if (!SortLexicographically(cx, &vec, n))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         } else {
             ComparatorMatchResult comp = MatchNumericComparator(cx, fval);
             if (comp == Match_Failure)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             if (comp != Match_None) {
                 if (allInts) {
                     JS_ALWAYS_TRUE(vec.resize(n * 2));
                     if (!MergeSort(vec.begin(), n, vec.begin() + n, SortComparatorInt32s[comp]))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 } else {
                     if (!SortNumerically(cx, &vec, n, comp))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             } else {
                 FastInvokeGuard fig(cx, fval);
@@ -1978,13 +1978,13 @@ js::array_sort(JSContext *cx, unsigned argc, Value *vp)
                 if (!MergeSort(vec.begin(), n, vec.begin() + n,
                                SortComparatorFunction(cx, fval, fig)))
                 {
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
         }
 
         if (!InitArrayElements(cx, obj, 0, uint32_t(n), vec.begin(), DontUpdateTypes))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Set undefs that sorted after the rest of elements. */
@@ -1992,13 +1992,13 @@ js::array_sort(JSContext *cx, unsigned argc, Value *vp)
         --undefs;
         RootedValue undefinedValue(cx);
         if (!JS_CHECK_OPERATION_LIMIT(cx) || !SetArrayElement(cx, obj, n++, undefinedValue))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Re-create any holes that sorted to the end of the array. */
     while (len > n) {
         if (!JS_CHECK_OPERATION_LIMIT(cx) || !DeletePropertyOrThrow(cx, obj, --len))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     args.rval().setObject(*obj);
     return true;
@@ -2016,7 +2016,7 @@ NewbornArrayPushImpl(JSContext *cx, HandleObject obj, const Value &v)
     JS_ASSERT(length <= arr->getDenseCapacity());
 
     if (!arr->ensureElements(cx, length + 1))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     arr->setDenseInitializedLength(length + 1);
     arr->setLengthInt32(length + 1);
@@ -2039,12 +2039,12 @@ js::array_push(JSContext *cx, unsigned argc, Value *vp)
     /* Step 1. */
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Steps 2-3. */
     uint32_t length;
     if (!GetLengthProperty(cx, obj, &length))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Fast path for native objects with dense elements. */
     do {
@@ -2060,7 +2060,7 @@ js::array_push(JSContext *cx, unsigned argc, Value *vp)
         uint32_t argCount = args.length();
         JSObject::EnsureDenseResult result = obj->ensureDenseElements(cx, length, argCount);
         if (result == JSObject::ED_FAILED)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (result == JSObject::ED_OK) {
             for (uint32_t i = 0, index = length; i < argCount; index++, i++)
@@ -2079,7 +2079,7 @@ js::array_push(JSContext *cx, unsigned argc, Value *vp)
 
     /* Steps 4-5. */
     if (!InitArrayElements(cx, obj, length, args.length(), args.array(), UpdateTypes))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Steps 6-7. */
     double newlength = length + double(args.length());
@@ -2096,12 +2096,12 @@ js::array_pop(JSContext *cx, unsigned argc, Value *vp)
     /* Step 1. */
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Steps 2-3. */
     uint32_t index;
     if (!GetLengthProperty(cx, obj, &index))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Steps 4-5. */
     if (index == 0) {
@@ -2114,11 +2114,11 @@ js::array_pop(JSContext *cx, unsigned argc, Value *vp)
         /* Step 5b, 5e. */
         bool hole;
         if (!GetElement(cx, obj, index, &hole, args.rval()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* Step 5c. */
         if (!hole && !DeletePropertyOrThrow(cx, obj, index))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // If this was an array, then there are no elements above the one we just
@@ -2159,18 +2159,18 @@ js::array_shift(JSContext *cx, unsigned argc, Value *vp)
     /* Step 1. */
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Steps 2-3. */
     uint32_t len;
     if (!GetLengthProperty(cx, obj, &len))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 4. */
     if (len == 0) {
         /* Step 4a. */
         if (!SetLengthProperty(cx, obj, 0))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* Step 4b. */
         args.rval().setUndefined();
@@ -2193,7 +2193,7 @@ js::array_shift(JSContext *cx, unsigned argc, Value *vp)
         obj->setDenseInitializedLength(obj->getDenseInitializedLength() - 1);
 
         if (!SetLengthProperty(cx, obj, newlen))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         return js_SuppressDeletedProperty(cx, obj, INT_TO_JSID(newlen));
     }
@@ -2201,27 +2201,27 @@ js::array_shift(JSContext *cx, unsigned argc, Value *vp)
     /* Steps 5, 10. */
     bool hole;
     if (!GetElement(cx, obj, uint32_t(0), &hole, args.rval()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Steps 6-7. */
     RootedValue value(cx);
     for (uint32_t i = 0; i < newlen; i++) {
         if (!JS_CHECK_OPERATION_LIMIT(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!GetElement(cx, obj, i + 1, &hole, &value))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (hole) {
             if (!DeletePropertyOrThrow(cx, obj, i))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             if (!SetArrayElement(cx, obj, i, value))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
     /* Step 8. */
     if (!DeletePropertyOrThrow(cx, obj, newlen))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 9. */
     return SetLengthProperty(cx, obj, newlen);
@@ -2233,11 +2233,11 @@ array_unshift(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     uint32_t length;
     if (!GetLengthProperty(cx, obj, &length))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     double newlen = length;
     if (args.length() > 0) {
@@ -2254,7 +2254,7 @@ array_unshift(JSContext *cx, unsigned argc, Value *vp)
                 JSObject::EnsureDenseResult result = obj->ensureDenseElements(cx, length, args.length());
                 if (result != JSObject::ED_OK) {
                     if (result == JSObject::ED_FAILED)
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     JS_ASSERT(result == JSObject::ED_SPARSE);
                     break;
                 }
@@ -2272,15 +2272,15 @@ array_unshift(JSContext *cx, unsigned argc, Value *vp)
                     --last, --upperIndex;
                     bool hole;
                     if (!JS_CHECK_OPERATION_LIMIT(cx))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     if (!GetElement(cx, obj, last, &hole, &value))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     if (hole) {
                         if (!DeletePropertyOrThrow(cx, obj, upperIndex))
-                            return false;
+                            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     } else {
                         if (!SetArrayElement(cx, obj, upperIndex, value))
-                            return false;
+                            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     }
                 } while (last != 0);
             }
@@ -2288,12 +2288,12 @@ array_unshift(JSContext *cx, unsigned argc, Value *vp)
 
         /* Copy from args to the bottom of the array. */
         if (!InitArrayElements(cx, obj, 0, args.length(), args.array(), UpdateTypes))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         newlen += args.length();
     }
     if (!SetLengthProperty(cx, obj, newlen))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Follow Perl by returning the new array length. */
     args.rval().setNumber(newlen);
@@ -2326,11 +2326,11 @@ CanOptimizeForDenseStorage(HandleObject arr, uint32_t startingIndex, uint32_t co
 {
     /* If the desired properties overflow dense storage, we can't optimize. */
     if (UINT32_MAX - startingIndex < count)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* There's no optimizing possible if it's not an array. */
     if (!arr->is<ArrayObject>())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Don't optimize if the array might be in the midst of iteration.  We
@@ -2347,7 +2347,7 @@ CanOptimizeForDenseStorage(HandleObject arr, uint32_t startingIndex, uint32_t co
      */
     types::TypeObject *arrType = arr->getType(cx);
     if (JS_UNLIKELY(!arrType || arrType->hasAllFlags(OBJECT_FLAG_ITERATED)))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Now watch out for getters and setters along the prototype chain or in
@@ -2367,17 +2367,17 @@ array_splice(JSContext *cx, unsigned argc, Value *vp)
     /* Step 1. */
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Steps 3-4. */
     uint32_t len;
     if (!GetLengthProperty(cx, obj, &len))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 5. */
     double relativeStart;
     if (!ToInteger(cx, args.get(0), &relativeStart))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 6. */
     uint32_t actualStart;
@@ -2392,7 +2392,7 @@ array_splice(JSContext *cx, unsigned argc, Value *vp)
         double deleteCountDouble;
         RootedValue cnt(cx, argc >= 2 ? args[1] : Int32Value(0));
         if (!ToInteger(cx, cnt, &deleteCountDouble))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         actualDeleteCount = Min(Max(deleteCountDouble, 0.0), double(len - actualStart));
     } else {
         /*
@@ -2409,12 +2409,12 @@ array_splice(JSContext *cx, unsigned argc, Value *vp)
     if (CanOptimizeForDenseStorage(obj, actualStart, actualDeleteCount, cx)) {
         arr = NewDenseCopiedArray(cx, actualDeleteCount, obj, actualStart);
         if (!arr)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         TryReuseArrayType(obj, arr);
     } else {
         arr = NewDenseAllocatedArray(cx, actualDeleteCount);
         if (!arr)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         TryReuseArrayType(obj, arr);
 
         RootedValue fromValue(cx);
@@ -2424,7 +2424,7 @@ array_splice(JSContext *cx, unsigned argc, Value *vp)
                 !GetElement(cx, obj, actualStart + k, &hole, &fromValue) ||
                 (!hole && !JSObject::defineElement(cx, arr, k, fromValue)))
             {
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
     }
@@ -2454,7 +2454,7 @@ array_splice(JSContext *cx, unsigned argc, Value *vp)
 
             /* Fix running enumerators for the deleted items. */
             if (!js_SuppressDeletedElements(cx, obj, finalLength, len))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             /*
              * This is all very slow if the length is very large. We don't yet
@@ -2467,24 +2467,24 @@ array_splice(JSContext *cx, unsigned argc, Value *vp)
             RootedValue fromValue(cx);
             for (uint32_t from = sourceIndex, to = targetIndex; from < len; from++, to++) {
                 if (!JS_CHECK_OPERATION_LIMIT(cx))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 bool hole;
                 if (!GetElement(cx, obj, from, &hole, &fromValue))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (hole) {
                     if (!DeletePropertyOrThrow(cx, obj, to))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 } else {
                     if (!SetArrayElement(cx, obj, to, fromValue))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
 
             /* Steps 12(c)-(d). */
             for (uint32_t k = len; k > finalLength; k--) {
                 if (!DeletePropertyOrThrow(cx, obj, k - 1))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
     } else if (itemCount > actualDeleteCount) {
@@ -2520,7 +2520,7 @@ array_splice(JSContext *cx, unsigned argc, Value *vp)
                 JSObject::EnsureDenseResult res =
                     arr->ensureDenseElements(cx, arr->length(), itemCount - actualDeleteCount);
                 if (res == JSObject::ED_FAILED)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
 
@@ -2535,21 +2535,21 @@ array_splice(JSContext *cx, unsigned argc, Value *vp)
             RootedValue fromValue(cx);
             for (double k = len - actualDeleteCount; k > actualStart; k--) {
                 if (!JS_CHECK_OPERATION_LIMIT(cx))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 double from = k + actualDeleteCount - 1;
                 double to = k + itemCount - 1;
 
                 bool hole;
                 if (!GetElement(cx, obj, from, &hole, &fromValue))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 if (hole) {
                     if (!DeletePropertyOrThrow(cx, obj, to))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 } else {
                     if (!SetArrayElement(cx, obj, to, fromValue))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
         }
@@ -2561,13 +2561,13 @@ array_splice(JSContext *cx, unsigned argc, Value *vp)
     /* Steps 14-15. */
     for (uint32_t k = actualStart, i = 0; i < itemCount; i++, k++) {
         if (!SetArrayElement(cx, obj, k, HandleValue::fromMarkedLocation(&items[i])))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Step 16. */
     double finalLength = double(len) - actualDeleteCount + itemCount;
     if (!SetLengthProperty(cx, obj, finalLength))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 17. */
     args.rval().setObject(*arr);
@@ -2589,7 +2589,7 @@ js::array_concat_dense(JSContext *cx, Handle<ArrayObject*> arr1, Handle<ArrayObj
     uint32_t len = initlen1 + initlen2;
 
     if (!result->ensureElements(cx, len))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_ASSERT(!result->getDenseInitializedLength());
     result->setDenseInitializedLength(len);
@@ -2615,7 +2615,7 @@ js::array_concat(JSContext *cx, unsigned argc, Value *vp)
     /* Create a new Array object and root it using *vp. */
     RootedObject aobj(cx, ToObject(cx, args.thisv()));
     if (!aobj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     Rooted<ArrayObject*> narr(cx);
     uint32_t length;
@@ -2624,7 +2624,7 @@ js::array_concat(JSContext *cx, unsigned argc, Value *vp)
         uint32_t initlen = aobj->getDenseInitializedLength();
         narr = NewDenseCopiedArray(cx, initlen, aobj, 0);
         if (!narr)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         TryReuseArrayType(aobj, narr);
         ArrayObject::setLength(cx, narr, length);
         args.rval().setObject(*narr);
@@ -2635,7 +2635,7 @@ js::array_concat(JSContext *cx, unsigned argc, Value *vp)
     } else {
         narr = NewDenseEmptyArray(cx);
         if (!narr)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args.rval().setObject(*narr);
         length = 0;
     }
@@ -2643,26 +2643,26 @@ js::array_concat(JSContext *cx, unsigned argc, Value *vp)
     /* Loop over [0, argc] to concat args into narr, expanding all Arrays. */
     for (unsigned i = 0; i <= argc; i++) {
         if (!JS_CHECK_OPERATION_LIMIT(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         HandleValue v = HandleValue::fromMarkedLocation(&p[i]);
         if (v.isObject()) {
             RootedObject obj(cx, &v.toObject());
             if (ObjectClassIs(obj, ESClass_Array, cx)) {
                 uint32_t alength;
                 if (!GetLengthProperty(cx, obj, &alength))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 RootedValue tmp(cx);
                 for (uint32_t slot = 0; slot < alength; slot++) {
                     bool hole;
                     if (!JS_CHECK_OPERATION_LIMIT(cx) || !GetElement(cx, obj, slot, &hole, &tmp))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                     /*
                      * Per ECMA 262, 15.4.4.4, step 9, ignore nonexistent
                      * properties.
                      */
                     if (!hole && !SetArrayElement(cx, narr, length + slot, tmp))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
                 length += alength;
                 continue;
@@ -2670,7 +2670,7 @@ js::array_concat(JSContext *cx, unsigned argc, Value *vp)
         }
 
         if (!SetArrayElement(cx, narr, length, v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         length++;
     }
 
@@ -2687,17 +2687,17 @@ array_slice(JSContext *cx, unsigned argc, Value *vp)
 
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!GetLengthProperty(cx, obj, &length))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     begin = 0;
     end = length;
 
     if (args.length() > 0) {
         double d;
         if (!ToInteger(cx, args[0], &d))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (d < 0) {
             d += length;
             if (d < 0)
@@ -2709,7 +2709,7 @@ array_slice(JSContext *cx, unsigned argc, Value *vp)
 
         if (args.hasDefined(1)) {
             if (!ToInteger(cx, args[1], &d))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (d < 0) {
                 d += length;
                 if (d < 0)
@@ -2731,7 +2731,7 @@ array_slice(JSContext *cx, unsigned argc, Value *vp)
     {
         narr = NewDenseCopiedArray(cx, end - begin, obj, begin);
         if (!narr)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         TryReuseArrayType(obj, narr);
         args.rval().setObject(*narr);
         return true;
@@ -2739,17 +2739,17 @@ array_slice(JSContext *cx, unsigned argc, Value *vp)
 
     narr = NewDenseAllocatedArray(cx, end - begin);
     if (!narr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     TryReuseArrayType(obj, narr);
 
     RootedValue value(cx);
     for (slot = begin; slot < end; slot++) {
         if (!JS_CHECK_OPERATION_LIMIT(cx) ||
             !GetElement(cx, obj, slot, &hole, &value)) {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (!hole && !SetArrayElement(cx, narr, slot - begin, value))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args.rval().setObject(*narr);
@@ -2765,21 +2765,21 @@ array_filter(JSContext *cx, unsigned argc, Value *vp)
     /* Step 1. */
     RootedObject obj(cx, ToObject(cx, args.thisv()));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 2-3. */
     uint32_t len;
     if (!GetLengthProperty(cx, obj, &len))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 4. */
     if (args.length() == 0) {
         js_ReportMissingArg(cx, args.calleev(), 0);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     RootedObject callable(cx, ValueToCallable(cx, args[0], args.length() - 1));
     if (!callable)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Step 5. */
     RootedValue thisv(cx, args.length() >= 2 ? args[1] : UndefinedValue());
@@ -2787,10 +2787,10 @@ array_filter(JSContext *cx, unsigned argc, Value *vp)
     /* Step 6. */
     RootedObject arr(cx, NewDenseAllocatedArray(cx, 0));
     if (!arr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     TypeObject *newtype = GetTypeCallerInitObject(cx, JSProto_Array);
     if (!newtype)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     arr->setType(newtype);
 
     /* Step 7. */
@@ -2806,28 +2806,28 @@ array_filter(JSContext *cx, unsigned argc, Value *vp)
     RootedValue kValue(cx);
     while (k < len) {
         if (!JS_CHECK_OPERATION_LIMIT(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* Step a, b, and c.i. */
         bool kNotPresent;
         if (!GetElement(cx, obj, k, &kNotPresent, &kValue))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* Step c.ii-iii. */
         if (!kNotPresent) {
             if (!args2.init(3))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             args2.setCallee(ObjectValue(*callable));
             args2.setThis(thisv);
             args2[0].set(kValue);
             args2[1].setNumber(k);
             args2[2].setObject(*obj);
             if (!fig.invoke(cx))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             if (ToBoolean(args2.rval())) {
                 if (!SetArrayElement(cx, arr, to, kValue))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 to++;
             }
         }
@@ -2866,12 +2866,12 @@ static bool
 ArrayFromCallArgs(JSContext *cx, RootedTypeObject &type, CallArgs &args)
 {
     if (!InitArrayTypes(cx, type, args.array(), args.length()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JSObject *obj = (args.length() == 0)
         ? NewDenseEmptyArray(cx)
         : NewDenseCopiedArray(cx, args.length(), args.array());
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     obj->setType(type);
     args.rval().setObject(*obj);
     return true;
@@ -2887,7 +2887,7 @@ array_of(JSContext *cx, unsigned argc, Value *vp)
         // the most common path.
         RootedTypeObject type(cx, GetTypeCallerInitObject(cx, JSProto_Array));
         if (!type)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         return ArrayFromCallArgs(cx, type, args);
     }
 
@@ -2897,22 +2897,22 @@ array_of(JSContext *cx, unsigned argc, Value *vp)
         RootedValue v(cx);
         Value argv[1] = {NumberValue(argc)};
         if (!InvokeConstructor(cx, args.thisv(), 1, argv, v.address()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         obj = ToObject(cx, v);
         if (!obj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // Step 8.
     for (unsigned k = 0; k < argc; k++) {
         if (!JSObject::defineElement(cx, obj, k, args[k]))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // Steps 9-10.
     RootedValue v(cx, NumberValue(argc));
     if (!JSObject::setProperty(cx, obj, obj, cx->names().length, &v, true))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Step 11.
     args.rval().setObject(*obj);
@@ -2999,7 +2999,7 @@ js_Array(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedTypeObject type(cx, GetTypeCallerInitObject(cx, JSProto_Array));
     if (!type)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (args.length() != 1 || !args[0].isNumber())
         return ArrayFromCallArgs(cx, type, args);
@@ -3009,7 +3009,7 @@ js_Array(JSContext *cx, unsigned argc, Value *vp)
         int32_t i = args[0].toInt32();
         if (i < 0) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_BAD_ARRAY_LENGTH);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         length = uint32_t(i);
     } else {
@@ -3017,7 +3017,7 @@ js_Array(JSContext *cx, unsigned argc, Value *vp)
         length = ToUint32(d);
         if (d != double(length)) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_BAD_ARRAY_LENGTH);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -3032,7 +3032,7 @@ js_Array(JSContext *cx, unsigned argc, Value *vp)
           ? NewDenseAllocatedArray(cx, length)
           : NewDenseUnallocatedArray(cx, length);
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     Rooted<ArrayObject*> arr(cx, &obj->as<ArrayObject>());
 
     arr->setType(type);
@@ -3115,7 +3115,7 @@ EnsureNewArrayElements(ExclusiveContext *cx, JSObject *obj, uint32_t length)
     DebugOnly<uint32_t> cap = obj->getDenseCapacity();
 
     if (!obj->ensureElements(cx, length))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_ASSERT_IF(cap, !obj->hasDynamicElements());
 
@@ -3278,7 +3278,7 @@ js_ArrayInfo(JSContext *cx, unsigned argc, Value *vp)
 
         char *bytes = DecompileValueGenerator(cx, JSDVG_SEARCH_STACK, arg, NullPtr());
         if (!bytes)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (arg.isPrimitive() ||
             !(obj = arg.toObjectOrNull())->is<ArrayObject>()) {
             fprintf(stderr, "%s: not array\n", bytes);

@@ -14,7 +14,7 @@ function testcase() {
         obj.tt = { len: 10 };
         try {
             eval("function obj.tt.ss() {};");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } catch (e) {
             return e instanceof SyntaxError;
         }

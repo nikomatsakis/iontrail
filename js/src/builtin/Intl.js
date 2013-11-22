@@ -262,7 +262,7 @@ var duplicateSingletonRE = (function () {
 function IsStructurallyValidLanguageTag(locale) {
     assert(typeof locale === "string", "IsStructurallyValidLanguageTag");
     if (!regexp_test_no_statics(languageTagRE, locale))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Before checking for duplicate variant or singleton subtags with
     // regular expressions, we have to get private use subtag sequences
@@ -456,7 +456,7 @@ function IsWellFormedCurrencyCode(currency) {
     var c = ToString(currency);
     var normalized = toASCIIUpperCase(c);
     if (normalized.length !== 3)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return !regexp_test_no_statics(/[^A-Z]/, normalized);
 }
 

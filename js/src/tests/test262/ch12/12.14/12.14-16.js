@@ -14,7 +14,7 @@ function testcase() {
             throw function () {
                 this._12_14_16_foo = "test";
             };
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } catch (e) {
             var obj = {};
             obj.test = function () {

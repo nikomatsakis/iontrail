@@ -5,6 +5,6 @@ function f() {
     } catch (e) {
 	return e instanceof RangeError;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 assertEq(f(), true);

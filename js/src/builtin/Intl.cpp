@@ -398,13 +398,13 @@ IntlInitialize(JSContext *cx, HandleObject obj, Handle<PropertyName*> initialize
 {
     RootedValue initializerValue(cx);
     if (!cx->global()->getIntrinsicValue(cx, initializer, &initializerValue))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JS_ASSERT(initializerValue.isObject());
     JS_ASSERT(initializerValue.toObject().is<JSFunction>());
 
     InvokeArgs args(cx);
     if (!args.init(3))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.setCallee(initializerValue);
     args.setThis(NullValue());
@@ -429,7 +429,7 @@ intl_availableLocales(JSContext *cx, CountAvailable countAvailable,
 {
     RootedObject locales(cx, NewObjectWithGivenProto(cx, &JSObject::class_, nullptr, nullptr));
     if (!locales)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #if ENABLE_INTL_API
     uint32_t count = countAvailable();
@@ -438,17 +438,17 @@ intl_availableLocales(JSContext *cx, CountAvailable countAvailable,
         const char *locale = getAvailable(i);
         ScopedJSFreePtr<char> lang(JS_strdup(cx, locale));
         if (!lang)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         char *p;
         while ((p = strchr(lang, '_')))
             *p = '-';
         RootedAtom a(cx, Atomize(cx, lang, strlen(lang)));
         if (!a)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!JSObject::defineProperty(cx, locales, a->asPropertyName(), t,
                                       JS_PropertyStub, JS_StrictPropertyStub, JSPROP_ENUMERATE))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 #endif
@@ -464,20 +464,20 @@ GetInternals(JSContext *cx, HandleObject obj, MutableHandleObject internals)
 {
     RootedValue getInternalsValue(cx);
     if (!cx->global()->getIntrinsicValue(cx, cx->names().getInternals, &getInternalsValue))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JS_ASSERT(getInternalsValue.isObject());
     JS_ASSERT(getInternalsValue.toObject().is<JSFunction>());
 
     InvokeArgs args(cx);
     if (!args.init(1))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.setCallee(getInternalsValue);
     args.setThis(NullValue());
     args[0].setObject(*obj);
 
     if (!Invoke(cx, args))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     internals.set(&args.rval().toObject());
     return true;
 }
@@ -594,18 +594,18 @@ Collator(JSContext *cx, CallArgs args, bool construct)
         // 10.1.2.1 step 3
         JSObject *intl = cx->global()->getOrCreateIntlObject(cx);
         if (!intl)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         RootedValue self(cx, args.thisv());
         if (!self.isUndefined() && (!self.isObject() || self.toObject() != *intl)) {
             // 10.1.2.1 step 4
             obj = ToObject(cx, self);
             if (!obj)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             // 10.1.2.1 step 5
             bool extensible;
             if (!JSObject::isExtensible(cx, obj, &extensible))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!extensible)
                 return Throw(cx, obj, JSMSG_OBJECT_NOT_EXTENSIBLE);
         } else {
@@ -617,10 +617,10 @@ Collator(JSContext *cx, CallArgs args, bool construct)
         // 10.1.3.1 paragraph 2
         RootedObject proto(cx, cx->global()->getOrCreateCollatorPrototype(cx));
         if (!proto)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         obj = NewObjectWithGivenProto(cx, &CollatorClass, proto, cx->global());
         if (!obj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         obj->setReservedSlot(UCOLLATOR_SLOT, PrivateValue(nullptr));
     }
@@ -631,7 +631,7 @@ Collator(JSContext *cx, CallArgs args, bool construct)
 
     // 10.1.2.1 step 6; 10.1.3.1 step 3
     if (!IntlInitialize(cx, obj, cx->names().InitializeCollator, locales, options))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // 10.1.2.1 steps 3.a and 7
     args.rval().setObject(*obj);
@@ -722,7 +722,7 @@ GlobalObject::initCollatorProto(JSContext *cx, Handle<GlobalObject*> global)
 {
     RootedObject proto(cx, global->createBlankPrototype(cx, &CollatorClass));
     if (!proto)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     proto->setReservedSlot(UCOLLATOR_SLOT, PrivateValue(nullptr));
     global->setReservedSlot(COLLATOR_PROTO, ObjectValue(*proto));
     return true;
@@ -736,7 +736,7 @@ js::intl_Collator_availableLocales(JSContext *cx, unsigned argc, Value *vp)
 
     RootedValue result(cx);
     if (!intl_availableLocales(cx, ucol_countAvailable, ucol_getAvailable, &result))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().set(result);
     return true;
 }
@@ -750,31 +750,31 @@ js::intl_availableCollations(JSContext *cx, unsigned argc, Value *vp)
 
     JSAutoByteString locale(cx, args[0].toString());
     if (!locale)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     UErrorCode status = U_ZERO_ERROR;
     UEnumeration *values = ucol_getKeywordValuesForLocale("co", locale.ptr(), false, &status);
     if (U_FAILURE(status)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_INTERNAL_INTL_ERROR);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     ScopedICUObject<UEnumeration> toClose(values, uenum_close);
 
     uint32_t count = uenum_count(values, &status);
     if (U_FAILURE(status)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_INTERNAL_INTL_ERROR);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedObject collations(cx, NewDenseEmptyArray(cx));
     if (!collations)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     uint32_t index = 0;
     for (uint32_t i = 0; i < count; i++) {
         const char *collation = uenum_next(values, nullptr, &status);
         if (U_FAILURE(status)) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_INTERNAL_INTL_ERROR);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         // Per ECMA-402, 10.2.3, we don't include standard and search:
@@ -797,10 +797,10 @@ js::intl_availableCollations(JSContext *cx, unsigned argc, Value *vp)
 
         RootedString jscollation(cx, JS_NewStringCopyZ(cx, collation));
         if (!jscollation)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         RootedValue element(cx, StringValue(jscollation));
         if (!JSObject::defineElement(cx, collations, index++, element))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args.rval().setObject(*collations);
@@ -956,11 +956,11 @@ intl_CompareStrings(JSContext *cx, UCollator *coll, HandleString str1, HandleStr
     size_t length1 = str1->length();
     const jschar *chars1 = str1->getChars(cx);
     if (!chars1)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     size_t length2 = str2->length();
     const jschar *chars2 = str2->getChars(cx);
     if (!chars2)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     UCollationResult uresult = ucol_strcoll(coll, JSCharToUChar(chars1),
                                             length1, JSCharToUChar(chars2),
@@ -997,7 +997,7 @@ js::intl_CompareStrings(JSContext *cx, unsigned argc, Value *vp)
         if (!coll) {
             coll = NewUCollator(cx, collator);
             if (!coll)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             collator->setReservedSlot(UCOLLATOR_SLOT, PrivateValue(coll));
         }
     } else {
@@ -1007,7 +1007,7 @@ js::intl_CompareStrings(JSContext *cx, unsigned argc, Value *vp)
         // internal property to each such object.
         coll = NewUCollator(cx, collator);
         if (!coll)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // Use the UCollator to actually compare the strings.
@@ -1019,7 +1019,7 @@ js::intl_CompareStrings(JSContext *cx, unsigned argc, Value *vp)
     if (!isCollatorInstance)
         ucol_close(coll);
     if (!success)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().set(result);
     return true;
 }
@@ -1080,18 +1080,18 @@ NumberFormat(JSContext *cx, CallArgs args, bool construct)
         // 11.1.2.1 step 3
         JSObject *intl = cx->global()->getOrCreateIntlObject(cx);
         if (!intl)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         RootedValue self(cx, args.thisv());
         if (!self.isUndefined() && (!self.isObject() || self.toObject() != *intl)) {
             // 11.1.2.1 step 4
             obj = ToObject(cx, self);
             if (!obj)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             // 11.1.2.1 step 5
             bool extensible;
             if (!JSObject::isExtensible(cx, obj, &extensible))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!extensible)
                 return Throw(cx, obj, JSMSG_OBJECT_NOT_EXTENSIBLE);
         } else {
@@ -1103,10 +1103,10 @@ NumberFormat(JSContext *cx, CallArgs args, bool construct)
         // 11.1.3.1 paragraph 2
         RootedObject proto(cx, cx->global()->getOrCreateNumberFormatPrototype(cx));
         if (!proto)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         obj = NewObjectWithGivenProto(cx, &NumberFormatClass, proto, cx->global());
         if (!obj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         obj->setReservedSlot(UNUMBER_FORMAT_SLOT, PrivateValue(nullptr));
     }
@@ -1117,7 +1117,7 @@ NumberFormat(JSContext *cx, CallArgs args, bool construct)
 
     // 11.1.2.1 step 6; 11.1.3.1 step 3
     if (!IntlInitialize(cx, obj, cx->names().InitializeNumberFormat, locales, options))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // 11.1.2.1 steps 3.a and 7
     args.rval().setObject(*obj);
@@ -1210,7 +1210,7 @@ GlobalObject::initNumberFormatProto(JSContext *cx, Handle<GlobalObject*> global)
 {
     RootedObject proto(cx, global->createBlankPrototype(cx, &NumberFormatClass));
     if (!proto)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     proto->setReservedSlot(UNUMBER_FORMAT_SLOT, PrivateValue(nullptr));
     global->setReservedSlot(NUMBER_FORMAT_PROTO, ObjectValue(*proto));
     return true;
@@ -1224,7 +1224,7 @@ js::intl_NumberFormat_availableLocales(JSContext *cx, unsigned argc, Value *vp)
 
     RootedValue result(cx);
     if (!intl_availableLocales(cx, unum_countAvailable, unum_getAvailable, &result))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().set(result);
     return true;
 }
@@ -1238,7 +1238,7 @@ js::intl_numberingSystem(JSContext *cx, unsigned argc, Value *vp)
 
     JSAutoByteString locale(cx, args[0].toString());
     if (!locale)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // There's no C API for numbering system, so use the C++ API and hope it
     // won't break. http://bugs.icu-project.org/trac/ticket/10039
@@ -1247,13 +1247,13 @@ js::intl_numberingSystem(JSContext *cx, unsigned argc, Value *vp)
     NumberingSystem *numbers = NumberingSystem::createInstance(ulocale, status);
     if (U_FAILURE(status)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_INTERNAL_INTL_ERROR);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     const char *name = numbers->getName();
     RootedString jsname(cx, JS_NewStringCopyZ(cx, name));
     delete numbers;
     if (!jsname)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setString(jsname);
     return true;
 }
@@ -1411,29 +1411,29 @@ intl_FormatNumber(JSContext *cx, UNumberFormat *nf, double x, MutableHandleValue
 
     StringBuffer chars(cx);
     if (!chars.resize(INITIAL_STRING_BUFFER_SIZE))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     UErrorCode status = U_ZERO_ERROR;
     int size = unum_formatDouble(nf, x, JSCharToUChar(chars.begin()),
                                  INITIAL_STRING_BUFFER_SIZE, nullptr, &status);
     if (status == U_BUFFER_OVERFLOW_ERROR) {
         if (!chars.resize(size))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         status = U_ZERO_ERROR;
         unum_formatDouble(nf, x, JSCharToUChar(chars.begin()),
                           size, nullptr, &status);
     }
     if (U_FAILURE(status)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_INTERNAL_INTL_ERROR);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // Trim any unused characters.
     if (!chars.resize(size))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedString str(cx, chars.finishString());
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     result.setString(str);
     return true;
@@ -1457,7 +1457,7 @@ js::intl_FormatNumber(JSContext *cx, unsigned argc, Value *vp)
         if (!nf) {
             nf = NewUNumberFormat(cx, numberFormat);
             if (!nf)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             numberFormat->setReservedSlot(UNUMBER_FORMAT_SLOT, PrivateValue(nf));
         }
     } else {
@@ -1467,7 +1467,7 @@ js::intl_FormatNumber(JSContext *cx, unsigned argc, Value *vp)
         // NumberFormat instance as an internal property to each such object.
         nf = NewUNumberFormat(cx, numberFormat);
         if (!nf)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // Use the UNumberFormat to actually format the number.
@@ -1477,7 +1477,7 @@ js::intl_FormatNumber(JSContext *cx, unsigned argc, Value *vp)
     if (!isNumberFormatInstance)
         unum_close(nf);
     if (!success)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().set(result);
     return true;
 }
@@ -1538,18 +1538,18 @@ DateTimeFormat(JSContext *cx, CallArgs args, bool construct)
         // 12.1.2.1 step 3
         JSObject *intl = cx->global()->getOrCreateIntlObject(cx);
         if (!intl)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         RootedValue self(cx, args.thisv());
         if (!self.isUndefined() && (!self.isObject() || self.toObject() != *intl)) {
             // 12.1.2.1 step 4
             obj = ToObject(cx, self);
             if (!obj)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             // 12.1.2.1 step 5
             bool extensible;
             if (!JSObject::isExtensible(cx, obj, &extensible))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!extensible)
                 return Throw(cx, obj, JSMSG_OBJECT_NOT_EXTENSIBLE);
         } else {
@@ -1561,10 +1561,10 @@ DateTimeFormat(JSContext *cx, CallArgs args, bool construct)
         // 12.1.3.1 paragraph 2
         RootedObject proto(cx, cx->global()->getOrCreateDateTimeFormatPrototype(cx));
         if (!proto)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         obj = NewObjectWithGivenProto(cx, &DateTimeFormatClass, proto, cx->global());
         if (!obj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         obj->setReservedSlot(UDATE_FORMAT_SLOT, PrivateValue(nullptr));
     }
@@ -1575,7 +1575,7 @@ DateTimeFormat(JSContext *cx, CallArgs args, bool construct)
 
     // 12.1.2.1 step 6; 12.1.3.1 step 3
     if (!IntlInitialize(cx, obj, cx->names().InitializeDateTimeFormat, locales, options))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // 12.1.2.1 steps 3.a and 7
     args.rval().setObject(*obj);
@@ -1667,7 +1667,7 @@ GlobalObject::initDateTimeFormatProto(JSContext *cx, Handle<GlobalObject*> globa
 {
     RootedObject proto(cx, global->createBlankPrototype(cx, &DateTimeFormatClass));
     if (!proto)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     proto->setReservedSlot(UDATE_FORMAT_SLOT, PrivateValue(nullptr));
     global->setReservedSlot(DATE_TIME_FORMAT_PROTO, ObjectValue(*proto));
     return true;
@@ -1681,7 +1681,7 @@ js::intl_DateTimeFormat_availableLocales(JSContext *cx, unsigned argc, Value *vp
 
     RootedValue result(cx);
     if (!intl_availableLocales(cx, udat_countAvailable, udat_getAvailable, &result))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().set(result);
     return true;
 }
@@ -1709,11 +1709,11 @@ js::intl_availableCalendars(JSContext *cx, unsigned argc, Value *vp)
 
     JSAutoByteString locale(cx, args[0].toString());
     if (!locale)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedObject calendars(cx, NewDenseEmptyArray(cx));
     if (!calendars)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     uint32_t index = 0;
 
     // We need the default calendar for the locale as the first result.
@@ -1722,43 +1722,43 @@ js::intl_availableCalendars(JSContext *cx, unsigned argc, Value *vp)
     const char *calendar = ucal_getType(cal, &status);
     if (U_FAILURE(status)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_INTERNAL_INTL_ERROR);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     ucal_close(cal);
     RootedString jscalendar(cx, JS_NewStringCopyZ(cx, bcp47CalendarName(calendar)));
     if (!jscalendar)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedValue element(cx, StringValue(jscalendar));
     if (!JSObject::defineElement(cx, calendars, index++, element))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Now get the calendars that "would make a difference", i.e., not the default.
     UEnumeration *values = ucal_getKeywordValuesForLocale("ca", locale.ptr(), false, &status);
     if (U_FAILURE(status)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_INTERNAL_INTL_ERROR);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     ScopedICUObject<UEnumeration> toClose(values, uenum_close);
 
     uint32_t count = uenum_count(values, &status);
     if (U_FAILURE(status)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_INTERNAL_INTL_ERROR);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     for (; count > 0; count--) {
         calendar = uenum_next(values, nullptr, &status);
         if (U_FAILURE(status)) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_INTERNAL_INTL_ERROR);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         jscalendar = JS_NewStringCopyZ(cx, bcp47CalendarName(calendar));
         if (!jscalendar)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         element = StringValue(jscalendar);
         if (!JSObject::defineElement(cx, calendars, index++, element))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args.rval().setObject(*calendars);
@@ -1775,11 +1775,11 @@ js::intl_patternForSkeleton(JSContext *cx, unsigned argc, Value *vp)
 
     JSAutoByteString locale(cx, args[0].toString());
     if (!locale)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedString jsskeleton(cx, args[1].toString());
     const jschar *skeleton = JS_GetStringCharsZ(cx, jsskeleton);
     if (!skeleton)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     SkipRoot skip(cx, &skeleton);
     uint32_t skeletonLen = u_strlen(JSCharToUChar(skeleton));
 
@@ -1787,7 +1787,7 @@ js::intl_patternForSkeleton(JSContext *cx, unsigned argc, Value *vp)
     UDateTimePatternGenerator *gen = udatpg_open(icuLocale(locale.ptr()), &status);
     if (U_FAILURE(status)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_INTERNAL_INTL_ERROR);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     ScopedICUObject<UDateTimePatternGenerator> toClose(gen, udatpg_close);
 
@@ -1795,23 +1795,23 @@ js::intl_patternForSkeleton(JSContext *cx, unsigned argc, Value *vp)
                                          skeletonLen, nullptr, 0, &status);
     if (U_FAILURE(status) && status != U_BUFFER_OVERFLOW_ERROR) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_INTERNAL_INTL_ERROR);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     ScopedJSFreePtr<UChar> pattern(cx->pod_malloc<UChar>(size + 1));
     if (!pattern)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     pattern[size] = '\0';
     status = U_ZERO_ERROR;
     udatpg_getBestPattern(gen, JSCharToUChar(skeleton),
                           skeletonLen, pattern, size, &status);
     if (U_FAILURE(status)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_INTERNAL_INTL_ERROR);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedString str(cx, JS_NewUCStringCopyZ(cx, reinterpret_cast<jschar*>(pattern.get())));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setString(str);
     return true;
 }
@@ -1897,32 +1897,32 @@ intl_FormatDateTime(JSContext *cx, UDateFormat *df, double x, MutableHandleValue
 {
     if (!IsFinite(x)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DATE_NOT_FINITE);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     StringBuffer chars(cx);
     if (!chars.resize(INITIAL_STRING_BUFFER_SIZE))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     UErrorCode status = U_ZERO_ERROR;
     int size = udat_format(df, x, JSCharToUChar(chars.begin()), INITIAL_STRING_BUFFER_SIZE, nullptr, &status);
     if (status == U_BUFFER_OVERFLOW_ERROR) {
         if (!chars.resize(size))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         status = U_ZERO_ERROR;
         udat_format(df, x, JSCharToUChar(chars.begin()), size, nullptr, &status);
     }
     if (U_FAILURE(status)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_INTERNAL_INTL_ERROR);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // Trim any unused characters.
     if (!chars.resize(size))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedString str(cx, chars.finishString());
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     result.setString(str);
     return true;
@@ -1946,7 +1946,7 @@ js::intl_FormatDateTime(JSContext *cx, unsigned argc, Value *vp)
         if (!df) {
             df = NewUDateFormat(cx, dateTimeFormat);
             if (!df)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             dateTimeFormat->setReservedSlot(UDATE_FORMAT_SLOT, PrivateValue(df));
         }
     } else {
@@ -1956,7 +1956,7 @@ js::intl_FormatDateTime(JSContext *cx, unsigned argc, Value *vp)
         // DateTimeFormat instance as an internal property to each such object.
         df = NewUDateFormat(cx, dateTimeFormat);
         if (!df)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // Use the UDateFormat to actually format the time stamp.
@@ -1966,7 +1966,7 @@ js::intl_FormatDateTime(JSContext *cx, unsigned argc, Value *vp)
     if (!isDateTimeFormatInstance)
         udat_close(df);
     if (!success)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().set(result);
     return true;
 }
@@ -2054,7 +2054,7 @@ GlobalObject::initIntlObject(JSContext *cx, Handle<GlobalObject*> global)
     Intl = NewObjectWithGivenProto(cx, &IntlClass, global->getOrCreateObjectPrototype(cx),
                                    global, SingletonObject);
     if (!Intl)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     global->setConstructor(JSProto_Intl, ObjectValue(*Intl));
     return true;

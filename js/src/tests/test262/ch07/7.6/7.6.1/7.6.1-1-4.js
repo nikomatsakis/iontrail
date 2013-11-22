@@ -24,7 +24,7 @@ function testcase(){
             for(var p1 in arr) {
                 if(arr[p1] === p) {                     
                     if(!tokenCodes.hasOwnProperty(arr[p1])) {
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     };
                 }
             }

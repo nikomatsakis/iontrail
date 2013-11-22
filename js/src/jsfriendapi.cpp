@@ -185,7 +185,7 @@ JS::IsGCScheduled(JSRuntime *rt)
             return true;
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 JS_FRIEND_API(void)
@@ -280,7 +280,7 @@ DefineHelpProperty(JSContext *cx, HandleObject obj, const char *prop, const char
 {
     JSAtom *atom = Atomize(cx, value, strlen(value));
     if (!atom)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     jsval v = STRING_TO_JSVAL(atom);
     return JS_DefineProperty(cx, obj, prop, v,
                              JS_PropertyStub, JS_StrictPropertyStub,
@@ -298,21 +298,21 @@ JS_DefineFunctionsWithHelp(JSContext *cx, JSObject *objArg, const JSFunctionSpec
     for (; fs->name; fs++) {
         JSAtom *atom = Atomize(cx, fs->name, strlen(fs->name));
         if (!atom)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         Rooted<jsid> id(cx, AtomToId(atom));
         RootedFunction fun(cx, DefineFunction(cx, obj, id, fs->call, fs->nargs, fs->flags));
         if (!fun)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (fs->usage) {
             if (!DefineHelpProperty(cx, fun, "usage", fs->usage))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (fs->help) {
             if (!DefineHelpProperty(cx, fun, "help", fs->help))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -574,7 +574,7 @@ js::GetGeneric(JSContext *cx, JSObject *objArg, JSObject *receiverArg, jsid idAr
     RootedId id(cx, idArg);
     RootedValue value(cx);
     if (!JSObject::getGeneric(cx, obj, receiver, id, &value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *vp = value;
     return true;
 }
@@ -620,7 +620,7 @@ JS_FRIEND_API(bool)
 JS_IsDeadWrapper(JSObject *obj)
 {
     if (!obj->is<ProxyObject>()) {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return obj->as<ProxyObject>().handler()->family() == &DeadObjectProxy::sDeadObjectFamily;

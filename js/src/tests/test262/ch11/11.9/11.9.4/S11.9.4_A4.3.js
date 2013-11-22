@@ -3,7 +3,7 @@
 
 /**
  * Type(x) and Type(y) are Number-s minus NaN, +0, -0.
- * Return true, if x is the same number value as y; otherwise, return false
+ * Return true, if x is the same number value as y; otherwise, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
  *
  * @path ch11/11.9/11.9.4/S11.9.4_A4.3.js
  * @description x and y are primitive numbers

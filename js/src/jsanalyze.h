@@ -127,7 +127,7 @@ ExtendedDef(jsbytecode *pc)
       case JSOP_SETLOCAL:
         return true;
       default:
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 }
 
@@ -147,7 +147,7 @@ ExtendedUse(jsbytecode *pc)
       case JSOP_CALLLOCAL:
         return true;
       default:
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 }
 

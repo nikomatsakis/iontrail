@@ -259,7 +259,7 @@ BEGIN_TEST(testDebugger_singleStepThrow)
         JS_ASSERT(script);
 
         if (!JS_SetSingleStepMode(cx, script, true))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         JS_SET_RVAL(cx, vp, JSVAL_VOID);
         return true;
     }

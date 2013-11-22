@@ -327,7 +327,7 @@ ShellOperationCallback(JSContext *cx)
     if (!gTimeoutFunc.isNull()) {
         RootedValue returnedValue(cx);
         if (!JS_CallFunctionValue(cx, nullptr, gTimeoutFunc, 0, nullptr, returnedValue.address()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (returnedValue.isBoolean())
             result = returnedValue.toBoolean();
         else
@@ -427,23 +427,23 @@ EvalAndPrint(JSContext *cx, Handle<JSObject*> global, const char *bytes, size_t 
     RootedScript script(cx);
     script = JS::Compile(cx, global, options, bytes, length);
     if (!script)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (compileOnly)
         return true;
     RootedValue result(cx);
     if (!JS_ExecuteScript(cx, global, script, result.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!result.isUndefined()) {
         // Print.
         RootedString str(cx);
         str = JS_ValueToSource(cx, result);
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         char *utf8chars = JSStringToUTF8(cx, str);
         if (!utf8chars)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         fprintf(out, "%s\n", utf8chars);
         JS_free(cx, utf8chars);
     }
@@ -566,7 +566,7 @@ Version(JSContext *cx, unsigned argc, jsval *vp)
         }
         if (v < 0 || v > JSVERSION_LATEST) {
             JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr, JSSMSG_INVALID_ARGS, "version");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         JS_SetVersionForCompartment(js::GetContextCompartment(cx), JSVersion(v));
         args.rval().setInt32(origVersion);
@@ -658,12 +658,12 @@ Options(JSContext *cx, unsigned argc, jsval *vp)
     for (unsigned i = 0; i < args.length(); i++) {
         JSString *str = JS::ToString(cx, args[i]);
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args[i].setString(str);
 
         JSAutoByteString opt(cx, str);
         if (!opt)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (strcmp(opt.ptr(), "strict") == 0)
             JS::ContextOptionsRef(cx).toggleExtraWarnings();
@@ -681,12 +681,12 @@ Options(JSContext *cx, unsigned argc, jsval *vp)
                                           opt.ptr());
             if (!msg) {
                 JS_ReportOutOfMemory(cx);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             JS_ReportError(cx, msg);
             free(msg);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -710,13 +710,13 @@ Options(JSContext *cx, unsigned argc, jsval *vp)
     }
     if (!names) {
         JS_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JSString *str = JS_NewStringCopyZ(cx, names);
     free(names);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setString(str);
     return true;
 }
@@ -727,30 +727,30 @@ LoadScript(JSContext *cx, unsigned argc, jsval *vp, bool scriptRelative)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedObject thisobj(cx, JS_THIS_OBJECT(cx, vp));
     if (!thisobj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedString str(cx);
     for (unsigned i = 0; i < args.length(); i++) {
         str = JS::ToString(cx, args[i]);
         if (!str) {
             JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr, JSSMSG_INVALID_ARGS, "load");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         str = ResolvePath(cx, str, scriptRelative);
         if (!str) {
             JS_ReportError(cx, "unable to resolve path");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         JSAutoByteString filename(cx, str);
         if (!filename)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         errno = 0;
         CompileOptions opts(cx);
         opts.setUTF8(true).setCompileAndGo(true).setNoScriptRval(true);
         if ((compileOnly && !Compile(cx, thisobj, opts, filename.ptr())) ||
             !Evaluate(cx, thisobj, opts, filename.ptr(), nullptr))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -788,7 +788,7 @@ class AutoNewContext
         oldcx = cx;
         newcx = NewContext(JS_GetRuntime(cx));
         if (!newcx)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         JS::ContextOptionsRef(newcx).setDontReportUncaught(true);
         js::SetDefaultObjectForContext(newcx, JS::CurrentGlobalOrNull(cx));
 
@@ -827,7 +827,7 @@ class AutoSaveFrameChain
 
     bool save() {
         if (!JS_SaveFrameChain(cx_))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         saved_ = true;
         return true;
     }
@@ -847,11 +847,11 @@ Evaluate(JSContext *cx, unsigned argc, jsval *vp)
         JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr,
                              args.length() < 1 ? JSSMSG_NOT_ENOUGH_ARGS : JSSMSG_TOO_MANY_ARGS,
                              "evaluate");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (!args[0].isString() || (args.length() == 2 && args[1].isPrimitive())) {
         JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr, JSSMSG_INVALID_ARGS, "evaluate");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool newContext = false;
@@ -871,104 +871,104 @@ Evaluate(JSContext *cx, unsigned argc, jsval *vp)
 
     global = JS_GetGlobalForObject(cx, &args.callee());
     if (!global)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (args.length() == 2) {
         RootedObject opts(cx, &args[1].toObject());
         RootedValue v(cx);
 
         if (!JS_GetProperty(cx, opts, "newContext", &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!v.isUndefined())
             newContext = ToBoolean(v);
 
         if (!JS_GetProperty(cx, opts, "compileAndGo", &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!v.isUndefined())
             compileAndGo = ToBoolean(v);
 
         if (!JS_GetProperty(cx, opts, "noScriptRval", &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!v.isUndefined())
             noScriptRval = ToBoolean(v);
 
         if (!JS_GetProperty(cx, opts, "fileName", &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (v.isNull()) {
             fileName = nullptr;
         } else if (!v.isUndefined()) {
             JSString *s = ToString(cx, v);
             if (!s)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             fileName = fileNameBytes.encodeLatin1(cx, s);
             if (!fileName)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (!JS_GetProperty(cx, opts, "element", &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (v.isObject())
             element = &v.toObject();
 
         if (!JS_GetProperty(cx, opts, "sourceURL", &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!v.isUndefined()) {
             sourceURL = ToString(cx, v);
             if (!sourceURL)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (!JS_GetProperty(cx, opts, "sourceMapURL", &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!v.isUndefined()) {
             sourceMapURL = ToString(cx, v);
             if (!sourceMapURL)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (!JS_GetProperty(cx, opts, "lineNumber", &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!v.isUndefined()) {
             uint32_t u;
             if (!ToUint32(cx, v, &u))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             lineNumber = u;
         }
 
         if (!JS_GetProperty(cx, opts, "global", &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!v.isUndefined()) {
             if (v.isObject()) {
                 global = js::UncheckedUnwrap(&v.toObject());
                 if (!global)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             if (!global || !(JS_GetClass(global)->flags & JSCLASS_IS_GLOBAL)) {
                 JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_UNEXPECTED_TYPE,
                                      "\"global\" passed to evaluate()", "not a global object");
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
 
         if (!JS_GetProperty(cx, opts, "catchTermination", &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!v.isUndefined())
             catchTermination = ToBoolean(v);
 
         if (!JS_GetProperty(cx, opts, "saveFrameChain", &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!v.isUndefined())
             saveFrameChain = ToBoolean(v);
 
         if (!JS_GetProperty(cx, opts, "sourcePolicy", &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!v.isUndefined()) {
             JSString *s = ToString(cx, v);
             if (!s)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             char *policy = JS_EncodeStringToUTF8(cx, s);
             if (!policy)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (strcmp(policy, "NO_SOURCE") == 0) {
                 sourcePolicy = CompileOptions::NO_SOURCE;
             } else if (strcmp(policy, "LAZY_SOURCE") == 0) {
@@ -978,7 +978,7 @@ Evaluate(JSContext *cx, unsigned argc, jsval *vp)
             } else {
                 JS_ReportError(cx, "bad 'sourcePolicy' option passed to 'evaluate': '%s'",
                                policy);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
     }
@@ -988,19 +988,19 @@ Evaluate(JSContext *cx, unsigned argc, jsval *vp)
     size_t codeLength;
     const jschar *codeChars = JS_GetStringCharsAndLength(cx, code, &codeLength);
     if (!codeChars)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     AutoNewContext ancx;
     if (newContext) {
         if (!ancx.enter(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         cx = ancx.get();
     }
 
     {
         AutoSaveFrameChain asfc(cx);
         if (saveFrameChain && !asfc.save())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         JSAutoCompartment ac(cx, global);
         RootedScript script(cx);
@@ -1017,33 +1017,33 @@ Evaluate(JSContext *cx, unsigned argc, jsval *vp)
 
             script = JS::Compile(cx, global, options, codeChars, codeLength);
             if (!script)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (sourceURL && !script->scriptSource()->hasSourceURL()) {
             const jschar *surl = JS_GetStringCharsZ(cx, sourceURL);
             if (!surl)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!script->scriptSource()->setSourceURL(cx, surl))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (sourceMapURL && !script->scriptSource()->hasSourceMapURL()) {
             const jschar *smurl = JS_GetStringCharsZ(cx, sourceMapURL);
             if (!smurl)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!script->scriptSource()->setSourceMapURL(cx, smurl))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (!JS_ExecuteScript(cx, global, script, vp)) {
             if (catchTermination && !JS_IsExceptionPending(cx)) {
                 JSAutoCompartment ac1(cx, callerGlobal);
                 JSString *str = JS_NewStringCopyZ(cx, "terminated");
                 if (!str)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 args.rval().setString(str);
                 return true;
             }
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -1141,20 +1141,20 @@ Run(JSContext *cx, unsigned argc, jsval *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     if (args.length() != 1) {
         JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr, JSSMSG_INVALID_ARGS, "run");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedObject thisobj(cx, JS_THIS_OBJECT(cx, vp));
     if (!thisobj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSString *str = JS::ToString(cx, args[0]);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args[0].setString(str);
     JSAutoByteString filename(cx, str);
     if (!filename)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     const jschar *ucbuf = nullptr;
     size_t buflen;
@@ -1162,7 +1162,7 @@ Run(JSContext *cx, unsigned argc, jsval *vp)
     if (str)
         ucbuf = JS_GetStringCharsAndLength(cx, str, &buflen);
     if (!ucbuf)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS::Anchor<JSString *> a_str(str);
 
@@ -1177,11 +1177,11 @@ Run(JSContext *cx, unsigned argc, jsval *vp)
                .setCompileAndGo(true);
         script = JS_CompileUCScript(cx, thisobj, ucbuf, buflen, options);
         if (!script)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!JS_ExecuteScript(cx, thisobj, script, nullptr))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     int64_t endClock = PRMJ_Now();
 
@@ -1204,7 +1204,7 @@ ReadLine(JSContext *cx, unsigned argc, jsval *vp)
     size_t bufsize = BUFSIZE;
     char *buf = (char *) JS_malloc(cx, bufsize);
     if (!buf)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     bool sawNewline = false;
     size_t gotlength;
@@ -1232,7 +1232,7 @@ ReadLine(JSContext *cx, unsigned argc, jsval *vp)
 
         if (!tmp) {
             JS_free(cx, buf);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         buf = tmp;
@@ -1249,7 +1249,7 @@ ReadLine(JSContext *cx, unsigned argc, jsval *vp)
     char *tmp = static_cast<char*>(JS_realloc(cx, buf, buflength));
     if (!tmp) {
         JS_free(cx, buf);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     buf = tmp;
@@ -1261,7 +1261,7 @@ ReadLine(JSContext *cx, unsigned argc, jsval *vp)
     JSString *str = JS_NewStringCopyN(cx, buf, sawNewline ? buflength - 1 : buflength);
     JS_free(cx, buf);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setString(str);
     return true;
@@ -1275,10 +1275,10 @@ PutStr(JSContext *cx, unsigned argc, jsval *vp)
     if (args.length() != 0) {
         JSString *str = JS::ToString(cx, args[0]);
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         char *bytes = JSStringToUTF8(cx, str);
         if (!bytes)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         fputs(bytes, gOutFile);
         JS_free(cx, bytes);
         fflush(gOutFile);
@@ -1303,10 +1303,10 @@ PrintInternal(JSContext *cx, const CallArgs &args, FILE *file)
     for (unsigned i = 0; i < args.length(); i++) {
         JSString *str = JS::ToString(cx, args[i]);
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         char *bytes = JSStringToUTF8(cx, str);
         if (!bytes)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         fprintf(file, "%s%s", i ? " " : "", bytes);
 #if JS_TRACE_LOGGING
         TraceLog(TraceLogging::defaultLogger(), bytes);
@@ -1345,7 +1345,7 @@ Quit(JSContext *cx, unsigned argc, jsval *vp)
     JS_ConvertArguments(cx, args.length(), args.array(), "/ i", &gExitCode);
 
     gQuitting = true;
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static const char *
@@ -1373,12 +1373,12 @@ AssertEq(JSContext *cx, unsigned argc, jsval *vp)
                              ? JSSMSG_INVALID_ARGS
                              : JSSMSG_TOO_MANY_ARGS,
                              "assertEq");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool same;
     if (!JS_SameValue(cx, args[0], args[1], &same))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!same) {
         JSAutoByteString bytes0, bytes1;
         const char *actual = ToSource(cx, args[0], &bytes0);
@@ -1389,11 +1389,11 @@ AssertEq(JSContext *cx, unsigned argc, jsval *vp)
         } else {
             JSAutoByteString bytes2(cx, args[2].toString());
             if (!bytes2)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr, JSSMSG_ASSERT_EQ_FAILED_MSG,
                                  actual, expected, bytes2.ptr());
         }
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     args.rval().setUndefined();
     return true;
@@ -1438,7 +1438,7 @@ SetDebug(JSContext *cx, unsigned argc, jsval *vp)
     if (args.length() == 0 || !args[0].isBoolean()) {
         JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr,
                              JSSMSG_NOT_ENOUGH_ARGS, "setDebug");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /*
@@ -1467,15 +1467,15 @@ GetScriptAndPCArgs(JSContext *cx, unsigned argc, jsval *argv, MutableHandleScrip
             JS_GetClass(&v.toObject()) == Jsvalify(&JSFunction::class_)) {
             script = ValueToScript(cx, v);
             if (!script)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             intarg++;
         }
         if (argc > intarg) {
             if (!JS::ToInt32(cx, HandleValue::fromMarkedLocation(&argv[intarg]), ip))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if ((uint32_t)*ip >= script->length) {
                 JS_ReportError(cx, "Invalid PC");
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
     }
@@ -1527,18 +1527,18 @@ Trap(JSContext *cx, unsigned argc, jsval *vp)
 
     if (args.length() == 0) {
         JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr, JSSMSG_TRAP_USAGE);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     argc = args.length() - 1;
     RootedString str(cx, JS::ToString(cx, args[argc]));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args[argc].setString(str);
     if (!GetScriptAndPCArgs(cx, argc, args.array(), &script, &i))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (uint32_t(i) >= script->length) {
         JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr, JSSMSG_TRAP_USAGE);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     args.rval().setUndefined();
     return JS_SetTrap(cx, script, script->code + i, TrapHandler, STRING_TO_JSVAL(str));
@@ -1552,7 +1552,7 @@ Untrap(JSContext *cx, unsigned argc, jsval *vp)
     int32_t i;
 
     if (!GetScriptAndPCArgs(cx, args.length(), args.array(), &script, &i))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JS_ClearTrap(cx, script, script->code + i, nullptr, nullptr);
     args.rval().setUndefined();
     return true;
@@ -1572,12 +1572,12 @@ SetDebuggerHandler(JSContext *cx, unsigned argc, jsval *vp)
     if (args.length() == 0) {
         JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr,
                              JSSMSG_NOT_ENOUGH_ARGS, "setDebuggerHandler");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JSString *str = JS::ToString(cx, args[0]);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_SetDebuggerHandler(cx->runtime(), DebuggerAndThrowHandler, str);
     args.rval().setUndefined();
@@ -1592,12 +1592,12 @@ SetThrowHook(JSContext *cx, unsigned argc, jsval *vp)
     if (args.length() == 0) {
         JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr,
                              JSSMSG_NOT_ENOUGH_ARGS, "setThrowHook");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     str = JS::ToString(cx, args[0]);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_SetThrowHook(cx->runtime(), DebuggerAndThrowHandler, str);
     args.rval().setUndefined();
@@ -1611,7 +1611,7 @@ LineToPC(JSContext *cx, unsigned argc, jsval *vp)
 
     if (args.length() == 0) {
         JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr, JSSMSG_LINE2PC_USAGE);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedScript script(cx, GetTopScript(cx));
@@ -1619,17 +1619,17 @@ LineToPC(JSContext *cx, unsigned argc, jsval *vp)
     if (args[0].isObject() && args[0].toObject().is<JSFunction>()) {
         script = ValueToScript(cx, args[0]);
         if (!script)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         lineArg++;
     }
 
     uint32_t lineno;
     if (!ToUint32(cx, args.get(lineArg), &lineno))
-         return false;
+         do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     jsbytecode *pc = JS_LineNumberToPC(cx, script, lineno);
     if (!pc)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setInt32(pc - script->code);
     return true;
 }
@@ -1643,10 +1643,10 @@ PCToLine(JSContext *cx, unsigned argc, jsval *vp)
     unsigned lineno;
 
     if (!GetScriptAndPCArgs(cx, args.length(), args.array(), &script, &i))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     lineno = JS_PCToLineNumber(cx, script, script->code + i);
     if (!lineno)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setInt32(lineno);
     return true;
 }
@@ -1791,19 +1791,19 @@ Notes(JSContext *cx, unsigned argc, jsval *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     Sprinter sprinter(cx);
     if (!sprinter.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (unsigned i = 0; i < args.length(); i++) {
         RootedScript script (cx, ValueToScript(cx, args[i]));
         if (!script)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         SrcNotes(cx, script, &sprinter);
     }
 
     JSString *str = JS_NewStringCopyZ(cx, sprinter.string());
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setString(str);
     return true;
 }
@@ -1858,7 +1858,7 @@ DisassembleScript(JSContext *cx, HandleScript script, HandleFunction fun, bool l
     }
 
     if (!js_Disassemble(cx, script, lines, sp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     SrcNotes(cx, script, sp);
     TryNotes(cx, script, sp);
 
@@ -1872,7 +1872,7 @@ DisassembleScript(JSContext *cx, HandleScript script, HandleFunction fun, bool l
                 if (fun->isInterpreted()) {
                     RootedScript script(cx, fun->getOrCreateScript(cx));
                     if (!script || !DisassembleScript(cx, script, fun, lines, recursive, sp))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 } else {
                     Sprint(sp, "[native code]\n");
                 }
@@ -1899,7 +1899,7 @@ struct DisassembleOptionParser {
             JSString *str = argv[0].toString();
             JSFlatString *flatStr = JS_FlattenString(cx, str);
             if (!flatStr)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (JS_FlatStringEqualsAscii(flatStr, "-l"))
                 lines = true;
             else if (JS_FlatStringEqualsAscii(flatStr, "-r"))
@@ -1920,7 +1920,7 @@ DisassembleToSprinter(JSContext *cx, unsigned argc, jsval *vp, Sprinter *sprinte
     CallArgs args = CallArgsFromVp(argc, vp);
     DisassembleOptionParser p(args.length(), args.array());
     if (!p.parse(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (p.argc == 0) {
         /* Without arguments, disassemble the current script. */
@@ -1928,7 +1928,7 @@ DisassembleToSprinter(JSContext *cx, unsigned argc, jsval *vp, Sprinter *sprinte
         if (script) {
             JSAutoCompartment ac(cx, script);
             if (!js_Disassemble(cx, script, p.lines, sprinter))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             SrcNotes(cx, script, sprinter);
             TryNotes(cx, script, sprinter);
         }
@@ -1937,9 +1937,9 @@ DisassembleToSprinter(JSContext *cx, unsigned argc, jsval *vp, Sprinter *sprinte
             RootedFunction fun(cx);
             RootedScript script (cx, ValueToScript(cx, p.argv[i], fun.address()));
             if (!script)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!DisassembleScript(cx, script, fun, p.lines, p.recursive, sprinter))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
     return true;
@@ -1951,13 +1951,13 @@ DisassembleToString(JSContext *cx, unsigned argc, jsval *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     Sprinter sprinter(cx);
     if (!sprinter.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!DisassembleToSprinter(cx, args.length(), vp, &sprinter))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSString *str = JS_NewStringCopyZ(cx, sprinter.string());
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setString(str);
     return true;
 }
@@ -1968,9 +1968,9 @@ Disassemble(JSContext *cx, unsigned argc, jsval *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     Sprinter sprinter(cx);
     if (!sprinter.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!DisassembleToSprinter(cx, args.length(), vp, &sprinter))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     fprintf(stdout, "%s\n", sprinter.string());
     args.rval().setUndefined();
@@ -1985,7 +1985,7 @@ DisassFile(JSContext *cx, unsigned argc, jsval *vp)
     /* Support extra options at the start, just like Disassemble. */
     DisassembleOptionParser p(args.length(), args.array());
     if (!p.parse(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!p.argc) {
         args.rval().setUndefined();
@@ -1994,15 +1994,15 @@ DisassFile(JSContext *cx, unsigned argc, jsval *vp)
 
     RootedObject thisobj(cx, JS_THIS_OBJECT(cx, vp));
     if (!thisobj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // We should change DisassembleOptionParser to store CallArgs.
     JSString *str = JS::ToString(cx, HandleValue::fromMarkedLocation(&p.argv[0]));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JSAutoByteString filename(cx, str);
     if (!filename)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedScript script(cx);
 
     {
@@ -2016,17 +2016,17 @@ DisassFile(JSContext *cx, unsigned argc, jsval *vp)
 
         script = JS::Compile(cx, thisobj, options, filename.ptr());
         if (!script)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     Sprinter sprinter(cx);
     if (!sprinter.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     bool ok = DisassembleScript(cx, script, NullPtr(), p.lines, p.recursive, &sprinter);
     if (ok)
         fprintf(stdout, "%s\n", sprinter.string());
     if (!ok)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setUndefined();
     return true;
@@ -2049,12 +2049,12 @@ DisassWithSrc(JSContext *cx, unsigned argc, jsval *vp)
     for (unsigned i = 0; ok && i < args.length(); i++) {
         script = ValueToScript(cx, args[i]);
         if (!script)
-           return false;
+           do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!script->filename()) {
             JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr,
                                  JSSMSG_FILE_SCRIPTS_ONLY);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         file = fopen(script->filename(), "r");
@@ -2062,7 +2062,7 @@ DisassWithSrc(JSContext *cx, unsigned argc, jsval *vp)
             JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr,
                                  JSSMSG_CANT_OPEN, script->filename(),
                                  strerror(errno));
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         pc = script->code;
@@ -2136,17 +2136,17 @@ DumpHeap(JSContext *cx, unsigned argc, jsval *vp)
     if (args.hasDefined(0)) {
         RootedString str(cx, JS::ToString(cx, args[0]));
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!fileName.encodeLatin1(cx, str))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedValue startThing(cx);
     if (args.hasDefined(1)) {
         if (!args[1].isGCThing()) {
             JS_ReportError(cx, "dumpHeap: Second argument not a GC thing!");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         startThing = args[1];
     }
@@ -2155,7 +2155,7 @@ DumpHeap(JSContext *cx, unsigned argc, jsval *vp)
     if (args.hasDefined(2)) {
         if (!args[2].isGCThing()) {
             JS_ReportError(cx, "dumpHeap: Third argument not a GC thing!");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         thingToFind = args[2];
     }
@@ -2164,7 +2164,7 @@ DumpHeap(JSContext *cx, unsigned argc, jsval *vp)
     if (args.hasDefined(3)) {
         uint32_t depth;
         if (!ToUint32(cx, args[3], &depth))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         maxDepth = depth;
     }
 
@@ -2172,7 +2172,7 @@ DumpHeap(JSContext *cx, unsigned argc, jsval *vp)
     if (args.hasDefined(4)) {
         if (!args[2].isGCThing()) {
             JS_ReportError(cx, "dumpHeap: Fifth argument not a GC thing!");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         thingToIgnore = args[4];
     }
@@ -2184,7 +2184,7 @@ DumpHeap(JSContext *cx, unsigned argc, jsval *vp)
         if (!dumpFile) {
             JS_ReportError(cx, "dumpHeap: can't open %s: %s\n",
                           fileName.ptr(), strerror(errno));
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -2210,7 +2210,7 @@ DumpObject(JSContext *cx, unsigned argc, jsval *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedObject arg0(cx);
     if (!JS_ConvertArguments(cx, args.length(), args.array(), "o", arg0.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     js_DumpObject(arg0);
 
@@ -2235,15 +2235,15 @@ Intern(JSContext *cx, unsigned argc, jsval *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     JSString *str = JS::ToString(cx, args.get(0));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     size_t length;
     const jschar *chars = JS_GetStringCharsAndLength(cx, str, &length);
     if (!chars)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!JS_InternUCStringN(cx, chars, length))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setUndefined();
     return true;
@@ -2258,7 +2258,7 @@ Clone(JSContext *cx, unsigned argc, jsval *vp)
 
     if (!args.length()) {
         JS_ReportError(cx, "Invalid arguments to clone");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     {
@@ -2275,7 +2275,7 @@ Clone(JSContext *cx, unsigned argc, jsval *vp)
         } else {
             JSFunction *fun = JS_ValueToFunction(cx, args[0]);
             if (!fun)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             funobj = JS_GetFunctionObject(fun);
         }
     }
@@ -2284,20 +2284,20 @@ Clone(JSContext *cx, unsigned argc, jsval *vp)
         if (fun->hasScript() && fun->nonLazyScript()->compileAndGo) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_UNEXPECTED_TYPE,
                                  "function", "compile-and-go");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
     if (argc > 1) {
         if (!JS_ValueToObject(cx, args[1], &parent))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         parent = JS_GetParent(JSVAL_TO_OBJECT(JS_CALLEE(cx, vp)));
     }
 
     JSObject *clone = JS_CloneFunctionObject(cx, funobj, parent);
     if (!clone)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(clone));
     return true;
 }
@@ -2312,7 +2312,7 @@ GetPDA(JSContext *cx, unsigned argc, jsval *vp)
 
     CallArgs args = CallArgsFromVp(argc, vp);
     if (!JS_ValueToObject(cx, args.get(0), &vobj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!vobj) {
         args.rval().setUndefined();
         return true;
@@ -2320,12 +2320,12 @@ GetPDA(JSContext *cx, unsigned argc, jsval *vp)
 
     RootedObject aobj(cx, JS_NewArrayObject(cx, 0, nullptr));
     if (!aobj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setObject(*aobj);
 
     ok = !!JS_GetPropertyDescArray(cx, vobj, &pda);
     if (!ok)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     pd = pda.array;
 
     RootedObject pdobj(cx);
@@ -2370,7 +2370,7 @@ GetSLX(JSContext *cx, unsigned argc, jsval *vp)
 
     script = ValueToScript(cx, argc == 0 ? UndefinedValue() : vp[2]);
     if (!script)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JS_SET_RVAL(cx, vp, INT_TO_JSVAL(js_GetScriptLineExtent(script)));
     return true;
 }
@@ -2379,7 +2379,7 @@ static bool
 ThrowError(JSContext *cx, unsigned argc, jsval *vp)
 {
     JS_ReportError(cx, "This is an error");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 #define LAZY_STANDARD_CLASSES
@@ -2398,7 +2398,7 @@ sandbox_enumerate(JSContext *cx, HandleObject obj)
     RootedValue v(cx);
 
     if (!JS_GetProperty(cx, obj, "lazy", &v))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!ToBoolean(v))
         return true;
@@ -2412,12 +2412,12 @@ sandbox_resolve(JSContext *cx, HandleObject obj, HandleId id, unsigned flags,
 {
     RootedValue v(cx);
     if (!JS_GetProperty(cx, obj, "lazy", &v))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (ToBoolean(v)) {
         bool resolved;
         if (!JS_ResolveStandardClass(cx, obj, id, &resolved))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (resolved) {
             objp.set(obj);
             return true;
@@ -2467,12 +2467,12 @@ EvalInContext(JSContext *cx, unsigned argc, jsval *vp)
     RootedString str(cx);
     RootedObject sobj(cx);
     if (!JS_ConvertArguments(cx, argc, JS_ARGV(cx, vp), "S / o", str.address(), sobj.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     size_t srclen;
     const jschar *src = JS_GetStringCharsAndLength(cx, str, &srclen);
     if (!src)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     SkipRoot skip(cx, &src);
 
@@ -2487,7 +2487,7 @@ EvalInContext(JSContext *cx, unsigned argc, jsval *vp)
     if (!sobj) {
         sobj = NewSandbox(cx, lazy);
         if (!sobj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (srclen == 0) {
@@ -2511,21 +2511,21 @@ EvalInContext(JSContext *cx, unsigned argc, jsval *vp)
 
         sobj = GetInnerObject(cx, sobj);
         if (!sobj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!(sobj->getClass()->flags & JSCLASS_IS_GLOBAL)) {
             JS_ReportError(cx, "Invalid scope argument to evalcx");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (!JS_EvaluateUCScript(cx, sobj, src, srclen,
                                  script->filename(),
                                  lineno,
                                  rval.address())) {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
     if (!cx->compartment()->wrap(cx, &rval))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_SET_RVAL(cx, vp, rval);
     return true;
@@ -2539,7 +2539,7 @@ EvalInFrame(JSContext *cx, unsigned argc, jsval *vp)
         !JSVAL_IS_INT(argv[0]) ||
         !JSVAL_IS_STRING(argv[1])) {
         JS_ReportError(cx, "Invalid arguments to evalInFrame");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     uint32_t upCount = JSVAL_TO_INT(argv[0]);
@@ -2553,7 +2553,7 @@ EvalInFrame(JSContext *cx, unsigned argc, jsval *vp)
     if (!JS_GetDebugMode(cx)) {
         JS_ReportErrorFlagsAndNumber(cx, JSREPORT_ERROR, js_GetErrorMessage,
                                      nullptr, JSMSG_NEED_DEBUG_MODE);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Debug-mode currently disables Ion compilation. */
@@ -2569,14 +2569,14 @@ EvalInFrame(JSContext *cx, unsigned argc, jsval *vp)
     mozilla::Maybe<AutoCompartment> ac;
     if (saveCurrent) {
         if (!sfc.save())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         ac.construct(cx, DefaultObjectForContextOrNull(cx));
     }
 
     size_t length;
     const jschar *chars = JS_GetStringCharsAndLength(cx, str, &length);
     if (!chars)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSAbstractFramePtr frame(Jsvalify(fi.abstractFramePtr()));
     RootedScript fpscript(cx, frame.script());
@@ -2594,7 +2594,7 @@ ShapeOf(JSContext *cx, unsigned argc, JS::Value *vp)
     JS::Value v;
     if (argc < 1 || !((v = JS_ARGV(cx, vp)[0]).isObject())) {
         JS_ReportError(cx, "shapeOf: object expected");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     JSObject *obj = &v.toObject();
     JS_SET_RVAL(cx, vp, JS_NumberValue((double) ((uintptr_t)obj->lastProperty() >> 3)));
@@ -2618,7 +2618,7 @@ CopyProperty(JSContext *cx, HandleObject obj, HandleObject referent, HandleId id
     objp.set(nullptr);
     if (referent->isNative()) {
         if (!LookupPropertyWithFlags(cx, referent, id, lookupFlags, &obj2, &shape))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (obj2 != referent)
             return true;
 
@@ -2639,19 +2639,19 @@ CopyProperty(JSContext *cx, HandleObject obj, HandleObject referent, HandleId id
         propFlags = shape->getFlags();
     } else if (referent->is<ProxyObject>()) {
         if (!Proxy::getOwnPropertyDescriptor(cx, referent, id, &desc, 0))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!desc.object())
             return true;
     } else {
         if (!JSObject::lookupGeneric(cx, referent, id, objp, &shape))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (objp != referent)
             return true;
         RootedValue value(cx);
         if (!JSObject::getGeneric(cx, referent, referent, id, &value) ||
             !JSObject::getGenericAttributes(cx, referent, id, &desc.attributesRef()))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         desc.value().set(value);
         desc.attributesRef() &= JSPROP_ENUMERATE | JSPROP_READONLY | JSPROP_PERMANENT;
@@ -2706,14 +2706,14 @@ Resolver(JSContext *cx, unsigned argc, jsval *vp)
     RootedObject referent(cx, nullptr);
     RootedObject proto(cx, nullptr);
     if (!JS_ConvertArguments(cx, argc, JS_ARGV(cx, vp), "o/o", &referent, &proto))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedObject parent(cx, JS_GetParent(referent));
     JSObject *result = (argc > 1
                         ? JS_NewObjectWithGivenProto
                         : JS_NewObject)(cx, &resolver_class, proto, parent);
     if (!result)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_SetReservedSlot(result, 0, OBJECT_TO_JSVAL(referent));
     JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(result));
@@ -2745,12 +2745,12 @@ Sleep_fn(JSContext *cx, unsigned argc, Value *vp)
         double t_secs;
 
         if (!ToNumber(cx, args[0], &t_secs))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* NB: The next condition also filter out NaNs. */
         if (!(t_secs <= MAX_TIMEOUT_INTERVAL)) {
             JS_ReportError(cx, "Excessive sleep interval");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         t_ticks = (t_secs <= 0.0)
                   ? 0
@@ -2786,7 +2786,7 @@ InitWatchdog(JSRuntime *rt)
         }
         PR_DestroyLock(gWatchdogLock);
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static void
@@ -2878,7 +2878,7 @@ ScheduleWatchdog(JSRuntime *rt, double t)
                                           0);
         if (!gWatchdogThread) {
             PR_Unlock(gWatchdogLock);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     } else if (!gWatchdogHasTimeout || IsBefore(timeout, gWatchdogTimeout)) {
          PR_NotifyCondVar(gWatchdogWakeup);
@@ -2940,7 +2940,7 @@ ScheduleWatchdog(JSRuntime *rt, double t)
                                0,
                                WT_EXECUTEINTIMERTHREAD | WT_EXECUTEONLYONCE)) {
         gTimerHandle = 0;
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 #else
     /* FIXME: use setitimer when available for sub-second resolution. */
@@ -2982,12 +2982,12 @@ SetTimeoutValue(JSContext *cx, double t)
     /* NB: The next condition also filter out NaNs. */
     if (!(t <= MAX_TIMEOUT_INTERVAL)) {
         JS_ReportError(cx, "Excessive timeout value");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     gTimeoutInterval = t;
     if (!ScheduleWatchdog(cx->runtime(), t)) {
         JS_ReportError(cx, "Failed to create the watchdog");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -3004,18 +3004,18 @@ Timeout(JSContext *cx, unsigned argc, Value *vp)
 
     if (args.length() > 2) {
         JS_ReportError(cx, "Wrong number of arguments");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     double t;
     if (!ToNumber(cx, args[0], &t))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (args.length() > 1) {
         RootedValue value(cx, args[1]);
         if (!value.isObject() || !value.toObject().is<JSFunction>()) {
             JS_ReportError(cx, "Second argument must be a timeout function");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         gTimeoutFunc = value;
     }
@@ -3036,7 +3036,7 @@ Elapsed(JSContext *cx, unsigned argc, jsval *vp)
         return true;
     }
     JS_ReportError(cx, "Wrong number of arguments");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static bool
@@ -3044,13 +3044,13 @@ Parent(JSContext *cx, unsigned argc, jsval *vp)
 {
     if (argc != 1) {
         JS_ReportError(cx, "Wrong number of arguments");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     jsval v = JS_ARGV(cx, vp)[0];
     if (JSVAL_IS_PRIMITIVE(v)) {
         JS_ReportError(cx, "Only objects have parents!");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     Rooted<JSObject*> parent(cx, JS_GetParent(&v.toObject()));
@@ -3071,13 +3071,13 @@ Compile(JSContext *cx, unsigned argc, jsval *vp)
     if (argc < 1) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MORE_ARGS_NEEDED,
                              "compile", "0", "s");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     jsval arg0 = JS_ARGV(cx, vp)[0];
     if (!JSVAL_IS_STRING(arg0)) {
         const char *typeName = JS_GetTypeName(cx, JS_TypeOfValue(cx, arg0));
         JS_ReportError(cx, "expected string to compile, got %s", typeName);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedObject global(cx, JS::CurrentGlobalOrNull(cx));
@@ -3103,12 +3103,12 @@ Parse(JSContext *cx, unsigned argc, jsval *vp)
     if (args.length() < 1) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MORE_ARGS_NEEDED,
                              "parse", "0", "s");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (!args[0].isString()) {
         const char *typeName = JS_GetTypeName(cx, JS_TypeOfValue(cx, args[0]));
         JS_ReportError(cx, "expected string to parse, got %s", typeName);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JSString *scriptContents = args[0].toString();
@@ -3122,7 +3122,7 @@ Parse(JSContext *cx, unsigned argc, jsval *vp)
 
     ParseNode *pn = parser.parse(nullptr);
     if (!pn)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #ifdef DEBUG
     DumpParseTree(pn);
     fputc('\n', stderr);
@@ -3141,12 +3141,12 @@ SyntaxParse(JSContext *cx, unsigned argc, jsval *vp)
     if (args.length() < 1) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MORE_ARGS_NEEDED,
                              "parse", "0", "s");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (!args[0].isString()) {
         const char *typeName = JS_GetTypeName(cx, JS_TypeOfValue(cx, args[0]));
         JS_ReportError(cx, "expected string to parse, got %s", typeName);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JSString *scriptContents = args[0].toString();
@@ -3161,13 +3161,13 @@ SyntaxParse(JSContext *cx, unsigned argc, jsval *vp)
 
     bool succeeded = parser.parse(nullptr);
     if (cx->isExceptionPending())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!succeeded && !parser.hadAbortedSyntaxParse()) {
         // If no exception is posted, either there was an OOM or a language
         // feature unhandled by the syntax parser was encountered.
         JS_ASSERT(cx->runtime()->hadOutOfMemory);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args.rval().setBoolean(succeeded);
@@ -3190,14 +3190,14 @@ class OffThreadState {
     bool startIfIdle(JSContext *cx, JSString *newSource) {
         AutoLockMonitor alm(monitor);
         if (state != IDLE)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         JS_ASSERT(!token);
         JS_ASSERT(!source);
 
         source = newSource;
         if (!JS_AddStringRoot(cx, &source))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         state = COMPILING;
         return true;
@@ -3271,12 +3271,12 @@ OffThreadCompileScript(JSContext *cx, unsigned argc, jsval *vp)
     if (args.length() < 1) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MORE_ARGS_NEEDED,
                              "offThreadCompileScript", "0", "s");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (!args[0].isString()) {
         const char *typeName = JS_GetTypeName(cx, JS_TypeOfValue(cx, args[0]));
         JS_ReportError(cx, "expected string to parse, got %s", typeName);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JSString *scriptContents = args[0].toString();
@@ -3287,25 +3287,25 @@ OffThreadCompileScript(JSContext *cx, unsigned argc, jsval *vp)
 
     if (!JS::CanCompileOffThread(cx, options)) {
         JS_ReportError(cx, "cannot compile code on worker thread");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     const jschar *chars = JS_GetStringCharsZ(cx, scriptContents);
     if (!chars)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     size_t length = JS_GetStringLength(scriptContents);
 
     if (!offThreadState.startIfIdle(cx, scriptContents)) {
         JS_ReportError(cx, "called offThreadCompileScript without calling runOffThreadScript"
                        " to receive prior off-thread compilation");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!JS::CompileOffThread(cx, cx->global(), options, chars, length,
                               OffThreadCompileScriptCallback, nullptr))
     {
         offThreadState.abandon(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args.rval().setUndefined();
@@ -3320,12 +3320,12 @@ runOffThreadScript(JSContext *cx, unsigned argc, jsval *vp)
     void *token = offThreadState.waitUntilDone(cx);
     if (!token) {
         JS_ReportError(cx, "called runOffThreadScript when no compilation is pending");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedScript script(cx, JS::FinishOffThreadScript(cx, cx->runtime(), token));
     if (!script)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return JS_ExecuteScript(cx, cx->global(), script, args.rval().address());
 }
@@ -3364,38 +3364,38 @@ ReadFile(JSContext *cx, unsigned argc, jsval *vp, bool scriptRelative)
         JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr,
                              args.length() < 1 ? JSSMSG_NOT_ENOUGH_ARGS : JSSMSG_TOO_MANY_ARGS,
                              "snarf");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!args[0].isString() || (args.length() == 2 && !args[1].isString())) {
         JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr, JSSMSG_INVALID_ARGS, "snarf");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedString givenPath(cx, args[0].toString());
     RootedString str(cx, ResolvePath(cx, givenPath, scriptRelative));
     JSAutoByteString filename(cx, str);
     if (!filename)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (args.length() > 1) {
         JSString *opt = JS::ToString(cx, args[1]);
         if (!opt)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         bool match;
         if (!JS_StringEqualsAscii(cx, opt, "binary", &match))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (match) {
             JSObject *obj;
             if (!(obj = FileAsTypedArray(cx, filename.ptr())))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(obj));
             return true;
         }
     }
 
     if (!(str = FileAsString(cx, filename.ptr())))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JS_SET_RVAL(cx, vp, STRING_TO_JSVAL(str));
     return true;
 }
@@ -3417,13 +3417,13 @@ redirect(JSContext *cx, FILE* fp, HandleString relFilename)
 {
     RootedString filename(cx, ResolvePath(cx, relFilename, false));
     if (!filename)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JSAutoByteString filenameABS(cx, filename);
     if (!filenameABS)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (freopen(filenameABS.ptr(), "wb", fp) == nullptr) {
         JS_ReportError(cx, "cannot redirect to %s: %s", filenameABS.ptr(), strerror(errno));
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -3435,23 +3435,23 @@ RedirectOutput(JSContext *cx, unsigned argc, jsval *vp)
 
     if (args.length() < 1 || args.length() > 2) {
         JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr, JSSMSG_INVALID_ARGS, "redirect");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (args[0].isString()) {
         RootedString stdoutPath(cx, args[0].toString());
         if (!stdoutPath)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!redirect(cx, stdout, stdoutPath))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (args.length() > 1 && args[1].isString()) {
         RootedString stderrPath(cx, args[1].toString());
         if (!stderrPath)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!redirect(cx, stderr, stderrPath))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args.rval().setUndefined();
@@ -3466,16 +3466,16 @@ System(JSContext *cx, unsigned argc, jsval *vp)
     if (args.length() == 0) {
         JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr, JSSMSG_INVALID_ARGS,
                              "system");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JSString *str = JS::ToString(cx, args[0]);
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSAutoByteString command(cx, str);
     if (!command)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     int result = system(command.ptr());
     args.rval().setInt32(result);
@@ -3497,7 +3497,7 @@ class AutoCStringVector
     bool append(char *arg) {
         if (!argv_.append(arg)) {
             js_free(arg);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         return true;
     }
@@ -3544,7 +3544,7 @@ EscapeForShell(AutoCStringVector &argv)
 
         char *escaped = (char *)js_malloc(newLen);
         if (!escaped)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         char *src = argv[i];
         char *dst = escaped;
@@ -3583,16 +3583,16 @@ NestedShell(JSContext *cx, unsigned argc, jsval *vp)
     // argv[0].
     if (sArgc < 1) {
         JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr, JSSMSG_NESTED_FAIL);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (!argv.append(strdup(sArgv[0])))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Propagate selected flags from the current shell
     for (unsigned i = 0; i < sPropagatedFlags.length(); i++) {
         char *cstr = strdup(sPropagatedFlags[i]);
         if (!cstr || !argv.append(cstr))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // The arguments to nestedShell are stringified and append to argv.
@@ -3600,33 +3600,33 @@ NestedShell(JSContext *cx, unsigned argc, jsval *vp)
     for (unsigned i = 0; i < args.length(); i++) {
         str = ToString(cx, args[i]);
         if (!str || !argv.append(JS_EncodeString(cx, str)))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         // As a special case, if the caller passes "--js-cache", replace that
         // with "--js-cache=$(jsCacheDir)"
         if (!strcmp(argv.back(), "--js-cache")) {
             char *newArg = JS_smprintf("--js-cache=%s", jsCacheDir);
             if (!newArg)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             argv.replaceBack(newArg);
         }
     }
 
     // execv assumes argv is null-terminated
     if (!argv.append(nullptr))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     int status = 0;
 #if defined(XP_WIN)
     if (!EscapeForShell(argv))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     status = _spawnv(_P_WAIT, sArgv[0], argv.get());
 #else
     pid_t pid = fork();
     switch (pid) {
       case -1:
         JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr, JSSMSG_NESTED_FAIL);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       case 0:
         (void)execv(sArgv[0], argv.get());
         exit(-1);
@@ -3640,7 +3640,7 @@ NestedShell(JSContext *cx, unsigned argc, jsval *vp)
 
     if (status != 0) {
         JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr, JSSMSG_NESTED_FAIL);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args.rval().setUndefined();
@@ -3658,7 +3658,7 @@ DecompileFunctionSomehow(JSContext *cx, unsigned argc, Value *vp,
     }
     JSString *result = decompiler(cx, &args[0].toObject().as<JSFunction>(), 0);
     if (!result)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setString(result);
     return true;
 }
@@ -3689,7 +3689,7 @@ DecompileThisScript(JSContext *cx, unsigned argc, Value *vp)
         JSAutoCompartment ac(cx, script);
         JSString *result = JS_DecompileScript(cx, script, "test", 0);
         if (!result)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args.rval().setString(result);
     }
 
@@ -3707,7 +3707,7 @@ ThisFilename(JSContext *cx, unsigned argc, Value *vp)
     }
     JSString *filename = JS_NewStringCopyZ(cx, script->filename());
     if (!filename)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setString(filename);
     return true;
 }
@@ -3724,11 +3724,11 @@ Wrap(JSContext *cx, unsigned argc, jsval *vp)
     RootedObject obj(cx, JSVAL_TO_OBJECT(v));
     RootedObject proto(cx);
     if (!JSObject::getProto(cx, obj, &proto))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JSObject *wrapped = Wrapper::New(cx, obj, proto, &obj->global(),
                                      &Wrapper::singleton);
     if (!wrapped)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(wrapped));
     return true;
@@ -3745,14 +3745,14 @@ WrapWithProto(JSContext *cx, unsigned argc, jsval *vp)
     if (!obj.isObject() || !proto.isObjectOrNull()) {
         JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr, JSSMSG_INVALID_ARGS,
                              "wrapWithProto");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JSObject *wrapped = Wrapper::New(cx, &obj.toObject(), proto.toObjectOrNull(),
                                      &obj.toObject().global(),
                                      &Wrapper::singletonWithPrototype);
     if (!wrapped)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(wrapped));
     return true;
@@ -3773,22 +3773,22 @@ NewGlobal(JSContext *cx, unsigned argc, jsval *vp)
         RootedValue v(cx);
 
         if (!JS_GetProperty(cx, opts, "sameZoneAs", &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (v.isObject())
             options.setSameZoneAs(UncheckedUnwrap(&v.toObject()));
 
         if (!JS_GetProperty(cx, opts, "invisibleToDebugger", &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (v.isBoolean())
             options.setInvisibleToDebugger(v.toBoolean());
     }
 
     RootedObject global(cx, NewGlobalObject(cx, options));
     if (!global)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!JS_WrapObject(cx, &global))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setObject(*global);
     return true;
@@ -3800,7 +3800,7 @@ EnableStackWalkingAssertion(JSContext *cx, unsigned argc, jsval *vp)
     if (argc == 0 || !JSVAL_IS_BOOLEAN(JS_ARGV(cx, vp)[0])) {
         JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr, JSSMSG_INVALID_ARGS,
                              "enableStackWalkingAssertion");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
 #ifdef DEBUG
@@ -3835,7 +3835,7 @@ ObjectEmulatingUndefined(JSContext *cx, unsigned argc, jsval *vp)
 
     RootedObject obj(cx, JS_NewObject(cx, &cls, nullptr, nullptr));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JS_SET_RVAL(cx, vp, ObjectValue(*obj));
     return true;
 }
@@ -3848,11 +3848,11 @@ GetSelfHostedValue(JSContext *cx, unsigned argc, jsval *vp)
     if (argc != 1 || !args[0].isString()) {
         JS_ReportErrorNumber(cx, my_GetErrorMessage, nullptr, JSSMSG_INVALID_ARGS,
                              "getSelfHostedValue");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     RootedAtom srcAtom(cx, ToAtom<CanGC>(cx, args[0]));
     if (!srcAtom)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedPropertyName srcName(cx, srcAtom->asPropertyName());
     return cx->runtime()->cloneSelfHostedValue(cx, srcName, args.rval());
 }
@@ -3887,26 +3887,26 @@ class ShellSourceHook: public SourceHook {
 
         RootedString str(cx, JS_NewStringCopyZ(cx, filename));
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         RootedValue filenameValue(cx, StringValue(str));
 
         RootedValue result(cx);
         if (!Call(cx, UndefinedValue(), &fun->as<JSFunction>(),
                   1, filenameValue.address(), &result))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         str = JS::ToString(cx, result);
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         *length = JS_GetStringLength(str);
         *src = cx->pod_malloc<jschar>(*length);
         if (!*src)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         const jschar *chars = JS_GetStringCharsZ(cx, str);
         if (!chars)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         PodCopy(*src, chars, *length);
         return true;
@@ -3921,19 +3921,19 @@ WithSourceHook(JSContext *cx, unsigned argc, jsval *vp)
 
     if (args.length() != 2) {
         ReportUsageError(cx, callee, "Wrong number of arguments.");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!args[0].isObject() || !args[0].toObject().is<JSFunction>()
         || !args[1].isObject() || !args[1].toObject().is<JSFunction>()) {
         ReportUsageError(cx, callee, "First and second arguments must be functions.");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     ShellSourceHook *hook = new ShellSourceHook();
     if (!hook->init(cx, args[0].toObject().as<JSFunction>())) {
         delete hook;
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     SourceHook *savedHook = js::ForgetSourceHook(cx->runtime());
@@ -4366,7 +4366,7 @@ PrintHelpString(JSContext *cx, jsval v)
     JS::Anchor<JSString *> a_str(str);
     const jschar *chars = JS_GetStringCharsZ(cx, str);
     if (!chars)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (const jschar *p = chars; *p; p++)
         fprintf(gOutFile, "%c", char(*p));
@@ -4381,10 +4381,10 @@ PrintHelp(JSContext *cx, HandleObject obj)
 {
     RootedValue usage(cx);
     if (!JS_LookupProperty(cx, obj, "usage", &usage))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedValue help(cx);
     if (!JS_LookupProperty(cx, obj, "help", &help))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (JSVAL_IS_VOID(usage) || JSVAL_IS_VOID(help))
         return true;
@@ -4402,30 +4402,30 @@ Help(JSContext *cx, unsigned argc, jsval *vp)
         RootedObject global(cx, JS::CurrentGlobalOrNull(cx));
         AutoIdArray ida(cx, JS_Enumerate(cx, global));
         if (!ida)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         for (size_t i = 0; i < ida.length(); i++) {
             RootedValue v(cx);
             if (!JS_LookupPropertyById(cx, global, ida[i], &v))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (JSVAL_IS_PRIMITIVE(v)) {
                 JS_ReportError(cx, "primitive arg");
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             obj = JSVAL_TO_OBJECT(v);
             if (!PrintHelp(cx, obj))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     } else {
         jsval *argv = JS_ARGV(cx, vp);
         for (unsigned i = 0; i < argc; i++) {
             if (JSVAL_IS_PRIMITIVE(argv[i])) {
                 JS_ReportError(cx, "primitive arg");
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             obj = JSVAL_TO_OBJECT(argv[i]);
             if (!PrintHelp(cx, obj))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -4481,7 +4481,7 @@ Exec(JSContext *cx, unsigned argc, jsval *vp)
     RootedValue arg(cx, vp[0]);
     fun = JS_ValueToFunction(cx, arg);
     if (!fun)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!fun->atom)
         return true;
 
@@ -4490,7 +4490,7 @@ Exec(JSContext *cx, unsigned argc, jsval *vp)
     /* nargc + 1 accounts for the terminating nullptr. */
     nargv = new (char *)[nargc + 1];
     if (!nargv)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     memset(nargv, 0, sizeof(nargv[0]) * (nargc + 1));
     nargv[0] = name;
     jsval *argv = JS_ARGV(cx, vp);
@@ -4548,7 +4548,7 @@ global_resolve(JSContext *cx, HandleObject obj, HandleId id, unsigned flags,
     bool resolved;
 
     if (!JS_ResolveStandardClass(cx, obj, id, &resolved))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (resolved) {
         objp.set(obj);
         return true;
@@ -4572,10 +4572,10 @@ global_resolve(JSContext *cx, HandleObject obj, HandleId id, unsigned flags,
         return true;
     path = JS_strdup(cx, path);
     if (!path)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JSAutoByteString name(cx, JSVAL_TO_STRING(id));
     if (!name)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     ok = true;
     for (comp = strtok(path, ":"); comp; comp = strtok(nullptr, ":")) {
         if (*comp != '\0') {
@@ -4625,21 +4625,21 @@ env_setProperty(JSContext *cx, HandleObject obj, HandleId id, bool strict, Mutab
     RootedValue idvalue(cx, IdToValue(id));
     JSAutoByteString idstr;
     if (!idstr.encodeLatin1(cx, idvalue.toString()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedString value(cx, ToString(cx, vp));
     if (!value)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JSAutoByteString valstr;
     if (!valstr.encodeLatin1(cx, value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
 #if defined XP_WIN || defined HPUX || defined OSF1
     {
         char *waste = JS_smprintf("%s=%s", idstr.ptr(), valstr.ptr());
         if (!waste) {
             JS_ReportOutOfMemory(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         rv = putenv(waste);
 #ifdef XP_WIN
@@ -4658,7 +4658,7 @@ env_setProperty(JSContext *cx, HandleObject obj, HandleId id, bool strict, Mutab
 #endif
     if (rv < 0) {
         JS_ReportError(cx, "can't set env variable %s to %s", idstr.ptr(), valstr.ptr());
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     vp.set(StringValue(value));
 #endif /* !defined XP_OS2 && !defined SOLARIS */
@@ -4686,7 +4686,7 @@ env_enumerate(JSContext *cx, HandleObject obj)
                                          nullptr, nullptr, JSPROP_ENUMERATE);
         value[-1] = '=';
         if (!ok)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     reflected = true;
@@ -4700,17 +4700,17 @@ env_resolve(JSContext *cx, HandleObject obj, HandleId id, unsigned flags,
     RootedValue idvalue(cx, IdToValue(id));
     JSAutoByteString idstr;
     if (!idstr.encodeLatin1(cx, idvalue.toString()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     const char *name = idstr.ptr();
     const char *value = getenv(name);
     if (value) {
         RootedString valstr(cx, JS_NewStringCopyZ(cx, value));
         if (!valstr)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!JS_DefineProperty(cx, obj, name, STRING_TO_JSVAL(valstr),
                                nullptr, nullptr, JSPROP_ENUMERATE)) {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         objp.set(obj);
     }
@@ -4844,7 +4844,7 @@ dom_genericGetter(JSContext *cx, unsigned argc, JS::Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedObject obj(cx, JS_THIS_OBJECT(cx, vp));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (JS_GetClass(obj) != &dom_class) {
         args.rval().set(UndefinedValue());
@@ -4865,7 +4865,7 @@ dom_genericSetter(JSContext* cx, unsigned argc, JS::Value* vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedObject obj(cx, JS_THIS_OBJECT(cx, vp));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_ASSERT(argc == 1);
 
@@ -4880,7 +4880,7 @@ dom_genericSetter(JSContext* cx, unsigned argc, JS::Value* vp)
     MOZ_ASSERT(info->type == JSJitInfo::Setter);
     JSJitSetterOp setter = info->setter;
     if (!setter(cx, obj, val.toPrivate(), JSJitSetterCallArgs(args)))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().set(UndefinedValue());
     return true;
 }
@@ -4891,7 +4891,7 @@ dom_genericMethod(JSContext* cx, unsigned argc, JS::Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
     RootedObject obj(cx, JS_THIS_OBJECT(cx, vp));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (JS_GetClass(obj) != &dom_class) {
         args.rval().set(UndefinedValue());
@@ -4921,16 +4921,16 @@ dom_constructor(JSContext* cx, unsigned argc, JS::Value *vp)
     RootedObject callee(cx, &args.callee());
     RootedValue protov(cx);
     if (!JSObject::getProperty(cx, callee, callee, cx->names().prototype, &protov))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!protov.isObject()) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_BAD_PROTOTYPE, "FakeDOMObject");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedObject domObj(cx, JS_NewObject(cx, &dom_class, &protov.toObject(), nullptr));
     if (!domObj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     InitDOMObject(domObj);
 
@@ -4988,16 +4988,16 @@ ShellOpenAsmJSCacheEntryForRead(HandleObject global, size_t *serializedSizeOut,
                                 const uint8_t **memoryOut, intptr_t *handleOut)
 {
     if (!jsCacheAsmJSPath)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ScopedFileDesc fd(open(jsCacheAsmJSPath, O_RDWR), ScopedFileDesc::READ_LOCK);
     if (fd == -1)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Get the size and make sure we can dereference at least one uint32_t.
     off_t off = lseek(fd, 0, SEEK_END);
     if (off == -1 || off < (off_t)sizeof(uint32_t))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Map the file into memory.
     void *memory;
@@ -5005,16 +5005,16 @@ ShellOpenAsmJSCacheEntryForRead(HandleObject global, size_t *serializedSizeOut,
     HANDLE fdOsHandle = (HANDLE)_get_osfhandle(fd);
     HANDLE fileMapping = CreateFileMapping(fdOsHandle, nullptr, PAGE_READWRITE, 0, 0, nullptr);
     if (!fileMapping)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     memory = MapViewOfFile(fileMapping, FILE_MAP_READ, 0, 0, 0);
     CloseHandle(fileMapping);
     if (!memory)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #else
     memory = mmap(nullptr, off, PROT_READ, MAP_SHARED, fd, 0);
     if (memory == MAP_FAILED)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
 
     // Perform check described by asmJSCacheCookie comment.
@@ -5024,7 +5024,7 @@ ShellOpenAsmJSCacheEntryForRead(HandleObject global, size_t *serializedSizeOut,
 #else
         munmap(memory, off);
 #endif
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // The embedding added the cookie so strip it off of the buffer returned to
@@ -5060,26 +5060,26 @@ ShellOpenAsmJSCacheEntryForWrite(HandleObject global, size_t serializedSize,
                                  uint8_t **memoryOut, intptr_t *handleOut)
 {
     if (!jsCacheAsmJSPath)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Create the cache directory if it doesn't already exist.
     struct stat dirStat;
     if (stat(jsCacheDir, &dirStat) == 0) {
         if (!(dirStat.st_mode & S_IFDIR))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
 #ifdef XP_WIN
         if (mkdir(jsCacheDir) != 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #else
         if (mkdir(jsCacheDir, 0777) != 0)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
     }
 
     ScopedFileDesc fd(open(jsCacheAsmJSPath, O_CREAT|O_RDWR, 0660), ScopedFileDesc::WRITE_LOCK);
     if (fd == -1)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Include extra space for the asmJSCacheCookie.
     serializedSize += sizeof(uint32_t);
@@ -5087,14 +5087,14 @@ ShellOpenAsmJSCacheEntryForWrite(HandleObject global, size_t serializedSize,
     // Resize the file to the appropriate size after zeroing their contents.
 #ifdef XP_WIN
     if (chsize(fd, 0))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (chsize(fd, serializedSize))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #else
     if (ftruncate(fd, 0))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (ftruncate(fd, serializedSize))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
 
     // Map the file into memory.
@@ -5103,16 +5103,16 @@ ShellOpenAsmJSCacheEntryForWrite(HandleObject global, size_t serializedSize,
     HANDLE fdOsHandle = (HANDLE)_get_osfhandle(fd);
     HANDLE fileMapping = CreateFileMapping(fdOsHandle, nullptr, PAGE_READWRITE, 0, 0, nullptr);
     if (!fileMapping)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     memory = MapViewOfFile(fileMapping, FILE_MAP_WRITE, 0, 0, 0);
     CloseHandle(fileMapping);
     if (!memory)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #else
     memory = mmap(nullptr, serializedSize, PROT_WRITE, MAP_SHARED, fd, 0);
     if (memory == MAP_FAILED)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
 
     // The embedding added the cookie so strip it off of the buffer returned to
@@ -5300,11 +5300,11 @@ BindScriptArgs(JSContext *cx, JSObject *obj_, OptionParser *op)
     RootedObject scriptArgs(cx);
     scriptArgs = JS_NewArrayObject(cx, 0, nullptr);
     if (!scriptArgs)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!JS_DefineProperty(cx, obj, "scriptArgs", OBJECT_TO_JSVAL(scriptArgs),
                            nullptr, nullptr, 0))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (size_t i = 0; !msr.empty(); msr.popFront(), ++i) {
         const char *scriptArg = msr.front();
@@ -5312,7 +5312,7 @@ BindScriptArgs(JSContext *cx, JSObject *obj_, OptionParser *op)
         if (!str ||
             !JS_DefineElement(cx, scriptArgs, i, STRING_TO_JSVAL(str), nullptr, nullptr,
                               JSPROP_ENUMERATE)) {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 

@@ -28,7 +28,7 @@ function completesNormally(code) {
     eval(code);
     return true;
   } catch (exception) {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 }
 
@@ -43,7 +43,7 @@ function raisesException(exception) {
   return function (code) {
     try {
       eval(code);
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } catch (actual) {
       return exception.prototype.isPrototypeOf(actual);
     }
@@ -59,7 +59,7 @@ function parsesSuccessfully(code) {
     Function(code);
     return true;
   } catch (exception) {
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 };
 
@@ -71,7 +71,7 @@ function parseRaisesException(exception) {
   return function (code) {
     try {
       Function(code);
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } catch (actual) {
       return exception.prototype.isPrototypeOf(actual);
     }

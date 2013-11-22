@@ -330,7 +330,7 @@ ArgSetter(JSContext *cx, HandleObject obj, HandleId id, bool strict, MutableHand
 
     unsigned attrs;
     if (!baseops::GetAttributes(cx, obj, id, &attrs))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JS_ASSERT(!(attrs & JSPROP_READONLY));
     attrs &= (JSPROP_ENUMERATE | JSPROP_PERMANENT); /* only valid attributes */
 
@@ -390,7 +390,7 @@ args_resolve(JSContext *cx, HandleObject obj, HandleId id, unsigned flags,
 
     RootedValue undef(cx, UndefinedValue());
     if (!baseops::DefineGeneric(cx, argsobj, id, undef, ArgGetter, ArgSetter, attrs))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     objp.set(argsobj);
     return true;
@@ -417,7 +417,7 @@ args_enumerate(JSContext *cx, HandleObject obj)
         RootedObject pobj(cx);
         RootedShape prop(cx);
         if (!baseops::LookupProperty<CanGC>(cx, argsobj, id, &pobj, &prop))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -454,7 +454,7 @@ StrictArgSetter(JSContext *cx, HandleObject obj, HandleId id, bool strict, Mutab
 
     unsigned attrs;
     if (!baseops::GetAttributes(cx, obj, id, &attrs))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JS_ASSERT(!(attrs & JSPROP_READONLY));
     attrs &= (JSPROP_ENUMERATE | JSPROP_PERMANENT); /* only valid attributes */
 
@@ -513,7 +513,7 @@ strictargs_resolve(JSContext *cx, HandleObject obj, HandleId id, unsigned flags,
 
     RootedValue undef(cx, UndefinedValue());
     if (!baseops::DefineGeneric(cx, argsobj, id, undef, getter, setter, attrs))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     objp.set(argsobj);
     return true;
@@ -535,22 +535,22 @@ strictargs_enumerate(JSContext *cx, HandleObject obj)
     // length
     id = NameToId(cx->names().length);
     if (!baseops::LookupProperty<CanGC>(cx, argsobj, id, &pobj, &prop))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // callee
     id = NameToId(cx->names().callee);
     if (!baseops::LookupProperty<CanGC>(cx, argsobj, id, &pobj, &prop))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // caller
     id = NameToId(cx->names().caller);
     if (!baseops::LookupProperty<CanGC>(cx, argsobj, id, &pobj, &prop))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (uint32_t i = 0, argc = argsobj->initialLength(); i < argc; i++) {
         id = INT_TO_JSID(i);
         if (!baseops::LookupProperty<CanGC>(cx, argsobj, id, &pobj, &prop))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;

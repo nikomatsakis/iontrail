@@ -4,7 +4,7 @@
 /**
  * A strict delete should either succeed, returning true, or it
  * should fail by throwing a TypeError. Under no circumstances
- * should a strict delete return false.
+ * should a strict delete do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false).
  *
  * @path ch11/11.4/11.4.1/S11.4.1_A5.js
  * @description See if a strict delete returns false when deleting a

@@ -295,10 +295,10 @@ IsAboutToBeFinalized(T **thingp)
         return !nursery.getForwardedPointer(thingp);
 #endif
     if (!(*thingp)->tenuredZone()->isGCSweeping())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
-     * We should return false for things that have been allocated during
+     * We should do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false) for things that have been allocated during
      * incremental sweeping, but this possibility doesn't occur at the moment
      * because this function is only called at the very start of the sweeping a
      * compartment group.  Rather than do the extra check, we just assert that
@@ -665,7 +665,7 @@ ShouldMarkCrossCompartment(JSTracer *trc, JSObject *src, Cell *cell)
 
     if (IsInsideNursery(trc->runtime, cell)) {
         JS_ASSERT(color == BLACK);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JS::Zone *zone = cell->tenuredZone();
@@ -691,7 +691,7 @@ ShouldMarkCrossCompartment(JSTracer *trc, JSObject *src, Cell *cell)
              */
             if (!cell->isMarked())
                 DelayCrossCompartmentGrayMarking(src);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         return zone->isGCMarkingGray();
     }
@@ -1314,7 +1314,7 @@ GCMarker::restoreValueArray(JSObject *obj, void **vpp, void **endp)
 
     if (kind == HeapSlot::Element) {
         if (!obj->is<ArrayObject>())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         uint32_t initlen = obj->getDenseInitializedLength();
         HeapSlot *vp = obj->getDenseElements();
@@ -1526,14 +1526,14 @@ GCMarker::drainMarkStack(SliceBudget &budget)
 #endif
 
     if (budget.isOverBudget())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     for (;;) {
         while (!stack.isEmpty()) {
             processMarkStackTop(budget);
             if (budget.isOverBudget()) {
                 saveValueRanges();
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
 
@@ -1547,7 +1547,7 @@ GCMarker::drainMarkStack(SliceBudget &budget)
          */
         if (!markDelayedChildren(budget)) {
             saveValueRanges();
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -1725,7 +1725,7 @@ JS::UnmarkGrayGCThingRecursively(void *thing, JSGCTraceKind kind)
     bool unmarkedArg = false;
     if (!IsInsideNursery(rt, thing)) {
         if (!JS::GCThingIsMarkedGray(thing))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         UnmarkGrayGCThing(thing);
         unmarkedArg = true;

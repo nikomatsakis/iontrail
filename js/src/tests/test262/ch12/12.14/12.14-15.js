@@ -16,7 +16,7 @@ function testcase() {
         };
         try {
             throw obj.test;
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } catch (e) {
             e();
             return  fnGlobalObject()._12_14_15_foo === "test";

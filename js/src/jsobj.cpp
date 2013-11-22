@@ -148,7 +148,7 @@ js::NewPropertyDescriptorObject(JSContext *cx, Handle<PropertyDescriptor> desc,
 
     d.initFromPropertyDescriptor(desc);
     if (!d.makeObject(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     vp.set(d.pd());
     return true;
 }
@@ -192,7 +192,7 @@ PropDesc::makeObject(JSContext *cx)
 
     RootedObject obj(cx, NewBuiltinClassInstance(cx, &JSObject::class_));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     const JSAtomState &names = cx->names();
     RootedValue configurableVal(cx, BooleanValue((attrs & JSPROP_PERMANENT) == 0));
@@ -211,7 +211,7 @@ PropDesc::makeObject(JSContext *cx)
         (hasWritable() &&
          !JSObject::defineProperty(cx, obj, names.writable, writableVal)))
     {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     pd_.setObject(*obj);
@@ -229,7 +229,7 @@ js::GetOwnPropertyDescriptor(JSContext *cx, HandleObject obj, HandleId id,
     RootedObject pobj(cx);
     RootedShape shape(cx);
     if (!HasOwnProperty<CanGC>(cx, obj->getOps()->lookupGeneric, obj, id, &pobj, &shape))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!shape) {
         desc.object().set(nullptr);
         return true;
@@ -247,12 +247,12 @@ js::GetOwnPropertyDescriptor(JSContext *cx, HandleObject obj, HandleId id,
         }
     } else {
         if (!JSObject::getGenericAttributes(cx, pobj, id, &desc.attributesRef()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedValue value(cx);
     if (doGet && !JSObject::getGeneric(cx, obj, obj, id, &value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     desc.value().set(value);
     desc.object().set(obj);
@@ -274,18 +274,18 @@ js::GetFirstArgumentAsObject(JSContext *cx, const CallArgs &args, const char *me
     if (args.length() == 0) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MORE_ARGS_NEEDED,
                              method, "0", "s");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     HandleValue v = args[0];
     if (!v.isObject()) {
         char *bytes = DecompileValueGenerator(cx, JSDVG_SEARCH_STACK, v, NullPtr());
         if (!bytes)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_UNEXPECTED_TYPE,
                              bytes, "not an object");
         js_free(bytes);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     objp.set(&v.toObject());
@@ -296,7 +296,7 @@ static bool
 HasProperty(JSContext *cx, HandleObject obj, HandleId id, MutableHandleValue vp, bool *foundp)
 {
     if (!JSObject::hasProperty(cx, obj, id, foundp, 0))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!*foundp) {
         vp.setUndefined();
         return true;
@@ -319,7 +319,7 @@ PropDesc::initialize(JSContext *cx, const Value &origval, bool checkAccessors)
     /* 8.10.5 step 1 */
     if (v.isPrimitive()) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_NOT_NONNULL_OBJECT);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     RootedObject desc(cx, &v.toObject());
 
@@ -340,7 +340,7 @@ PropDesc::initialize(JSContext *cx, const Value &origval, bool checkAccessors)
     /* 8.10.5 step 3 */
     id = NameToId(cx->names().enumerable);
     if (!HasProperty(cx, desc, id, &v, &found))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (found) {
         hasEnumerable_ = true;
         if (ToBoolean(v))
@@ -350,7 +350,7 @@ PropDesc::initialize(JSContext *cx, const Value &origval, bool checkAccessors)
     /* 8.10.5 step 4 */
     id = NameToId(cx->names().configurable);
     if (!HasProperty(cx, desc, id, &v, &found))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (found) {
         hasConfigurable_ = true;
         if (ToBoolean(v))
@@ -360,7 +360,7 @@ PropDesc::initialize(JSContext *cx, const Value &origval, bool checkAccessors)
     /* 8.10.5 step 5 */
     id = NameToId(cx->names().value);
     if (!HasProperty(cx, desc, id, &v, &found))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (found) {
         hasValue_ = true;
         value_ = v;
@@ -369,7 +369,7 @@ PropDesc::initialize(JSContext *cx, const Value &origval, bool checkAccessors)
     /* 8.10.6 step 6 */
     id = NameToId(cx->names().writable);
     if (!HasProperty(cx, desc, id, &v, &found))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (found) {
         hasWritable_ = true;
         if (ToBoolean(v))
@@ -379,33 +379,33 @@ PropDesc::initialize(JSContext *cx, const Value &origval, bool checkAccessors)
     /* 8.10.7 step 7 */
     id = NameToId(cx->names().get);
     if (!HasProperty(cx, desc, id, &v, &found))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (found) {
         hasGet_ = true;
         get_ = v;
         attrs |= JSPROP_GETTER | JSPROP_SHARED;
         attrs &= ~JSPROP_READONLY;
         if (checkAccessors && !checkGetter(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* 8.10.7 step 8 */
     id = NameToId(cx->names().set);
     if (!HasProperty(cx, desc, id, &v, &found))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (found) {
         hasSet_ = true;
         set_ = v;
         attrs |= JSPROP_SETTER | JSPROP_SHARED;
         attrs &= ~JSPROP_READONLY;
         if (checkAccessors && !checkSetter(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* 8.10.7 step 9 */
     if ((hasGet() || hasSet()) && (hasValue() || hasWritable())) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_INVALID_DESCRIPTOR);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JS_ASSERT_IF(attrs & JSPROP_READONLY, !(attrs & (JSPROP_GETTER | JSPROP_SETTER)));
@@ -452,12 +452,12 @@ js::Throw(JSContext *cx, jsid id, unsigned errorNumber)
 
     JSString *idstr = IdToString(cx, id);
     if (!idstr)
-       return false;
+       do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JSAutoByteString bytes(cx, idstr);
     if (!bytes)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, errorNumber, bytes.ptr());
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -472,7 +472,7 @@ js::Throw(JSContext *cx, JSObject *obj, unsigned errorNumber)
         JS_ASSERT(js_ErrorFormatString[errorNumber].argCount == 0);
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, errorNumber);
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static bool
@@ -520,7 +520,7 @@ js::CheckDefineProperty(JSContext *cx, HandleObject obj, HandleId id, HandleValu
     // APIs for shorter, more readable code.
     Rooted<PropertyDescriptor> desc(cx);
     if (!GetOwnPropertyDescriptor(cx, obj, id, &desc))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // This does not have to check obj's extensibility when !desc.obj (steps
     // 2-3) because the low-level methods JSObject::{add,put}Property check
@@ -541,7 +541,7 @@ js::CheckDefineProperty(JSContext *cx, HandleObject obj, HandleId id, HandleValu
         if ((desc.attributes() & (JSPROP_GETTER | JSPROP_SETTER | JSPROP_READONLY)) == JSPROP_READONLY) {
             bool same;
             if (!SameValue(cx, value, desc.value(), &same))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (!same)
                 return JSObject::reportReadOnly(cx, id);
         }
@@ -558,7 +558,7 @@ DefinePropertyOnObject(JSContext *cx, HandleObject obj, HandleId id, const PropD
     RootedObject obj2(cx);
     JS_ASSERT(!obj->getOps()->lookupGeneric);
     if (!HasOwnProperty<CanGC>(cx, nullptr, obj, id, &obj2, &shape))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_ASSERT(!obj->getOps()->defineProperty);
 
@@ -566,7 +566,7 @@ DefinePropertyOnObject(JSContext *cx, HandleObject obj, HandleId id, const PropD
     if (!shape) {
         bool extensible;
         if (!JSObject::isExtensible(cx, obj, &extensible))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!extensible)
             return Reject(cx, obj, JSMSG_OBJECT_NOT_EXTENSIBLE, throwError, rval);
 
@@ -589,7 +589,7 @@ DefinePropertyOnObject(JSContext *cx, HandleObject obj, HandleId id, const PropD
         RootedValue dummy(cx);
         unsigned dummyAttrs;
         if (!CheckAccess(cx, obj, id, JSACC_WATCH, &dummy, &dummyAttrs))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         RootedValue tmp(cx, UndefinedValue());
         return baseops::DefineGeneric(cx, obj, id, tmp,
@@ -632,7 +632,7 @@ DefinePropertyOnObject(JSContext *cx, HandleObject obj, HandleId id, const PropD
             if (desc.hasGet()) {
                 bool same;
                 if (!SameValue(cx, desc.getterValue(), shape->getterOrUndefined(), &same))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (!same)
                     break;
             }
@@ -640,7 +640,7 @@ DefinePropertyOnObject(JSContext *cx, HandleObject obj, HandleId id, const PropD
             if (desc.hasSet()) {
                 bool same;
                 if (!SameValue(cx, desc.setterValue(), shape->setterOrUndefined(), &same))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (!same)
                     break;
             }
@@ -674,7 +674,7 @@ DefinePropertyOnObject(JSContext *cx, HandleObject obj, HandleId id, const PropD
                 }
 
                 if (!NativeGet(cx, obj, obj2, shape, &v))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             if (desc.isDataDescriptor()) {
@@ -684,7 +684,7 @@ DefinePropertyOnObject(JSContext *cx, HandleObject obj, HandleId id, const PropD
                 bool same;
                 if (desc.hasValue()) {
                     if (!SameValue(cx, desc.value(), v, &same))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                     if (!same) {
                         /*
                          * Insist that a non-configurable js::PropertyOp data
@@ -753,7 +753,7 @@ DefinePropertyOnObject(JSContext *cx, HandleObject obj, HandleId id, const PropD
             if (desc.hasValue()) {
                 bool same;
                 if (!SameValue(cx, desc.value(), v, &same))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (!same)
                     return Reject(cx, JSMSG_CANT_REDEFINE_PROP, throwError, id, rval);
             }
@@ -767,7 +767,7 @@ DefinePropertyOnObject(JSContext *cx, HandleObject obj, HandleId id, const PropD
             if (desc.hasSet()) {
                 bool same;
                 if (!SameValue(cx, desc.setterValue(), shape->setterOrUndefined(), &same))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (!same)
                     return Reject(cx, JSMSG_CANT_REDEFINE_PROP, throwError, id, rval);
             }
@@ -775,7 +775,7 @@ DefinePropertyOnObject(JSContext *cx, HandleObject obj, HandleId id, const PropD
             if (desc.hasGet()) {
                 bool same;
                 if (!SameValue(cx, desc.getterValue(), shape->getterOrUndefined(), &same))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 if (!same)
                     return Reject(cx, JSMSG_CANT_REDEFINE_PROP, throwError, id, rval);
             }
@@ -820,7 +820,7 @@ DefinePropertyOnObject(JSContext *cx, HandleObject obj, HandleId id, const PropD
          */
         RootedValue dummy(cx);
         if (!CheckAccess(cx, obj2, id, JSACC_WATCH, &dummy, &attrs))
-             return false;
+             do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* 8.12.9 step 12. */
         unsigned changed = 0;
@@ -864,7 +864,7 @@ DefinePropertyOnObject(JSContext *cx, HandleObject obj, HandleId id, const PropD
     if (callDelProperty) {
         bool succeeded;
         if (!CallJSDeletePropertyOp(cx, obj2->getClass()->delProperty, obj2, id, &succeeded))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return baseops::DefineGeneric(cx, obj, id, v, getter, setter, attrs);
@@ -888,7 +888,7 @@ DefinePropertyOnArray(JSContext *cx, Handle<ArrayObject*> arr, HandleId id, cons
         if (desc.hasValue()) {
             uint32_t newLen;
             if (!CanonicalizeArrayLengthValue<SequentialExecution>(cx, desc.value(), &newLen))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             v.setNumber(newLen);
         } else {
             v.setNumber(arr->length());
@@ -963,11 +963,11 @@ js::DefineOwnProperty(JSContext *cx, HandleObject obj, HandleId id, HandleValue 
     AutoPropDescArrayRooter descs(cx);
     PropDesc *desc = descs.append();
     if (!desc || !desc->initialize(cx, descriptor))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     bool rval;
     if (!DefineProperty(cx, obj, id, *desc, true, &rval))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *bp = !!rval;
     return true;
 }
@@ -979,13 +979,13 @@ js::DefineOwnProperty(JSContext *cx, HandleObject obj, HandleId id,
     AutoPropDescArrayRooter descs(cx);
     PropDesc *desc = descs.append();
     if (!desc)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     desc->initFromPropertyDescriptor(descriptor);
 
     bool rval;
     if (!DefineProperty(cx, obj, id, *desc, true, &rval))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *bp = !!rval;
     return true;
 }
@@ -996,7 +996,7 @@ js::ReadPropertyDescriptors(JSContext *cx, HandleObject props, bool checkAccesso
                             AutoIdVector *ids, AutoPropDescArrayRooter *descs)
 {
     if (!GetPropertyNames(cx, props, JSITER_OWNONLY, ids))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedId id(cx);
     for (size_t i = 0, len = ids->length(); i < len; i++) {
@@ -1007,7 +1007,7 @@ js::ReadPropertyDescriptors(JSContext *cx, HandleObject props, bool checkAccesso
             !JSObject::getGeneric(cx, props, props, id, &v) ||
             !desc->initialize(cx, v, checkAccessors))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
     return true;
@@ -1019,14 +1019,14 @@ js::DefineProperties(JSContext *cx, HandleObject obj, HandleObject props)
     AutoIdVector ids(cx);
     AutoPropDescArrayRooter descs(cx);
     if (!ReadPropertyDescriptors(cx, props, true, &ids, &descs))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (obj->is<ArrayObject>()) {
         bool dummy;
         Rooted<ArrayObject*> arr(cx, &obj->as<ArrayObject>());
         for (size_t i = 0, len = ids.length(); i < len; i++) {
             if (!DefinePropertyOnArray(cx, arr, ids.handleAt(i), descs[i], true, &dummy))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         return true;
     }
@@ -1040,7 +1040,7 @@ js::DefineProperties(JSContext *cx, HandleObject obj, HandleObject props)
             for (size_t i = 0, len = ids.length(); i < len; i++) {
                 RootedValue pd(cx, descs[i].pd());
                 if (!Proxy::defineProperty(cx, obj, ids.handleAt(i), pd))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             return true;
         }
@@ -1051,7 +1051,7 @@ js::DefineProperties(JSContext *cx, HandleObject obj, HandleObject props)
     bool dummy;
     for (size_t i = 0, len = ids.length(); i < len; i++) {
         if (!DefinePropertyOnObject(cx, obj, ids.handleAt(i), descs[i], true, &dummy))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -1092,13 +1092,13 @@ JSObject::sealOrFreeze(JSContext *cx, HandleObject obj, ImmutabilityType it)
 
     bool extensible;
     if (!JSObject::isExtensible(cx, obj, &extensible))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (extensible && !JSObject::preventExtensions(cx, obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     AutoIdVector props(cx);
     if (!GetPropertyNames(cx, obj, JSITER_HIDDEN | JSITER_OWNONLY, &props))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* preventExtensions must sparsify dense objects, so we can assign to holes without checks. */
     JS_ASSERT_IF(obj->isNative(), obj->getDenseCapacity() == 0);
@@ -1118,13 +1118,13 @@ JSObject::sealOrFreeze(JSContext *cx, HandleObject obj, ImmutabilityType it)
                                                          obj->numFixedSlots(),
                                                          obj->lastProperty()->getObjectFlags()));
         if (!last)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* Get an in order list of the shapes in this object. */
         AutoShapeVector shapes(cx);
         for (Shape::Range<NoGC> r(obj->lastProperty()); !r.empty(); r.popFront()) {
             if (!shapes.append(&r.front()))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         Reverse(shapes.begin(), shapes.end());
 
@@ -1138,7 +1138,7 @@ JSObject::sealOrFreeze(JSContext *cx, HandleObject obj, ImmutabilityType it)
 
             last = cx->compartment()->propertyTree.getChild(cx, last, obj->numFixedSlots(), child);
             if (!last)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         JS_ASSERT(obj->lastProperty()->slotSpan() == last->slotSpan());
@@ -1150,7 +1150,7 @@ JSObject::sealOrFreeze(JSContext *cx, HandleObject obj, ImmutabilityType it)
 
             unsigned attrs;
             if (!getGenericAttributes(cx, obj, id, &attrs))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             unsigned new_attrs = getSealedOrFrozenAttributes(attrs, it);
 
@@ -1160,7 +1160,7 @@ JSObject::sealOrFreeze(JSContext *cx, HandleObject obj, ImmutabilityType it)
 
             attrs |= new_attrs;
             if (!setGenericAttributes(cx, obj, id, &attrs))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -1184,7 +1184,7 @@ JSObject::isSealedOrFrozen(JSContext *cx, HandleObject obj, ImmutabilityType it,
 {
     bool extensible;
     if (!JSObject::isExtensible(cx, obj, &extensible))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (extensible) {
         *resultp = false;
         return true;
@@ -1204,7 +1204,7 @@ JSObject::isSealedOrFrozen(JSContext *cx, HandleObject obj, ImmutabilityType it,
 
     AutoIdVector props(cx);
     if (!GetPropertyNames(cx, obj, JSITER_HIDDEN | JSITER_OWNONLY, &props))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedId id(cx);
     for (size_t i = 0, len = props.length(); i < len; i++) {
@@ -1212,7 +1212,7 @@ JSObject::isSealedOrFrozen(JSContext *cx, HandleObject obj, ImmutabilityType it,
 
         unsigned attrs;
         if (!getGenericAttributes(cx, obj, id, &attrs))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /*
          * If the property is configurable, this object is neither sealed nor
@@ -1490,12 +1490,12 @@ js::NewObjectScriptedCall(JSContext *cx, MutableHandleObject pobj)
                             : GenericObject;
     RootedObject obj(cx, NewBuiltinClassInstance(cx, &JSObject::class_, allocKind, newKind));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (script) {
         /* Try to specialize the type of the object to the scripted call site. */
         if (!types::SetInitializerObjectType(cx, script, pc, obj, newKind))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     pobj.set(obj);
@@ -1624,7 +1624,7 @@ Detecting(JSContext *cx, JSScript *script, jsbytecode *pc)
             op = JSOp(*pc);
             return op == JSOP_EQ || op == JSOP_NE;
         }
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (op == JSOP_GETGNAME || op == JSOP_NAME) {
@@ -1641,7 +1641,7 @@ Detecting(JSContext *cx, JSScript *script, jsbytecode *pc)
         }
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /*
@@ -1674,7 +1674,7 @@ JSObject::nonNativeSetProperty(JSContext *cx, HandleObject obj,
     if (JS_UNLIKELY(obj->watched())) {
         WatchpointMap *wpmap = cx->compartment()->watchpointMap;
         if (wpmap && !wpmap->triggerWatchpoint(cx, obj, id, vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return obj->getOps()->setGeneric(cx, obj, id, vp, strict);
 }
@@ -1686,11 +1686,11 @@ JSObject::nonNativeSetElement(JSContext *cx, HandleObject obj,
     if (JS_UNLIKELY(obj->watched())) {
         RootedId id(cx);
         if (!IndexToId(cx, index, id.address()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         WatchpointMap *wpmap = cx->compartment()->watchpointMap;
         if (wpmap && !wpmap->triggerWatchpoint(cx, obj, id, vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return obj->getOps()->setElement(cx, obj, index, vp, strict);
 }
@@ -1709,7 +1709,7 @@ JSObject::deleteByValue(JSContext *cx, HandleObject obj, const Value &property, 
 
     JSAtom *name = ToAtom<CanGC>(cx, propval);
     if (!name)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (name->isIndex(&index))
         return deleteElement(cx, obj, index, succeeded);
@@ -1731,13 +1731,13 @@ CopyProperty(JSContext *cx, HandleObject target, HandleObject obj,
     StrictPropertyOp setter = shape->setter();
     AutoRooterGetterSetter gsRoot(cx, attrs, &getter, &setter);
     if ((attrs & JSPROP_GETTER) && !cx->compartment()->wrap(cx, &getter))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if ((attrs & JSPROP_SETTER) && !cx->compartment()->wrap(cx, &setter))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedValue v(cx, shape->hasSlot() ? obj->getSlot(shape->slot())
                                        : UndefinedValue());
     if (!cx->compartment()->wrap(cx, &v))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedId id(cx, shape->propid());
     return JSObject::defineGeneric(cx, target, id, v, getter,
                                    setter, attrs);
@@ -1754,7 +1754,7 @@ JS_CopyPropertyFrom(JSContext *cx, HandleId id, HandleObject target,
     {
         AutoCompartment ac(cx, obj);
         if (!JSObject::lookupGeneric(cx, obj, id, &obj2, &shape))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     MOZ_ASSERT(shape && obj == obj2);
     return CopyProperty(cx, target, obj, shape);
@@ -1775,7 +1775,7 @@ JS_CopyPropertiesFrom(JSContext *cx, JSObject *targetArg, JSObject *objArg)
     AutoShapeVector shapes(cx);
     for (Shape::Range<NoGC> r(obj->lastProperty()); !r.empty(); r.popFront()) {
         if (!shapes.append(&r.front()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     size_t n = shapes.length();
@@ -1783,7 +1783,7 @@ JS_CopyPropertiesFrom(JSContext *cx, JSObject *targetArg, JSObject *objArg)
     while (n > 0) {
         shape = shapes[--n];
         if (!CopyProperty(cx, target, obj, shape))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -1808,7 +1808,7 @@ CopySlots(JSContext *cx, HandleObject from, HandleObject to)
     for (; n < span; ++n) {
         v = from->getSlot(n);
         if (!cx->compartment()->wrap(cx, &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         to->setSlot(n, v);
     }
     return true;
@@ -1911,9 +1911,9 @@ JSObject::ReserveForTradeGuts(JSContext *cx, JSObject *aArg, JSObject *bArg,
     Rooted<TaggedProto> aProto(cx, a->getTaggedProto());
     Rooted<TaggedProto> bProto(cx, b->getTaggedProto());
     if (!SetClassAndProto(cx, a, bClass, bProto, false))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!SetClassAndProto(cx, b, aClass, aProto, false))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (a->tenuredSizeOfThis() == b->tenuredSizeOfThis())
         return true;
@@ -1926,29 +1926,29 @@ JSObject::ReserveForTradeGuts(JSContext *cx, JSObject *aArg, JSObject *bArg,
      */
     if (a->isNative()) {
         if (!a->generateOwnShape(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         reserved.newbshape = EmptyShape::getInitialShape(cx, aClass, aProto, a->getParent(), a->getMetadata(),
                                                          b->tenuredGetAllocKind());
         if (!reserved.newbshape)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (b->isNative()) {
         if (!b->generateOwnShape(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         reserved.newashape = EmptyShape::getInitialShape(cx, bClass, bProto, b->getParent(), b->getMetadata(),
                                                          a->tenuredGetAllocKind());
         if (!reserved.newashape)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* The avals/bvals vectors hold all original values from the objects. */
 
     if (!reserved.avals.reserve(a->slotSpan()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!reserved.bvals.reserve(b->slotSpan()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * The newafixed/newbfixed hold the number of fixed slots in the objects
@@ -1983,13 +1983,13 @@ JSObject::ReserveForTradeGuts(JSContext *cx, JSObject *aArg, JSObject *bArg,
     if (adynamic) {
         reserved.newaslots = cx->pod_malloc<HeapSlot>(adynamic);
         if (!reserved.newaslots)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         Debug_SetSlotRangeToCrashOnTouch(reserved.newaslots, adynamic);
     }
     if (bdynamic) {
         reserved.newbslots = cx->pod_malloc<HeapSlot>(bdynamic);
         if (!reserved.newbslots)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         Debug_SetSlotRangeToCrashOnTouch(reserved.newbslots, bdynamic);
     }
 
@@ -2157,7 +2157,7 @@ JSObject::swap(JSContext *cx, HandleObject a, HandleObject b)
     TradeGutsReserved reserved(cx);
     if (!ReserveForTradeGuts(cx, a, b, reserved)) {
         NotifyGCPostSwap(b, a, r);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     TradeGuts(cx, a, b, reserved);
 
@@ -2185,7 +2185,7 @@ DefineStandardSlot(JSContext *cx, HandleObject obj, JSProtoKey key, JSAtom *atom
 
             uint32_t slot = GlobalObject::constructorPropertySlot(key);
             if (!JSObject::addProperty(cx, obj, id, JS_PropertyStub, JS_StrictPropertyStub, slot, attrs, 0, 0))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             named = true;
             return true;
@@ -2413,7 +2413,7 @@ JSObject::updateSlotsForSpan(ThreadSafeContext *cx,
 
     if (oldSpan < newSpan) {
         if (oldCount < newCount && !JSObject::growSlots(cx, obj, oldCount, newCount))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (newSpan == oldSpan + 1)
             obj->initSlotUnchecked(oldSpan, UndefinedValue());
@@ -2449,7 +2449,7 @@ JSObject::setLastProperty(ThreadSafeContext *cx, HandleObject obj, HandleShape s
     }
 
     if (!updateSlotsForSpan(cx, obj, oldSpan, newSpan))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     obj->shape_ = shape;
     return true;
@@ -2466,7 +2466,7 @@ JSObject::setSlotSpan(ThreadSafeContext *cx, HandleObject obj, uint32_t span)
         return true;
 
     if (!JSObject::updateSlotsForSpan(cx, obj, oldSpan, span))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     obj->lastProperty()->base()->setSlotSpan(span);
     return true;
@@ -2533,7 +2533,7 @@ JSObject::growSlots(ThreadSafeContext *cx, HandleObject obj, uint32_t oldCount, 
             JSObject *reshapedObj = NewReshapedObject(ncx, typeObj, obj->getParent(), kind, shape,
                                                       MaybeSingletonObject);
             if (!reshapedObj)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             typeObj->newScript()->templateObject = reshapedObj;
             typeObj->markStateChange(ncx);
@@ -2543,14 +2543,14 @@ JSObject::growSlots(ThreadSafeContext *cx, HandleObject obj, uint32_t oldCount, 
     if (!oldCount) {
         obj->slots = AllocateSlots(cx, obj, newCount);
         if (!obj->slots)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         Debug_SetSlotRangeToCrashOnTouch(obj->slots, newCount);
         return true;
     }
 
     HeapSlot *newslots = ReallocateSlots(cx, obj, obj->slots, oldCount, newCount);
     if (!newslots)
-        return false;  /* Leave slots at its old size. */
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);  /* Leave slots at its old size. */
 
     obj->slots = newslots;
 
@@ -2602,7 +2602,7 @@ JSObject::sparsifyDenseElement(ExclusiveContext *cx, HandleObject obj, uint32_t 
     uint32_t slot = obj->slotSpan();
     if (!obj->addDataProperty(cx, INT_TO_JSID(index), slot, JSPROP_ENUMERATE)) {
         obj->setDenseElement(index, value);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JS_ASSERT(slot == obj->slotSpan() - 1);
@@ -2622,7 +2622,7 @@ JSObject::sparsifyDenseElements(js::ExclusiveContext *cx, HandleObject obj)
             continue;
 
         if (!sparsifyDenseElement(cx, obj, i))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (initialized)
@@ -2655,7 +2655,7 @@ JSObject::willBeSparseElements(uint32_t requiredCapacity, uint32_t newElementsHi
 
     uint32_t minimalDenseCount = requiredCapacity / SPARSE_DENSITY_RATIO;
     if (newElementsHint >= minimalDenseCount)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     minimalDenseCount -= newElementsHint;
 
     if (minimalDenseCount > cap)
@@ -2665,7 +2665,7 @@ JSObject::willBeSparseElements(uint32_t requiredCapacity, uint32_t newElementsHi
     const Value *elems = getDenseElements();
     for (uint32_t i = 0; i < len; i++) {
         if (!elems[i].isMagic(JS_ELEMENTS_HOLE) && !--minimalDenseCount)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -2846,7 +2846,7 @@ JSObject::growElements(ThreadSafeContext *cx, uint32_t newcap)
 
         /* Don't let nelements get close to wrapping around uint32_t. */
         if (actualCapacity >= NELEMENTS_LIMIT || actualCapacity < oldcap || actualCapacity < newcap)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     uint32_t initlen = getDenseInitializedLength();
@@ -2857,11 +2857,11 @@ JSObject::growElements(ThreadSafeContext *cx, uint32_t newcap)
     if (hasDynamicElements()) {
         newheader = ReallocateElements(cx, this, getElementsHeader(), oldAllocated, newAllocated);
         if (!newheader)
-            return false; /* Leave elements as its old size. */
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); /* Leave elements as its old size. */
     } else {
         newheader = AllocateElements(cx, this, newAllocated);
         if (!newheader)
-            return false; /* Leave elements as its old size. */
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); /* Leave elements as its old size. */
         js_memcpy(newheader, getElementsHeader(),
                   (ObjectElements::VALUES_PER_HEADER + initlen) * sizeof(Value));
     }
@@ -2947,10 +2947,10 @@ js::SetClassAndProto(JSContext *cx, HandleObject obj,
     while (oldproto && oldproto->isNative()) {
         if (oldproto->hasSingletonType()) {
             if (!oldproto->generateOwnShape(cx))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             if (!oldproto->setUncacheableProto(cx))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         oldproto = oldproto->getProto();
     }
@@ -2962,11 +2962,11 @@ js::SetClassAndProto(JSContext *cx, HandleObject obj,
             if (obj2 == obj) {
                 JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CYCLIC_VALUE,
                                      js_proto_str);
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             if (!JSObject::getProto(cx, obj2, &obj2))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -2976,7 +2976,7 @@ js::SetClassAndProto(JSContext *cx, HandleObject obj,
          * consistent behavior.
          */
         if (!obj->splicePrototype(cx, clasp, proto))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         MarkTypeObjectUnknownProperties(cx, obj->type());
         return true;
     }
@@ -2984,12 +2984,12 @@ js::SetClassAndProto(JSContext *cx, HandleObject obj,
     if (proto.isObject()) {
         RootedObject protoObj(cx, proto.toObject());
         if (!JSObject::setNewTypeUnknown(cx, clasp, protoObj))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     TypeObject *type = cx->getNewType(clasp, proto);
     if (!type)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Setting __proto__ on an object that has escaped and may be referenced by
@@ -3019,7 +3019,7 @@ js_GetClassObject(ExclusiveContext *cxArg, JSObject *obj, JSProtoKey key, Mutabl
 
     // Classes can only be initialized on the main thread.
     if (!cxArg->shouldBeJSContext())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSContext *cx = cxArg->asJSContext();
 
@@ -3034,7 +3034,7 @@ js_GetClassObject(ExclusiveContext *cxArg, JSObject *obj, JSProtoKey key, Mutabl
     RootedObject cobj(cx, nullptr);
     if (ClassInitializerOp init = lazy_prototype_init[key]) {
         if (!init(cx, global))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         v = global->getConstructor(key);
         if (v.isObject())
             cobj = &v.toObject();
@@ -3077,7 +3077,7 @@ js_FindClassObject(ExclusiveContext *cx, JSProtoKey protoKey, MutableHandleValue
         JS_ASSERT(protoKey < JSProto_LIMIT);
         RootedObject cobj(cx);
         if (!js_GetClassObject(cx, cx->global(), protoKey, &cobj))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (cobj) {
             vp.set(ObjectValue(*cobj));
             return true;
@@ -3086,14 +3086,14 @@ js_FindClassObject(ExclusiveContext *cx, JSProtoKey protoKey, MutableHandleValue
     } else {
         JSAtom *atom = Atomize(cx, clasp->name, strlen(clasp->name));
         if (!atom)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         id = AtomToId(atom);
     }
 
     RootedObject pobj(cx);
     RootedShape shape(cx);
     if (!LookupPropertyWithFlags(cx, cx->global(), id, 0, &pobj, &shape))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedValue v(cx, UndefinedValue());
     if (shape && pobj->isNative()) {
         if (shape->hasSlot()) {
@@ -3139,13 +3139,13 @@ JSObject::allocSlot(ThreadSafeContext *cx, HandleObject obj, uint32_t *slotp)
 
     if (slot >= SHAPE_MAXIMUM_SLOT) {
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     *slotp = slot;
 
     if (obj->inDictionaryMode() && !setSlotSpan(cx, obj, slot + 1))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }
@@ -3190,7 +3190,7 @@ PurgeProtoChain(ExclusiveContext *cx, JSObject *objArg, HandleId id)
         shape = obj->nativeLookup(cx, id);
         if (shape) {
             if (!obj->shadowingShapeChange(cx, *shape))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             obj->shadowingShapeChange(cx, *shape);
             return true;
@@ -3225,7 +3225,7 @@ PurgeScopeChainHelper(ExclusiveContext *cx, HandleObject objArg, HandleId id)
     if (obj->is<CallObject>()) {
         while ((obj = obj->enclosingScope()) != nullptr) {
             if (!PurgeProtoChain(cx, obj, id))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -3287,7 +3287,7 @@ JSObject::defineGeneric(ExclusiveContext *cx, HandleObject obj,
     js::DefineGenericOp op = obj->getOps()->defineGeneric;
     if (op) {
         if (!cx->shouldBeJSContext())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         return op(cx->asJSContext(), obj, id, value, getter, setter, attrs);
     }
     return baseops::DefineGeneric(cx, obj, id, value, getter, setter, attrs);
@@ -3324,7 +3324,7 @@ baseops::DefineElement(ExclusiveContext *cx, HandleObject obj, uint32_t index, H
     AutoRooterGetterSetter gsRoot(cx, attrs, &getter, &setter);
 
     if (!IndexToId(cx, index, id.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return DefineNativeProperty(cx, obj, id, value, getter, setter, attrs, 0, 0);
 }
@@ -3337,7 +3337,7 @@ JSObject::defineElement(ExclusiveContext *cx, HandleObject obj,
     js::DefineElementOp op = obj->getOps()->defineElement;
     if (op) {
         if (!cx->shouldBeJSContext())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         return op(cx->asJSContext(), obj, index, value, getter, setter, attrs);
     }
     return baseops::DefineElement(cx, obj, index, value, getter, setter, attrs);
@@ -3376,11 +3376,11 @@ CallAddPropertyHook(typename ExecutionModeTraits<mode>::ExclusiveContextType cxA
 {
     if (clasp->addProperty != JS_PropertyStub) {
         if (mode == ParallelExecution)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         ExclusiveContext *cx = cxArg->asExclusiveContext();
         if (!cx->shouldBeJSContext())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* Make a local copy of value so addProperty can mutate its inout parameter. */
         RootedValue value(cx, nominal);
@@ -3388,7 +3388,7 @@ CallAddPropertyHook(typename ExecutionModeTraits<mode>::ExclusiveContextType cxA
         Rooted<jsid> id(cx, shape->propid());
         if (!CallJSPropertyOp(cx->asJSContext(), clasp->addProperty, obj, id, &value)) {
             obj->removeProperty(cx, shape->propid());
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (value.get() != nominal) {
             if (shape->hasSlot())
@@ -3412,7 +3412,7 @@ CallAddPropertyHookDense(typename ExecutionModeTraits<mode>::ExclusiveContextTyp
             if (mode == ParallelExecution) {
                 /* We cannot deal with overflows in parallel. */
                 if (length > INT32_MAX)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 arr->setLengthInt32(index + 1);
             } else {
                 ArrayObject::setLength(cxArg->asExclusiveContext(), arr, index + 1);
@@ -3423,11 +3423,11 @@ CallAddPropertyHookDense(typename ExecutionModeTraits<mode>::ExclusiveContextTyp
 
     if (clasp->addProperty != JS_PropertyStub) {
         if (mode == ParallelExecution)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         ExclusiveContext *cx = cxArg->asExclusiveContext();
         if (!cx->shouldBeJSContext())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* Make a local copy of value so addProperty can mutate its inout parameter. */
         RootedValue value(cx, nominal);
@@ -3435,7 +3435,7 @@ CallAddPropertyHookDense(typename ExecutionModeTraits<mode>::ExclusiveContextTyp
         Rooted<jsid> id(cx, INT_TO_JSID(index));
         if (!CallJSPropertyOp(cx->asJSContext(), clasp->addProperty, obj, id, &value)) {
             obj->setDenseElementHole(cx, index);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (value.get() != nominal)
             obj->setDenseElementWithType(cx, index, value);
@@ -3453,7 +3453,7 @@ UpdateShapeTypeAndValue(typename ExecutionModeTraits<mode>::ExclusiveContextType
     if (shape->hasSlot()) {
         if (mode == ParallelExecution) {
             if (!obj->nativeSetSlotIfHasType(shape, value))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             obj->nativeSetSlotWithType(cx->asExclusiveContext(), shape, value);
         }
@@ -3463,7 +3463,7 @@ UpdateShapeTypeAndValue(typename ExecutionModeTraits<mode>::ExclusiveContextType
     {
         if (mode == ParallelExecution) {
             if (!IsTypePropertyIdMarkedConfigured(obj, id))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             MarkTypePropertyConfigured(cx->asExclusiveContext(), obj, id);
         }
@@ -3489,25 +3489,25 @@ DefinePropertyOrElement(typename ExecutionModeTraits<mode>::ExclusiveContextType
         uint32_t index = JSID_TO_INT(id);
         bool definesPast;
         if (!WouldDefinePastNonwritableLength(cx, obj, index, setterIsStrict, &definesPast))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (definesPast)
             return true;
 
         JSObject::EnsureDenseResult result;
         if (mode == ParallelExecution) {
             if (obj->writeToIndexWouldMarkNotPacked(index))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             result = obj->ensureDenseElementsPreservePackedFlag(cx, index, 1);
         } else {
             result = obj->ensureDenseElements(cx->asExclusiveContext(), index, 1);
         }
 
         if (result == JSObject::ED_FAILED)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (result == JSObject::ED_OK) {
             if (mode == ParallelExecution) {
                 if (!obj->setDenseElementIfHasType(index, value))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else {
                 obj->setDenseElementWithType(cx->asExclusiveContext(), index, value);
             }
@@ -3519,7 +3519,7 @@ DefinePropertyOrElement(typename ExecutionModeTraits<mode>::ExclusiveContextType
         Rooted<ArrayObject*> arr(cx, &obj->as<ArrayObject>());
         if (id == NameToId(cx->names().length)) {
             if (mode == SequentialExecution && !cx->shouldBeJSContext())
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             return ArraySetLength<mode>(ExecutionModeTraits<mode>::toContextType(cx), arr, id,
                                         attrs, value, setterIsStrict);
         }
@@ -3528,7 +3528,7 @@ DefinePropertyOrElement(typename ExecutionModeTraits<mode>::ExclusiveContextType
         if (js_IdIsIndex(id, &index)) {
             bool definesPast;
             if (!WouldDefinePastNonwritableLength(cx, arr, index, setterIsStrict, &definesPast))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             if (definesPast)
                 return true;
         }
@@ -3540,10 +3540,10 @@ DefinePropertyOrElement(typename ExecutionModeTraits<mode>::ExclusiveContextType
                                                       SHAPE_INVALID_SLOT,
                                                       attrs, flags, shortid));
     if (!shape)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!UpdateShapeTypeAndValue<mode>(cx, obj, shape, value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Clear any existing dense index after adding a sparse indexed property,
@@ -3551,14 +3551,14 @@ DefinePropertyOrElement(typename ExecutionModeTraits<mode>::ExclusiveContextType
      */
     if (JSID_IS_INT(id)) {
         if (mode == ParallelExecution)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         ExclusiveContext *ncx = cx->asExclusiveContext();
         uint32_t index = JSID_TO_INT(id);
         JSObject::removeDenseElementForSparseIndex(ncx, obj, index);
         JSObject::EnsureDenseResult result = JSObject::maybeDensifySparseElements(ncx, obj);
         if (result == JSObject::ED_FAILED)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (result == JSObject::ED_OK) {
             JS_ASSERT(setter == JS_StrictPropertyStub);
             return CallAddPropertyHookDense<mode>(cx, obj->getClass(), obj, index, value);
@@ -3566,11 +3566,11 @@ DefinePropertyOrElement(typename ExecutionModeTraits<mode>::ExclusiveContextType
     }
 
     if (!CallAddPropertyHook<mode>(cx, obj->getClass(), obj, shape, value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (callSetterAfterwards && setter != JS_StrictPropertyStub) {
         if (!cx->shouldBeJSContext())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         RootedValue nvalue(cx, value);
         return NativeSet<mode>(ExecutionModeTraits<mode>::toContextType(cx),
                                obj, obj, shape, setterIsStrict, &nvalue);
@@ -3604,11 +3604,11 @@ js::DefineNativeProperty(ExclusiveContext *cx, HandleObject obj, HandleId id, Ha
          * vice versa, finish the job via obj->changeProperty.
          */
         if (!NativeLookupOwnProperty(cx, obj, id, flags, &shape))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (shape) {
             if (IsImplicitDenseElement(shape)) {
                 if (!JSObject::sparsifyDenseElement(cx, obj, JSID_TO_INT(id)))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 shape = obj->nativeLookup(cx, id);
             }
             if (shape->isAccessorDescriptor()) {
@@ -3621,7 +3621,7 @@ js::DefineNativeProperty(ExclusiveContext *cx, HandleObject obj, HandleId id, Ha
                                                                       ? setter
                                                                       : shape->setter());
                 if (!shape)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else {
                 shape = nullptr;
             }
@@ -3635,7 +3635,7 @@ js::DefineNativeProperty(ExclusiveContext *cx, HandleObject obj, HandleId id, Ha
      */
     if (!(defineHow & DNP_DONT_PURGE)) {
         if (!PurgeScopeChain(cx, obj, id))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Use the object's class getter and setter by default. */
@@ -3665,7 +3665,7 @@ js::DefineNativeProperty(ExclusiveContext *cx, HandleObject obj, HandleId id, Ha
  *
  * There are four possible outcomes:
  *
- *   - On failure, report an error or exception and return false.
+ *   - On failure, report an error or exception and do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false).
  *
  *   - If we are already resolving a property of *curobjp, set *recursedp = true,
  *     and return true.
@@ -3708,7 +3708,7 @@ CallResolveOp(JSContext *cx, HandleObject obj, HandleId id, unsigned flags,
 
         RootedObject obj2(cx, nullptr);
         if (!newresolve(cx, obj, id, flags, &obj2))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /*
          * We trust the new style resolve hook to set obj2 to nullptr when
@@ -3728,7 +3728,7 @@ CallResolveOp(JSContext *cx, HandleObject obj, HandleId id, unsigned flags,
         objp.set(obj2);
     } else {
         if (!resolve(cx, obj, id))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         objp.set(obj);
     }
@@ -3776,7 +3776,7 @@ LookupOwnPropertyWithFlagsInline(ExclusiveContext *cx,
     // id was not found in obj. Try obj's resolve hook, if any.
     if (obj->getClass()->resolve != JS_ResolveStub) {
         if (!cx->shouldBeJSContext() || !allowGC)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         bool recursed;
         if (!CallResolveOp(cx->asJSContext(),
@@ -3787,7 +3787,7 @@ LookupOwnPropertyWithFlagsInline(ExclusiveContext *cx,
                            MaybeRooted<Shape*, allowGC>::toMutableHandle(propp),
                            &recursed))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (recursed) {
@@ -3815,7 +3815,7 @@ NativeLookupOwnProperty(ExclusiveContext *cx, HandleObject obj, HandleId id, uns
     bool done;
 
     if (!LookupOwnPropertyWithFlagsInline<CanGC>(cx, obj, id, flags, &pobj, shapep, &done))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!done || pobj != obj)
         shapep.set(nullptr);
     return true;
@@ -3841,7 +3841,7 @@ LookupPropertyWithFlagsInline(ExclusiveContext *cx,
     while (true) {
         bool done;
         if (!LookupOwnPropertyWithFlagsInline<allowGC>(cx, current, id, flags, objp, propp, &done))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (done)
             return true;
 
@@ -3851,7 +3851,7 @@ LookupPropertyWithFlagsInline(ExclusiveContext *cx,
             break;
         if (!proto->isNative()) {
             if (!cx->shouldBeJSContext() || !allowGC)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             return JSObject::lookupGeneric(cx->asJSContext(),
                                            MaybeRooted<JSObject*, allowGC>::toHandle(proto),
                                            MaybeRooted<jsid, allowGC>::toHandle(id),
@@ -3914,7 +3914,7 @@ baseops::LookupElement(JSContext *cx, HandleObject obj, uint32_t index,
 {
     RootedId id(cx);
     if (!IndexToId(cx, index, id.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return LookupPropertyWithFlagsInline<CanGC>(cx, obj, id, cx->resolveFlags, objp, propp);
 }
@@ -3934,7 +3934,7 @@ js::LookupName(JSContext *cx, HandlePropertyName name, HandleObject scopeChain,
 
     for (RootedObject scope(cx, scopeChain); scope; scope = scope->enclosingScope()) {
         if (!JSObject::lookupGeneric(cx, scope, id, pobjp, propp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (propp) {
             objp.set(scope);
             return true;
@@ -3957,11 +3957,11 @@ js::LookupNameNoGC(JSContext *cx, PropertyName *name, JSObject *scopeChain,
 
     for (JSObject *scope = scopeChain; scope; scope = scope->enclosingScope()) {
         if (scope->getOps()->lookupGeneric)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!LookupPropertyWithFlagsInline<NoGC>(cx, scope, NameToId(name),
                                                  cx->resolveFlags, pobjp, propp))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (*propp) {
             *objp = scope;
@@ -3984,7 +3984,7 @@ js::LookupNameWithGlobalDefault(JSContext *cx, HandlePropertyName name, HandleOb
     RootedObject scope(cx, scopeChain);
     for (; !scope->is<GlobalObject>(); scope = scope->enclosingScope()) {
         if (!JSObject::lookupGeneric(cx, scope, id, &pobj, &prop))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (prop)
             break;
     }
@@ -4005,19 +4005,19 @@ js::HasOwnProperty(JSContext *cx, LookupGenericOp lookup,
         JSAutoResolveFlags rf(cx, 0);
 
         if (!allowGC)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!lookup(cx,
                     MaybeRooted<JSObject*, allowGC>::toHandle(obj),
                     MaybeRooted<jsid, allowGC>::toHandle(id),
                     MaybeRooted<JSObject*, allowGC>::toMutableHandle(objp),
                     MaybeRooted<Shape*, allowGC>::toMutableHandle(propp)))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     } else {
         bool done;
         if (!LookupOwnPropertyWithFlagsInline<allowGC>(cx, obj, id, 0, objp, propp, &done))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!done) {
             objp.set(nullptr);
             propp.set(nullptr);
@@ -4034,11 +4034,11 @@ js::HasOwnProperty(JSContext *cx, LookupGenericOp lookup,
     JSObject *outer = nullptr;
     if (JSObjectOp op = objp->getClass()->ext.outerObject) {
         if (!allowGC)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         RootedObject inner(cx, objp);
         outer = op(cx, inner);
         if (!outer)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (outer != objp)
@@ -4099,7 +4099,7 @@ NativeGetInline(JSContext *cx,
     }
 
     if (!allowGC)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!shape->get(cx,
                     MaybeRooted<JSObject*, allowGC>::toHandle(receiver),
@@ -4107,7 +4107,7 @@ NativeGetInline(JSContext *cx,
                     MaybeRooted<JSObject*, allowGC>::toHandle(pobj),
                     MaybeRooted<Value, allowGC>::toMutableHandle(vp)))
     {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Update slotful shapes according to the value produced by the getter. */
@@ -4138,7 +4138,7 @@ js::NativeSet(typename ExecutionModeTraits<mode>::ContextType cxArg,
         if (shape->hasDefaultSetter()) {
             if (mode == ParallelExecution) {
                 if (!obj->nativeSetSlotIfHasType(shape, vp))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             } else {
                 obj->nativeSetSlotWithType(cxArg->asExclusiveContext(), shape, vp);
             }
@@ -4148,7 +4148,7 @@ js::NativeSet(typename ExecutionModeTraits<mode>::ContextType cxArg,
     }
 
     if (mode == ParallelExecution)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JSContext *cx = cxArg->asJSContext();
 
     if (!shape->hasSlot()) {
@@ -4166,7 +4166,7 @@ js::NativeSet(typename ExecutionModeTraits<mode>::ContextType cxArg,
 
     uint32_t sample = cx->runtime()->propertyRemovals;
     if (!shape->set(cx, obj, receiver, strict, vp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Update any slot for the shape with the value produced by the setter,
@@ -4203,11 +4203,11 @@ GetPropertyHelperInline(JSContext *cx,
     typename MaybeRooted<JSObject*, allowGC>::RootType obj2(cx);
     typename MaybeRooted<Shape*, allowGC>::RootType shape(cx);
     if (!LookupPropertyWithFlagsInline<allowGC>(cx, obj, id, cx->resolveFlags, &obj2, &shape))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!shape) {
         if (!allowGC)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         vp.setUndefined();
 
@@ -4216,7 +4216,7 @@ GetPropertyHelperInline(JSContext *cx,
                               MaybeRooted<jsid, allowGC>::toHandle(id),
                               MaybeRooted<Value, allowGC>::toMutableHandle(vp)))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         /*
@@ -4235,7 +4235,7 @@ GetPropertyHelperInline(JSContext *cx,
                 JSAutoByteString printable;
                 if (js_ValueToPrintable(cx, IdToValue(id), &printable))
                     js_ReportIsNotDefined(cx, printable.ptr());
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             /* Don't warn if extra warnings not enabled or for random getprop operations. */
@@ -4266,7 +4266,7 @@ GetPropertyHelperInline(JSContext *cx,
                                           JSDVG_IGNORE_STACK, val, NullPtr(),
                                           nullptr, nullptr))
             {
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         }
         return true;
@@ -4274,7 +4274,7 @@ GetPropertyHelperInline(JSContext *cx,
 
     if (!obj2->isNative()) {
         if (!allowGC)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         HandleObject obj2Handle = MaybeRooted<JSObject*, allowGC>::toHandle(obj2);
         HandleObject receiverHandle = MaybeRooted<JSObject*, allowGC>::toHandle(receiver);
         HandleId idHandle = MaybeRooted<jsid, allowGC>::toHandle(id);
@@ -4291,7 +4291,7 @@ GetPropertyHelperInline(JSContext *cx,
 
     /* This call site is hot -- use the always-inlined variant of NativeGet(). */
     if (!NativeGetInline<allowGC>(cx, obj, receiver, obj2, shape, vp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }
@@ -4314,7 +4314,7 @@ static JS_ALWAYS_INLINE bool
 LookupPropertyPureInline(JSObject *obj, jsid id, JSObject **objp, Shape **propp)
 {
     if (!obj->isNative())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSObject *current = obj;
     while (true) {
@@ -4335,14 +4335,14 @@ LookupPropertyPureInline(JSObject *obj, jsid id, JSObject **objp, Shape **propp)
 
         /* Fail if there's a resolve hook. */
         if (current->getClass()->resolve != JS_ResolveStub)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         JSObject *proto = current->getProto();
 
         if (!proto)
             break;
         if (!proto->isNative())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         current = proto;
     }
@@ -4404,7 +4404,7 @@ js::GetPropertyPure(ThreadSafeContext *cx, JSObject *obj, jsid id, Value *vp)
                 tarr->copyTypedArrayElement(index, vpHandle);
                 return true;
             }
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (IdIsLength(cx, id)) {
@@ -4412,22 +4412,22 @@ js::GetPropertyPure(ThreadSafeContext *cx, JSObject *obj, jsid id, Value *vp)
             return true;
         }
 
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Deal with native objects. */
     JSObject *obj2;
     Shape *shape;
     if (!LookupPropertyPureInline(obj, id, &obj2, &shape))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!shape) {
         /* Fail if we have a non-stub class op hooks. */
         if (obj->getClass()->getProperty && obj->getClass()->getProperty != JS_PropertyStub)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (obj->getOps()->getElement)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* Vanilla native object, return undefined. */
         vp->setUndefined();
@@ -4454,7 +4454,7 @@ GetElementPure(ThreadSafeContext *cx, JSObject *obj, uint32_t index, Value *vp)
 {
     jsid id;
     if (!IndexToIdPure(index, &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return GetPropertyPure(cx, obj, id, vp);
 }
@@ -4474,7 +4474,7 @@ js::GetObjectElementOperationPure(ThreadSafeContext *cx, JSObject *obj, const Va
 
     /* Atomizing the property value is effectful and not threadsafe. */
     if (!prop.isString() || !prop.toString()->isAtom())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JSAtom *name = &prop.toString()->asAtom();
     if (name->isIndex(&index))
@@ -4489,7 +4489,7 @@ baseops::GetElement(JSContext *cx, HandleObject obj, HandleObject receiver, uint
 {
     RootedId id(cx);
     if (!IndexToId(cx, index, id.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* This call site is hot -- use the always-inlined variant of js_GetPropertyHelper(). */
     return GetPropertyHelperInline<CanGC>(cx, obj, receiver, id, vp);
@@ -4615,7 +4615,7 @@ JSObject::callMethod(JSContext *cx, HandleId id, unsigned argc, Value *argv, Mut
     RootedValue fval(cx);
     RootedObject obj(cx, this);
     if (!JSObject::getGeneric(cx, obj, obj, id, &fval))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return Invoke(cx, ObjectValue(*obj), fval, argc, argv, vp);
 }
 
@@ -4630,35 +4630,35 @@ baseops::SetPropertyHelper(typename ExecutionModeTraits<mode>::ContextType cxArg
 
     if (JS_UNLIKELY(obj->watched())) {
         if (mode == ParallelExecution)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         /* Fire watchpoints, if any. */
         JSContext *cx = cxArg->asJSContext();
         WatchpointMap *wpmap = cx->compartment()->watchpointMap;
         if (wpmap && !wpmap->triggerWatchpoint(cx, obj, id, vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedObject pobj(cxArg);
     RootedShape shape(cxArg);
     if (mode == ParallelExecution) {
         if (!LookupPropertyPure(obj, id, pobj.address(), shape.address()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         JSContext *cx = cxArg->asJSContext();
         if (!LookupPropertyWithFlags(cx, obj, id, cx->resolveFlags, &pobj, &shape))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (shape) {
         if (!pobj->isNative()) {
             if (pobj->is<ProxyObject>()) {
                 if (mode == ParallelExecution)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 JSContext *cx = cxArg->asJSContext();
                 Rooted<PropertyDescriptor> pd(cx);
                 if (!Proxy::getPropertyDescriptor(cx, pobj, id, &pd, JSRESOLVE_ASSIGNING))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 if ((pd.attributes() & (JSPROP_SHARED | JSPROP_SHADOWABLE)) == JSPROP_SHARED) {
                     return !pd.setter() ||
@@ -4683,10 +4683,10 @@ baseops::SetPropertyHelper(typename ExecutionModeTraits<mode>::ContextType cxArg
 
         if (obj->is<GlobalObject>() && (defineHow & DNP_UNQUALIFIED)) {
             if (mode == ParallelExecution)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             if (!MaybeReportUndeclaredVarAssignment(cxArg->asJSContext(), JSID_TO_STRING(id)))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -4747,7 +4747,7 @@ baseops::SetPropertyHelper(typename ExecutionModeTraits<mode>::ContextType cxArg
                     return true;
 
                 if (mode == ParallelExecution)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
                 return shape->set(cxArg->asJSContext(), obj, receiver, strict, vp);
             }
@@ -4792,7 +4792,7 @@ baseops::SetPropertyHelper(typename ExecutionModeTraits<mode>::ContextType cxArg
         uint32_t index = JSID_TO_INT(id);
         bool definesPast;
         if (!WouldDefinePastNonwritableLength(cxArg, obj, index, strict, &definesPast))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (definesPast) {
             /* Bail out of parallel execution if we are strict to throw. */
             if (mode == ParallelExecution)
@@ -4816,11 +4816,11 @@ baseops::SetPropertyHelper(typename ExecutionModeTraits<mode>::ContextType cxArg
         bool extensible;
         if (mode == ParallelExecution) {
             if (obj->is<ProxyObject>())
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             extensible = obj->nonProxyIsExtensible();
         } else {
             if (!JSObject::isExtensible(cxArg->asJSContext(), obj, &extensible))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (!extensible) {
@@ -4834,16 +4834,16 @@ baseops::SetPropertyHelper(typename ExecutionModeTraits<mode>::ContextType cxArg
 
         if (mode == ParallelExecution) {
             if (obj->isDelegate())
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             if (getter != JS_PropertyStub || !HasTypePropertyId(obj, id, vp))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             JSContext *cx = cxArg->asJSContext();
 
             /* Purge the property cache of now-shadowed id in obj's scope chain. */
             if (!PurgeScopeChain(cx, obj, id))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         return DefinePropertyOrElement<mode>(cxArg, obj, id, getter, setter,
@@ -4870,7 +4870,7 @@ baseops::SetElementHelper(JSContext *cx, HandleObject obj, HandleObject receiver
 {
     RootedId id(cx);
     if (!IndexToId(cx, index, id.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return baseops::SetPropertyHelper<SequentialExecution>(cx, obj, receiver, id, defineHow, vp,
                                                            strict);
 }
@@ -4881,7 +4881,7 @@ baseops::GetAttributes(JSContext *cx, HandleObject obj, HandleId id, unsigned *a
     RootedObject nobj(cx);
     RootedShape shape(cx);
     if (!baseops::LookupProperty<CanGC>(cx, obj, id, &nobj, &shape))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!shape) {
         *attrsp = 0;
         return true;
@@ -4899,17 +4899,17 @@ baseops::SetAttributes(JSContext *cx, HandleObject obj, HandleId id, unsigned *a
     RootedObject nobj(cx);
     RootedShape shape(cx);
     if (!baseops::LookupProperty<CanGC>(cx, obj, id, &nobj, &shape))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!shape)
         return true;
     if (nobj->isNative() && IsImplicitDenseElement(shape)) {
         if (!JSObject::sparsifyDenseElement(cx, nobj, JSID_TO_INT(id)))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         shape = obj->nativeLookup(cx, id);
     }
     if (nobj->isNative()) {
         if (!JSObject::changePropertyAttributes(cx, nobj, shape, *attrsp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (*attrsp & JSPROP_READONLY)
             MarkTypePropertyConfigured(cx, obj, id);
         return true;
@@ -4924,7 +4924,7 @@ baseops::DeleteGeneric(JSContext *cx, HandleObject obj, HandleId id, bool *succe
     RootedObject proto(cx);
     RootedShape shape(cx);
     if (!baseops::LookupProperty<CanGC>(cx, obj, id, &proto, &shape))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!shape || proto != obj) {
         /*
          * If no property, or the property comes from a prototype, call the
@@ -4937,7 +4937,7 @@ baseops::DeleteGeneric(JSContext *cx, HandleObject obj, HandleId id, bool *succe
 
     if (IsImplicitDenseElement(shape)) {
         if (!CallJSDeletePropertyOp(cx, obj->getClass()->delProperty, obj, id, succeeded))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!succeeded)
             return true;
 
@@ -4952,10 +4952,10 @@ baseops::DeleteGeneric(JSContext *cx, HandleObject obj, HandleId id, bool *succe
 
     RootedId userid(cx);
     if (!shape->getUserId(cx, &userid))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!CallJSDeletePropertyOp(cx, obj->getClass()->delProperty, obj, userid, succeeded))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!succeeded)
         return true;
 
@@ -4975,7 +4975,7 @@ baseops::DeleteElement(JSContext *cx, HandleObject obj, uint32_t index, bool *su
 {
     RootedId id(cx);
     if (!IndexToId(cx, index, id.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return baseops::DeleteGeneric(cx, obj, id, succeeded);
 }
 
@@ -4996,14 +4996,14 @@ js::WatchGuts(JSContext *cx, JS::HandleObject origObj, JS::HandleId id, JS::Hand
         RootedValue v(cx);
         unsigned attrs;
         if (!CheckAccess(cx, obj, id, JSACC_WATCH, &v, &attrs))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (obj->isNative()) {
         // Use sparse indexes for watched objects, as dense elements can be
         // written to without checking the watchpoint map.
         if (!JSObject::sparsifyDenseElements(cx, obj))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         types::MarkTypePropertyConfigured(cx, obj, id);
     }
@@ -5013,7 +5013,7 @@ js::WatchGuts(JSContext *cx, JS::HandleObject origObj, JS::HandleId id, JS::Hand
         wpmap = cx->runtime()->new_<WatchpointMap>();
         if (!wpmap || !wpmap->init()) {
             js_ReportOutOfMemory(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         cx->compartment()->watchpointMap = wpmap;
     }
@@ -5027,7 +5027,7 @@ baseops::Watch(JSContext *cx, JS::HandleObject obj, JS::HandleId id, JS::HandleO
     if (!obj->isNative()) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_WATCH,
                              obj->getClass()->name);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return WatchGuts(cx, obj, id, callable);
@@ -5065,7 +5065,7 @@ js::HasDataProperty(JSContext *cx, JSObject *obj, jsid id, Value *vp)
         }
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /*
@@ -5080,7 +5080,7 @@ static bool
 MaybeCallMethod(JSContext *cx, HandleObject obj, HandleId id, MutableHandleValue vp)
 {
     if (!JSObject::getGeneric(cx, obj, obj, id, vp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!js_IsCallable(vp)) {
         vp.setObject(*obj);
         return true;
@@ -5108,13 +5108,13 @@ js::DefaultValue(JSContext *cx, HandleObject obj, JSType hint, MutableHandleValu
         }
 
         if (!MaybeCallMethod(cx, obj, id, vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (vp.isPrimitive())
             return true;
 
         id = NameToId(cx->names().valueOf);
         if (!MaybeCallMethod(cx, obj, id, vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (vp.isPrimitive())
             return true;
     } else {
@@ -5139,13 +5139,13 @@ js::DefaultValue(JSContext *cx, HandleObject obj, JSType hint, MutableHandleValu
 
         id = NameToId(cx->names().valueOf);
         if (!MaybeCallMethod(cx, obj, id, vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (vp.isPrimitive())
             return true;
 
         id = NameToId(cx->names().toString);
         if (!MaybeCallMethod(cx, obj, id, vp))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (vp.isPrimitive())
             return true;
     }
@@ -5155,7 +5155,7 @@ js::DefaultValue(JSContext *cx, HandleObject obj, JSType hint, MutableHandleValu
     if (hint == JSTYPE_STRING) {
         str = JS_InternString(cx, clasp->name);
         if (!str)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         str = nullptr;
     }
@@ -5163,7 +5163,7 @@ js::DefaultValue(JSContext *cx, HandleObject obj, JSType hint, MutableHandleValu
     RootedValue val(cx, ObjectValue(*obj));
     js_ReportValueError2(cx, JSMSG_CANT_CONVERT_TO, JSDVG_SEARCH_STACK, val, str,
                          (hint == JSTYPE_VOID) ? "primitive type" : TypeStrings[hint]);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 JS_FRIEND_API(bool)
@@ -5179,7 +5179,7 @@ JS_EnumerateState(JSContext *cx, HandleObject obj, JSIterateOp enum_op,
     }
 
     if (!enumerate(cx, obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Tell InitNativeIterator to treat us like a native object. */
     JS_ASSERT(enum_op == JSENUMERATE_INIT || enum_op == JSENUMERATE_INIT_ALL);
@@ -5204,7 +5204,7 @@ js::CheckAccess(JSContext *cx, JSObject *obj_, HandleId id, JSAccessMode mode,
         if (!writing) {
             RootedObject proto(cx);
             if (!JSObject::getProto(cx, obj, &proto))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             vp.setObjectOrNull(proto);
         }
         *attrsp = JSPROP_PERMANENT;
@@ -5213,7 +5213,7 @@ js::CheckAccess(JSContext *cx, JSObject *obj_, HandleId id, JSAccessMode mode,
       default:
         RootedShape shape(cx);
         if (!JSObject::lookupGeneric(cx, obj, id, &pobj, &shape))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!shape) {
             if (!writing)
                 vp.setUndefined();
@@ -5274,7 +5274,7 @@ js::IsDelegate(JSContext *cx, HandleObject obj, const js::Value &v, bool *result
     RootedObject obj2(cx, &v.toObject());
     for (;;) {
         if (!JSObject::getProto(cx, obj2, &obj2))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!obj2) {
             *result = false;
             return true;
@@ -5316,7 +5316,7 @@ js_GetClassPrototype(ExclusiveContext *cx, JSProtoKey protoKey,
 
     RootedValue v(cx);
     if (!js_FindClassObject(cx, protoKey, &v, clasp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (IsFunctionObject(v)) {
         RootedObject ctor(cx, &v.get().toObject());
@@ -5324,12 +5324,12 @@ js_GetClassPrototype(ExclusiveContext *cx, JSProtoKey protoKey,
             if (!JSObject::getProperty(cx->asJSContext(),
                                        ctor, ctor, cx->names().prototype, &v))
             {
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
         } else {
             Shape *shape = ctor->nativeLookup(cx, cx->names().prototype);
             if (!shape || !NativeGetPureInline(ctor, shape, v.address()))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -5429,7 +5429,7 @@ js_GetterOnlyPropertyStub(JSContext *cx, HandleObject obj, HandleId id, bool str
                           MutableHandleValue vp)
 {
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_GETTER_ONLY);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 #ifdef DEBUG

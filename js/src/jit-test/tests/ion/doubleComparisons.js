@@ -4,7 +4,7 @@ function gen_f(x) {
 	    "    var x = " + x + ";\n" + 
 	    "    if (x)\n" +
 	    "        return true;\n" +
-	    "    return false;\n" +
+	    "    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);\n" +
 	    "}";
     return new Function(f);
 }
@@ -19,7 +19,7 @@ function gen_k(x, op, y) {
 	    "    var y = " + y + ";\n" +
 	    "    if (x " + op + " y)\n" +
 	    "        return true;\n" +
-	    "    return false;\n" +
+	    "    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);\n" +
 	    "}";
     return new Function(f);
 }

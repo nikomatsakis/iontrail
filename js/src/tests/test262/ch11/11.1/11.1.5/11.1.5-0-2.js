@@ -18,15 +18,15 @@ function testcase() {
   var s3 = "Second getter";
   eval("var o = {get foo(){ return s1;},set foo(arg){return s2 = s3}, get bar(){ return s3}, set bar(arg){ s3 = arg;}};");
   if(o.foo !== s1) 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   o.foo = 10;
   if(s2 !== s3) 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if(o.bar !== s3)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   o.bar = "Second setter";
   if(o.bar !== "Second setter")
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   return true;
  }
 runTestCase(testcase);

@@ -13,7 +13,7 @@ var caught = false;
 assertThrowsInstanceOf(function () {
     ({}).hasOwnProperty.call(new Proxy(target, {
         hasOwn: function (target, name) {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }), 'foo');
 }, TypeError);

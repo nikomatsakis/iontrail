@@ -66,11 +66,11 @@ function isUnrootedType(type)
         var target = type.Type;
         if (target.Kind == "CSU")
             return target.Name in gcThings;
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (type.Kind == "CSU")
         return type.Name in gcPointers;
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 function expressionUsesVariable(exp, variable)
@@ -78,18 +78,18 @@ function expressionUsesVariable(exp, variable)
     if (exp.Kind == "Var" && sameVariable(exp.Variable, variable))
         return true;
     if (!("Exp" in exp))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     for (var childExp of exp.Exp) {
         if (expressionUsesVariable(childExp, variable))
             return true;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 function edgeUsesVariable(edge, variable)
 {
     if (ignoreEdgeUse(edge, variable))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     switch (edge.Kind) {
 
     case "Assign":
@@ -115,10 +115,10 @@ function edgeUsesVariable(edge, variable)
                     return true;
             }
         }
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     case "Loop":
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     default:
         assert(false);
@@ -135,9 +135,9 @@ function expressionIsVariableAddress(exp, variable)
 function edgeTakesVariableAddress(edge, variable)
 {
     if (ignoreEdgeUse(edge, variable))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (ignoreEdgeAddressTaken(edge))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     switch (edge.Kind) {
     case "Assign":
         return expressionIsVariableAddress(edge.Exp[1], variable);
@@ -148,9 +148,9 @@ function edgeTakesVariableAddress(edge, variable)
                     return true;
             }
         }
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     default:
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 }
 
@@ -164,7 +164,7 @@ function edgeKillsVariable(edge, variable)
     }
 
     if (edge.Kind != "Call")
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Assignments of call results kill their lhs.
     if (1 in edge.Exp) {
@@ -213,13 +213,13 @@ function edgeKillsVariable(edge, variable)
         } while (false);
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 function edgeCanGC(edge)
 {
     if (edge.Kind != "Call")
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     var callee = edge.Exp[0];
     if (callee.Kind == "Var") {
         var variable = callee.Variable;

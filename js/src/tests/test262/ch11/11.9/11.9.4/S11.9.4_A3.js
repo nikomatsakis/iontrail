@@ -3,7 +3,7 @@
 
 /**
  * Type(x) and Type(y) are Boolean-s.
- * Return true, if x and y are both true and both false; otherwise, return false
+ * Return true, if x and y are both true and both false; otherwise, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
  *
  * @path ch11/11.9/11.9.4/S11.9.4_A3.js
  * @description x and y are primitive booleans

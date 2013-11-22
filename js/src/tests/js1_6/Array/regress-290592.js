@@ -75,7 +75,7 @@ function isUpperCase(v, index, array)
   catch(e)
   {
   }
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 function isString(v, index, array)
@@ -120,7 +120,7 @@ ArrayCallback.prototype.isUpperCase = function(v, index, array)
   catch(e)
   {
   }
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 };
 
 ArrayCallback.prototype.isString = function(v, index, array)

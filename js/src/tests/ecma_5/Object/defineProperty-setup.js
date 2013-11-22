@@ -148,7 +148,7 @@ function examine(desc, field, allowDefault)
     case "writable":
     case "enumerable":
     case "configurable":
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     default:
       assertEq(true, false, "bad field name: " + field);
   }
@@ -157,28 +157,28 @@ function examine(desc, field, allowDefault)
 function IsAccessorDescriptor(desc)
 {
   if (!desc)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!("get" in desc) && !("set" in desc))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   return true;
 }
 
 function IsDataDescriptor(desc)
 {
   if (!desc)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!("value" in desc) && !("writable" in desc))
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   return true;
 }
 
 function IsGenericDescriptor(desc)
 {
   if (!desc)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   if (!IsAccessorDescriptor(desc) && !IsDataDescriptor(desc))
     return true;
-  return false;
+  do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 
@@ -194,7 +194,7 @@ CustomObject.prototype =
   {
     if (throwing)
       throw new TypeError(msg + "; rejected!");
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   },
   defineOwnProperty: function defineOwnProperty(propname, desc, throwing)
   {
@@ -446,15 +446,15 @@ function isValidDescriptor(propdesc)
   if ("get" in propdesc || "set" in propdesc)
   {
     if ("value" in propdesc || "writable" in propdesc)
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // We permit null here simply because this test's author believes the
     // implementation may sometime be susceptible to making mistakes in this
     // regard and would prefer to be cautious.
     if (propdesc.get !== null && propdesc.get !== undefined && !IsCallable(propdesc.get))
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (propdesc.set !== null && propdesc.set !== undefined && !IsCallable(propdesc.set))
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
 
   return true;

@@ -32,7 +32,7 @@ function testDontEnum(F)
   for (var prop in F)
   {
     if (F[prop] === proto)
-      return false;
+      do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   }
   return true;
 }

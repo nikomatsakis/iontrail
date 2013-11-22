@@ -16,7 +16,7 @@ my_convert(JSContext* context, JS::HandleObject obj, JSType type, JS::MutableHan
         rval.set(JS_NumberValue(123));
         return true;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static const JSClass myClass = {

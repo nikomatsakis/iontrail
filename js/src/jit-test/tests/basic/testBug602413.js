@@ -3,7 +3,7 @@ var so = [];
 function U(unusedV)
 {
   for (var i = 0; i < so.length; ++i)
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
   so.push(0);
 }
 

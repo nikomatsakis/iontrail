@@ -104,17 +104,17 @@ JSCompartment::init(JSContext *cx)
     activeAnalysis = false;
 
     if (!crossCompartmentWrappers.init(0))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!regExps.init(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!typeReprs.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     enumerators = NativeIterator::allocateSentinel(cx);
     if (!enumerators)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return debuggees.init(0);
 }
@@ -164,18 +164,18 @@ JSCompartment::ensureJitCompartmentExists(JSContext *cx)
 
     JitRuntime *jitRuntime = cx->runtime()->getJitRuntime(cx);
     if (!jitRuntime)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Set the compartment early, so linking works. */
     jitCompartment_ = cx->new_<JitCompartment>(jitRuntime);
 
     if (!jitCompartment_)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!jitCompartment_->initialize(cx)) {
         js_delete(jitCompartment_);
         jitCompartment_ = nullptr;
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -192,7 +192,7 @@ WrapForSameCompartment(JSContext *cx, MutableHandleObject obj)
     RootedObject wrapped(cx);
     wrapped = cx->runtime()->sameCompartmentWrapObjectCallback(cx, obj);
     if (!wrapped)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     obj.set(wrapped);
     return true;
 }
@@ -236,13 +236,13 @@ JSCompartment::wrap(JSContext *cx, JSString **strp)
     /* No dice. Make a copy, and cache it. */
     Rooted<JSLinearString *> linear(cx, str->ensureLinear(cx));
     if (!linear)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JSString *copy = js_NewStringCopyN<CanGC>(cx, linear->chars(),
                                               linear->length());
     if (!copy)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!putWrapper(key, StringValue(copy)))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (linear->zone()->isGCMarking()) {
         /*
@@ -265,7 +265,7 @@ JSCompartment::wrap(JSContext *cx, HeapPtrString *strp)
 {
     RootedString str(cx, *strp);
     if (!wrap(cx, str.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *strp = str;
     return true;
 }
@@ -306,18 +306,18 @@ JSCompartment::wrap(JSContext *cx, MutableHandleObject obj, HandleObject existin
     if (obj->is<StopIterationObject>()) {
         RootedValue v(cx);
         if (!js_FindClassObject(cx, JSProto_StopIteration, &v))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         obj.set(&v.toObject());
         return true;
     }
 
     /* Invoke the prewrap callback. We're a bit worried about infinite
      * recursion here, so we do a check - see bug 809295. */
-    JS_CHECK_CHROME_RECURSION(cx, return false);
+    JS_CHECK_CHROME_RECURSION(cx, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
     if (cx->runtime()->preWrapObjectCallback) {
         obj.set(cx->runtime()->preWrapObjectCallback(cx, global, obj, flags));
         if (!obj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (obj->compartment() == this)
@@ -360,7 +360,7 @@ JSCompartment::wrap(JSContext *cx, MutableHandleObject obj, HandleObject existin
      */
     obj.set(cx->runtime()->wrapObjectCallback(cx, existing, obj, proto, global, flags));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * We maintain the invariant that the key in the cross-compartment wrapper
@@ -379,10 +379,10 @@ JSCompartment::wrapId(JSContext *cx, jsid *idp)
         return true;
     RootedValue value(cx, IdToValue(*idp));
     if (!wrap(cx, &value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedId id(cx);
     if (!ValueToId<CanGC>(cx, value, &id))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     *idp = id;
     return true;
@@ -393,7 +393,7 @@ JSCompartment::wrap(JSContext *cx, PropertyOp *propp)
 {
     RootedValue value(cx, CastAsObjectJsval(*propp));
     if (!wrap(cx, &value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *propp = CastAsPropertyOp(value.toObjectOrNull());
     return true;
 }
@@ -403,7 +403,7 @@ JSCompartment::wrap(JSContext *cx, StrictPropertyOp *propp)
 {
     RootedValue value(cx, CastAsObjectJsval(*propp));
     if (!wrap(cx, &value))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *propp = CastAsStrictPropertyOp(value.toObjectOrNull());
     return true;
 }
@@ -412,15 +412,15 @@ bool
 JSCompartment::wrap(JSContext *cx, MutableHandle<PropertyDescriptor> desc)
 {
     if (!wrap(cx, desc.object()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (desc.hasGetterObject()) {
         if (!wrap(cx, &desc.getter()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (desc.hasSetterObject()) {
         if (!wrap(cx, &desc.setter()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return wrap(cx, desc.value());
@@ -433,7 +433,7 @@ JSCompartment::wrap(JSContext *cx, AutoIdVector &props)
     int length = props.length();
     for (size_t n = 0; n < size_t(length); ++n) {
         if (!wrapId(cx, &vector[n]))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     return true;
 }
@@ -651,7 +651,7 @@ JSCompartment::hasScriptsOnStack()
             return true;
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static bool
@@ -664,7 +664,7 @@ AddInnerLazyFunctionsFromScript(JSScript *script, AutoObjectVector &lazyFunction
         JSObject *obj = objects->vector[i];
         if (obj->is<JSFunction>() && obj->as<JSFunction>().isInterpretedLazy()) {
             if (!lazyFunctions.append(obj))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
     return true;
@@ -686,7 +686,7 @@ CreateLazyScriptsForCompartment(JSContext *cx)
                 LazyScript *lazy = fun->lazyScriptOrNull();
                 if (lazy && lazy->sourceObject() && !lazy->maybeScript()) {
                     if (!lazyFunctions.append(fun))
-                        return false;
+                        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 }
             }
         }
@@ -705,9 +705,9 @@ CreateLazyScriptsForCompartment(JSContext *cx)
 
         JSScript *script = fun->getOrCreateScript(cx);
         if (!script)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (!AddInnerLazyFunctionsFromScript(script, lazyFunctions))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // Repoint any clones of the original functions to their new script.
@@ -747,10 +747,10 @@ JSCompartment::setDebugModeFromC(JSContext *cx, bool b, AutoDebugModeGC &dmgc)
         onStack = hasScriptsOnStack();
         if (b && onStack) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_DEBUG_NOT_IDLE);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (enabledAfter && !CreateLazyScriptsForCompartment(cx))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     debugModeBits = (debugModeBits & ~unsigned(DebugFromC)) | (b ? DebugFromC : 0);
@@ -811,10 +811,10 @@ JSCompartment::addDebuggee(JSContext *cx,
 
     bool wasEnabled = debugMode();
     if (!wasEnabled && !CreateLazyScriptsForCompartment(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!debuggees.put(global)) {
         js_ReportOutOfMemory(cx);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     debugModeBits |= DebugFromJS;
     if (!wasEnabled) {

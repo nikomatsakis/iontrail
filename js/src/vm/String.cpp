@@ -123,11 +123,11 @@ JSString::equals(const char *s)
     const jschar *c = getChars(nullptr);
     if (!c) {
         fprintf(stderr, "OOM in JSString::equals!\n");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     while (*c && *s) {
         if (*c != *s)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         c++;
         s++;
     }
@@ -190,7 +190,7 @@ JSRope::copyNonPureCharsInternal(ThreadSafeContext *cx, ScopedJSFreePtr<jschar> 
         out.reset(js_pod_malloc<jschar>(n + 1));
 
     if (!out)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     Vector<const JSString *, 8, SystemAllocPolicy> nodeStack;
     const JSString *str = this;
@@ -198,7 +198,7 @@ JSRope::copyNonPureCharsInternal(ThreadSafeContext *cx, ScopedJSFreePtr<jschar> 
     while (true) {
         if (str->isRope()) {
             if (!nodeStack.append(str->asRope().rightChild()))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             str = str->asRope().leftChild();
         } else {
             size_t len = str->length();
@@ -430,7 +430,7 @@ JSDependentString::copyNonPureCharsZ(ThreadSafeContext *cx, ScopedJSFreePtr<jsch
     size_t n = length();
     jschar *s = cx->pod_malloc<jschar>(n + 1);
     if (!s)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     PodCopy(s, chars(), n);
     s[n] = 0;
@@ -492,11 +492,11 @@ JSFlatString::isIndexSlow(uint32_t *indexp) const
     jschar ch = *s;
 
     if (!JS7_ISDEC(ch))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     size_t n = length();
     if (n > UINT32_CHAR_BUFFER_LENGTH)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Make sure to account for the '\0' at the end of characters, dereferenced
@@ -520,7 +520,7 @@ JSFlatString::isIndexSlow(uint32_t *indexp) const
 
     /* It's not an element if there are characters after the number. */
     if (cp != end)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /*
      * Look out for "4294967296" and larger-number strings that fit in
@@ -531,7 +531,7 @@ JSFlatString::isIndexSlow(uint32_t *indexp) const
         return true;
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -543,14 +543,14 @@ ScopedThreadSafeStringInspector::ensureChars(ThreadSafeContext *cx)
     if (cx->isExclusiveContext()) {
         JSLinearString *linear = str_->ensureLinear(cx->asExclusiveContext());
         if (!linear)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         chars_ = linear->chars();
     } else {
         if (str_->hasPureChars()) {
             chars_ = str_->pureChars();
         } else {
             if (!str_->copyNonPureChars(cx, scopedChars_))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             chars_ = scopedChars_;
         }
     }
@@ -603,7 +603,7 @@ StaticStrings::init(JSContext *cx)
         jschar buffer[] = { jschar(i), '\0' };
         JSFlatString *s = js_NewStringCopyN<CanGC>(cx, buffer, 1);
         if (!s)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         unitStaticTable[i] = s->morphAtomizedStringIntoAtom();
     }
 
@@ -611,7 +611,7 @@ StaticStrings::init(JSContext *cx)
         jschar buffer[] = { FROM_SMALL_CHAR(i >> 6), FROM_SMALL_CHAR(i & 0x3F), '\0' };
         JSFlatString *s = js_NewStringCopyN<CanGC>(cx, buffer, 2);
         if (!s)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         length2StaticTable[i] = s->morphAtomizedStringIntoAtom();
     }
 
@@ -629,7 +629,7 @@ StaticStrings::init(JSContext *cx)
                                 '\0' };
             JSFlatString *s = js_NewStringCopyN<CanGC>(cx, buffer, 3);
             if (!s)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             intStaticTable[i] = s->morphAtomizedStringIntoAtom();
         }
     }
@@ -678,9 +678,9 @@ StaticStrings::isStatic(JSAtom *atom)
 
             return (unsigned(i) < INT_STATIC_LIMIT);
         }
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
       default:
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 }
 

@@ -21,7 +21,7 @@ function testcase() {
                 }\
             };\
             var _11_1_5_6_2_2 = obj._11_1_5_6_2_2;");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } catch (e) {
             return e instanceof SyntaxError;
         }

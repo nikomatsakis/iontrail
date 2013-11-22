@@ -2,7 +2,7 @@
 // This code is governed by the BSD license found in the LICENSE file.
 
 /**
- * If the property has the ReadOnly attribute, [[CanPut]](P) return false
+ * If the property has the ReadOnly attribute, [[CanPut]](P) do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false)
  *
  * @path ch08/8.12/8.12.4/S8.12.4_A1.js
  * @description Try put other value for Math.E property

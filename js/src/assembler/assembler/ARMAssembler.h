@@ -1495,13 +1495,13 @@ namespace JSC {
         {
             if (rt == FloatReg32 || rt == FloatReg64)
                 return true;
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         bool isIntType(RegType rt)
         {
             if (rt == FloatReg32 || rt == FloatReg64)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             return true;
         }
 

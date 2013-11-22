@@ -77,7 +77,7 @@ Bindings::initWithTemporaryStorage(ExclusiveContext *cx, InternalBindingsHandle 
                                  JSMSG_TOO_MANY_FUN_ARGS :
                                  JSMSG_TOO_MANY_LOCALS);
         }
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JS_ASSERT(!(uintptr_t(bindingArray) & TEMPORARY_STORAGE_BIT));
@@ -101,13 +101,13 @@ Bindings::initWithTemporaryStorage(ExclusiveContext *cx, InternalBindingsHandle 
         EmptyShape::getInitialShape(cx, &CallObject::class_, nullptr, cx->global(), nullptr,
                                     allocKind, BaseShape::VAROBJ | BaseShape::DELEGATE));
     if (!initial)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     self->callObjShape_.init(initial);
 
 #ifdef DEBUG
     HashSet<PropertyName *> added(cx);
     if (!added.init())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
 
     BindingIter bi(self);
@@ -120,7 +120,7 @@ Bindings::initWithTemporaryStorage(ExclusiveContext *cx, InternalBindingsHandle 
         /* The caller ensures no duplicate aliased names. */
         JS_ASSERT(!added.has(bi->name()));
         if (!added.put(bi->name()))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
 
         StackBaseShape base(cx, &CallObject::class_, cx->global(), nullptr,
@@ -128,7 +128,7 @@ Bindings::initWithTemporaryStorage(ExclusiveContext *cx, InternalBindingsHandle 
 
         UnownedBaseShape *nbase = BaseShape::getUnowned(cx, base);
         if (!nbase)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         RootedId id(cx, NameToId(bi->name()));
         unsigned attrs = JSPROP_PERMANENT | JSPROP_ENUMERATE |
@@ -138,7 +138,7 @@ Bindings::initWithTemporaryStorage(ExclusiveContext *cx, InternalBindingsHandle 
 
         Shape *shape = self->callObjShape_->getChildBinding(cx, child);
         if (!shape)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         self->callObjShape_ = shape;
     }
@@ -174,7 +174,7 @@ Bindings::clone(JSContext *cx, InternalBindingsHandle self,
      * the source's bindingArray directly.
      */
     if (!initWithTemporaryStorage(cx, self, src.numArgs(), src.numVars(), src.bindingArray()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     self->switchToScriptStorage(dstPackedBindings);
     return true;
 }
@@ -196,34 +196,34 @@ XDRScriptBindings(XDRState<mode> *xdr, LifoAllocScope &las, unsigned numArgs, un
         for (BindingIter bi(script); bi; bi++) {
             RootedAtom atom(cx, bi->name());
             if (!XDRAtom(xdr, &atom))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         for (BindingIter bi(script); bi; bi++) {
             uint8_t u8 = (uint8_t(bi->kind()) << 1) | uint8_t(bi->aliased());
             if (!xdr->codeUint8(&u8))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     } else {
         unsigned nameCount = numArgs + numVars;
 
         AutoValueVector atoms(cx);
         if (!atoms.resize(nameCount))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         for (unsigned i = 0; i < nameCount; i++) {
             RootedAtom atom(cx);
             if (!XDRAtom(xdr, &atom))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             atoms[i] = StringValue(atom);
         }
 
         Binding *bindingArray = las.alloc().newArrayUninitialized<Binding>(nameCount);
         if (!bindingArray)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         for (unsigned i = 0; i < nameCount; i++) {
             uint8_t u8;
             if (!xdr->codeUint8(&u8))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
             PropertyName *name = atoms[i].toString()->asAtom().asPropertyName();
             BindingKind kind = BindingKind(u8 >> 1);
@@ -234,7 +234,7 @@ XDRScriptBindings(XDRState<mode> *xdr, LifoAllocScope &las, unsigned numArgs, un
 
         InternalBindingsHandle bindings(script, &script->bindings);
         if (!Bindings::initWithTemporaryStorage(cx, bindings, numArgs, numVars, bindingArray))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -272,7 +272,7 @@ js::FillBindingVector(HandleScript fromScript, BindingVector *vec)
 {
     for (BindingIter bi(fromScript); bi; bi++) {
         if (!vec->append(*bi))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -320,7 +320,7 @@ XDRScriptConst(XDRState<mode> *xdr, HeapValue *vp)
     }
 
     if (!xdr->codeUint32(&tag))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     switch (tag) {
       case SCRIPT_INT: {
@@ -328,7 +328,7 @@ XDRScriptConst(XDRState<mode> *xdr, HeapValue *vp)
         if (mode == XDR_ENCODE)
             i = uint32_t(vp->toInt32());
         if (!xdr->codeUint32(&i))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (mode == XDR_DECODE)
             vp->init(Int32Value(int32_t(i)));
         break;
@@ -338,7 +338,7 @@ XDRScriptConst(XDRState<mode> *xdr, HeapValue *vp)
         if (mode == XDR_ENCODE)
             d = vp->toDouble();
         if (!xdr->codeDouble(&d))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (mode == XDR_DECODE)
             vp->init(DoubleValue(d));
         break;
@@ -348,7 +348,7 @@ XDRScriptConst(XDRState<mode> *xdr, HeapValue *vp)
         if (mode == XDR_ENCODE)
             atom = &vp->toString()->asAtom();
         if (!XDRAtom(xdr, &atom))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (mode == XDR_DECODE)
             vp->init(StringValue(atom));
         break;
@@ -440,7 +440,7 @@ js::XDRScript(XDRState<mode> *xdr, HandleObject enclosingScope, HandleScript enc
         argsVars = (nargs << 16) | nvars;
     }
     if (!xdr->codeUint32(&argsVars))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (mode == XDR_DECODE) {
         nargs = argsVars >> 16;
         nvars = argsVars & 0xFFFF;
@@ -449,7 +449,7 @@ js::XDRScript(XDRState<mode> *xdr, HandleObject enclosingScope, HandleScript enc
     if (mode == XDR_ENCODE)
         length = script->length;
     if (!xdr->codeUint32(&length))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (mode == XDR_ENCODE) {
         prologLength = script->mainOffset;
@@ -512,31 +512,31 @@ js::XDRScript(XDRState<mode> *xdr, HandleObject enclosingScope, HandleScript enc
     }
 
     if (!xdr->codeUint32(&prologLength))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!xdr->codeUint32(&version))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // To fuse allocations, we need lengths of all embedded arrays early.
     if (!xdr->codeUint32(&natoms))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!xdr->codeUint32(&nsrcnotes))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!xdr->codeUint32(&nconsts))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!xdr->codeUint32(&nobjects))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!xdr->codeUint32(&nregexps))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!xdr->codeUint32(&ntrynotes))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!xdr->codeUint32(&nblockscopes))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!xdr->codeUint32(&nTypeSets))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!xdr->codeUint32(&funLength))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!xdr->codeUint32(&scriptBits))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (mode == XDR_DECODE) {
         /* Note: version is packed into the 32b space with another 16b value. */
@@ -552,10 +552,10 @@ js::XDRScript(XDRState<mode> *xdr, HandleObject enclosingScope, HandleScript enc
         if (scriptBits & (1 << OwnSource)) {
             ScriptSource *ss = cx->new_<ScriptSource>(xdr->originPrincipals());
             if (!ss)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             sourceObject = ScriptSourceObject::create(cx, ss);
             if (!sourceObject)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         } else {
             JS_ASSERT(enclosingScript);
             sourceObject = enclosingScript->sourceObject();
@@ -563,19 +563,19 @@ js::XDRScript(XDRState<mode> *xdr, HandleObject enclosingScope, HandleScript enc
         script = JSScript::Create(cx, enclosingScope, !!(scriptBits & (1 << SavedCallerFun)),
                                   options, /* staticLevel = */ 0, sourceObject, 0, 0);
         if (!script)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* JSScript::partiallyInit assumes script->bindings is fully initialized. */
     LifoAllocScope las(&cx->tempLifoAlloc());
     if (!XDRScriptBindings(xdr, las, nargs, nvars, script))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (mode == XDR_DECODE) {
         if (!JSScript::partiallyInit(cx, script, nconsts, nobjects, nregexps, ntrynotes,
                                      nblockscopes, nTypeSets))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         JS_ASSERT(!script->mainOffset);
@@ -617,15 +617,15 @@ js::XDRScript(XDRState<mode> *xdr, HandleObject enclosingScope, HandleScript enc
 
     if (scriptBits & (1 << OwnSource)) {
         if (!script->scriptSource()->performXDR<mode>(xdr))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     if (!xdr->codeUint32(&script->sourceStart))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!xdr->codeUint32(&script->sourceEnd))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!xdr->codeUint32(&lineno) || !xdr->codeUint32(&nslots))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (mode == XDR_DECODE) {
         script->lineno = lineno;
@@ -638,7 +638,7 @@ js::XDRScript(XDRState<mode> *xdr, HandleObject enclosingScope, HandleScript enc
     if (mode == XDR_DECODE) {
         ssd = SharedScriptData::new_(cx, length, nsrcnotes, natoms);
         if (!ssd)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         code = ssd->data;
         if (natoms != 0) {
             script->natoms = natoms;
@@ -649,32 +649,32 @@ js::XDRScript(XDRState<mode> *xdr, HandleObject enclosingScope, HandleScript enc
     if (!xdr->codeBytes(code, length) || !xdr->codeBytes(code + length, nsrcnotes)) {
         if (mode == XDR_DECODE)
             js_free(ssd);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     for (i = 0; i != natoms; ++i) {
         if (mode == XDR_DECODE) {
             RootedAtom tmp(cx);
             if (!XDRAtom(xdr, &tmp))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             script->atoms[i].init(tmp);
         } else {
             RootedAtom tmp(cx, script->atoms[i]);
             if (!XDRAtom(xdr, &tmp))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
     if (mode == XDR_DECODE) {
         if (!SaveSharedScriptData(cx, script, ssd, nsrcnotes))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (nconsts) {
         HeapValue *vector = script->consts()->vector;
         for (i = 0; i != nconsts; ++i) {
             if (!XDRScriptConst(xdr, &vector[i]))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -692,14 +692,14 @@ js::XDRScript(XDRState<mode> *xdr, HandleObject enclosingScope, HandleScript enc
             isBlock = obj->is<BlockObject>() ? 1 : 0;
         }
         if (!xdr->codeUint32(&isBlock))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (isBlock == 0) {
             /* Code the nested function's enclosing scope. */
             uint32_t funEnclosingScopeIndex = 0;
             if (mode == XDR_ENCODE) {
                 JSScript *innerScript = (*objp)->as<JSFunction>().getOrCreateScript(cx);
                 if (!innerScript)
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 RootedObject staticScope(cx, innerScript->enclosingStaticScope());
                 StaticScopeIter<NoGC> ssi(staticScope);
                 if (ssi.done() || ssi.type() == StaticScopeIter<NoGC>::FUNCTION) {
@@ -711,7 +711,7 @@ js::XDRScript(XDRState<mode> *xdr, HandleObject enclosingScope, HandleScript enc
                 }
             }
             if (!xdr->codeUint32(&funEnclosingScopeIndex))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             Rooted<JSObject*> funEnclosingScope(cx);
             if (mode == XDR_DECODE) {
                 if (funEnclosingScopeIndex == UINT32_MAX) {
@@ -724,7 +724,7 @@ js::XDRScript(XDRState<mode> *xdr, HandleObject enclosingScope, HandleScript enc
 
             RootedObject tmp(cx, *objp);
             if (!XDRInterpretedFunction(xdr, funEnclosingScope, script, &tmp))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             *objp = tmp;
         } else {
             /* Code the nested block's enclosing scope. */
@@ -737,7 +737,7 @@ js::XDRScript(XDRState<mode> *xdr, HandleObject enclosingScope, HandleScript enc
                     blockEnclosingScopeIndex = UINT32_MAX;
             }
             if (!xdr->codeUint32(&blockEnclosingScopeIndex))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             Rooted<JSObject*> blockEnclosingScope(cx);
             if (mode == XDR_DECODE) {
                 if (blockEnclosingScopeIndex != UINT32_MAX) {
@@ -750,14 +750,14 @@ js::XDRScript(XDRState<mode> *xdr, HandleObject enclosingScope, HandleScript enc
 
             Rooted<StaticBlockObject*> tmp(cx, static_cast<StaticBlockObject *>(objp->get()));
             if (!XDRStaticBlockObject(xdr, blockEnclosingScope, tmp.address()))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             *objp = tmp;
         }
     }
 
     for (i = 0; i != nregexps; ++i) {
         if (!XDRScriptRegExpObject(xdr, &script->regexps()->vector[i]))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (ntrynotes != 0) {
@@ -782,7 +782,7 @@ js::XDRScript(XDRState<mode> *xdr, HandleObject enclosingScope, HandleScript enc
             if (!xdr->codeUint32(&kindAndDepth) ||
                 !xdr->codeUint32(&tn->start) ||
                 !xdr->codeUint32(&tn->length)) {
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             if (mode == XDR_DECODE) {
                 tn->kind = uint8_t(kindAndDepth >> 16);
@@ -797,7 +797,7 @@ js::XDRScript(XDRState<mode> *xdr, HandleObject enclosingScope, HandleScript enc
             !xdr->codeUint32(&note->start) ||
             !xdr->codeUint32(&note->length))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -843,7 +843,7 @@ JSScript::initScriptCounts(JSContext *cx)
     size_t bytes = (length * sizeof(PCCounts)) + (n * sizeof(double));
     char *base = (char *) cx->calloc_(bytes);
     if (!base)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Create compartment's scriptCountsMap if necessary. */
     ScriptCountsMap *map = compartment()->scriptCountsMap;
@@ -852,7 +852,7 @@ JSScript::initScriptCounts(JSContext *cx)
         if (!map || !map->init()) {
             js_free(base);
             js_delete(map);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         compartment()->scriptCountsMap = map;
     }
@@ -876,7 +876,7 @@ JSScript::initScriptCounts(JSContext *cx)
 
     if (!map->putNew(this, scriptCounts)) {
         js_free(base);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     hasScriptCounts = true; // safe to set this;  we can't fail after this point
 
@@ -1017,7 +1017,7 @@ JSScript::loadSource(JSContext *cx, ScriptSource *ss, bool *worked)
     jschar *src = nullptr;
     size_t length;
     if (!cx->runtime()->sourceHook->load(cx, ss->filename(), &src, &length))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (!src)
         return true;
     ss->setSource(src, length);
@@ -1130,10 +1130,10 @@ ScriptSource::setSourceCopy(ExclusiveContext *cx, const jschar *src, uint32_t le
         task->chars = src;
         ready_ = false;
         if (!StartOffThreadCompression(cx, task))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         if (!adjustDataSize(sizeof(jschar) * length))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         PodCopy(data.source, src, length_);
     }
 
@@ -1170,10 +1170,10 @@ SourceCompressionTask::compress()
         // size of the string, first.
         size_t firstSize = nbytes / 2;
         if (!ss->adjustDataSize(firstSize))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         Compressor comp(reinterpret_cast<const unsigned char *>(chars), nbytes);
         if (!comp.init())
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         comp.setOutput(ss->data.compressed, firstSize);
         bool cont = !abort_;
         while (cont) {
@@ -1189,7 +1189,7 @@ SourceCompressionTask::compress()
                 // The compressed output is greater than half the size of the
                 // original string. Reallocate to the full size.
                 if (!ss->adjustDataSize(nbytes))
-                    return false;
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
                 comp.setOutput(ss->data.compressed, nbytes);
                 break;
               }
@@ -1197,7 +1197,7 @@ SourceCompressionTask::compress()
                 cont = false;
                 break;
               case Compressor::OOM:
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
             cont = cont && !abort_;
         }
@@ -1208,7 +1208,7 @@ SourceCompressionTask::compress()
 #endif
     if (compressedLength == 0) {
         if (!ss->adjustDataSize(nbytes))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         PodCopy(ss->data.source, chars, ss->length());
     } else {
         // Shrink the buffer to the size of the compressed data. Shouldn't fail.
@@ -1251,11 +1251,11 @@ ScriptSource::performXDR(XDRState<mode> *xdr)
 {
     uint8_t hasSource = hasSourceData();
     if (!xdr->codeUint8(&hasSource))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     uint8_t retrievable = sourceRetrievable_;
     if (!xdr->codeUint8(&retrievable))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     sourceRetrievable_ = retrievable;
 
     if (hasSource && !sourceRetrievable_) {
@@ -1263,27 +1263,27 @@ ScriptSource::performXDR(XDRState<mode> *xdr)
         // script source from being partially initialized.
         uint32_t length = length_;
         if (!xdr->codeUint32(&length))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         uint32_t compressedLength = compressedLength_;
         if (!xdr->codeUint32(&compressedLength))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         uint8_t argumentsNotIncluded = argumentsNotIncluded_;
         if (!xdr->codeUint8(&argumentsNotIncluded))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         size_t byteLen = compressedLength ? compressedLength : (length * sizeof(jschar));
         if (mode == XDR_DECODE) {
             if (!adjustDataSize(byteLen))
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (!xdr->codeBytes(data.compressed, byteLen)) {
             if (mode == XDR_DECODE) {
                 js_free(data.compressed);
                 data.compressed = nullptr;
             }
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         length_ = length;
         compressedLength_ = compressedLength;
@@ -1292,64 +1292,64 @@ ScriptSource::performXDR(XDRState<mode> *xdr)
 
     uint8_t haveSourceMap = hasSourceMapURL();
     if (!xdr->codeUint8(&haveSourceMap))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (haveSourceMap) {
         uint32_t sourceMapURLLen = (mode == XDR_DECODE) ? 0 : js_strlen(sourceMapURL_);
         if (!xdr->codeUint32(&sourceMapURLLen))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (mode == XDR_DECODE) {
             size_t byteLen = (sourceMapURLLen + 1) * sizeof(jschar);
             sourceMapURL_ = static_cast<jschar *>(xdr->cx()->malloc_(byteLen));
             if (!sourceMapURL_)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (!xdr->codeChars(sourceMapURL_, sourceMapURLLen)) {
             if (mode == XDR_DECODE) {
                 js_free(sourceMapURL_);
                 sourceMapURL_ = nullptr;
             }
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         sourceMapURL_[sourceMapURLLen] = '\0';
     }
 
     uint8_t haveSourceURL = hasSourceURL();
     if (!xdr->codeUint8(&haveSourceURL))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (haveSourceURL) {
         uint32_t sourceURLLen = (mode == XDR_DECODE) ? 0 : js_strlen(sourceURL_);
         if (!xdr->codeUint32(&sourceURLLen))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (mode == XDR_DECODE) {
             size_t byteLen = (sourceURLLen + 1) * sizeof(jschar);
             sourceURL_ = static_cast<jschar *>(xdr->cx()->malloc_(byteLen));
             if (!sourceURL_)
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         if (!xdr->codeChars(sourceURL_, sourceURLLen)) {
             if (mode == XDR_DECODE) {
                 js_free(sourceURL_);
                 sourceURL_ = nullptr;
             }
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         sourceURL_[sourceURLLen] = '\0';
     }
 
     uint8_t haveFilename = !!filename_;
     if (!xdr->codeUint8(&haveFilename))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (haveFilename) {
         const char *fn = filename();
         if (!xdr->codeCString(&fn))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         if (mode == XDR_DECODE && !setFilename(xdr->cx(), fn))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (mode == XDR_DECODE)
@@ -1367,7 +1367,7 @@ ScriptSource::setFilename(ExclusiveContext *cx, const char *filename)
         return true;
     filename_ = cx->pod_malloc<char>(len);
     if (!filename_)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     js_memcpy(filename_, filename, len);
     return true;
 }
@@ -1383,7 +1383,7 @@ ScriptSource::setSourceURL(ExclusiveContext *cx, const jschar *sourceURL)
                                           JSMSG_ALREADY_HAS_PRAGMA, filename_,
                                           "//# sourceURL"))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
     size_t len = js_strlen(sourceURL) + 1;
@@ -1391,7 +1391,7 @@ ScriptSource::setSourceURL(ExclusiveContext *cx, const jschar *sourceURL)
         return true;
     sourceURL_ = js_strdup(cx, sourceURL);
     if (!sourceURL_)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return true;
 }
 
@@ -1413,7 +1413,7 @@ ScriptSource::setSourceMapURL(ExclusiveContext *cx, const jschar *sourceMapURL)
                                           JSMSG_ALREADY_HAS_PRAGMA, filename_,
                                           "//# sourceMappingURL"))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -1422,7 +1422,7 @@ ScriptSource::setSourceMapURL(ExclusiveContext *cx, const jschar *sourceMapURL)
         return true;
     sourceMapURL_ = js_strdup(cx, sourceMapURL);
     if (!sourceMapURL_)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return true;
 }
 
@@ -1500,7 +1500,7 @@ SaveSharedScriptData(ExclusiveContext *cx, Handle<JSScript *> script, SharedScri
             script->atoms = nullptr;
             js_free(ssd);
             js_ReportOutOfMemory(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -1769,7 +1769,7 @@ JSScript::partiallyInit(ExclusiveContext *cx, HandleScript script, uint32_t ncon
                                  nblockscopes);
     script->data = AllocScriptData(cx, size);
     if (!script->data)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     script->dataSize = size;
 
     JS_ASSERT(nTypeSets <= UINT16_MAX);
@@ -1851,11 +1851,11 @@ JSScript::partiallyInit(ExclusiveContext *cx, HandleScript script, uint32_t ncon
 JSScript::fullyInitTrivial(ExclusiveContext *cx, Handle<JSScript*> script)
 {
     if (!partiallyInit(cx, script, 0, 0, 0, 0, 0, 0))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     SharedScriptData *ssd = SharedScriptData::new_(cx, 1, 1, 0);
     if (!ssd)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ssd->data[0] = JSOP_RETRVAL;
     ssd->data[1] = SRC_NULL;
@@ -1879,7 +1879,7 @@ JSScript::fullyInitFromEmitter(ExclusiveContext *cx, HandleScript script, Byteco
                        bce->constList.length(), bce->objectList.length, bce->regexpList.length,
                        bce->tryNoteList.length(), bce->blockScopeList.length(), bce->typesetCount))
     {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     JS_ASSERT(script->mainOffset == 0);
@@ -1891,24 +1891,24 @@ JSScript::fullyInitFromEmitter(ExclusiveContext *cx, HandleScript script, Byteco
     script->natoms = natoms;
     SharedScriptData *ssd = SharedScriptData::new_(cx, script->length, nsrcnotes, natoms);
     if (!ssd)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     jsbytecode *code = ssd->data;
     PodCopy<jsbytecode>(code, bce->prolog.code.begin(), prologLength);
     PodCopy<jsbytecode>(code + prologLength, bce->code().begin(), mainLength);
     if (!FinishTakingSrcNotes(cx, bce, (jssrcnote *)(code + script->length)))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     InitAtomMap(bce->atomIndices.getMap(), ssd->atoms());
 
     if (!SaveSharedScriptData(cx, script, ssd, nsrcnotes))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     uint32_t nfixed = bce->sc->isFunctionBox() ? script->bindings.numVars() : 0;
     JS_ASSERT(nfixed < SLOTNO_LIMIT);
     script->nfixed = uint16_t(nfixed);
     if (script->nfixed + bce->maxStackDepth >= JS_BIT(16)) {
         bce->reportError(nullptr, JSMSG_NEED_DIET, "script");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     script->nslots = script->nfixed + bce->maxStackDepth;
 
@@ -2015,7 +2015,7 @@ JSScript::enclosingScriptsCompiledSuccessfully() const
         if (enclosing->is<JSFunction>()) {
             JSFunction *fun = &enclosing->as<JSFunction>();
             if (!fun->hasScript() || !fun->nonLazyScript())
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             enclosing = fun->nonLazyScript()->enclosingStaticScope();
         } else {
             enclosing = enclosing->as<StaticBlockObject>().enclosingStaticScope();
@@ -2502,7 +2502,7 @@ js::CloneFunctionScript(JSContext *cx, HandleFunction original, HandleFunction c
 
     JSScript *cscript = CloneScript(cx, scope, clone, script, newKind);
     if (!cscript)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     clone->setScript(cscript);
     cscript->setFunction(clone);
@@ -2566,7 +2566,7 @@ JSScript::ensureHasDebugScript(JSContext *cx)
     size_t nbytes = offsetof(DebugScript, breakpoints) + length * sizeof(BreakpointSite*);
     DebugScript *debug = (DebugScript *) cx->calloc_(nbytes);
     if (!debug)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Create compartment's debugScriptMap if necessary. */
     DebugScriptMap *map = compartment()->debugScriptMap;
@@ -2575,14 +2575,14 @@ JSScript::ensureHasDebugScript(JSContext *cx)
         if (!map || !map->init()) {
             js_free(debug);
             js_delete(map);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         compartment()->debugScriptMap = map;
     }
 
     if (!map->putNew(this, debug)) {
         js_free(debug);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     hasDebugScript = true; // safe to set this;  we can't fail after this point
 
@@ -2632,7 +2632,7 @@ bool
 JSScript::setStepModeFlag(JSContext *cx, bool step)
 {
     if (!ensureHasDebugScript(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return tryNewStepMode(cx, (debugScript()->stepMode & stepCountMask) |
                                (step ? stepFlagMask : 0));
@@ -2642,7 +2642,7 @@ bool
 JSScript::changeStepModeCount(JSContext *cx, int delta)
 {
     if (!ensureHasDebugScript(cx))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     assertSameCompartment(cx, this);
     JS_ASSERT_IF(delta > 0, cx->compartment()->debugMode());
@@ -2719,7 +2719,7 @@ JSScript::hasBreakpointsAt(jsbytecode *pc)
 {
     BreakpointSite *site = getBreakpointSite(pc);
     if (!site)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return site->enabledCount > 0 || site->trapHandler;
 }
@@ -2943,7 +2943,7 @@ JSScript::argumentsOptimizationFailed(JSContext *cx, HandleScript script)
                  * an arguments object but !script->needsArgsObj.
                  */
                 script->needsArgsObj_ = false;
-                return false;
+                do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
             }
 
             SetFrameArgumentsObject(cx, frame, script, argsobj);
@@ -3075,14 +3075,14 @@ bool
 JSScript::hasLoops()
 {
     if (!hasTrynotes())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     JSTryNote *tn = trynotes()->vector;
     JSTryNote *tnlimit = tn + trynotes()->length;
     for (; tn < tnlimit; tn++) {
         if (tn->kind == JSTRY_ITER || tn->kind == JSTRY_LOOP)
             return true;
     }
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 static inline void
@@ -3136,7 +3136,7 @@ LazyScriptHashPolicy::match(JSScript *script, const Lookup &lookup)
         script->sourceStart != lazy->begin() ||
         script->sourceEnd != lazy->end())
     {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     // GC activity may destroy the character pointers being compared below.
@@ -3144,11 +3144,11 @@ LazyScriptHashPolicy::match(JSScript *script, const Lookup &lookup)
 
     const jschar *scriptChars = script->scriptSource()->chars(cx);
     if (!scriptChars)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     const jschar *lazyChars = lazy->source()->chars(cx);
     if (!lazyChars)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     size_t begin = script->sourceStart;
     size_t length = script->sourceEnd - begin;

@@ -55,7 +55,7 @@ class SplayTree
     bool contains(const T &v, T *res)
     {
         if (!root)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         Node *last = lookup(v);
         splay(last);
         checkCoherency(root, nullptr);
@@ -63,14 +63,14 @@ class SplayTree
             *res = last->item;
             return true;
         }
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     bool insert(const T &v)
     {
         Node *element = allocateNode(v);
         if (!element)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         if (!root) {
             root = element;

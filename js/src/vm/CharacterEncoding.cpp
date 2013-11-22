@@ -65,7 +65,7 @@ GetDeflatedUTF8StringLength(const jschar *chars, size_t nchars)
 static bool
 PutUTF8ReplacementCharacter(char **dst, size_t *dstlenp) {
     if (*dstlenp < 3)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     *(*dst)++ = (char) 0xEF;
     *(*dst)++ = (char) 0xBF;
     *(*dst)++ = (char) 0xBD;
@@ -135,7 +135,7 @@ bufferTooSmall:
     if (cx->isJSContext())
         JS_ReportErrorNumber(cx->asJSContext(), js_GetErrorMessage, nullptr,
                              JSMSG_BUFFER_TOO_SMALL);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 
@@ -258,7 +258,7 @@ InflateUTF8StringToBuffer(JSContext *cx, const UTF8Chars src, jschar *dst, size_
             do {                                                        \
                 if (action == CountAndReportInvalids) {                 \
                     report(cx, arg);                                    \
-                    return false;                                       \
+                    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);                                       \
                 } else {                                                \
                     if (action == Copy)                                 \
                         dst[j] = jschar(REPLACE_UTF8);                  \

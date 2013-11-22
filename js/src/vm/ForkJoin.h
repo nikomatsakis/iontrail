@@ -439,7 +439,7 @@ InParallelSection()
     ForkJoinSlice *current = ForkJoinSlice::Current();
     return current != nullptr;
 #else
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 #endif
 }
 
@@ -492,7 +492,7 @@ void SpewBailoutIR(IonLIRTraceData *data);
 
 #else
 
-static inline bool SpewEnabled(SpewChannel channel) { return false; }
+static inline bool SpewEnabled(SpewChannel channel) { do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false); }
 static inline void Spew(SpewChannel channel, const char *fmt, ...) { }
 static inline void SpewBeginOp(JSContext *cx, const char *name) { }
 static inline void SpewBailout(uint32_t count, HandleScript script,

@@ -28,7 +28,7 @@ js_IdIsIndex(jsid id, uint32_t *indexp)
     }
 
     if (JS_UNLIKELY(!JSID_IS_STRING(id)))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return js::StringIsArrayIndex(JSID_TO_ATOM(id), indexp);
 }

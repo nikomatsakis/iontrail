@@ -204,7 +204,7 @@ class FullParseHandler
     bool addElision(ParseNode *literal, const TokenPos &pos) {
         ParseNode *elision = new_<NullaryNode>(PNK_ELISION, pos);
         if (!elision)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         literal->append(elision);
         literal->pn_xflags |= PNX_SPECIALARRAYINIT | PNX_NONCONST;
         return true;
@@ -238,7 +238,7 @@ class FullParseHandler
     bool addPropertyDefinition(ParseNode *literal, ParseNode *name, ParseNode *expr) {
         ParseNode *propdef = newBinary(PNK_COLON, name, expr, JSOP_INITPROP);
         if (!propdef)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         literal->append(propdef);
         return true;
     }
@@ -249,7 +249,7 @@ class FullParseHandler
 
         ParseNode *propdef = newBinary(PNK_COLON, name, name, JSOP_INITPROP);
         if (!propdef)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         literal->append(propdef);
         return true;
     }
@@ -261,7 +261,7 @@ class FullParseHandler
 
         ParseNode *propdef = newBinary(PNK_COLON, name, fn, op);
         if (!propdef)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         literal->append(propdef);
         return true;
     }
@@ -593,7 +593,7 @@ FullParseHandler::addCatchBlock(ParseNode *catchList, ParseNode *letBlock,
 {
     ParseNode *catchpn = newTernary(PNK_CATCH, catchName, catchGuard, catchBody);
     if (!catchpn)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     catchList->append(letBlock);
     letBlock->pn_expr = catchpn;
@@ -650,7 +650,7 @@ FullParseHandler::finishInitializerAssignment(ParseNode *pn, ParseNode *init, JS
     if (pn->isUsed()) {
         pn = makeAssignment(pn, init);
         if (!pn)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     } else {
         pn->pn_expr = init;
     }

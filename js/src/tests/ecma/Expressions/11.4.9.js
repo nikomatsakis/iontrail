@@ -8,7 +8,7 @@
    File Name:          11.4.9.js
    ECMA Section:       11.4.9 Logical NOT Operator (!)
    Description:        if the ToBoolean( VALUE ) result is true, return
-   true.  else return false.
+   true.  else do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false).
    Author:             christine@netscape.com
    Date:               7 july 1997
 

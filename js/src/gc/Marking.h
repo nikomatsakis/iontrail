@@ -72,7 +72,7 @@ namespace gc {
  * IsObjectAboutToBeFinalized(JSObject **thing);
  *     This function is indended to be used in code used to sweep GC things.  It
  *     indicates whether the object will will be finialized in the current group
- *     of compartments being swept.  Note that this will return false for any
+ *     of compartments being swept.  Note that this will do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false) for any
  *     object not in the group of compartments currently being swept, as even if
  *     it is unmarked it may still become marked before it is swept.
  *
@@ -326,7 +326,7 @@ inline bool
 IsAboutToBeFinalized(BarrieredValue *v)
 {
     if (!v->isMarkable())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return IsValueAboutToBeFinalized(v->unsafeGet());
 }
 

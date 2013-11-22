@@ -260,7 +260,7 @@ HeapReverser::traverseEdge(void *cell, JSGCTraceKind kind)
     /* Capture this edge before the JSTracer members get overwritten. */
     char *edgeDescription = getEdgeDescription();
     if (!edgeDescription)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     Edge e(edgeDescription, parent);
 
     Map::AddPtr a = map.lookupForAdd(cell);
@@ -274,7 +274,7 @@ HeapReverser::traverseEdge(void *cell, JSGCTraceKind kind)
         uint32_t generation = map.generation();
         if (!map.add(a, cell, Move(n)) ||
             !work.append(Child(cell, kind)))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         /* If the map has been resized, re-check the pointer. */
         if (map.generation() != generation)
             a = map.lookupForAdd(cell);
@@ -292,7 +292,7 @@ HeapReverser::reverseHeap()
     /* Prime the work stack with the roots of collection. */
     JS_TraceRuntime(this);
     if (!traversalStatus)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Traverse children until the stack is empty. */
     while (!work.empty()) {
@@ -300,7 +300,7 @@ HeapReverser::reverseHeap()
         AutoParent autoParent(this, child.cell);
         JS_TraceChildren(this, child.cell, child.kind);
         if (!traversalStatus)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -419,7 +419,7 @@ bool
 ReferenceFinder::visit(void *cell, Path *path)
 {
     /* In ReferenceFinder, paths will almost certainly fit on the C++ stack. */
-    JS_CHECK_RECURSION(context, return false);
+    JS_CHECK_RECURSION(context, do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false));
 
     /* Have we reached a root? Always report that. */
     if (!cell)
@@ -450,7 +450,7 @@ ReferenceFinder::visit(void *cell, Path *path)
         const HeapReverser::Edge &edge = node->incoming[i];
         Path extendedPath(edge, path);
         if (!visit(edge.origin, &extendedPath))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -496,22 +496,22 @@ ReferenceFinder::addReferrer(jsval referrerArg, Path *path)
     RootedValue referrer(context, referrerArg);
 
     if (!context->compartment()->wrap(context, &referrer))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     ScopedJSFreePtr<char> pathName(path->computeName(context));
     if (!pathName)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Find the property of the results object named |pathName|. */
     RootedValue v(context);
 
     if (!JS_GetProperty(context, result, pathName, &v))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     if (v.isUndefined()) {
         /* Create an array to accumulate referents under this path. */
         JSObject *array = JS_NewArrayObject(context, 1, referrer.address());
         if (!array)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         v.setObject(*array);
         return !!JS_SetProperty(context, result, pathName, v);
     }
@@ -545,27 +545,27 @@ FindReferences(JSContext *cx, unsigned argc, jsval *vp)
     if (argc < 1) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MORE_ARGS_NEEDED,
                              "findReferences", "0", "s");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedValue target(cx, JS_ARGV(cx, vp)[0]);
     if (!target.isObject()) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_UNEXPECTED_TYPE,
                              "argument", "not an object");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     /* Walk the JSRuntime, producing a reversed map of the heap. */
     HeapReverser reverser(cx);
     if (!reverser.init() || !reverser.reverseHeap())
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     /* Given the reversed map, find the referents of target. */
     ReferenceFinder finder(cx, reverser);
     Rooted<JSObject*> targetObj(cx, &target.toObject());
     JSObject *references = finder.findReferences(targetObj);
     if (!references)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_SET_RVAL(cx, vp, OBJECT_TO_JSVAL(references));
     return true;

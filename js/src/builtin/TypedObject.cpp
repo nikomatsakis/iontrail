@@ -194,16 +194,16 @@ TypeObjectToSource(JSContext *cx, unsigned int argc, Value *vp)
         JS_ReportErrorNumber(cx, js_GetErrorMessage,
                              nullptr, JSMSG_TYPEDOBJECT_HANDLE_BAD_ARGS,
                              "this", "type object");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     StringBuffer contents(cx);
     if (!typeRepresentation(*thisObj)->appendString(cx, contents))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedString result(cx, contents.finishString());
     if (!result)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setString(result);
     return true;
@@ -247,11 +247,11 @@ ConvertAndCopyTo(JSContext *cx,
     RootedFunction func(
         cx, SelfHostedFunction(cx, cx->names().ConvertAndCopyTo));
     if (!func)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     InvokeArgs args(cx);
     if (!args.init(5))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.setCallee(ObjectValue(*func));
     args[0].setObject(*typeRepresentationOwnerObj(*typeObj));
@@ -287,11 +287,11 @@ Reify(JSContext *cx,
 
     RootedFunction func(cx, SelfHostedFunction(cx, cx->names().Reify));
     if (!func)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     InvokeArgs args(cx);
     if (!args.init(4))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.setCallee(ObjectValue(*func));
     args[0].setObject(*typeRepr->ownerObject());
@@ -300,7 +300,7 @@ Reify(JSContext *cx,
     args[3].setInt32(offset);
 
     if (!Invoke(cx, args))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     to.set(args.rval());
     return true;
@@ -322,7 +322,7 @@ static inline bool
 IsTypedDatumOfKind(JSObject &obj, TypeRepresentation::Kind kind)
 {
     if (!IsTypedDatum(obj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     TypeRepresentation *repr = typeRepresentation(*GetType(obj));
     return repr->kind() == kind;
 }
@@ -382,7 +382,7 @@ ScalarType::call(JSContext *cx, unsigned argc, Value *vp)
     if (args.length() < 1) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_MORE_ARGS_NEEDED,
                              args.callee().getClass()->name, "0", "s");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     ScalarTypeRepresentation *typeRepr = typeRepresentation(args.callee())->asScalar();
@@ -390,7 +390,7 @@ ScalarType::call(JSContext *cx, unsigned argc, Value *vp)
 
     double number;
     if (!ToNumber(cx, args[0], &number))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (type == ScalarTypeRepresentation::TYPE_UINT8_CLAMPED)
         number = ClampDoubleToUint8(number);
@@ -458,7 +458,7 @@ js::ReferenceType::call(JSContext *cx, unsigned argc, Value *vp)
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                              JSMSG_MORE_ARGS_NEEDED,
                              typeRepr->typeName(), "0", "s");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     switch (typeRepr->type()) {
@@ -470,7 +470,7 @@ js::ReferenceType::call(JSContext *cx, unsigned argc, Value *vp)
       {
         RootedObject obj(cx, ToObject(cx, args[0]));
         if (!obj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args.rval().setObject(*obj);
         return true;
       }
@@ -479,7 +479,7 @@ js::ReferenceType::call(JSContext *cx, unsigned argc, Value *vp)
       {
         RootedString obj(cx, ToString<CanGC>(cx, args[0]));
         if (!obj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args.rval().setString(&*obj);
         return true;
       }
@@ -611,11 +611,11 @@ FillTypedArrayWithValue(JSContext *cx, HandleObject array, HandleValue val)
     RootedFunction func(
         cx, SelfHostedFunction(cx, cx->names().FillTypedArrayWithValue));
     if (!func)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     InvokeArgs args(cx);
     if (!args.init(2))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.setCallee(ObjectValue(*func));
     args[0].setObject(*array);
@@ -632,7 +632,7 @@ ArrayType::repeat(JSContext *cx, unsigned int argc, Value *vp)
         JS_ReportErrorNumber(cx, js_GetErrorMessage,
                              nullptr, JSMSG_MORE_ARGS_NEEDED,
                              "repeat()", "0", "s");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedObject thisObj(cx, ToObjectIfObject(args.thisv()));
@@ -641,16 +641,16 @@ ArrayType::repeat(JSContext *cx, unsigned int argc, Value *vp)
                              JSMSG_INCOMPATIBLE_PROTO,
                              "ArrayType", "repeat",
                              InformalValueTypeName(args.thisv()));
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedObject binaryArray(cx, TypedObject::createZeroed(cx, thisObj));
     if (!binaryArray)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue val(cx, args[0]);
     if (!FillTypedArrayWithValue(cx, binaryArray, val))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setObject(*binaryArray);
     return true;
@@ -685,19 +685,19 @@ ArrayType::subarray(JSContext *cx, unsigned int argc, Value *vp)
         JS_ReportErrorNumber(cx, js_GetErrorMessage,
                              nullptr, JSMSG_MORE_ARGS_NEEDED,
                              "subarray()", "0", "s");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!args[0].isInt32()) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                              JSMSG_TYPEDOBJECT_SUBARRAY_INTEGER_ARG, "1");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedObject thisObj(cx, &args.thisv().toObject());
     if (!IsTypedDatumOfKind(*thisObj, TypeRepresentation::Array)) {
         ReportCannotConvertTo(cx, thisObj, "binary array");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedObject type(cx, GetType(*thisObj));
@@ -711,7 +711,7 @@ ArrayType::subarray(JSContext *cx, unsigned int argc, Value *vp)
         if (!args[1].isInt32()) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                     JSMSG_TYPEDOBJECT_SUBARRAY_INTEGER_ARG, "2");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         end = args[1].toInt32();
@@ -737,7 +737,7 @@ ArrayType::subarray(JSContext *cx, unsigned int argc, Value *vp)
     RootedObject subArrayType(cx, ArrayType::create(cx, arrayTypeGlobal,
                                                     elementType, sublength));
     if (!subArrayType)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     int32_t elementSize = typeRepr->element()->size();
     size_t offset = elementSize * begin;
@@ -745,7 +745,7 @@ ArrayType::subarray(JSContext *cx, unsigned int argc, Value *vp)
     RootedObject subarray(
         cx, TypedDatum::createDerived(cx, subArrayType, thisObj, offset));
     if (!subarray)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setObject(*subarray);
     return true;
@@ -760,7 +760,7 @@ ArrayFillSubarray(JSContext *cx, unsigned int argc, Value *vp)
         JS_ReportErrorNumber(cx, js_GetErrorMessage,
                              nullptr, JSMSG_MORE_ARGS_NEEDED,
                              "fill()", "0", "s");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedObject thisObj(cx, ToObjectIfObject(args.thisv()));
@@ -769,7 +769,7 @@ ArrayFillSubarray(JSContext *cx, unsigned int argc, Value *vp)
                              nullptr, JSMSG_INCOMPATIBLE_PROTO,
                              "ArrayType", "fill",
                              InformalValueTypeName(args.thisv()));
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     Value funArrayTypeVal = GetFunctionNativeReserved(&args.callee(), 0);
@@ -782,7 +782,7 @@ ArrayFillSubarray(JSContext *cx, unsigned int argc, Value *vp)
     if (typeRepr != funArrayTypeRepr) {
         RootedValue thisObjValue(cx, ObjectValue(*thisObj));
         ReportCannotConvertTo(cx, thisObjValue, funArrayTypeRepr);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args.rval().setUndefined();
@@ -806,7 +806,7 @@ InitializeCommonTypeDescriptorProperties(JSContext *cx,
                                       nullptr, nullptr,
                                       JSPROP_READONLY | JSPROP_PERMANENT))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         // byteAlignment
@@ -816,7 +816,7 @@ InitializeCommonTypeDescriptorProperties(JSContext *cx,
                                       nullptr, nullptr,
                                       JSPROP_READONLY | JSPROP_PERMANENT))
         {
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -827,7 +827,7 @@ InitializeCommonTypeDescriptorProperties(JSContext *cx,
                                   nullptr, nullptr,
                                   JSPROP_READONLY | JSPROP_PERMANENT))
     {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -909,7 +909,7 @@ ArrayType::construct(JSContext *cx, unsigned argc, Value *vp)
     if (!args.isConstructing()) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                              JSMSG_NOT_FUNCTION, "ArrayType");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (args.length() != 2 ||
@@ -919,7 +919,7 @@ ArrayType::construct(JSContext *cx, unsigned argc, Value *vp)
     {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                              JSMSG_TYPEDOBJECT_ARRAYTYPE_BAD_ARGS);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedObject arrayTypeGlobal(cx, &args.callee());
@@ -928,25 +928,25 @@ ArrayType::construct(JSContext *cx, unsigned argc, Value *vp)
     if (!IsTypeObject(*elementType)) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                              JSMSG_TYPEDOBJECT_ARRAYTYPE_BAD_ARGS);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (!args[1].isInt32()) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                              JSMSG_TYPEDOBJECT_ARRAYTYPE_BAD_ARGS);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     int32_t length = args[1].toInt32();
     if (length < 0) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                              JSMSG_TYPEDOBJECT_ARRAYTYPE_BAD_ARGS);
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedObject obj(cx, create(cx, arrayTypeGlobal, elementType, length));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setObject(*obj);
     return true;
 }
@@ -1003,7 +1003,7 @@ StructType::layout(JSContext *cx, HandleObject structType, HandleObject fields)
 {
     AutoIdVector ids(cx);
     if (!GetPropertyNames(cx, fields, JSITER_OWNONLY, &ids))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     AutoValueVector fieldTypeObjs(cx);
     AutoObjectVector fieldTypeReprObjs(cx);
@@ -1014,29 +1014,29 @@ StructType::layout(JSContext *cx, HandleObject structType, HandleObject fields)
         id = ids[i];
 
         if (!JSObject::getGeneric(cx, fields, fields, id, &fieldTypeVal))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         uint32_t index;
         if (js_IdIsIndex(id, &index)) {
             RootedValue idValue(cx, IdToJsval(id));
             ReportCannotConvertTo(cx, idValue, "StructType field name");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         RootedObject fieldType(cx, ToObjectIfObject(fieldTypeVal));
         if (!fieldType || !IsTypeObject(*fieldType)) {
             ReportCannotConvertTo(cx, fieldTypeVal, "StructType field specifier");
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (!fieldTypeObjs.append(fieldTypeVal)) {
             js_ReportOutOfMemory(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         if (!fieldTypeReprObjs.append(typeRepresentationOwnerObj(*fieldType))) {
             js_ReportOutOfMemory(cx);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
     }
 
@@ -1044,7 +1044,7 @@ StructType::layout(JSContext *cx, HandleObject structType, HandleObject fields)
     RootedObject typeReprObj(
         cx, StructTypeRepresentation::Create(cx, ids, fieldTypeReprObjs));
     if (!typeReprObj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     StructTypeRepresentation *typeRepr =
         TypeRepresentation::fromOwnerObject(*typeReprObj)->asStruct();
     structType->initReservedSlot(JS_TYPEOBJ_SLOT_TYPE_REPR,
@@ -1055,7 +1055,7 @@ StructType::layout(JSContext *cx, HandleObject structType, HandleObject fields)
         cx, NewDenseCopiedArray(cx, fieldTypeObjs.length(),
                                 fieldTypeObjs.begin()));
     if (!fieldTypeVec)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     structType->initReservedSlot(JS_TYPEOBJ_SLOT_STRUCT_FIELD_TYPES,
                                  ObjectValue(*fieldTypeVec));
@@ -1065,18 +1065,18 @@ StructType::layout(JSContext *cx, HandleObject structType, HandleObject fields)
     for (unsigned int i = 0; i < ids.length(); i++) {
         RootedValue value(cx, IdToValue(ids[i]));
         if (!fieldNameValues.append(value))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
     RootedObject fieldNamesVec(
         cx, NewDenseCopiedArray(cx, fieldNameValues.length(),
                                 fieldNameValues.begin()));
     if (!fieldNamesVec)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     RootedValue fieldNamesVecValue(cx, ObjectValue(*fieldNamesVec));
     if (!JSObject::defineProperty(cx, structType, cx->names().fieldNames,
                                   fieldNamesVecValue, nullptr, nullptr,
                                   JSPROP_READONLY | JSPROP_PERMANENT))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     // Construct the fieldNames, fieldOffsets and fieldTypes objects:
     // fieldNames : [ string ]
@@ -1095,26 +1095,26 @@ StructType::layout(JSContext *cx, HandleObject structType, HandleObject fields)
         if (!JSObject::defineGeneric(cx, fieldOffsets, fieldId,
                                      offset, nullptr, nullptr,
                                      JSPROP_READONLY | JSPROP_PERMANENT))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         // fieldTypes[id] = typeObj
         if (!JSObject::defineGeneric(cx, fieldTypes, fieldId,
                                      fieldTypeObjs.handleAt(i), nullptr, nullptr,
                                      JSPROP_READONLY | JSPROP_PERMANENT))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     RootedValue fieldOffsetsValue(cx, ObjectValue(*fieldOffsets));
     if (!JSObject::defineProperty(cx, structType, cx->names().fieldOffsets,
                                   fieldOffsetsValue, nullptr, nullptr,
                                   JSPROP_READONLY | JSPROP_PERMANENT))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue fieldTypesValue(cx, ObjectValue(*fieldTypes));
     if (!JSObject::defineProperty(cx, structType, cx->names().fieldTypes,
                                   fieldTypesValue, nullptr, nullptr,
                                   JSPROP_READONLY | JSPROP_PERMANENT))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     return true;
 }
@@ -1166,7 +1166,7 @@ StructType::construct(JSContext *cx, unsigned int argc, Value *vp)
     if (!args.isConstructing()) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                              JSMSG_NOT_FUNCTION, "StructType");
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     if (args.length() >= 1 && args[0].isObject()) {
@@ -1174,14 +1174,14 @@ StructType::construct(JSContext *cx, unsigned int argc, Value *vp)
         RootedObject fields(cx, &args[0].toObject());
         RootedObject obj(cx, create(cx, metaTypeObject, fields));
         if (!obj)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         args.rval().setObject(*obj);
         return true;
     }
 
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                          JSMSG_TYPEDOBJECT_STRUCTTYPE_BAD_ARGS);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /******************************************************************************
@@ -1245,26 +1245,26 @@ DefineSimpleTypeObject(JSContext *cx,
 
     RootedObject numFun(cx, NewObjectWithClassProto(cx, &T::class_, funcProto, global));
     if (!numFun)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedObject typeReprObj(cx, T::TypeRepr::Create(cx, type));
     if (!typeReprObj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     numFun->initReservedSlot(JS_TYPEOBJ_SLOT_TYPE_REPR,
                              ObjectValue(*typeReprObj));
 
     if (!InitializeCommonTypeDescriptorProperties(cx, numFun, typeReprObj))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!JS_DefineFunctions(cx, numFun, T::typeObjectMethods))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedValue numFunValue(cx, ObjectValue(*numFun));
     if (!JSObject::defineProperty(cx, module, className,
                                   numFunValue, nullptr, nullptr, 0))
     {
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     return true;
@@ -1338,10 +1338,10 @@ GlobalObject::initTypedObject(JSContext *cx, Handle<GlobalObject*> global)
     TypedObject = NewObjectWithGivenProto(cx, &TypedObjectClass, global->getOrCreateObjectPrototype(cx),
                                           global, SingletonObject);
     if (!TypedObject)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (!JS_DefineFunctions(cx, TypedObject, TypedObjectMethods))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     global->setConstructor(JSProto_TypedObject, ObjectValue(*TypedObject));
     return true;
@@ -1576,21 +1576,21 @@ ReportDatumTypeError(JSContext *cx,
 
     StringBuffer contents(cx);
     if (!typeRepr->appendString(cx, contents))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     RootedString result(cx, contents.finishString());
     if (!result)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     char *typeReprStr = JS_EncodeString(cx, result.get());
     if (!typeReprStr)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                          errorNumber, typeReprStr);
 
     JS_free(cx, (void *) typeReprStr);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 /*static*/ void
@@ -1706,17 +1706,17 @@ ReportPropertyError(JSContext *cx,
 {
     RootedString str(cx, IdToString(cx, id));
     if (!str)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     char *propName = JS_EncodeString(cx, str);
     if (!propName)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
                          errorNumber, propName);
 
     JS_free(cx, propName);
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -1752,7 +1752,7 @@ TypedDatum::obj_defineElement(JSContext *cx, HandleObject obj, uint32_t index, H
 
     RootedObject delegate(cx, ArrayBufferDelegate(cx, obj));
     if (!delegate)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     return baseops::DefineElement(cx, delegate, index, v, getter, setter, attrs);
 }
 
@@ -1829,7 +1829,7 @@ TypedDatum::obj_getGeneric(JSContext *cx, HandleObject obj, HandleObject receive
 
         RootedObject fieldType(cx, StructFieldType(cx, type, field->index));
         if (!fieldType)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         return Reify(cx, field->typeRepr, fieldType, obj, field->offset, vp);
       }
@@ -1928,7 +1928,7 @@ TypedDatum::obj_setGeneric(JSContext *cx, HandleObject obj, HandleId id,
         if (JSID_IS_ATOM(id, cx->names().length)) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage,
                                  nullptr, JSMSG_CANT_REDEFINE_ARRAY_LENGTH);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
         break;
 
@@ -1939,7 +1939,7 @@ TypedDatum::obj_setGeneric(JSContext *cx, HandleObject obj, HandleId id,
 
         RootedObject fieldType(cx, StructFieldType(cx, type, field->index));
         if (!fieldType)
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
         return ConvertAndCopyTo(cx, fieldType, obj, field->offset, vp);
       }
@@ -1976,7 +1976,7 @@ TypedDatum::obj_setElement(JSContext *cx, HandleObject obj, uint32_t index,
         if (index >= arrayTypeRepr->length()) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage,
                                  nullptr, JSMSG_TYPEDOBJECT_BINARYARRAY_BAD_INDEX);
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
         }
 
         RootedObject elementType(cx, ArrayElementType(type));
@@ -2048,7 +2048,7 @@ IsOwnId(JSContext *cx, HandleObject obj, HandleId id)
     switch (typeRepr->kind()) {
       case TypeRepresentation::Scalar:
       case TypeRepresentation::Reference:
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
       case TypeRepresentation::Array:
         return js_IdIsIndex(id, &index) || JSID_IS_ATOM(id, cx->names().length);
@@ -2057,7 +2057,7 @@ IsOwnId(JSContext *cx, HandleObject obj, HandleId id)
         return typeRepr->asStruct()->fieldNamed(id) != nullptr;
     }
 
-    return false;
+    do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 }
 
 bool
@@ -2101,7 +2101,7 @@ TypedDatum::obj_deleteElement(JSContext *cx, HandleObject obj, uint32_t index,
 {
     RootedId id(cx);
     if (!IndexToId(cx, index, id.address()))
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (IsOwnId(cx, obj, id))
         return ReportPropertyError(cx, JSMSG_CANT_DELETE, id);
@@ -2296,12 +2296,12 @@ TypedObject::construct(JSContext *cx, unsigned int argc, Value *vp)
 
     RootedObject obj(cx, createZeroed(cx, callee));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     if (argc == 1) {
         RootedValue initial(cx, args[0]);
         if (!ConvertAndCopyTo(cx, obj, initial))
-            return false;
+            do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     }
 
     args.rval().setObject(*obj);
@@ -2384,7 +2384,7 @@ js::NewTypedHandle(JSContext *cx, unsigned argc, Value *vp)
     Rooted<TypedHandle*> obj(
         cx, TypedDatum::createUnattached<TypedHandle>(cx, typeObj));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
     args.rval().setObject(*obj);
     return true;
 }
@@ -2405,7 +2405,7 @@ js::NewDerivedTypedDatum(JSContext *cx, unsigned argc, Value *vp)
     Rooted<TypedDatum*> obj(
         cx, TypedDatum::createDerived(cx, typeObj, datum, offset));
     if (!obj)
-        return false;
+        do { printf("Fail %s:%d\n", __FILE__, __LINE__); return false; } while(false);
 
     args.rval().setObject(*obj);
     return true;

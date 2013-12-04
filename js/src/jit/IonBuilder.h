@@ -488,6 +488,28 @@ class IonBuilder : public MIRGenerator
                                             TypeRepresentationSet objTypeReprs,
                                             TypeRepresentationSet elemTypeReprs,
                                             size_t elemSize);
+    bool getElemTryX4ElemOfTypedObject(bool *emitted,
+                                       MDefinition *obj,
+                                       MDefinition *index,
+                                       TypeRepresentationSet objTypeReprs,
+                                       TypeRepresentationSet elemTypeReprs,
+                                       size_t elemSize);
+    bool checkTypedObjectIndexInBounds(size_t elemSize,
+                                       MDefinition *obj,
+                                       MDefinition *index,
+                                       MDefinition **indexAsByteOffset,
+                                       TypeRepresentationSet objTypeReprs);
+
+    // SIMD Typed Objects
+    bool specializeAdd(CallInfo &callInfo, JSFunction *target,
+                       MIRType type, X4TypeRepresentation::Type x4type);
+    bool unboxX4Value(X4TypeRepresentation::Type x4Type,
+                      MDefinition *boxed,
+                      MDefinition *offset,
+                      MDefinition **unboxed);
+    bool boxX4Value(X4TypeRepresentation::Type x4Type,
+                    MDefinition *unboxed,
+                    MDefinition **boxed);
 
     // Typed array helpers.
     MInstruction *getTypedArrayLength(MDefinition *obj);
@@ -578,13 +600,21 @@ class IonBuilder : public MIRGenerator
 
     // Oracles.
     bool canEnterInlinedFunction(JSFunction *target);
-    bool makeInliningDecision(JSFunction *target, CallInfo &callInfo);
-    uint32_t selectInliningTargets(ObjectVector &targets, CallInfo &callInfo,
-                                   BoolVector &choiceSet);
+    InliningDecision makeInliningDecision(JSFunction *target, CallInfo &callInfo);
+    bool selectInliningTargets(ObjectVector &targets, CallInfo &callInfo,
+                               InliningDecisionVector &choiceSet, uint32_t *numInlineable);
 
     // Native inlining helpers.
     types::TemporaryTypeSet *getInlineReturnTypeSet();
     MIRType getInlineReturnType();
+
+    // Specialized self-hosted functions.
+    bool isSpecializedSelfHostedFunction(JSFunction *func, CallInfo &callInfo, bool *matches);
+    bool isSelfHostedWithName(JSFunction *func, js::PropertyName *name);
+    bool twoFloat32x4Operands(JSFunction *func, CallInfo &callInfo, bool *match);
+    bool twoInt32x4Operands(JSFunction *func, CallInfo &callInfo, bool *matches);
+    bool twoX4Operands(JSFunction *func, CallInfo &callInfo,
+                       X4TypeRepresentation::Type requiredType, bool *matches);
 
     // Array natives.
     InliningStatus inlineArray(CallInfo &callInfo);
@@ -652,14 +682,15 @@ class IonBuilder : public MIRGenerator
 
     // Main inlining functions
     InliningStatus inlineNativeCall(CallInfo &callInfo, JSNative native);
-    bool inlineScriptedCall(CallInfo &callInfo, JSFunction *target);
-    InliningStatus inlineSingleCall(CallInfo &callInfo, JSFunction *target);
+    bool inlineScriptedCall(InliningDecision decision, CallInfo &callInfo, JSFunction *target);
+    bool specializeScriptedCall(CallInfo &callInfo, JSFunction *target);
+    InliningStatus inlineSingleCall(InliningDecision decision, CallInfo &callInfo, JSFunction *target);
 
     // Call functions
     InliningStatus inlineCallsite(ObjectVector &targets, ObjectVector &originals,
                                   bool lambda, CallInfo &callInfo);
     bool inlineCalls(CallInfo &callInfo, ObjectVector &targets, ObjectVector &originals,
-                     BoolVector &choiceSet, MGetPropertyCache *maybeCache);
+                     InliningDecisionVector &choiceSet, MGetPropertyCache *maybeCache);
 
     // Inlining helpers.
     bool inlineGenericFallback(JSFunction *target, CallInfo &callInfo, MBasicBlock *dispatchBlock,

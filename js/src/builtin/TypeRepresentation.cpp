@@ -616,6 +616,18 @@ ScalarTypeRepresentation::typeName(Type type)
     MOZ_ASSUME_UNREACHABLE("Invalid type");
 }
 
+/*static*/ const char *
+X4TypeRepresentation::typeName(Type type)
+{
+    switch (type) {
+#define X4_TYPE_TO_STRING(constant_, type_, name_) \
+        case constant_: return #name_;
+        JS_FOR_EACH_X4_TYPE_REPR(X4_TYPE_TO_STRING)
+#undef X4_TYPE_TO_STRING
+    }
+    MOZ_ASSUME_UNREACHABLE("Invalid type");
+}
+
 bool
 ScalarTypeRepresentation::appendStringScalar(JSContext *cx, StringBuffer &contents)
 {

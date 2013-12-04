@@ -338,6 +338,7 @@ class X4TypeRepresentation : public TypeRepresentation {
         return type_;
     }
 
+    static const char *typeName(Type type);
     static JSObject *Create(JSContext *cx, Type type);
 };
 

@@ -3803,10 +3803,23 @@ class AutoAccumulateReturns
 };
 
 bool
-IonBuilder::inlineScriptedCall(CallInfo &callInfo, JSFunction *target)
+IonBuilder::inlineScriptedCall(InliningDecision decision, CallInfo &callInfo, JSFunction *target)
 {
     JS_ASSERT(target->isInterpreted());
     JS_ASSERT(IsIonInlinablePC(pc));
+
+    switch (decision) {
+      case InliningDecision_Specialized:
+        return specializeScriptedCall(callInfo, target);
+
+      case InliningDecision_Heuristic:
+        break;
+
+      case InliningDecision_Native:
+      case InliningDecision_Error:
+      case InliningDecision_DoNotInline:
+        MOZ_ASSUME_UNREACHABLE("inlineScriptedCall with invalid decision");
+    }
 
     // Remove any MPassArgs.
     if (callInfo.isWrapped())
@@ -3989,24 +4002,33 @@ IsSmallFunction(JSScript *script)
     return script->length() <= js_IonOptions.smallFunctionMaxBytecodeLength;
 }
 
-bool
+InliningDecision
 IonBuilder::makeInliningDecision(JSFunction *target, CallInfo &callInfo)
 {
     // Only inline when inlining is enabled.
     if (!inliningEnabled())
-        return false;
+        return InliningDecision_DoNotInline;
 
     // When there is no target, inlining is impossible.
     if (target == nullptr)
-        return false;
+        return InliningDecision_DoNotInline;
 
     // Native functions provide their own detection in inlineNativeCall().
     if (target->isNative())
-        return true;
+        return InliningDecision_Native;
+
+    // Certain self-hosted functions (e.g. Float32x4Add) are
+    // recognized by ion and completely replaced with optimized
+    // variants, rather than being inlined like normal scripted functions.
+    bool matches = false;
+    if (!isSpecializedSelfHostedFunction(target, callInfo, &matches))
+        return InliningDecision_Error;
+    if (matches)
+        return InliningDecision_Specialized;
 
     // Determine whether inlining is possible at callee site
     if (!canInlineTarget(target, callInfo))
-        return false;
+        return InliningDecision_DoNotInline;
 
     // Heuristics!
     JSScript *targetScript = target->nonLazyScript();
@@ -4018,26 +4040,26 @@ IonBuilder::makeInliningDecision(JSFunction *target, CallInfo &callInfo)
             if (inliningDepth_ >= js_IonOptions.smallFunctionMaxInlineDepth) {
                 IonSpew(IonSpew_Inlining, "%s:%d - Vetoed: exceeding allowed inline depth",
                         targetScript->filename(), targetScript->lineno);
-                return false;
+                return InliningDecision_DoNotInline;
             }
         } else {
             if (inliningDepth_ >= js_IonOptions.maxInlineDepth) {
                 IonSpew(IonSpew_Inlining, "%s:%d - Vetoed: exceeding allowed inline depth",
                         targetScript->filename(), targetScript->lineno);
-                return false;
+                return InliningDecision_DoNotInline;
             }
 
             if (targetScript->hasLoops()) {
                 IonSpew(IonSpew_Inlining, "%s:%d - Vetoed: big function that contains a loop",
                         targetScript->filename(), targetScript->lineno);
-                return false;
+                return InliningDecision_DoNotInline;
             }
 
             // Caller must not be excessively large.
             if (script()->length() >= js_IonOptions.inliningMaxCallerBytecodeLength) {
                 IonSpew(IonSpew_Inlining, "%s:%d - Vetoed: caller excessively large.",
                         targetScript->filename(), targetScript->lineno);
-                return false;
+                return InliningDecision_DoNotInline;
             }
         }
 
@@ -4046,7 +4068,7 @@ IonBuilder::makeInliningDecision(JSFunction *target, CallInfo &callInfo)
         if (targetScript->length() > js_IonOptions.inlineMaxTotalBytecodeLength) {
             IonSpew(IonSpew_Inlining, "%s:%d - Vetoed: callee excessively large.",
                     targetScript->filename(), targetScript->lineno);
-            return false;
+            return InliningDecision_DoNotInline;
         }
 
         // Callee must have been called a few times to have somewhat stable
@@ -4057,7 +4079,7 @@ IonBuilder::makeInliningDecision(JSFunction *target, CallInfo &callInfo)
         {
             IonSpew(IonSpew_Inlining, "%s:%d - Vetoed: callee is insufficiently hot.",
                     targetScript->filename(), targetScript->lineno);
-            return false;
+            return InliningDecision_DoNotInline;
         }
     }
 
@@ -4065,36 +4087,140 @@ IonBuilder::makeInliningDecision(JSFunction *target, CallInfo &callInfo)
     types::TypeObjectKey *targetType = types::TypeObjectKey::get(target);
     targetType->watchStateChangeForInlinedCall(constraints());
 
-    return true;
+    return InliningDecision_Heuristic;
 }
 
-uint32_t
-IonBuilder::selectInliningTargets(ObjectVector &targets, CallInfo &callInfo, BoolVector &choiceSet)
+bool
+IonBuilder::selectInliningTargets(ObjectVector &targets, CallInfo &callInfo,
+                                  InliningDecisionVector &choiceSet, uint32_t *numInlineable)
 {
     uint32_t totalSize = 0;
-    uint32_t numInlineable = 0;
+    uint32_t numInlineableLocal = 0;
 
     // For each target, ask whether it may be inlined.
     if (!choiceSet.reserve(targets.length()))
         return false;
+
     for (size_t i = 0; i < targets.length(); i++) {
         JSFunction *target = &targets[i]->as<JSFunction>();
-        bool inlineable = makeInliningDecision(target, callInfo);
 
-        // Enforce a maximum inlined bytecode limit at the callsite.
-        if (inlineable && target->isInterpreted()) {
-            totalSize += target->nonLazyScript()->length();
-            if (totalSize > js_IonOptions.inlineMaxTotalBytecodeLength)
-                inlineable = false;
+        InliningDecision decision = makeInliningDecision(target, callInfo);
+        switch (decision) {
+          case InliningDecision_Error:
+            return false;
+          case InliningDecision_DoNotInline:
+            break;
+          case InliningDecision_Native:
+          case InliningDecision_Specialized:
+          case InliningDecision_Heuristic:
+            break;
         }
 
-        choiceSet.append(inlineable);
-        if (inlineable)
-            numInlineable++;
+        // Enforce a maximum inlined bytecode limit at the callsite.
+        if (decision != InliningDecision_DoNotInline && target->isInterpreted()) {
+            totalSize += target->nonLazyScript()->length();
+            if (totalSize > js_IonOptions.inlineMaxTotalBytecodeLength)
+                decision = InliningDecision_DoNotInline;
+        }
+
+        choiceSet.append(decision);
+        if (decision != InliningDecision_DoNotInline)
+            numInlineableLocal++;
     }
 
     JS_ASSERT(choiceSet.length() == targets.length());
-    return numInlineable;
+    *numInlineable = numInlineableLocal;
+    return true;
+}
+
+bool
+IonBuilder::isSpecializedSelfHostedFunction(JSFunction *func,
+                                            CallInfo &callInfo,
+                                            bool *matches)
+{
+    *matches = false;
+
+    if (!func->isSelfHostedBuiltin())
+        return true; // no error, no match
+
+    // Check for a call to a recognized self-hosted function where
+    // the inlining conditions are met.
+
+#define TEST_FUNC(name_, condition_)                                          \
+    if (isSelfHostedWithName(func, &*names().name_) &&                        \
+        (!condition_(func, callInfo, matches) || matches))                    \
+    {                                                                         \
+        return matches;                                                       \
+    }
+
+    TEST_FUNC(Float32x4Add, twoFloat32x4Operands);
+#undef TEST_FUNC
+
+    return true; // no error, no match
+}
+
+bool
+IonBuilder::isSelfHostedWithName(JSFunction *func, js::PropertyName *name)
+{
+
+    // Get the self-hosted function by that name from global, if
+    // it has been accessed already. If not, this cannot be a call
+    // to it.
+    Value shvalue;
+    if (!script()->global().maybeGetIntrinsicValue(name, &shvalue))
+        return false;
+
+    JS_ASSERT(shvalue.isObject() && shvalue.toObject().is<JSFunction>());
+    JSFunction *shfunc = &shvalue.toObject().as<JSFunction>();
+    JS_ASSERT(shfunc->isSelfHostedBuiltin());
+    return func == shfunc;
+}
+
+bool
+IonBuilder::twoFloat32x4Operands(JSFunction *func, CallInfo &callInfo, bool *matches)
+{
+    return twoX4Operands(func, callInfo, X4TypeRepresentation::TYPE_FLOAT32, matches);
+}
+
+bool
+IonBuilder::twoInt32x4Operands(JSFunction *func, CallInfo &callInfo, bool *matches)
+{
+    return twoX4Operands(func, callInfo, X4TypeRepresentation::TYPE_INT32, matches);
+}
+
+bool
+IonBuilder::twoX4Operands(JSFunction *func, CallInfo &callInfo,
+                          X4TypeRepresentation::Type requiredType, bool *matches)
+{
+    JS_ASSERT(func->nargs == 2);
+
+    for (size_t j = 0; j < 2; j++) {
+        MDefinition *arg = callInfo.argv()[j];
+
+        // FIXME -- For arguments that must be float32x4, for
+        // now we expect a TypedObject wrapper. Eventually
+        // this will be changed when we adopt the "optimistic"
+        // approach.
+        if (arg->type() != MIRType_Object)
+            return true; // no error, no match
+
+        TypeRepresentationSet argTypeReprs;
+        if (!lookupTypeRepresentationSet(arg, &argTypeReprs))
+            return false; // error
+
+        if (!argTypeReprs.singleton())
+            return true; // no error, no match
+
+        if (!argTypeReprs.allOfKind(TypeRepresentation::X4))
+            return true; // no error, no match
+
+        X4TypeRepresentation *typeRepr = argTypeReprs.getTypeRepresentation()->asX4();
+        if (requiredType != typeRepr->type())
+            return true; // no error, no match
+    }
+
+    *matches = true;
+    return true; // no error, match
 }
 
 static bool
@@ -4163,15 +4289,28 @@ IonBuilder::getInlineableGetPropertyCache(CallInfo &callInfo)
 }
 
 IonBuilder::InliningStatus
-IonBuilder::inlineSingleCall(CallInfo &callInfo, JSFunction *target)
+IonBuilder::inlineSingleCall(InliningDecision decision, CallInfo &callInfo, JSFunction *target)
 {
-    // Expects formals to be popped and wrapped.
-    if (target->isNative())
+    switch (decision) {
+      case InliningDecision_Native:
+        // Expects formals to be popped and wrapped.
+        JS_ASSERT(target->isNative());
         return inlineNativeCall(callInfo, target->native());
 
-    if (!inlineScriptedCall(callInfo, target))
+      case InliningDecision_Specialized:
+      case InliningDecision_Heuristic:
+        if (!inlineScriptedCall(decision, callInfo, target))
+            return InliningStatus_Error;
+        return InliningStatus_Inlined;
+
+      case InliningDecision_DoNotInline:
+        return InliningStatus_NotInlined;
+
+      case InliningDecision_Error:
         return InliningStatus_Error;
-    return InliningStatus_Inlined;
+    }
+
+    MOZ_ASSUME_UNREACHABLE("Invalid decision");
 }
 
 IonBuilder::InliningStatus
@@ -4193,8 +4332,17 @@ IonBuilder::inlineCallsite(ObjectVector &targets, ObjectVector &originals,
     // avoiding the cache and guarding is still faster.
     if (!propCache && targets.length() == 1) {
         JSFunction *target = &targets[0]->as<JSFunction>();
-        if (!makeInliningDecision(target, callInfo))
+        InliningDecision decision = makeInliningDecision(target, callInfo);
+        switch (decision) {
+          case InliningDecision_Error:
+            return InliningStatus_Error;
+          case InliningDecision_DoNotInline:
             return InliningStatus_NotInlined;
+          case InliningDecision_Native:
+          case InliningDecision_Specialized:
+          case InliningDecision_Heuristic:
+            break;
+        }
 
         // Inlining will elminate uses of the original callee, but it needs to
         // be preserved in phis if we bail out.  Mark the old callee definition as
@@ -4211,12 +4359,14 @@ IonBuilder::inlineCallsite(ObjectVector &targets, ObjectVector &originals,
             callInfo.setFun(constFun);
         }
 
-        return inlineSingleCall(callInfo, target);
+        return inlineSingleCall(decision, callInfo, target);
     }
 
     // Choose a subset of the targets for polymorphic inlining.
-    BoolVector choiceSet(alloc());
-    uint32_t numInlined = selectInliningTargets(targets, callInfo, choiceSet);
+    InliningDecisionVector choiceSet(alloc());
+    uint32_t numInlined = 0;
+    if (!selectInliningTargets(targets, callInfo, choiceSet, &numInlined))
+        return InliningStatus_Error;
     if (numInlined == 0)
         return InliningStatus_NotInlined;
 
@@ -4350,7 +4500,7 @@ IonBuilder::inlineTypeObjectFallback(CallInfo &callInfo, MBasicBlock *dispatchBl
 
 bool
 IonBuilder::inlineCalls(CallInfo &callInfo, ObjectVector &targets,
-                        ObjectVector &originals, BoolVector &choiceSet,
+                        ObjectVector &originals, InliningDecisionVector &choiceSet,
                         MGetPropertyCache *maybeCache)
 {
     // Only handle polymorphic inlining.
@@ -4412,7 +4562,7 @@ IonBuilder::inlineCalls(CallInfo &callInfo, ObjectVector &targets,
     // Note: this is an upperbound. Unreachable targets and uninlineable natives are also counted.
     uint32_t count = 1; // Possible fallback block.
     for (uint32_t i = 0; i < targets.length(); i++) {
-        if (choiceSet[i])
+        if (choiceSet[i] != InliningDecision_DoNotInline)
             count++;
     }
     retPhi->reserveLength(count);
@@ -4433,12 +4583,12 @@ IonBuilder::inlineCalls(CallInfo &callInfo, ObjectVector &targets,
         JSFunction *target = &targets[i]->as<JSFunction>();
 
         // Target must be inlineable.
-        if (!choiceSet[i])
+        if (choiceSet[i] == InliningDecision_DoNotInline)
             continue;
 
         // Target must be reachable by the MDispatchInstruction.
         if (maybeCache && !maybeCache->propTable()->hasFunction(original)) {
-            choiceSet[i] = false;
+            choiceSet[i] = InliningDecision_DoNotInline;
             continue;
         }
 
@@ -4475,7 +4625,7 @@ IonBuilder::inlineCalls(CallInfo &callInfo, ObjectVector &targets,
 
         // Inline the call into the inlineBlock.
         setCurrentAndSpecializePhis(inlineBlock);
-        InliningStatus status = inlineSingleCall(inlineInfo, target);
+        InliningStatus status = inlineSingleCall(choiceSet[i], inlineInfo, target);
         if (status == InliningStatus_Error)
             return false;
 
@@ -4485,7 +4635,7 @@ IonBuilder::inlineCalls(CallInfo &callInfo, ObjectVector &targets,
             JS_ASSERT(current == inlineBlock);
             inlineBlock->discardAllResumePoints();
             graph().removeBlock(inlineBlock);
-            choiceSet[i] = false;
+            choiceSet[i] = InliningDecision_DoNotInline;
             continue;
         }
 
@@ -4542,7 +4692,7 @@ IonBuilder::inlineCalls(CallInfo &callInfo, ObjectVector &targets,
             // with the target information.
             if (dispatch->numCases() + 1 == originals.length()) {
                 for (uint32_t i = 0; i < originals.length(); i++) {
-                    if (choiceSet[i])
+                    if (choiceSet[i] != InliningDecision_DoNotInline)
                         continue;
 
                     remaining = &targets[i]->as<JSFunction>();
@@ -4825,8 +4975,19 @@ IonBuilder::jsop_funcall(uint32_t argc)
         return false;
 
     // Try inlining call
-    if (argc > 0 && makeInliningDecision(target, callInfo) && target->isInterpreted())
-        return inlineScriptedCall(callInfo, target);
+    if (argc > 0) {
+        InliningDecision decision = makeInliningDecision(target, callInfo);
+        switch (decision) {
+          case InliningDecision_Error:
+            return false;
+          case InliningDecision_DoNotInline:
+          case InliningDecision_Native:
+            break;
+          case InliningDecision_Specialized:
+          case InliningDecision_Heuristic:
+            return inlineScriptedCall(decision, callInfo, target);
+        }
+    }
 
     // Call without inlining.
     return makeCall(target, callInfo, false);
@@ -4971,8 +5132,17 @@ IonBuilder::jsop_funapplyarguments(uint32_t argc)
     current->pop();
 
     // Try inlining call
-    if (makeInliningDecision(target, callInfo) && target->isInterpreted())
-        return inlineScriptedCall(callInfo, target);
+    InliningDecision decision = makeInliningDecision(target, callInfo);
+    switch (decision) {
+      case InliningDecision_Error:
+        return false;
+      case InliningDecision_DoNotInline:
+      case InliningDecision_Native:
+        break;
+      case InliningDecision_Specialized:
+      case InliningDecision_Heuristic:
+        return inlineScriptedCall(decision, callInfo, target);
+    }
 
     callInfo.wrapArgs(alloc(), current);
     return makeCall(target, callInfo, false);
@@ -6579,8 +6749,12 @@ IonBuilder::getElemTryTypedObject(bool *emitted, MDefinition *obj, MDefinition *
 
     switch (elemTypeReprs.kind()) {
       case TypeRepresentation::X4:
-        // FIXME (bug 894104): load into a MIRType_float32x4 etc
-        return true;
+        return getElemTryX4ElemOfTypedObject(emitted,
+                                             obj,
+                                             index,
+                                             objTypeReprs,
+                                             elemTypeReprs,
+                                             elemSize);
 
       case TypeRepresentation::Struct:
       case TypeRepresentation::Array:
@@ -6610,6 +6784,45 @@ MIRTypeForTypedArrayRead(ScalarTypeRepresentation::Type arrayType,
                          bool observedDouble);
 
 bool
+IonBuilder::getElemTryX4ElemOfTypedObject(bool *emitted,
+                                          MDefinition *obj,
+                                          MDefinition *index,
+                                          TypeRepresentationSet objTypeReprs,
+                                          TypeRepresentationSet elemTypeReprs,
+                                          size_t elemSize)
+{
+    JS_ASSERT(objTypeReprs.allOfArrayKind());
+
+    // Must always be loading the same X4 type
+    if (!elemTypeReprs.singleton())
+        return true;
+    X4TypeRepresentation *elemTypeRepr = elemTypeReprs.getTypeRepresentation()->asX4();
+    X4TypeRepresentation::Type x4Type = elemTypeRepr->type();
+
+    MDefinition *indexAsByteOffset;
+    if (!checkTypedObjectIndexInBounds(elemSize, obj, index, &indexAsByteOffset, objTypeReprs))
+        return false;
+
+    // Unbox x4 value
+    MDefinition *unboxed;
+    if (!unboxX4Value(x4Type, obj, indexAsByteOffset, &unboxed))
+        return false;
+
+    // Rebox x4 value
+    MDefinition *result;
+    if (!boxX4Value(x4Type, unboxed, &result))
+        return false;
+
+    current->push(result);
+
+    types::TemporaryTypeSet *resultTypes = bytecodeTypes(pc);
+    result->setResultTypeSet(resultTypes);
+
+    *emitted = true;
+    return true;
+}
+
+bool
 IonBuilder::getElemTryScalarElemOfTypedObject(bool *emitted,
                                               MDefinition *obj,
                                               MDefinition *index,
@@ -6624,33 +6837,13 @@ IonBuilder::getElemTryScalarElemOfTypedObject(bool *emitted,
         return true;
     ScalarTypeRepresentation *elemTypeRepr = elemTypeReprs.getTypeRepresentation()->asScalar();
 
-    // Get the length.
-    size_t lenOfAll = objTypeReprs.arrayLength();
-    if (lenOfAll >= size_t(INT_MAX)) // int32 max is bound
-        return true;
-    MInstruction *length = MConstant::New(alloc(), Int32Value(int32_t(lenOfAll)));
-
-    *emitted = true;
-    current->add(length);
-
-    // Ensure index is an integer.
-    MInstruction *idInt32 = MToInt32::New(alloc(), index);
-    current->add(idInt32);
-    index = idInt32;
-
-    // Typed-object accesses usually in bounds (bail out otherwise).
-    index = addBoundsCheck(index, length);
-
-    // Since we passed the bounds check, it is impossible for the
-    // result of multiplication to overflow; so enable imul path.
-    const int32_t alignment = elemTypeRepr->alignment();
-    MMul *indexAsByteOffset = MMul::New(alloc(), index, constantInt(alignment),
-                                        MIRType_Int32, MMul::Integer);
-    current->add(indexAsByteOffset);
+    MDefinition *indexAsByteOffset;
+    if (!checkTypedObjectIndexInBounds(elemSize, obj, index, &indexAsByteOffset, objTypeReprs))
+        return false;
 
     // Find location within the owner object.
     MDefinition *elements, *scaledOffset;
-    loadTypedObjectElements(obj, indexAsByteOffset, alignment, &elements, &scaledOffset);
+    loadTypedObjectElements(obj, indexAsByteOffset, 1, &elements, &scaledOffset);
 
     // Load the element.
     MLoadTypedArrayElement *load = MLoadTypedArrayElement::New(alloc(), elements, scaledOffset, elemTypeRepr->type());
@@ -6669,6 +6862,7 @@ IonBuilder::getElemTryScalarElemOfTypedObject(bool *emitted,
     load->setResultType(knownType);
     load->setResultTypeSet(resultTypes);
 
+    *emitted = true;
     return true;
 }
 
@@ -6685,32 +6879,9 @@ IonBuilder::getElemTryComplexElemOfTypedObject(bool *emitted,
     MDefinition *type = loadTypedObjectType(obj);
     MDefinition *elemType = typeObjectForElementFromArrayStructType(type);
 
-    // Get the length.
-    size_t lenOfAll = objTypeReprs.arrayLength();
-    if (lenOfAll >= size_t(INT_MAX)) // int32 max is bound
-        return true;
-    MInstruction *length = MConstant::New(alloc(), Int32Value(int32_t(lenOfAll)));
-
-    *emitted = true;
-    current->add(length);
-
-    // Ensure index is an integer.
-    MInstruction *idInt32 = MToInt32::New(alloc(), index);
-    current->add(idInt32);
-    index = idInt32;
-
-    // Typed-object accesses usually in bounds (bail out otherwise).
-    index = addBoundsCheck(index, length);
-
-    // Convert array index to element data offset.
-    MConstant *alignment = MConstant::New(alloc(), Int32Value(elemSize));
-    current->add(alignment);
-
-    // Since we passed the bounds check, it is impossible for the
-    // result of multiplication to overflow; so enable imul path.
-    MMul *indexAsByteOffset = MMul::New(alloc(), index, alignment, MIRType_Int32,
-                                        MMul::Integer);
-    current->add(indexAsByteOffset);
+    MDefinition *indexAsByteOffset;
+    if (!checkTypedObjectIndexInBounds(elemSize, obj, index, &indexAsByteOffset, objTypeReprs))
+        return false;
 
     // Find location within the owner object.
     MDefinition *owner, *ownerOffset;
@@ -6727,6 +6898,49 @@ IonBuilder::getElemTryComplexElemOfTypedObject(bool *emitted,
     current->add(derived);
     current->push(derived);
 
+    *emitted = true;
+    return true;
+}
+
+bool
+IonBuilder::checkTypedObjectIndexInBounds(size_t elemSize,
+                                          MDefinition *obj,
+                                          MDefinition *index,
+                                          MDefinition **indexAsByteOffset,
+                                          TypeRepresentationSet objTypeReprs)
+{
+    // Ensure index is an integer.
+    MInstruction *idInt32 = MToInt32::New(alloc(), index);
+    current->add(idInt32);
+
+    // If we know the length statically from the type, just embed it.
+    // Otherwise, load it from the appropriate reserved slot on the
+    // typed object.  We know it's an int32, so we can convert from
+    // Value to int32 using truncation.
+    size_t lenOfAll = objTypeReprs.arrayLength();
+    MDefinition *length;
+    if (lenOfAll < size_t(INT_MAX)) {
+        length = constantInt(lenOfAll);
+    } else {
+        MOZ_ASSUME_UNREACHABLE("FIXME bug 922115");
+        //MInstruction *lengthValue = MLoadFixedSlot::New(alloc(), obj, JS_DATUM_SLOT_LENGTH);
+        //current->add(lengthValue);
+        //
+        //MInstruction *length32 = MTruncateToInt32::New(alloc(), lengthValue);
+        //current->add(length32);
+        //
+        //length = length32;
+    }
+
+    index = addBoundsCheck(idInt32, length);
+
+    // Since we passed the bounds check, it is impossible for the
+    // result of multiplication to overflow; so enable imul path.
+    MMul *mul = MMul::New(alloc(), index, constantInt(elemSize),
+                          MIRType_Int32, MMul::Integer);
+    current->add(mul);
+
+    *indexAsByteOffset = mul;
     return true;
 }
 
@@ -8455,14 +8669,24 @@ IonBuilder::getPropTryCommonGetter(bool *emitted, PropertyName *name,
         return false;
 
     // Inline if we can, otherwise, forget it and just generate a call.
-    if (makeInliningDecision(commonGetter, callInfo) && commonGetter->isInterpreted()) {
-        if (!inlineScriptedCall(callInfo, commonGetter))
+    InliningDecision decision = makeInliningDecision(commonGetter, callInfo);
+    switch (decision) {
+      case InliningDecision_Error:
+        return false;
+      case InliningDecision_DoNotInline:
+      case InliningDecision_Native:
+        break;
+      case InliningDecision_Specialized:
+      case InliningDecision_Heuristic:
+        if (!inlineScriptedCall(decision, callInfo, commonGetter))
             return false;
-    } else {
-        if (!makeCall(commonGetter, callInfo, false))
-            return false;
+
+        *emitted = true;
+        return true;
     }
 
+    if (!makeCall(commonGetter, callInfo, false))
+        return false;
     *emitted = true;
     return true;
 }
@@ -8745,10 +8969,17 @@ IonBuilder::setPropTryCommonSetter(bool *emitted, MDefinition *obj,
     callInfo.markAsSetter();
 
     // Inline the setter if we can.
-    if (makeInliningDecision(commonSetter, callInfo) && commonSetter->isInterpreted()) {
-        if (!inlineScriptedCall(callInfo, commonSetter))
+    InliningDecision decision = makeInliningDecision(commonSetter, callInfo);
+    switch (decision) {
+      case InliningDecision_Error:
+        return false;
+      case InliningDecision_DoNotInline:
+      case InliningDecision_Native:
+        break;
+      case InliningDecision_Specialized:
+      case InliningDecision_Heuristic:
+        if (!inlineScriptedCall(decision, callInfo, commonSetter))
             return false;
-
         *emitted = true;
         return true;
     }
@@ -9854,4 +10085,79 @@ MConstant *
 IonBuilder::constantInt(int32_t i)
 {
     return constant(Int32Value(i));
+}
+
+bool
+IonBuilder::specializeScriptedCall(CallInfo &callInfo, JSFunction *target)
+{
+    if (isSelfHostedWithName(target, names().Float32x4Add)) {
+        return specializeAdd(callInfo, target, MIRType_float32x4,
+                             X4TypeRepresentation::TYPE_FLOAT32);
+    } else if (isSelfHostedWithName(target, names().Int32x4Add)) {
+        return specializeAdd(callInfo, target, MIRType_int32x4,
+                             X4TypeRepresentation::TYPE_INT32);
+    }
+
+    MOZ_ASSUME_UNREACHABLE("Unknown specialized scripted call");
+}
+
+bool
+IonBuilder::specializeAdd(CallInfo &callInfo, JSFunction *target,
+                          MIRType type, X4TypeRepresentation::Type x4Type)
+{
+    callInfo.unwrapArgs();
+
+    MDefinition *boxedLeft = callInfo.getArg(0);
+    MDefinition *boxedRight = callInfo.getArg(1);
+
+    MDefinition *unboxedLeft, *unboxedRight;
+    if (!unboxX4Value(x4Type, boxedLeft, constantInt(0), &unboxedLeft))
+        return false;
+    if (!unboxX4Value(x4Type, boxedRight, constantInt(0), &unboxedRight))
+        return false;
+
+    MAdd *add = MAdd::NewAsmJS(alloc(), unboxedLeft, unboxedRight, type);
+    current->add(add);
+
+    MDefinition *boxedResult;
+    if (!boxX4Value(x4Type, add, &boxedResult))
+        return false;
+
+    // output will have same type as inputs
+    boxedResult->setResultTypeSet(boxedLeft->resultTypeSet());
+
+    current->push(boxedResult);
+    return true;
+}
+
+bool
+IonBuilder::unboxX4Value(X4TypeRepresentation::Type x4Type,
+                         MDefinition *boxed,
+                         MDefinition *offset,
+                         MDefinition **unboxed)
+{
+    if (boxed->isNewX4TypedObject()) {
+        *unboxed = boxed->toNewX4TypedObject()->data();
+        return true;
+    }
+
+    // Find location within the owner object.
+    MDefinition *elements, *scaledOffset;
+    loadTypedObjectElements(boxed, offset, 1, &elements, &scaledOffset);
+
+    MLoadX4Value *load = MLoadX4Value::New(alloc(), elements, scaledOffset, x4Type);
+    current->add(load);
+    *unboxed = load;
+    return true;
+}
+
+bool
+IonBuilder::boxX4Value(X4TypeRepresentation::Type x4Type,
+                       MDefinition *unboxed,
+                       MDefinition **boxed)
+{
+    MNewX4TypedObject *n = MNewX4TypedObject::New(alloc(), unboxed, x4Type);
+    current->add(n);
+    *boxed = n;
+    return true;
 }

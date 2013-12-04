@@ -579,6 +579,20 @@ MLoadTypedArrayElement::printOpcode(FILE *fp) const
 }
 
 void
+MLoadX4Value::printOpcode(FILE *fp) const
+{
+    MDefinition::printOpcode(fp);
+    fprintf(fp, " %s", X4TypeRepresentation::typeName(x4Type()));
+}
+
+void
+MNewX4TypedObject::printOpcode(FILE *fp) const
+{
+    MDefinition::printOpcode(fp);
+    fprintf(fp, " %s", X4TypeRepresentation::typeName(x4Type()));
+}
+
+void
 MAssertRange::printOpcode(FILE *fp) const
 {
     MDefinition::printOpcode(fp);
@@ -2599,11 +2613,13 @@ MLoadSlot::mightAlias(MDefinition *store)
 }
 
 void
-InlinePropertyTable::trimTo(ObjectVector &targets, BoolVector &choiceSet)
+InlinePropertyTable::trimTo(ObjectVector &targets, InliningDecisionVector &choiceSet)
 {
     for (size_t i = 0; i < targets.length(); i++) {
+        JS_ASSERT(choiceSet[i] != InliningDecision_Error);
+
         // If the target was inlined, don't erase the entry.
-        if (choiceSet[i])
+        if (choiceSet[i] != InliningDecision_DoNotInline)
             continue;
 
         JSFunction *target = &targets[i]->as<JSFunction>();

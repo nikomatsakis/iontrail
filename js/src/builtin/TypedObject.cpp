@@ -1312,12 +1312,14 @@ class Int32x4Defn {
     static const X4TypeRepresentation::Type type = X4TypeRepresentation::TYPE_INT32;
     static const JSPropertySpec TypedObjectProperties[];
     static const JSFunctionSpec TypedObjectMethods[];
+    static const JSFunctionSpec TypedObjectStaticMethods[];
 };
 class Float32x4Defn {
   public:
     static const X4TypeRepresentation::Type type = X4TypeRepresentation::TYPE_FLOAT32;
     static const JSPropertySpec TypedObjectProperties[];
     static const JSFunctionSpec TypedObjectMethods[];
+    static const JSFunctionSpec TypedObjectStaticMethods[];
 };
 } // namespace js
 
@@ -1334,6 +1336,12 @@ const JSFunctionSpec js::Int32x4Defn::TypedObjectMethods[] = {
     JS_FS_END
 };
 
+const JSFunctionSpec js::Int32x4Defn::TypedObjectStaticMethods[] = {
+    JS_SELF_HOSTED_FN("bool", "Int32x4Bool", 4, 0),
+    JS_SELF_HOSTED_FN("splat", "Int32x4Splat", 1, 0),
+    JS_FS_END
+};
+
 const JSPropertySpec js::Float32x4Defn::TypedObjectProperties[] = {
     JS_SELF_HOSTED_GET("x", "Float32x4Lane0", JSPROP_PERMANENT),
     JS_SELF_HOSTED_GET("y", "Float32x4Lane1", JSPROP_PERMANENT),
@@ -1344,6 +1352,12 @@ const JSPropertySpec js::Float32x4Defn::TypedObjectProperties[] = {
 
 const JSFunctionSpec js::Float32x4Defn::TypedObjectMethods[] = {
     JS_SELF_HOSTED_FN("toSource", "X4ToSource", 0, 0),
+    JS_FS_END
+};
+
+const JSFunctionSpec js::Float32x4Defn::TypedObjectStaticMethods[] = {
+    JS_SELF_HOSTED_FN("zero", "Float32x4Zero", 0, 0),
+    JS_SELF_HOSTED_FN("splat", "Float32x4Splat", 1, 0),
     JS_FS_END
 };
 
@@ -1390,6 +1404,7 @@ CreateX4Class(JSContext *cx, Handle<GlobalObject*> global)
     // Link constructor to prototype and install properties
 
     if (!LinkConstructorAndPrototype(cx, x4, proto) ||
+        !JS_DefineFunctions(cx, x4, T::TypedObjectStaticMethods) ||
         !DefinePropertiesAndBrand(cx, proto, T::TypedObjectProperties,
                                   T::TypedObjectMethods))
     {

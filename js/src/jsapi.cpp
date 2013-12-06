@@ -55,6 +55,7 @@
 #include "builtin/ParallelArray.h"
 #include "builtin/RegExp.h"
 #include "builtin/TypedObject.h"
+#include "builtin/SIMD.h"
 #include "frontend/BytecodeCompiler.h"
 #include "frontend/FullParseHandler.h"  // for JS_BufferIsCompileableUnit
 #include "frontend/Parser.h" // for JS_BufferIsCompileableUnit
@@ -1231,6 +1232,7 @@ static const JSStdName builtin_property_names[] = {
 #if JS_HAS_UNEVAL
     {js_InitStringClass,        EAGER_ATOM(uneval), OCLASP(String)},
 #endif
+    {js_InitSIMD,               EAGER_ATOM(SIMD), OCLASP(SIMD)},
 
     {nullptr,                     0, nullptr}
 };

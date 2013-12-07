@@ -143,6 +143,7 @@ class CodeGenerator : public CodeGeneratorSpecific
     bool visitNewPar(LNewPar *lir);
     bool visitNewDenseArrayPar(LNewDenseArrayPar *lir);
     bool visitNewDerivedTypedObject(LNewDerivedTypedObject *lir);
+    bool visitNewX4TypedObject(LNewX4TypedObject *lir);
     bool visitAbortPar(LAbortPar *lir);
     bool visitInitElem(LInitElem *lir);
     bool visitInitElemGetterSetter(LInitElemGetterSetter *lir);
@@ -235,6 +236,7 @@ class CodeGenerator : public CodeGeneratorSpecific
     bool visitArrayConcat(LArrayConcat *lir);
     bool visitLoadTypedArrayElement(LLoadTypedArrayElement *lir);
     bool visitLoadTypedArrayElementHole(LLoadTypedArrayElementHole *lir);
+    bool visitLoadX4Value(LLoadX4Value *lir);
     bool visitStoreTypedArrayElement(LStoreTypedArrayElement *lir);
     bool visitStoreTypedArrayElementHole(LStoreTypedArrayElementHole *lir);
     bool visitClampIToUint8(LClampIToUint8 *lir);

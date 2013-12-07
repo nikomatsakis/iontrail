@@ -168,7 +168,7 @@ LinearScanAllocator::allocateRegisters()
                 if (!splitInterval(current, bestFreeUntil))
                     return false;
             }
-            if (!assign(LAllocation(best)))
+            if (!assign(LAllocation(best, vregs[current->vreg()].registerKind())))
                 return false;
 
             continue;
@@ -187,9 +187,9 @@ LinearScanAllocator::allocateRegisters()
             AnyRegister best = AnyRegister::FromCode(bestCode);
             IonSpew(IonSpew_RegAlloc, "  Decided best register was %s", best.name());
 
-            if (!splitBlockingIntervals(LAllocation(best)))
+            if (!splitBlockingIntervals(LAllocation(best, vregs[current->vreg()].registerKind())))
                 return false;
-            if (!assign(LAllocation(best)))
+            if (!assign(LAllocation(best, vregs[current->vreg()].registerKind())))
                 return false;
 
             continue;
@@ -374,7 +374,7 @@ LinearScanAllocator::reifyAllocations()
 
                 // If we insert the move after an OsiPoint that uses this vreg,
                 // it should use the fixed register instead.
-                SetOsiPointUses(interval, defEnd, LAllocation(fixedReg));
+                SetOsiPointUses(interval, defEnd, LAllocation(fixedReg, reg->registerKind()));
 
                 if (!moveAfter(defEnd, from, interval))
                     return false;
@@ -1335,7 +1335,7 @@ LinearScanAllocator::setIntervalRequirement(LiveInterval *interval)
     if (fixedOp) {
         // Intervals with a fixed use now get a FIXED hint.
         AnyRegister required = GetFixedRegister(reg->def(), fixedOp->use);
-        interval->setHint(Requirement(LAllocation(required), fixedOp->pos));
+        interval->setHint(Requirement(LAllocation(required, vregs[interval->vreg()].registerKind()), fixedOp->pos));
     } else if (registerOp) {
         // Intervals with register uses get a REGISTER hint. We may have already
         // assigned a SAME_AS hint, make sure we don't overwrite it with a weaker
@@ -1358,7 +1358,7 @@ LinearScanAllocator::setIntervalRequirement(LiveInterval *interval)
 void
 LinearScanAllocator::UnhandledQueue::enqueueBackward(LiveInterval *interval)
 {
-    IntervalReverseIterator i(rbegin()); 
+    IntervalReverseIterator i(rbegin());
 
     for (; i != rend(); i++) {
         if (i->start() > interval->start())

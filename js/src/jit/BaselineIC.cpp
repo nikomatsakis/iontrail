@@ -3117,7 +3117,7 @@ ICUnaryArith_Double::Compiler::generateStubCode(MacroAssembler &masm)
 
         masm.bind(&truncateABICall);
         masm.setupUnalignedABICall(1, scratchReg);
-        masm.passABIArg(FloatReg0);
+        masm.passABIArg(FloatReg0, MoveResolver::MoveOperand::FLOAT_REG);
         masm.callWithABI(JS_FUNC_TO_DATA_PTR(void *, js::ToInt32));
         masm.storeCallResult(scratchReg);
 

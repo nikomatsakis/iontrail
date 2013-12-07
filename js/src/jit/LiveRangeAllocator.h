@@ -154,7 +154,8 @@ DefinitionCompatibleWith(LInstruction *ins, const LDefinition *def, LAllocation 
       case LDefinition::DEFAULT:
         if (!alloc.isRegister())
             return false;
-        return alloc.isFloatReg() == (def->type() == LDefinition::DOUBLE);
+        return alloc.isFloatRegClass() == (def->type() == LDefinition::DOUBLE ||
+                                           def->type() == LDefinition::SIMD128);
       case LDefinition::PRESET:
         return alloc == *def->output();
       case LDefinition::MUST_REUSE_INPUT:
@@ -445,6 +446,9 @@ class VirtualRegister
     }
     LDefinition::Type type() const {
         return def()->type();
+    }
+    LAllocation::Kind registerKind() const {
+        return LDefinition::registerKind(type());
     }
     LAllocation::Kind spillKind() const {
         return LDefinition::spillKind(type());

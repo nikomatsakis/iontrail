@@ -128,7 +128,7 @@ class LAllocation : public TempObject
         JS_ASSERT(!isTagged());
         bits_ |= TAG_MASK;
     }
-    inline explicit LAllocation(const AnyRegister &reg);
+    inline explicit LAllocation(const AnyRegister &reg, Kind kind);
 
     Kind kind() const {
         if (isTagged())
@@ -155,6 +155,9 @@ class LAllocation : public TempObject
         return kind() == GPR;
     }
     bool isFloatReg() const {
+        return kind() == FPU || kind() == SIMD128;
+    }
+    bool isDoubleReg() const {
         return kind() == FPU;
     }
     bool isSIMD128Reg() const {
@@ -340,8 +343,8 @@ class LGeneralReg : public LAllocation
 class LFloatReg : public LAllocation
 {
   public:
-    explicit LFloatReg(FloatRegister reg)
-      : LAllocation(FPU, reg.code())
+    explicit LFloatReg(FloatRegister reg, Kind kind)
+      : LAllocation(kind, reg.code())
     { }
 
     FloatRegister reg() const {
@@ -495,6 +498,18 @@ class LDefinition
         }
     }
 
+    static LAllocation::Kind registerKind(Type type) {
+        switch (type) {
+          case LDefinition::BOX:
+          case LDefinition::SLOTS:
+          case LDefinition::OBJECT:
+          case LDefinition::GENERAL: return LAllocation::GPR;
+          case LDefinition::DOUBLE:  return LAllocation::FPU;
+          case LDefinition::SIMD128: return LAllocation::SIMD128;
+          default: MOZ_ASSUME_UNREACHABLE("Unknown register kind");
+        }
+    }
+
     void set(uint32_t index, Type type, Policy policy) {
         JS_STATIC_ASSERT(MAX_VIRTUAL_REGISTERS <= VREG_MASK);
         bits_ = (index << VREG_SHIFT) | (policy << POLICY_SHIFT) | (type << TYPE_SHIFT);
@@ -604,6 +619,9 @@ class LDefinition
           case MIRType_Double:
           case MIRType_Float32:
             return LDefinition::DOUBLE;
+          case MIRType_float32x4:
+          case MIRType_int32x4:
+            return LDefinition::SIMD128;
 #if defined(JS_PUNBOX64)
           case MIRType_Value:
             return LDefinition::BOX;
@@ -1512,10 +1530,10 @@ class LIRGraph
     void removeBlock(size_t i);
 };
 
-LAllocation::LAllocation(const AnyRegister &reg)
+LAllocation::LAllocation(const AnyRegister &reg, Kind kind)
 {
     if (reg.isFloatRegClass())
-        *this = LFloatReg(reg.fpu());
+        *this = LFloatReg(reg.fpu(), kind);
     else
         *this = LGeneralReg(reg.gpr());
 }

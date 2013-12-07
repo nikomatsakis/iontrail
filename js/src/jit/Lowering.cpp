@@ -218,6 +218,15 @@ LIRGenerator::visitNewDerivedTypedObject(MNewDerivedTypedObject *ins)
 }
 
 bool
+LIRGenerator::visitNewX4TypedObject(MNewX4TypedObject *ins)
+{
+    LNewX4TypedObject *lir =
+        new(alloc()) LNewX4TypedObject(useRegisterAtStart(ins->data()),
+                                       useRegisterAtStart(ins->type()));
+    return defineReturn(lir, ins) && assignSafepoint(lir, ins);
+}
+
+bool
 LIRGenerator::visitNewCallObjectPar(MNewCallObjectPar *ins)
 {
     const LAllocation &parThreadContext = useRegister(ins->forkJoinSlice());
@@ -1382,6 +1391,12 @@ LIRGenerator::visitAdd(MAdd *ins)
         return lowerForFPU(new(alloc()) LMathF(JSOP_ADD), ins, lhs, rhs);
     }
 
+    if (ins->specialization() == MIRType_float32x4) {
+        JS_ASSERT(lhs->type() == MIRType_float32x4);
+        ReorderCommutative(&lhs, &rhs);
+        return lowerForFPU(new(alloc()) LMathFloat32x4(JSOP_ADD), ins, lhs, rhs);
+    }
+
     return lowerBinaryV(JSOP_ADD, ins);
 }
 
@@ -1544,7 +1559,7 @@ LIRGenerator::visitConcat(MConcat *ins)
                                         tempFixed(CallTempReg2),
                                         tempFixed(CallTempReg3),
                                         tempFixed(CallTempReg4));
-    if (!defineFixed(lir, ins, LAllocation(AnyRegister(CallTempReg5))))
+    if (!defineFixed(lir, ins, LGeneralReg(CallTempReg5)))
         return false;
     return assignSafepoint(lir, ins);
 }
@@ -1567,7 +1582,7 @@ LIRGenerator::visitConcatPar(MConcatPar *ins)
                                               tempFixed(CallTempReg1),
                                               tempFixed(CallTempReg2),
                                               tempFixed(CallTempReg3));
-    if (!defineFixed(lir, ins, LAllocation(AnyRegister(CallTempReg5))))
+    if (!defineFixed(lir, ins, LGeneralReg(CallTempReg5)))
         return false;
     return assignSafepoint(lir, ins);
 }
@@ -1623,7 +1638,7 @@ bool
 LIRGenerator::visitOsrEntry(MOsrEntry *entry)
 {
     LOsrEntry *lir = new(alloc()) LOsrEntry;
-    return defineFixed(lir, entry, LAllocation(AnyRegister(OsrFrameReg)));
+    return defineFixed(lir, entry, LGeneralReg(OsrFrameReg));
 }
 
 bool
@@ -2616,6 +2631,23 @@ LIRGenerator::visitLoadTypedArrayElement(MLoadTypedArrayElement *ins)
 }
 
 bool
+LIRGenerator::visitLoadX4Value(MLoadX4Value *ins)
+{
+    JS_ASSERT(ins->elements()->type() == MIRType_Elements);
+    JS_ASSERT(ins->offset()->type() == MIRType_Int32);
+
+    const LUse elements = useRegister(ins->elements());
+    const LAllocation offset = useRegisterOrConstant(ins->offset());
+
+    JS_ASSERT(IsX4Type(ins->type()));
+
+    LLoadX4Value *lir = new(alloc()) LLoadX4Value(elements, offset);
+    if (!assignSnapshot(lir))
+        return false;
+    return define(lir, ins);
+}
+
+bool
 LIRGenerator::visitClampToUint8(MClampToUint8 *ins)
 {
     MDefinition *in = ins->input();
@@ -3293,12 +3325,21 @@ LIRGenerator::visitAsmJSLoadFFIFunc(MAsmJSLoadFFIFunc *ins)
     return define(new(alloc()) LAsmJSLoadFFIFunc, ins);
 }
 
+static LAllocation::Kind registerKind(ABIArg::Kind kind) {
+    // TODO: (add SIMD128 kind).
+    switch (kind) {
+        case ABIArg::GPR: return LAllocation::GPR;
+        case ABIArg::FPU:  return LAllocation::FPU;
+        default: MOZ_ASSUME_UNREACHABLE("Unknown register kind");
+    }
+}
+
 bool
 LIRGenerator::visitAsmJSParameter(MAsmJSParameter *ins)
 {
     ABIArg abi = ins->abi();
     if (abi.argInRegister())
-        return defineFixed(new(alloc()) LAsmJSParameter, ins, LAllocation(abi.reg()));
+        return defineFixed(new(alloc()) LAsmJSParameter, ins, LAllocation(abi.reg(), registerKind(abi.kind())));
 
     JS_ASSERT(ins->type() == MIRType_Int32 || ins->type() == MIRType_Double);
     LAllocation::Kind argKind = ins->type() == MIRType_Int32

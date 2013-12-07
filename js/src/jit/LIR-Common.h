@@ -534,6 +534,26 @@ class LNewDerivedTypedObject : public LCallInstructionHelper<1, 3, 0>
     }
 };
 
+class LNewX4TypedObject : public LCallInstructionHelper<1, 2, 0>
+{
+  public:
+    LIR_HEADER(NewX4TypedObject);
+
+    LNewX4TypedObject(const LAllocation &data,
+                      const LAllocation &type) {
+        setOperand(0, data);
+        setOperand(1, type);
+    }
+
+    const LAllocation *data() {
+        return getOperand(0);
+    }
+
+    const LAllocation *type() {
+        return getOperand(1);
+    }
+};
+
 class LNewStringObject : public LInstructionHelper<1, 1, 1>
 {
   public:
@@ -2355,7 +2375,7 @@ class LMinMaxD : public LInstructionHelper<1, 2, 0>
 {
   public:
     LIR_HEADER(MinMaxD)
-    LMinMaxD(const LAllocation &first, const LAllocation &second) 
+    LMinMaxD(const LAllocation &first, const LAllocation &second)
     {
         setOperand(0, first);
         setOperand(1, second);
@@ -2691,6 +2711,27 @@ class LMathF: public LBinaryMath<0>
     LIR_HEADER(MathF)
 
     LMathF(JSOp jsop)
+      : jsop_(jsop)
+    { }
+
+    JSOp jsop() const {
+        return jsop_;
+    }
+
+    const char *extraName() const {
+        return js_CodeName[jsop_];
+    }
+};
+
+// Performs an add, sub, mul, or div on two float32x4 values.
+class LMathFloat32x4: public LBinaryMath<0>
+{
+    JSOp jsop_;
+
+  public:
+    LIR_HEADER(MathFloat32x4)
+
+    LMathFloat32x4(JSOp jsop)
       : jsop_(jsop)
     { }
 
@@ -4011,6 +4052,28 @@ class LLoadTypedArrayElementStatic : public LInstructionHelper<1, 1, 0>
         return getOperand(0);
     }
 };
+
+// Load a X4 value from a typed object's element field.
+class LLoadX4Value : public LInstructionHelper<1, 2, 0>
+{
+  public:
+    LIR_HEADER(LoadX4Value)
+
+    LLoadX4Value(const LAllocation &elements, const LAllocation &offset) {
+        setOperand(0, elements);
+        setOperand(1, offset);
+    }
+    const MLoadX4Value *mir() const {
+        return mir_->toLoadX4Value();
+    }
+    const LAllocation *elements() {
+        return getOperand(0);
+    }
+    const LAllocation *offset() {
+        return getOperand(1);
+    }
+};
+
 
 class LStoreTypedArrayElement : public LInstructionHelper<0, 3, 0>
 {

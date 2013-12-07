@@ -80,7 +80,7 @@ class MoveResolver
             return kind_ == FLOAT_ADDRESS;
         }
         bool isSIMD128Address() const {
-            return kind_ == FLOAT_ADDRESS;
+            return kind_ == SIMD128_ADDRESS;
         }
         bool isEffectiveAddress() const {
             return kind_ == EFFECTIVE_ADDRESS;
@@ -91,6 +91,10 @@ class MoveResolver
         }
         FloatRegister floatReg() const {
             JS_ASSERT(isFloatReg());
+            return FloatRegister::FromCode(code_);
+        }
+        FloatRegister simd128Reg() const {
+            JS_ASSERT(isSIMD128Reg());
             return FloatRegister::FromCode(code_);
         }
         Register base() const {
@@ -177,7 +181,7 @@ class MoveResolver
         PendingMove(const MoveOperand &from, const MoveOperand &to, Kind kind)
           : Move(from, to, kind, false)
         { }
-        
+
         void setInCycle() {
             JS_ASSERT(!inCycle());
             cycle_ = true;

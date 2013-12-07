@@ -136,7 +136,8 @@ MoveEmitterX86::emit(const MoveResolver &moves)
             emitDoubleMove(from, to);
             break;
           case Move::SIMD128:
-            MOZ_ASSUME_UNREACHABLE("FIXME");
+            emitSIMD128Move(from, to);
+            break;
           default:
             MOZ_ASSUME_UNREACHABLE("Unknown kind");
         }
@@ -327,6 +328,24 @@ MoveEmitterX86::emitDoubleMove(const MoveOperand &from, const MoveOperand &to)
         JS_ASSERT(from.isFloatAddress());
         masm.loadDouble(toAddress(from), ScratchFloatReg);
         masm.storeDouble(ScratchFloatReg, toAddress(to));
+    }
+}
+
+void
+MoveEmitterX86::emitSIMD128Move(const MoveOperand &from, const MoveOperand &to)
+{
+    if (from.isSIMD128Reg()) {
+        if (to.isSIMD128Reg())
+            masm.moveSIMD128(from.simd128Reg(), to.simd128Reg());
+        else
+            masm.storeSIMD128(from.simd128Reg(), toAddress(to));
+    } else if (to.isSIMD128Reg()) {
+        masm.loadSIMD128(toAddress(from), to.simd128Reg());
+    } else {
+        // Memory to memory float move.
+        JS_ASSERT(from.isSIMD128Address());
+        masm.loadSIMD128(toAddress(from), ScratchFloatReg);
+        masm.storeSIMD128(ScratchFloatReg, toAddress(to));
     }
 }
 

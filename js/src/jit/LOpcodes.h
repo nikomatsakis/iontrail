@@ -33,6 +33,7 @@
     _(NewDenseArrayPar)             \
     _(NewCallObjectPar)             \
     _(NewDerivedTypedObject)        \
+    _(NewX4TypedObject)             \
     _(AbortPar)                     \
     _(InitElem)                     \
     _(InitElemGetterSetter)         \
@@ -123,6 +124,7 @@
     _(MulI)                         \
     _(MathD)                        \
     _(MathF)                        \
+    _(MathFloat32x4)                \
     _(ModD)                         \
     _(BinaryV)                      \
     _(Concat)                       \
@@ -194,6 +196,7 @@
     _(LoadTypedArrayElement)        \
     _(LoadTypedArrayElementHole)    \
     _(LoadTypedArrayElementStatic)  \
+    _(LoadX4Value)                  \
     _(StoreTypedArrayElement)       \
     _(StoreTypedArrayElementHole)   \
     _(StoreTypedArrayElementStatic) \

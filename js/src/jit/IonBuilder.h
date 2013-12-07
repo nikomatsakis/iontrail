@@ -155,7 +155,7 @@ class IonBuilder : public MIRGenerator
                 // MIR instruction
                 MTableSwitch *ins;
 
-                // The number of current successor that get mapped into a block. 
+                // The number of current successor that get mapped into a block.
                 uint32_t currentBlock;
 
             } tableswitch;
@@ -495,6 +495,17 @@ class IonBuilder : public MIRGenerator
                                             TypeRepresentationSet objTypeReprs,
                                             TypeRepresentationSet elemTypeReprs,
                                             size_t elemSize);
+
+    // SIMD Typed Objects
+    bool specializeAdd(CallInfo &callInfo, JSFunction *target,
+                       MIRType type, X4TypeRepresentation::Type x4type);
+    bool unboxX4Value(X4TypeRepresentation::Type x4Type,
+                      MDefinition *boxed,
+                      MDefinition *offset,
+                      MDefinition **unboxed);
+    bool boxX4Value(X4TypeRepresentation::Type x4Type,
+                    MDefinition *unboxed,
+                    MDefinition **boxed);
 
     // Typed array helpers.
     MInstruction *getTypedArrayLength(MDefinition *obj);

@@ -56,12 +56,19 @@ ArithPolicy::adjustInputs(TempAllocator &alloc, MInstruction *ins)
     if (specialization_ == MIRType_None)
         return BoxInputsPolicy::adjustInputs(alloc, ins);
 
-    JS_ASSERT(ins->type() == MIRType_Double || ins->type() == MIRType_Int32 || ins->type() == MIRType_Float32);
+    JS_ASSERT(ins->type() == MIRType_Double || ins->type() == MIRType_Int32 ||
+              ins->type() == MIRType_Float32 || ins->type() == MIRType_float32x4 ||
+              ins->type() == MIRType_int32x4);
 
     for (size_t i = 0, e = ins->numOperands(); i < e; i++) {
         MDefinition *in = ins->getOperand(i);
         if (in->type() == ins->type())
             continue;
+
+        // We only generate x4 specializations if we know that the
+        // operands have the correct type in IonBuilder:
+        JS_ASSERT(specialization_ != MIRType_float32x4);
+        JS_ASSERT(specialization_ != MIRType_int32x4);
 
         MInstruction *replace;
 

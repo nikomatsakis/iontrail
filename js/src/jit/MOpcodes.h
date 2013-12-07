@@ -143,6 +143,8 @@ namespace jit {
     _(ArrayPopShift)                                                        \
     _(ArrayPush)                                                            \
     _(ArrayConcat)                                                          \
+    _(LoadX4Value)                                                          \
+    _(NewX4TypedObject)                                                     \
     _(LoadTypedArrayElement)                                                \
     _(LoadTypedArrayElementHole)                                            \
     _(LoadTypedArrayElementStatic)                                          \

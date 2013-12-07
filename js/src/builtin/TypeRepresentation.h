@@ -369,6 +369,7 @@ class X4TypeRepresentation : public SizedTypeRepresentation {
         return type_;
     }
 
+    static const char *typeName(Type type);
     static JSObject *Create(JSContext *cx, Type type);
 };
 

@@ -3052,6 +3052,22 @@ CodeGenerator::visitNewDerivedTypedObject(LNewDerivedTypedObject *lir)
     return callVM(CreateDerivedTypedObjInfo, lir);
 }
 
+// TODO: figure out how to pass SIMD128 register though function call
+typedef JSObject *(*NewX4TypedObjectFn)(JSContext *,
+                                        X4TypeRepresentation::Type x4Type);
+static const VMFunction CreateX4TypedObjInfo =
+    FunctionInfo<NewX4TypedObjectFn>(CreateX4TypedObj);
+
+bool
+CodeGenerator::visitNewX4TypedObject(LNewX4TypedObject *lir)
+{
+    // Not yet made safe for par exec:
+    JS_ASSERT(gen->info().executionMode() == SequentialExecution);
+
+    pushArg(ToRegister(lir->type()));
+    return callVM(CreateX4TypedObjInfo, lir);
+}
+
 bool
 CodeGenerator::visitNewSlots(LNewSlots *lir)
 {
@@ -6998,6 +7014,23 @@ CodeGenerator::visitLoadTypedArrayElement(LLoadTypedArrayElement *lir)
 
     if (fail.used() && !bailoutFrom(&fail, lir->snapshot()))
         return false;
+
+    return true;
+}
+
+bool
+CodeGenerator::visitLoadX4Value(LLoadX4Value *lir)
+{
+    const LDefinition *result = lir->output();
+    FloatRegister resultReg = ToFloatRegister(result);
+
+    Register elements = ToRegister(lir->elements());
+    if (lir->offset()->isConstant()) {
+        masm.loadSIMD128(Address(elements, ToInt32(lir->offset())), resultReg);
+    } else {
+        BaseIndex source(elements, ToRegister(lir->offset()), TimesOne);
+        masm.loadSIMD128(source, resultReg);
+    }
 
     return true;
 }

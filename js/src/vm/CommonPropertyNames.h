@@ -71,6 +71,7 @@
     macro(fix, fix, "fix") \
     macro(float32, float32, "float32") \
     macro(float32x4, float32x4, "float32x4") \
+    macro(Float32x4Add, Float32x4Add, "Float32x4Add") \
     macro(float64, float64, "float64") \
     macro(format, format, "format") \
     macro(from, from, "from") \
@@ -93,6 +94,7 @@
     macro(innermost, innermost, "innermost") \
     macro(input, input, "input") \
     macro(int32x4, int32x4, "int32x4") \
+    macro(Int32x4Add, Int32x4Add, "Int32x4Add") \
     macro(isFinite, isFinite, "isFinite") \
     macro(isNaN, isNaN, "isNaN") \
     macro(isPrototypeOf, isPrototypeOf, "isPrototypeOf") \

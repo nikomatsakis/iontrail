@@ -6001,6 +6001,89 @@ class MArrayConcat
     }
 };
 
+class MLoadX4Value
+  : public MBinaryInstruction
+{
+    X4TypeRepresentation::Type x4Type_;
+
+    MLoadX4Value(MDefinition *elements,
+                 MDefinition *offset,   // measured in bytes
+                 X4TypeRepresentation::Type x4Type)
+      : MBinaryInstruction(elements, offset),
+        x4Type_(x4Type)
+    {
+        switch (x4Type) {
+          case X4TypeRepresentation::TYPE_FLOAT32:
+            setResultType(MIRType_float32x4);
+            break;
+          case X4TypeRepresentation::TYPE_INT32:
+            setResultType(MIRType_int32x4);
+            break;
+        }
+        setMovable();
+        JS_ASSERT(elements->type() == MIRType_Elements);
+        JS_ASSERT(offset->type() == MIRType_Int32);
+    }
+
+  public:
+    INSTRUCTION_HEADER(LoadX4Value)
+
+    static MLoadX4Value *New(TempAllocator &alloc, MDefinition *elements, MDefinition *index,
+                             X4TypeRepresentation::Type x4Type)
+    {
+        return new(alloc) MLoadX4Value(elements, index, x4Type);
+    }
+
+    X4TypeRepresentation::Type x4Type() const {
+        return x4Type_;
+    }
+    MDefinition *elements() const {
+        return getOperand(0);
+    }
+    MDefinition *offset() const {
+        return getOperand(1);
+    }
+    AliasSet getAliasSet() const {
+        return AliasSet::Load(AliasSet::TypedArrayElement);
+    }
+
+    void printOpcode(FILE *fp) const;
+};
+
+class MNewX4TypedObject
+  : public MBinaryInstruction
+{
+    MNewX4TypedObject(MDefinition *data, MDefinition *type)
+      : MBinaryInstruction(data, type)
+    {
+        setResultType(MIRType_Object);
+        setMovable();
+        JS_ASSERT(data->type() == MIRType_float32x4 ||
+                  data->type() == MIRType_int32x4);
+    }
+
+  public:
+    INSTRUCTION_HEADER(NewX4TypedObject)
+
+    static MNewX4TypedObject *New(TempAllocator &alloc, MDefinition *data,
+                                  MDefinition *type)
+    {
+        return new(alloc) MNewX4TypedObject(data, type);
+    }
+
+    MDefinition *data() const {
+        return getOperand(0);
+    }
+    MDefinition *type() const {
+        return getOperand(1);
+    }
+    AliasSet getAliasSet() const {
+        return AliasSet::None();
+    }
+
+    void printOpcode(FILE *fp) const;
+};
+
 class MLoadTypedArrayElement
   : public MBinaryInstruction
 {

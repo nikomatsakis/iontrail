@@ -77,12 +77,14 @@ enum MIRType
     MIRType_Object,
     MIRType_Magic,
     MIRType_Value,
-    MIRType_None,         // Invalid, used as a placeholder.
-    MIRType_Slots,        // A slots vector
-    MIRType_Elements,     // An elements vector
-    MIRType_Pointer,      // An opaque pointer that receives no special treatment
-    MIRType_Shape,        // A Shape pointer.
-    MIRType_ForkJoinSlice // js::ForkJoinSlice*
+    MIRType_None,          // Invalid, used as a placeholder.
+    MIRType_Slots,         // A slots vector
+    MIRType_Elements,      // An elements vector
+    MIRType_Pointer,       // An opaque pointer that receives no special treatment
+    MIRType_Shape,         // A Shape pointer.
+    MIRType_ForkJoinSlice, // js::ForkJoinSlice*
+    MIRType_float32x4,
+    MIRType_int32x4,
 };
 
 static inline MIRType
@@ -177,6 +179,10 @@ StringFromMIRType(MIRType type)
       return "Pointer";
     case MIRType_ForkJoinSlice:
       return "ForkJoinSlice";
+    case MIRType_float32x4:
+      return "float32x4";
+    case MIRType_int32x4:
+      return "int32x4";
     default:
       MOZ_ASSUME_UNREACHABLE("Unknown MIRType.");
   }
@@ -198,6 +204,12 @@ static inline bool
 IsFloatingPointType(MIRType type)
 {
     return type == MIRType_Double || type == MIRType_Float32;
+}
+
+static inline bool
+IsX4Type(MIRType type)
+{
+    return type == MIRType_float32x4 || type == MIRType_int32x4;
 }
 
 static inline bool

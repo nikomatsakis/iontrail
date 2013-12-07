@@ -1338,9 +1338,8 @@ CodeGeneratorX86Shared::toMoveOperand(const LAllocation *a) const
       case LAllocation::GPR:
         return MoveOperand(ToRegister(a));
       case LAllocation::FPU:
-        return MoveOperand(ToFloatRegister(a), MoveOperand::FLOAT_REG);
       case LAllocation::SIMD128:
-        return MoveOperand(ToFloatRegister(a), MoveOperand::SIMD128_REG);
+        return MoveOperand(ToFloatRegister(a), MoveOperand::FLOAT_REG);
       case LAllocation::INT_ARGUMENT:
       case LAllocation::STACK_SLOT:
         return MoveOperand(StackPointer, ToStackOffset(a), MoveOperand::ADDRESS);
@@ -1482,6 +1481,25 @@ CodeGeneratorX86Shared::visitMathF(LMathF *math)
         break;
       case JSOP_DIV:
         masm.divss(rhs, lhs);
+        break;
+      default:
+        MOZ_ASSUME_UNREACHABLE("unexpected opcode");
+        return false;
+    }
+    return true;
+}
+
+bool
+CodeGeneratorX86Shared::visitMathFloat32x4(LMathFloat32x4 *math)
+{
+    FloatRegister lhs = ToFloatRegister(math->lhs());
+    Operand rhs = ToOperand(math->rhs());
+
+    JS_ASSERT(ToFloatRegister(math->output()) == lhs);
+
+    switch (math->jsop()) {
+      case JSOP_ADD:
+        masm.addps(rhs, lhs);
         break;
       default:
         MOZ_ASSUME_UNREACHABLE("unexpected opcode");

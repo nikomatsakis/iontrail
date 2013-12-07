@@ -203,8 +203,10 @@ class LIRGenerator : public LIRGeneratorSpecific
     bool visitLoadTypedArrayElement(MLoadTypedArrayElement *ins);
     bool visitLoadTypedArrayElementHole(MLoadTypedArrayElementHole *ins);
     bool visitLoadTypedArrayElementStatic(MLoadTypedArrayElementStatic *ins);
+    bool visitLoadX4Value(MLoadX4Value *ins);
     bool visitStoreTypedArrayElement(MStoreTypedArrayElement *ins);
     bool visitStoreTypedArrayElementHole(MStoreTypedArrayElementHole *ins);
+    bool visitNewX4TypedObject(MNewX4TypedObject *ins);
     bool visitClampToUint8(MClampToUint8 *ins);
     bool visitLoadFixedSlot(MLoadFixedSlot *ins);
     bool visitStoreFixedSlot(MStoreFixedSlot *ins);

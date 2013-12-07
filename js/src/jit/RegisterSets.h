@@ -776,6 +776,7 @@ class AnyRegisterIterator
 class ABIArg
 {
   public:
+    // TODO (add SIMD128 register).
     enum Kind { GPR, FPU, Stack };
 
   private:

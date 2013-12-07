@@ -207,6 +207,12 @@ IsFloatingPointType(MIRType type)
 }
 
 static inline bool
+IsX4Type(MIRType type)
+{
+    return type == MIRType_float32x4 || type == MIRType_int32x4;
+}
+
+static inline bool
 IsNullOrUndefined(MIRType type)
 {
     return type == MIRType_Null || type == MIRType_Undefined;

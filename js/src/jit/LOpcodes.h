@@ -192,6 +192,7 @@
     _(LoadTypedArrayElement)        \
     _(LoadTypedArrayElementHole)    \
     _(LoadTypedArrayElementStatic)  \
+    _(LoadX4Value)                  \
     _(StoreTypedArrayElement)       \
     _(StoreTypedArrayElementHole)   \
     _(StoreTypedArrayElementStatic) \

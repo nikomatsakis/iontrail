@@ -1353,6 +1353,12 @@ LIRGenerator::visitAdd(MAdd *ins)
         return lowerForFPU(new LMathF(JSOP_ADD), ins, lhs, rhs);
     }
 
+    if (ins->specialization() == MIRType_float32x4) {
+        JS_ASSERT(lhs->type() == MIRType_float32x4);
+        ReorderCommutative(&lhs, &rhs);
+        return true;
+    }
+
     return lowerBinaryV(JSOP_ADD, ins);
 }
 
@@ -2587,6 +2593,23 @@ LIRGenerator::visitLoadTypedArrayElement(MLoadTypedArrayElement *ins)
 }
 
 bool
+LIRGenerator::visitLoadX4Value(MLoadX4Value *ins)
+{
+    JS_ASSERT(ins->elements()->type() == MIRType_Elements);
+    JS_ASSERT(ins->offset()->type() == MIRType_Int32);
+
+    const LUse elements = useRegister(ins->elements());
+    const LAllocation offset = useRegisterOrConstant(ins->offset());
+
+    JS_ASSERT(IsX4Type(ins->type()));
+
+    LLoadX4Value *lir = new LLoadX4Value(elements, offset);
+    if (!assignSnapshot(lir))
+        return false;
+    return define(lir, ins);
+}
+
+bool
 LIRGenerator::visitClampToUint8(MClampToUint8 *ins)
 {
     MDefinition *in = ins->input();
@@ -2698,6 +2721,12 @@ LIRGenerator::visitStoreTypedArrayElementHole(MStoreTypedArrayElementHole *ins)
     else
         value = useRegisterOrNonDoubleConstant(ins->value());
     return add(new LStoreTypedArrayElementHole(elements, length, index, value), ins);
+}
+
+bool
+LIRGenerator::visitNewX4TypedObject(MNewX4TypedObject *ins)
+{
+    return true;
 }
 
 bool

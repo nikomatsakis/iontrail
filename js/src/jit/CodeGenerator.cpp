@@ -6940,6 +6940,13 @@ CodeGenerator::visitLoadTypedArrayElement(LLoadTypedArrayElement *lir)
 }
 
 bool
+CodeGenerator::visitLoadX4Value(LLoadX4Value *lir)
+{
+   return true;
+}
+
+
+bool
 CodeGenerator::visitLoadTypedArrayElementHole(LLoadTypedArrayElementHole *lir)
 {
     Register object = ToRegister(lir->object());

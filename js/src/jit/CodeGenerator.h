@@ -233,6 +233,7 @@ class CodeGenerator : public CodeGeneratorSpecific
     bool visitArrayConcat(LArrayConcat *lir);
     bool visitLoadTypedArrayElement(LLoadTypedArrayElement *lir);
     bool visitLoadTypedArrayElementHole(LLoadTypedArrayElementHole *lir);
+    bool visitLoadX4Value(LLoadX4Value *lir);
     bool visitStoreTypedArrayElement(LStoreTypedArrayElement *lir);
     bool visitStoreTypedArrayElementHole(LStoreTypedArrayElementHole *lir);
     bool visitClampIToUint8(LClampIToUint8 *lir);

@@ -2254,7 +2254,7 @@ class LMinMaxD : public LInstructionHelper<1, 2, 0>
 {
   public:
     LIR_HEADER(MinMaxD)
-    LMinMaxD(const LAllocation &first, const LAllocation &second) 
+    LMinMaxD(const LAllocation &first, const LAllocation &second)
     {
         setOperand(0, first);
         setOperand(1, second);
@@ -3910,6 +3910,28 @@ class LLoadTypedArrayElementStatic : public LInstructionHelper<1, 1, 0>
         return getOperand(0);
     }
 };
+
+// Load a X4 value from a typed object's element field.
+class LLoadX4Value : public LInstructionHelper<1, 2, 0>
+{
+  public:
+    LIR_HEADER(LoadX4Value)
+
+    LLoadX4Value(const LAllocation &elements, const LAllocation &offset) {
+        setOperand(0, elements);
+        setOperand(1, offset);
+    }
+    const MLoadX4Value *mir() const {
+        return mir_->toLoadX4Value();
+    }
+    const LAllocation *elements() {
+        return getOperand(0);
+    }
+    const LAllocation *offset() {
+        return getOperand(1);
+    }
+};
+
 
 class LStoreTypedArrayElement : public LInstructionHelper<0, 3, 0>
 {

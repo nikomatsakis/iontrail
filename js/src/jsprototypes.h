@@ -95,6 +95,7 @@ IF_PJS(real,imaginary)  (ParallelArray,         36,     js_InitParallelArrayClas
 IF_INTL(real,imaginary) (Intl,                  37,     js_InitIntlClass,          CLASP(Intl)) \
 IF_BDATA(real,imaginary)(TypedObject,           38,     js_InitTypedObjectModuleObject,   OCLASP(TypedObjectModule)) \
     imaginary(GeneratorFunction,     39,     js_InitIteratorClasses, dummy) \
+IF_BDATA(real,imaginary)(SIMD,                  40,     js_InitSIMDClass, OCLASP(SIMD)) \
 
 #define JS_FOR_EACH_PROTOTYPE(macro) JS_FOR_PROTOTYPES(macro,macro)
 

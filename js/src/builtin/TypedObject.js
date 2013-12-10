@@ -1,42 +1,6 @@
-#include "TypedObjectConstants.h"
-
-///////////////////////////////////////////////////////////////////////////
-// Getters and setters for various slots.
-
-// Type object slots
-
-#define TYPE_TYPE_REPR(obj) \
-    UnsafeGetReservedSlot(obj, JS_TYPEOBJ_SLOT_TYPE_REPR)
-
-// Typed object slots
-
-#define DATUM_TYPE_OBJ(obj) \
-    UnsafeGetReservedSlot(obj, JS_DATUM_SLOT_TYPE_OBJ)
-#define DATUM_OWNER(obj) \
-    UnsafeGetReservedSlot(obj, JS_DATUM_SLOT_OWNER)
-#define DATUM_LENGTH(obj) \
-    TO_INT32(UnsafeGetReservedSlot(obj, JS_DATUM_SLOT_LENGTH))
-
-// Type repr slots
-
-#define REPR_KIND(obj)   \
-    TO_INT32(UnsafeGetReservedSlot(obj, JS_TYPEREPR_SLOT_KIND))
-#define REPR_SIZE(obj)   \
-    TO_INT32(UnsafeGetReservedSlot(obj, JS_TYPEREPR_SLOT_SIZE))
-#define REPR_ALIGNMENT(obj) \
-    TO_INT32(UnsafeGetReservedSlot(obj, JS_TYPEREPR_SLOT_ALIGNMENT))
-#define REPR_LENGTH(obj)   \
-    TO_INT32(UnsafeGetReservedSlot(obj, JS_TYPEREPR_SLOT_LENGTH))
-#define REPR_TYPE(obj)   \
-    TO_INT32(UnsafeGetReservedSlot(obj, JS_TYPEREPR_SLOT_TYPE))
-
-#define HAS_PROPERTY(obj, prop) \
-    callFunction(std_Object_hasOwnProperty, obj, prop)
-
-function DATUM_TYPE_REPR(obj) {
-  // Eventually this will be a slot on typed objects
-  return TYPE_TYPE_REPR(DATUM_TYPE_OBJ(obj));
-}
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 ///////////////////////////////////////////////////////////////////////////
 // TypedObjectPointer
@@ -756,6 +720,30 @@ function Int32x4Lane0() { return X4GetLane(this, JS_X4TYPEREPR_INT32, 0); }
 function Int32x4Lane1() { return X4GetLane(this, JS_X4TYPEREPR_INT32, 1); }
 function Int32x4Lane2() { return X4GetLane(this, JS_X4TYPEREPR_INT32, 2); }
 function Int32x4Lane3() { return X4GetLane(this, JS_X4TYPEREPR_INT32, 3); }
+
+function Float32x4SignMask() {
+  var xx = X4GetLane(this, JS_X4TYPEREPR_FLOAT32, 0);
+  var yy = X4GetLane(this, JS_X4TYPEREPR_FLOAT32, 1);
+  var zz = X4GetLane(this, JS_X4TYPEREPR_FLOAT32, 2);
+  var ww = X4GetLane(this, JS_X4TYPEREPR_FLOAT32, 3);
+  var mx = xx < 0.0 ? 1 : 0;
+  var my = yy < 0.0 ? 1 : 0;
+  var mz = zz < 0.0 ? 1 : 0;
+  var mw = ww < 0.0 ? 1 : 0;
+  return mx | my << 1 | mz << 2 | mw << 3;
+}
+
+function Int32x4SignMask() {
+  var xx = X4GetLane(this, JS_X4TYPEREPR_INT32, 0);
+  var yy = X4GetLane(this, JS_X4TYPEREPR_INT32, 1);
+  var zz = X4GetLane(this, JS_X4TYPEREPR_INT32, 2);
+  var ww = X4GetLane(this, JS_X4TYPEREPR_INT32, 3);
+  var mx = xx < 0.0 ? 1 : 0;
+  var my = yy < 0.0 ? 1 : 0;
+  var mz = zz < 0.0 ? 1 : 0;
+  var mw = ww < 0.0 ? 1 : 0;
+  return mx | my << 1 | mz << 2 | mw << 3;
+}
 
 function X4ToSource() {
   if (!IsObject(this) || !ObjectIsTypedDatum(this))

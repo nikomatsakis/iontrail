@@ -26,9 +26,6 @@ js_InitFunctionClass(JSContext *cx, js::HandleObject obj);
 extern JSObject *
 js_InitTypedArrayClasses(JSContext *cx, js::HandleObject obj);
 
-extern JSObject *
-js_InitTypedObjectModuleObject(JSContext *cx, js::HandleObject obj);
-
 namespace js {
 
 class Debugger;

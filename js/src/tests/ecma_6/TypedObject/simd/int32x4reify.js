@@ -8,7 +8,6 @@ var summary = 'int32x4 reify';
  */
 
 var ArrayType = TypedObject.ArrayType;
-var int32x4 = TypedObject.int32x4;
 
 function test() {
   print(BUGNUMBER + ": " + summary);
@@ -30,7 +29,6 @@ function test() {
 
   if (typeof reportCompare === "function")
     reportCompare(true, true);
-  print("Tests complete");
 }
 
 test();

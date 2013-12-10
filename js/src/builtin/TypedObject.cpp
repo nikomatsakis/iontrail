@@ -42,7 +42,7 @@ const Class js::TypedObjectModuleObject::class_ = {
     JS_ConvertStub
 };
 
-static const JSFunctionSpec TypedObjectMethods[] = {
+static const JSFunctionSpec TypeObjectMethods[] = {
     JS_SELF_HOSTED_FN("objectType", "TypeOfTypedDatum", 1, 0),
     JS_FS_END
 };
@@ -1201,15 +1201,17 @@ class Int32x4Defn {
   public:
     static const X4TypeRepresentation::Type type = X4TypeRepresentation::TYPE_INT32;
     static const JSFunctionSpec TypeDescriptorMethods[];
-    static const JSPropertySpec TypedObjectProperties[];
-    static const JSFunctionSpec TypedObjectMethods[];
+    static const JSPropertySpec TypeObjectProperties[];
+    static const JSFunctionSpec TypeObjectMethods[];
+    static const JSFunctionSpec TypeObjectStaticMethods[];
 };
 class Float32x4Defn {
   public:
     static const X4TypeRepresentation::Type type = X4TypeRepresentation::TYPE_FLOAT32;
     static const JSFunctionSpec TypeDescriptorMethods[];
-    static const JSPropertySpec TypedObjectProperties[];
-    static const JSFunctionSpec TypedObjectMethods[];
+    static const JSPropertySpec TypeObjectProperties[];
+    static const JSFunctionSpec TypeObjectMethods[];
+    static const JSFunctionSpec TypeObjectStaticMethods[];
 };
 } // namespace js
 
@@ -1221,15 +1223,16 @@ const JSFunctionSpec js::Int32x4Defn::TypeDescriptorMethods[] = {
     JS_FS_END
 };
 
-const JSPropertySpec js::Int32x4Defn::TypedObjectProperties[] = {
+const JSPropertySpec js::Int32x4Defn::TypeObjectProperties[] = {
     JS_SELF_HOSTED_GET("x", "Int32x4Lane0", JSPROP_PERMANENT),
     JS_SELF_HOSTED_GET("y", "Int32x4Lane1", JSPROP_PERMANENT),
     JS_SELF_HOSTED_GET("z", "Int32x4Lane2", JSPROP_PERMANENT),
     JS_SELF_HOSTED_GET("w", "Int32x4Lane3", JSPROP_PERMANENT),
+    JS_SELF_HOSTED_GET("signMask", "Int32x4SignMask", JSPROP_PERMANENT),
     JS_PS_END
 };
 
-const JSFunctionSpec js::Int32x4Defn::TypedObjectMethods[] = {
+const JSFunctionSpec js::Int32x4Defn::TypeObjectMethods[] = {
     JS_SELF_HOSTED_FN("toSource", "X4ToSource", 0, 0),
     JS_FS_END
 };
@@ -1242,16 +1245,30 @@ const JSFunctionSpec js::Float32x4Defn::TypeDescriptorMethods[] = {
     JS_FS_END
 };
 
-const JSPropertySpec js::Float32x4Defn::TypedObjectProperties[] = {
+const JSFunctionSpec js::Int32x4Defn::TypeObjectStaticMethods[] = {
+    JS_SELF_HOSTED_FN("bool", "Int32x4Bool", 4, 0),
+    JS_SELF_HOSTED_FN("splat", "Int32x4Splat", 1, 0),
+    JS_SELF_HOSTED_FN("zero", "Int32x4Zero", 0, 0),
+    JS_FS_END
+};
+
+const JSPropertySpec js::Float32x4Defn::TypeObjectProperties[] = {
     JS_SELF_HOSTED_GET("x", "Float32x4Lane0", JSPROP_PERMANENT),
     JS_SELF_HOSTED_GET("y", "Float32x4Lane1", JSPROP_PERMANENT),
     JS_SELF_HOSTED_GET("z", "Float32x4Lane2", JSPROP_PERMANENT),
     JS_SELF_HOSTED_GET("w", "Float32x4Lane3", JSPROP_PERMANENT),
+    JS_SELF_HOSTED_GET("signMask", "Float32x4SignMask", JSPROP_PERMANENT),
     JS_PS_END
 };
 
-const JSFunctionSpec js::Float32x4Defn::TypedObjectMethods[] = {
+const JSFunctionSpec js::Float32x4Defn::TypeObjectMethods[] = {
     JS_SELF_HOSTED_FN("toSource", "X4ToSource", 0, 0),
+    JS_FS_END
+};
+
+const JSFunctionSpec js::Float32x4Defn::TypeObjectStaticMethods[] = {
+    JS_SELF_HOSTED_FN("splat", "Float32x4Splat", 1, 0),
+    JS_SELF_HOSTED_FN("zero", "Float32x4Zero", 0, 0),
     JS_FS_END
 };
 
@@ -1301,8 +1318,9 @@ CreateX4Class(JSContext *cx, Handle<GlobalObject*> global)
         return nullptr;
 
     if (!LinkConstructorAndPrototype(cx, x4, proto) ||
-        !DefinePropertiesAndBrand(cx, proto, T::TypedObjectProperties,
-                                  T::TypedObjectMethods))
+        !JS_DefineFunctions(cx, x4, T::TypeObjectStaticMethods) ||
+        !DefinePropertiesAndBrand(cx, proto, T::TypeObjectProperties,
+                                  T::TypeObjectMethods))
     {
         return nullptr;
     }
@@ -1429,7 +1447,7 @@ GlobalObject::initTypedObjectModule(JSContext *cx, Handle<GlobalObject*> global)
     if (!module)
         return false;
 
-    if (!JS_DefineFunctions(cx, module, TypedObjectMethods))
+    if (!JS_DefineFunctions(cx, module, TypeObjectMethods))
         return false;
 
     RootedValue moduleValue(cx, ObjectValue(*module));
@@ -1438,7 +1456,7 @@ GlobalObject::initTypedObjectModule(JSContext *cx, Handle<GlobalObject*> global)
     return true;
 }
 
-JSObject *
+JS_FRIEND_API(JSObject *)
 js_InitTypedObjectModuleObject(JSContext *cx, HandleObject obj)
 {
     /*
@@ -1483,8 +1501,14 @@ js_InitTypedObjectModuleObject(JSContext *cx, HandleObject obj)
     if (!float32x4Object)
         return nullptr;
 
+    // install float32x4 as a property of the TypedObject object and
+    // of the global object
     RootedValue float32x4Value(cx, ObjectValue(*float32x4Object));
     if (!JSObject::defineProperty(cx, module, cx->names().float32x4,
+                                  float32x4Value,
+                                  nullptr, nullptr,
+                                  JSPROP_READONLY | JSPROP_PERMANENT) ||
+        !JSObject::defineProperty(cx, global, cx->names().float32x4,
                                   float32x4Value,
                                   nullptr, nullptr,
                                   JSPROP_READONLY | JSPROP_PERMANENT))
@@ -1499,8 +1523,14 @@ js_InitTypedObjectModuleObject(JSContext *cx, HandleObject obj)
     if (!int32x4Object)
         return nullptr;
 
+    // install int32x4 as a property of the TypedObject object and
+    // of the global object
     RootedValue int32x4Value(cx, ObjectValue(*int32x4Object));
     if (!JSObject::defineProperty(cx, module, cx->names().int32x4,
+                                  int32x4Value,
+                                  nullptr, nullptr,
+                                  JSPROP_READONLY | JSPROP_PERMANENT) ||
+        !JSObject::defineProperty(cx, global, cx->names().int32x4,
                                   int32x4Value,
                                   nullptr, nullptr,
                                   JSPROP_READONLY | JSPROP_PERMANENT))

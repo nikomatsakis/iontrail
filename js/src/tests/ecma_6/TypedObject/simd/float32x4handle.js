@@ -8,7 +8,7 @@ var summary = 'float32x4 handles';
  */
 
 var ArrayType = TypedObject.ArrayType;
-var float32x4 = TypedObject.float32x4;
+
 var float32 = TypedObject.float32;
 var Handle = TypedObject.Handle;
 
@@ -43,7 +43,6 @@ function test() {
 
   if (typeof reportCompare === "function")
     reportCompare(true, true);
-  print("Tests complete");
 }
 
 test();

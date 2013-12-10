@@ -7,8 +7,6 @@ var summary = 'float32x4 getters';
  * http://creativecommons.org/licenses/publicdomain/
  */
 
-var float32x4 = TypedObject.float32x4;
-
 function test() {
   print(BUGNUMBER + ": " + summary);
 
@@ -39,13 +37,12 @@ function test() {
     g.call(v)
   }, TypeError, "Getter applicable to structs");
   assertThrowsInstanceOf(function() {
-    var t = new TypedObject.int32x4(1, 2, 3, 4);
+    var t = new int32x4(1, 2, 3, 4);
     g.call(t)
   }, TypeError, "Getter applicable to int32x4");
 
   if (typeof reportCompare === "function")
     reportCompare(true, true);
-  print("Tests complete");
 }
 
 test();

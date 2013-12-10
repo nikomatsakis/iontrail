@@ -9,7 +9,6 @@ var summary = 'int32x4 alignment';
 
 var StructType = TypedObject.StructType;
 var uint8 = TypedObject.uint8;
-var int32x4 = TypedObject.int32x4;
 
 function test() {
   print(BUGNUMBER + ": " + summary);
@@ -24,7 +23,6 @@ function test() {
 
   if (typeof reportCompare === "function")
     reportCompare(true, true);
-  print("Tests complete");
 }
 
 test();

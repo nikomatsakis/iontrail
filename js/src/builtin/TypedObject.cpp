@@ -64,20 +64,20 @@ ToObjectIfObject(HandleValue value)
 }
 
 static inline uint8_t *
-TypedMem(JSObject &val)
+TypedMem(const JSObject &val)
 {
     JS_ASSERT(IsTypedDatum(val));
     return (uint8_t*) val.getPrivate();
 }
 
-static inline bool IsTypeObject(JSObject &type);
+static inline bool IsTypeObject(const JSObject &type);
 
 /*
  * Given a user-visible type descriptor object, returns the
  * owner object for the TypeRepresentation* that we use internally.
  */
 static JSObject *
-typeRepresentationOwnerObj(JSObject &typeObj)
+typeRepresentationOwnerObj(const JSObject &typeObj)
 {
     JS_ASSERT(IsTypeObject(typeObj));
     return &typeObj.getReservedSlot(JS_TYPEOBJ_SLOT_TYPE_REPR).toObject();
@@ -90,55 +90,55 @@ typeRepresentationOwnerObj(JSObject &typeObj)
  * Note: this pointer is valid only so long as `typeObj` remains rooted.
  */
 static TypeRepresentation *
-typeRepresentation(JSObject &typeObj)
+typeRepresentation(const JSObject &typeObj)
 {
     return TypeRepresentation::fromOwnerObject(*typeRepresentationOwnerObj(typeObj));
 }
 
 static inline bool
-IsScalarTypeObject(JSObject &type)
+IsScalarTypeObject(const JSObject &type)
 {
     return type.hasClass(&ScalarType::class_);
 }
 
 static inline bool
-IsReferenceTypeObject(JSObject &type)
+IsReferenceTypeObject(const JSObject &type)
 {
     return type.hasClass(&ReferenceType::class_);
 }
 
 static inline bool
-IsSimpleTypeObject(JSObject &type)
+IsSimpleTypeObject(const JSObject &type)
 {
     return IsScalarTypeObject(type) || IsReferenceTypeObject(type);
 }
 
 static inline bool
-IsArrayTypeObject(JSObject &type)
+IsArrayTypeObject(const JSObject &type)
 {
     return type.hasClass(&ArrayType::class_);
 }
 
 static inline bool
-IsStructTypeObject(JSObject &type)
+IsStructTypeObject(const JSObject &type)
 {
     return type.hasClass(&StructType::class_);
 }
 
 static inline bool
-IsX4TypeObject(JSObject &type)
+IsX4TypeObject(const JSObject &type)
 {
     return type.hasClass(&X4Type::class_);
 }
 
 static inline bool
-IsComplexTypeObject(JSObject &type)
+IsComplexTypeObject(const JSObject &type)
 {
     return IsArrayTypeObject(type) || IsStructTypeObject(type);
 }
 
 static inline bool
-IsTypeObject(JSObject &type)
+IsTypeObject(const JSObject &type)
 {
     return IsScalarTypeObject(type) ||
            IsReferenceTypeObject(type) ||
@@ -165,7 +165,7 @@ IsSizedTypeObject(JSObject &type)
 }
 
 static inline JSObject *
-GetType(JSObject &datum)
+GetType(const JSObject &datum)
 {
     JS_ASSERT(IsTypedDatum(datum));
     return &datum.getReservedSlot(JS_DATUM_SLOT_TYPE_OBJ).toObject();
@@ -2458,9 +2458,15 @@ TypedDatum::dataOffset()
 }
 
 TypeRepresentation *
-TypedDatum::typeRepresentation()
+TypedDatum::datumTypeRepresentation() const
 {
-    return typeRepresentation(GetType(*this));
+    return typeRepresentation(*GetType(*this));
+}
+
+uint8_t *
+TypedDatum::typedMem() const
+{
+    return TypedMem(*this);
 }
 
 /******************************************************************************

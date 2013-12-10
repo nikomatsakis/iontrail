@@ -357,8 +357,8 @@ class TypedDatum : public JSObject
     // Otherwise, use this to attach to memory referenced by another datum.
     void attach(JSObject &datum, uint32_t offset);
 
-    TypeRepresentation *typeRepresentation();
-    void *typedMem();
+    TypeRepresentation *datumTypeRepresentation() const;
+    uint8_t *typedMem() const;
 };
 
 class TypedObject : public TypedDatum
@@ -390,7 +390,7 @@ class TypedHandle : public TypedDatum
  * so create two concrete casting operations.
  */
 
-inline bool IsTypedDatum(JSObject &obj) {
+inline bool IsTypedDatum(const JSObject &obj) {
     return obj.is<TypedObject>() || obj.is<TypedHandle>();
 }
 

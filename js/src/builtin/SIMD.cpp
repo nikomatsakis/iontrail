@@ -114,9 +114,15 @@ js_InitSIMDClass(JSContext *cx, HandleObject obj)
 namespace js {
 struct Float32x4 {
     typedef float Elem;
+
     static const int32_t lanes = 4;
+
     static const X4TypeRepresentation::Type type =
         X4TypeRepresentation::TYPE_FLOAT32;
+
+    static JSObject &GetTypeObject(GlobalObject &obj) {
+        return obj.getFloat32x4TypeObject();
+    }
 };
 } // namespace js
 
@@ -134,10 +140,26 @@ static bool
 ObjectIsVector(JSObject &obj) {
     if (!IsTypedDatum(obj))
         return false;
-    TypeRepresentation *typeRepr = AsTypedDatum(obj).typeRepresentation();
+    TypeRepresentation *typeRepr = AsTypedDatum(obj).datumTypeRepresentation();
     if (typeRepr->kind() != TypeRepresentation::X4)
         return false;
     return typeRepr->asX4()->type() == V::type;
+}
+
+template<typename V>
+static JSObject *
+Create(JSContext *cx, typename V::Elem *data)
+{
+    RootedObject typeObj(cx, &V::GetTypeObject(*cx->global()));
+    JS_ASSERT(typeObj);
+
+    Rooted<TypedObject *> result(cx, TypedObject::createZeroed(cx, typeObj, 0));
+    if (!result)
+        return nullptr;
+
+    typename V::Elem *resultMem = (typename V::Elem *) result->typedMem();
+    memcpy(resultMem, data, sizeof(typename V::Elem) * V::lanes);
+    return result;
 }
 
 namespace js {
@@ -156,7 +178,7 @@ Oper(JSContext *cx, unsigned argc, Value *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
 
     if (argc < 2 ||
-        (!args[0].isObject() || !ObjectIsVector<V>(args[0].toObject()))
+        (!args[0].isObject() || !ObjectIsVector<V>(args[0].toObject())) ||
         (!args[1].isObject() || !ObjectIsVector<V>(args[1].toObject())))
     {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
@@ -164,14 +186,21 @@ Oper(JSContext *cx, unsigned argc, Value *vp)
         return false;
     }
 
-    typename V::Elem *left = AsTypedDatum(args[0].toObject()).typedMem();
-    typename V::Elem *right = AsTypedDatum(args[1].toObject()).typedMem();
+    typename V::Elem *left =
+        (typename V::Elem*) AsTypedDatum(args[0].toObject()).typedMem();
+    typename V::Elem *right =
+        (typename V::Elem*) AsTypedDatum(args[1].toObject()).typedMem();
 
     typename V::Elem result[V::lanes];
     for (int32_t i = 0; i < V::lanes; i++)
         result[i] = left[i] + right[i];
 
-    return V::Create(result);
+    RootedObject obj(cx, Create<V>(cx, result));
+    if (!obj)
+        return false;
+
+    args.rval().setObject(*obj);
+    return true;
 }
 
 const JSFunctionSpec js::Float32x4Methods[] = {

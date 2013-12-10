@@ -218,6 +218,15 @@ LIRGenerator::visitNewDerivedTypedObject(MNewDerivedTypedObject *ins)
 }
 
 bool
+LIRGenerator::visitNewX4TypedObject(MNewX4TypedObject *ins)
+{
+    LNewX4TypedObject *lir =
+        new LNewX4TypedObject(useRegisterAtStart(ins->data()),
+                              useRegisterAtStart(ins->type()));
+    return defineReturn(lir, ins) && assignSafepoint(lir, ins);
+}
+
+bool
 LIRGenerator::visitNewCallObjectPar(MNewCallObjectPar *ins)
 {
     const LAllocation &parThreadContext = useRegister(ins->forkJoinSlice());
@@ -2721,12 +2730,6 @@ LIRGenerator::visitStoreTypedArrayElementHole(MStoreTypedArrayElementHole *ins)
     else
         value = useRegisterOrNonDoubleConstant(ins->value());
     return add(new LStoreTypedArrayElementHole(elements, length, index, value), ins);
-}
-
-bool
-LIRGenerator::visitNewX4TypedObject(MNewX4TypedObject *ins)
-{
-    return true;
 }
 
 bool

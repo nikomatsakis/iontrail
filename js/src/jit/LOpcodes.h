@@ -33,6 +33,7 @@
     _(NewDenseArrayPar)             \
     _(NewCallObjectPar)             \
     _(NewDerivedTypedObject)        \
+    _(NewX4TypedObject)             \
     _(AbortPar)                     \
     _(InitElem)                     \
     _(InitElemGetterSetter)         \

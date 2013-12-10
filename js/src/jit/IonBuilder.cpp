@@ -10156,7 +10156,8 @@ IonBuilder::boxX4Value(X4TypeRepresentation::Type x4Type,
                        MDefinition *unboxed,
                        MDefinition **boxed)
 {
-    MNewX4TypedObject *n = MNewX4TypedObject::New(alloc(), unboxed, x4Type);
+    MConstant *type = constantInt(x4Type);
+    MNewX4TypedObject *n = MNewX4TypedObject::New(alloc(), unboxed, type);
     current->add(n);
     *boxed = n;
     return true;

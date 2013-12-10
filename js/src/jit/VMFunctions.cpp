@@ -922,5 +922,13 @@ JSObject *CreateDerivedTypedObj(JSContext *cx, HandleObject type,
     return TypedObject::createDerived(cx, type, owner, offset);
 }
 
+// TODO: figure out how to pass SIMD128 register through function call
+JSObject *CreateX4TypedObj(JSContext *cx, X4TypeRepresentation::Type x4Type)
+{
+    RootedObject typeReprObj(cx);
+    typeReprObj = X4TypeRepresentation::Create(cx, x4Type);
+    return TypedObject::createZeroed(cx, typeReprObj);
+}
+
 } // namespace jit
 } // namespace js

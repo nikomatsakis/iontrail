@@ -589,7 +589,6 @@ void
 MNewX4TypedObject::printOpcode(FILE *fp) const
 {
     MDefinition::printOpcode(fp);
-    fprintf(fp, " %s", X4TypeRepresentation::typeName(x4Type()));
 }
 
 void
@@ -786,7 +785,7 @@ MTypeBarrier::printOpcode(FILE *fp) const
     fprintf(fp, " ");
     getOperand(0)->printName(fp);
 }
- 
+
 void
 MPhi::removeOperand(size_t index)
 {
@@ -2352,7 +2351,7 @@ MCompare::evaluateConstantOperands(bool *result)
         int32_t comp = 0; // Default to equal.
         if (left != right)
             comp = CompareAtoms(&lhs.toString()->asAtom(), &rhs.toString()->asAtom());
-        
+
         switch (jsop_) {
           case JSOP_LT:
             *result = (comp < 0);

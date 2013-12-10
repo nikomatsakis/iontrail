@@ -3008,6 +3008,22 @@ CodeGenerator::visitNewDerivedTypedObject(LNewDerivedTypedObject *lir)
     return callVM(CreateDerivedTypedObjInfo, lir);
 }
 
+// TODO: figure out how to pass SIMD128 register though function call
+typedef JSObject *(*NewX4TypedObjectFn)(JSContext *,
+                                        X4TypeRepresentation::Type x4Type);
+static const VMFunction CreateX4TypedObjInfo =
+    FunctionInfo<NewX4TypedObjectFn>(CreateX4TypedObj);
+
+bool
+CodeGenerator::visitNewX4TypedObject(LNewX4TypedObject *lir)
+{
+    // Not yet made safe for par exec:
+    JS_ASSERT(gen->info().executionMode() == SequentialExecution);
+
+    pushArg(ToRegister(lir->type()));
+    return callVM(CreateX4TypedObjInfo, lir);
+}
+
 bool
 CodeGenerator::visitNewSlots(LNewSlots *lir)
 {

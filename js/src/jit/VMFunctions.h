@@ -660,6 +660,7 @@ bool InitBaselineFrameForOsr(BaselineFrame *frame, StackFrame *interpFrame,
 
 JSObject *CreateDerivedTypedObj(JSContext *cx, HandleObject type,
                                 HandleObject owner, int32_t offset);
+JSObject *CreateX4TypedObj(JSContext *cx, X4TypeRepresentation::Type x4Type);
 
 } // namespace jit
 } // namespace js

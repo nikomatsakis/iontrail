@@ -435,7 +435,7 @@ MacroAssembler::loadFromTypedArray(int arrayType, const T &src, AnyRegister dest
         load32(src, dest.gpr());
         break;
       case ScalarTypeRepresentation::TYPE_UINT32:
-        if (dest.isFloat()) {
+        if (dest.isFloatRegClass()) {
             load32(src, temp);
             convertUInt32ToDouble(temp, dest.fpu());
         } else {

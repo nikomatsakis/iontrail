@@ -21,11 +21,14 @@ class MoveResolver
     // guaranteed that Operand looks like this on all ISAs.
     class MoveOperand
     {
+      public:
         enum Kind {
             REG,
             FLOAT_REG,
+            SIMD128_REG,
             ADDRESS,
             FLOAT_ADDRESS,
+            SIMD128_ADDRESS,
             EFFECTIVE_ADDRESS
         };
 
@@ -34,25 +37,26 @@ class MoveResolver
         int32_t disp_;
 
       public:
-        enum AddressKind {
-            MEMORY = ADDRESS,
-            EFFECTIVE = EFFECTIVE_ADDRESS,
-            FLOAT = FLOAT_ADDRESS
-        };
-
         MoveOperand()
         { }
         explicit MoveOperand(const Register &reg) : kind_(REG), code_(reg.code())
         { }
-        explicit MoveOperand(const FloatRegister &reg) : kind_(FLOAT_REG), code_(reg.code())
-        { }
-        MoveOperand(const Register &reg, int32_t disp, AddressKind addrKind = MEMORY)
-            : kind_((Kind) addrKind),
+        explicit MoveOperand(const FloatRegister &reg, Kind kind) : kind_(kind), code_(reg.code())
+        {
+            JS_ASSERT(kind == FLOAT_REG || kind == SIMD128_REG);
+        }
+        MoveOperand(const Register &reg, int32_t disp, Kind kind)
+            : kind_(kind),
             code_(reg.code()),
             disp_(disp)
         {
+            JS_ASSERT(kind == ADDRESS ||
+                      kind == FLOAT_ADDRESS ||
+                      kind == SIMD128_ADDRESS ||
+                      kind == EFFECTIVE_ADDRESS);
+
             // With a zero offset, this is a plain reg-to-reg move.
-            if (disp == 0 && addrKind == EFFECTIVE)
+            if (disp == 0 && kind == EFFECTIVE_ADDRESS)
                 kind_ = REG;
         }
         MoveOperand(const MoveOperand &other)
@@ -66,13 +70,16 @@ class MoveResolver
         bool isGeneralReg() const {
             return kind_ == REG;
         }
-        bool isDouble() const {
-            return kind_ == FLOAT_REG || kind_ == FLOAT_ADDRESS;
+        bool isSIMD128Reg() const {
+            return kind_ == SIMD128_REG;
         }
         bool isMemory() const {
             return kind_ == ADDRESS;
         }
         bool isFloatAddress() const {
+            return kind_ == FLOAT_ADDRESS;
+        }
+        bool isSIMD128Address() const {
             return kind_ == FLOAT_ADDRESS;
         }
         bool isEffectiveAddress() const {
@@ -87,11 +94,15 @@ class MoveResolver
             return FloatRegister::FromCode(code_);
         }
         Register base() const {
-            JS_ASSERT(isMemory() || isEffectiveAddress() || isFloatAddress());
+            JS_ASSERT(isMemory() || isEffectiveAddress() || isFloatAddress() || isSIMD128Address());
             return Register::FromCode(code_);
         }
         int32_t disp() const {
+            JS_ASSERT(isMemory() || isEffectiveAddress() || isFloatAddress() || isSIMD128Address());
             return disp_;
+        }
+        Kind kind() const {
+            return kind_;
         }
 
         bool operator ==(const MoveOperand &other) const {
@@ -99,7 +110,7 @@ class MoveResolver
                 return false;
             if (code_ != other.code_)
                 return false;
-            if (isMemory() || isEffectiveAddress())
+            if (isMemory() || isEffectiveAddress() || isFloatAddress() || isSIMD128Address())
                 return disp_ == other.disp_;
             return true;
         }
@@ -118,7 +129,8 @@ class MoveResolver
       public:
         enum Kind {
             GENERAL,
-            DOUBLE
+            DOUBLE,
+            SIMD128
         };
 
       protected:

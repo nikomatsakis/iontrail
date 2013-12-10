@@ -1023,7 +1023,9 @@ CodeGeneratorARM::toMoveOperand(const LAllocation *a) const
     if (a->isGeneralReg())
         return MoveOperand(ToRegister(a));
     if (a->isFloatReg())
-        return MoveOperand(ToFloatRegister(a));
+        return MoveOperand(ToFloatRegister(a), MoveOperand::FLOAT_REG);
+    if (a->isSIMD128RegClass())
+        return MoveOperand(ToFloatRegister(a), MoveOperand::SIMD128_REG);
     JS_ASSERT((ToStackOffset(a) & 3) == 0);
     int32_t offset = ToStackOffset(a);
 

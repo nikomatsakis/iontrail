@@ -33,7 +33,7 @@ MoveEmitterX86::characterizeCycle(const MoveResolver &moves, size_t i,
         // to optimize it.
         if (!move.to().isGeneralReg())
             *allGeneralRegs = false;
-        if (!move.to().isFloatReg())
+        if (!move.to().isFloatReg() && !move.to().isSIMD128Reg())
             *allFloatRegs = false;
         if (!*allGeneralRegs && !*allFloatRegs)
             return -1;
@@ -128,10 +128,18 @@ MoveEmitterX86::emit(const MoveResolver &moves)
         }
 
         // A normal move which is not part of a cycle.
-        if (move.kind() == Move::DOUBLE)
-            emitDoubleMove(from, to);
-        else
+        switch (move.kind()) {
+          case Move::GENERAL:
             emitGeneralMove(from, to);
+            break;
+          case Move::DOUBLE:
+            emitDoubleMove(from, to);
+            break;
+          case Move::SIMD128:
+            MOZ_ASSUME_UNREACHABLE("FIXME");
+          default:
+            MOZ_ASSUME_UNREACHABLE("Unknown kind");
+        }
     }
 }
 
@@ -212,15 +220,23 @@ MoveEmitterX86::breakCycle(const MoveOperand &to, Move::Kind kind)
     //
     // This case handles (A -> B), which we reach first. We save B, then allow
     // the original move to continue.
-    if (kind == Move::DOUBLE) {
+    switch (kind) {
+      case Move::GENERAL:
+        masm.Push(toOperand(to));
+        break;
+      case Move::DOUBLE:
         if (to.isMemory()) {
             masm.loadDouble(toAddress(to), ScratchFloatReg);
             masm.storeDouble(ScratchFloatReg, cycleSlot());
         } else {
             masm.storeDouble(to.floatReg(), cycleSlot());
         }
-    } else {
-        masm.Push(toOperand(to));
+        break;
+      case Move::SIMD128:
+        MOZ_ASSUME_UNREACHABLE("FIXME");
+        break;
+      default:
+        MOZ_ASSUME_UNREACHABLE("Unknown kind");
     }
 }
 
@@ -233,19 +249,26 @@ MoveEmitterX86::completeCycle(const MoveOperand &to, Move::Kind kind)
     //
     // This case handles (B -> A), which we reach last. We emit a move from the
     // saved value of B, to A.
-    if (kind == Move::DOUBLE) {
+    switch (kind) {
+      case Move::GENERAL:
+        if (to.isMemory()) {
+            masm.Pop(toPopOperand(to));
+        } else {
+            masm.Pop(to.reg());
+        }
+        break;
+      case Move::DOUBLE:
         if (to.isMemory()) {
             masm.loadDouble(cycleSlot(), ScratchFloatReg);
             masm.storeDouble(ScratchFloatReg, toAddress(to));
         } else {
             masm.loadDouble(cycleSlot(), to.floatReg());
         }
-    } else {
-        if (to.isMemory()) {
-            masm.Pop(toPopOperand(to));
-        } else {
-            masm.Pop(to.reg());
-        }
+        break;
+      case Move::SIMD128:
+        MOZ_ASSUME_UNREACHABLE("FIXME");
+      default:
+        MOZ_ASSUME_UNREACHABLE("Unknown kind");
     }
 }
 
@@ -301,7 +324,7 @@ MoveEmitterX86::emitDoubleMove(const MoveOperand &from, const MoveOperand &to)
         masm.loadDouble(toAddress(from), to.floatReg());
     } else {
         // Memory to memory float move.
-        JS_ASSERT(from.isMemory());
+        JS_ASSERT(from.isFloatAddress());
         masm.loadDouble(toAddress(from), ScratchFloatReg);
         masm.storeDouble(ScratchFloatReg, toAddress(to));
     }

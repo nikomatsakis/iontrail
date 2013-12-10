@@ -28,7 +28,7 @@ StupidAllocator::stackLocation(uint32_t vreg)
     if (def->policy() == LDefinition::PRESET && def->output()->isArgument())
         return def->output();
 
-    return new LStackSlot(DefaultStackSlot(vreg), def->type() == LDefinition::DOUBLE);
+    return new(alloc()) LStackSlot(DefaultStackSlot(vreg), LDefinition::spillKind(def->type()));
 }
 
 StupidAllocator::RegisterIndex
@@ -162,7 +162,7 @@ StupidAllocator::allocateRegister(LInstruction *ins, uint32_t vreg)
     for (size_t i = 0; i < registerCount; i++) {
         AnyRegister reg = registers[i].reg;
 
-        if (reg.isFloat() != (def->type() == LDefinition::DOUBLE))
+        if (reg.isFloatRegClass() != def->isFloatRegClass())
             continue;
 
         // Skip the register if it is in use for an allocated input or output.

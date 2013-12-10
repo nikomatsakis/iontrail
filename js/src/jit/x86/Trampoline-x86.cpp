@@ -621,23 +621,23 @@ JitRuntime::generateVMWrapper(JSContext *cx, const VMFunction &f)
             MoveOperand from;
             switch (f.argProperties(explicitArg)) {
               case VMFunction::WordByValue:
-                masm.passABIArg(MoveOperand(argsBase, argDisp));
+                masm.passABIArg(MoveOperand(argsBase, argDisp, MoveOperand::ADDRESS));
                 argDisp += sizeof(void *);
                 break;
               case VMFunction::DoubleByValue:
                 // We don't pass doubles in float registers on x86, so no need
                 // to check for argPassedInFloatReg.
-                masm.passABIArg(MoveOperand(argsBase, argDisp));
+                masm.passABIArg(MoveOperand(argsBase, argDisp, MoveOperand::ADDRESS));
                 argDisp += sizeof(void *);
-                masm.passABIArg(MoveOperand(argsBase, argDisp));
+                masm.passABIArg(MoveOperand(argsBase, argDisp, MoveOperand::ADDRESS));
                 argDisp += sizeof(void *);
                 break;
               case VMFunction::WordByRef:
-                masm.passABIArg(MoveOperand(argsBase, argDisp, MoveOperand::EFFECTIVE));
+                masm.passABIArg(MoveOperand(argsBase, argDisp, MoveOperand::EFFECTIVE_ADDRESS));
                 argDisp += sizeof(void *);
                 break;
               case VMFunction::DoubleByRef:
-                masm.passABIArg(MoveOperand(argsBase, argDisp, MoveOperand::EFFECTIVE));
+                masm.passABIArg(MoveOperand(argsBase, argDisp, MoveOperand::EFFECTIVE_ADDRESS));
                 argDisp += 2 * sizeof(void *);
                 break;
             }

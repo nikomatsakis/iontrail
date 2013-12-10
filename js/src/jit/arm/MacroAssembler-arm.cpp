@@ -3507,7 +3507,9 @@ MacroAssemblerARMCompat::passABIArg(const MoveOperand &from)
     ++passedArgs_;
     if (!enoughMemory_)
         return;
-    if (from.isDouble()) {
+    switch (from.kind()) {
+      case MoveOperand::FLOAT_REG:
+      case MoveOperand::FLOAT_ADDRESS: {
         FloatRegister fr;
         if (GetFloatArgReg(usedIntSlots_, usedFloatSlots_, &fr)) {
             if (!from.isFloatReg() || from.floatReg() != fr) {
@@ -3521,7 +3523,10 @@ MacroAssemblerARMCompat::passABIArg(const MoveOperand &from)
             enoughMemory_ = moveResolver_.addMove(from, MoveOperand(sp, disp), Move::DOUBLE);
         }
         usedFloatSlots_++;
-    } else {
+        break;
+      }
+      case MoveOperand::REG:
+      case MoveOperand::ADDRESS: {
         Register r;
         if (GetIntArgReg(usedIntSlots_, usedFloatSlots_, &r)) {
             if (!from.isGeneralReg() || from.reg() != r) {
@@ -3533,6 +3538,13 @@ MacroAssemblerARMCompat::passABIArg(const MoveOperand &from)
             enoughMemory_ = moveResolver_.addMove(from, MoveOperand(sp, disp), Move::GENERAL);
         }
         usedIntSlots_++;
+        break;
+      }
+      case MoveOperand::SIMD128_REG:
+      case MoveOperand::SIMD128_ADDRESS:
+        MOZ_ASSUME_UNREACHABLE("FIXME");
+      default:
+        MOZ_ASSUME_UNREACHABLE("Unexpected kind");
     }
 
 }
@@ -3541,6 +3553,9 @@ MacroAssemblerARMCompat::passABIArg(const MoveOperand &from)
 void
 MacroAssemblerARMCompat::passABIArg(const MoveOperand &from)
 {
+    // FIXME: The code below doesn't handle this yet.
+    JS_ASSERT(!from.isSIMD128());
+
     MoveOperand to;
     uint32_t increment = 1;
     bool useResolver = true;

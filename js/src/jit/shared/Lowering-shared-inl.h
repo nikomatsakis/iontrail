@@ -398,7 +398,7 @@ LIRGeneratorShared::useFixed(MDefinition *mir, FloatRegister reg)
 LUse
 LIRGeneratorShared::useFixed(MDefinition *mir, AnyRegister reg)
 {
-    return reg.isFloat() ? use(mir, reg.fpu()) : use(mir, reg.gpr());
+    return reg.isFloatRegClass() ? use(mir, reg.fpu()) : use(mir, reg.gpr());
 }
 
 LDefinition

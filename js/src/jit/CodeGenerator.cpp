@@ -25,6 +25,7 @@
 #include "jit/IonSpewer.h"
 #include "jit/MIRGenerator.h"
 #include "jit/MoveEmitter.h"
+#include "jit/MoveResolver.h"
 #include "jit/ParallelFunctions.h"
 #include "jit/ParallelSafetyAnalysis.h"
 #include "jit/RangeAnalysis.h"
@@ -1182,9 +1183,9 @@ CodeGenerator::visitMoveGroup(LMoveGroup *group)
         JS_ASSERT(!from->isConstant());
         JS_ASSERT(from->isDouble() == to->isDouble());
 
-        MoveResolver::Move::Kind kind = from->isDouble()
-                                        ? MoveResolver::Move::DOUBLE
-                                        : MoveResolver::Move::GENERAL;
+        MoveResolver::Move::Kind kind = from->isDouble() ? MoveResolver::Move::DOUBLE :
+                                        from->isSIMD128() ? MoveResolver::Move::SIMD128 :
+                                        MoveResolver::Move::GENERAL;
 
         if (!resolver.addMove(toMoveOperand(from), toMoveOperand(to), kind))
             return false;
@@ -3037,8 +3038,8 @@ bool CodeGenerator::visitAtan2D(LAtan2D *lir)
     FloatRegister x = ToFloatRegister(lir->x());
 
     masm.setupUnalignedABICall(2, temp);
-    masm.passABIArg(y);
-    masm.passABIArg(x);
+    masm.passABIArg(y, MoveResolver::MoveOperand::FLOAT_REG);
+    masm.passABIArg(x, MoveResolver::MoveOperand::FLOAT_REG);
     masm.callWithABI(JS_FUNC_TO_DATA_PTR(void *, ecmaAtan2), MacroAssembler::DOUBLE);
 
     JS_ASSERT(ToFloatRegister(lir->output()) == ReturnFloatReg);
@@ -3052,8 +3053,8 @@ bool CodeGenerator::visitHypot(LHypot *lir)
     FloatRegister y = ToFloatRegister(lir->y());
 
     masm.setupUnalignedABICall(2, temp);
-    masm.passABIArg(x);
-    masm.passABIArg(y);
+    masm.passABIArg(x, MoveResolver::MoveOperand::FLOAT_REG);
+    masm.passABIArg(y, MoveResolver::MoveOperand::FLOAT_REG);
     masm.callWithABI(JS_FUNC_TO_DATA_PTR(void *, ecmaHypot), MacroAssembler::DOUBLE);
 
     JS_ASSERT(ToFloatRegister(lir->output()) == ReturnFloatReg);
@@ -3819,7 +3820,7 @@ CodeGenerator::visitPowI(LPowI *ins)
     // its scratch register. We can therefore save an input register by
     // reusing the scratch register to pass constants to callWithABI.
     masm.setupUnalignedABICall(2, temp);
-    masm.passABIArg(value);
+    masm.passABIArg(value, MoveResolver::MoveOperand::FLOAT_REG);
     masm.passABIArg(power);
 
     masm.callWithABI(JS_FUNC_TO_DATA_PTR(void *, js::powi), MacroAssembler::DOUBLE);
@@ -3836,8 +3837,8 @@ CodeGenerator::visitPowD(LPowD *ins)
     Register temp = ToRegister(ins->temp());
 
     masm.setupUnalignedABICall(2, temp);
-    masm.passABIArg(value);
-    masm.passABIArg(power);
+    masm.passABIArg(value, MoveResolver::MoveOperand::FLOAT_REG);
+    masm.passABIArg(power, MoveResolver::MoveOperand::FLOAT_REG);
     masm.callWithABI(JS_FUNC_TO_DATA_PTR(void *, ecmaPow), MacroAssembler::DOUBLE);
 
     JS_ASSERT(ToFloatRegister(ins->output()) == ReturnFloatReg);
@@ -3874,7 +3875,7 @@ CodeGenerator::visitMathFunctionD(LMathFunctionD *ins)
         masm.movePtr(ImmPtr(mathCache), temp);
         masm.passABIArg(temp);
     }
-    masm.passABIArg(input);
+    masm.passABIArg(input, MoveResolver::MoveOperand::FLOAT_REG);
 
 #   define MAYBE_CACHED(fcn) (mathCache ? (void*)fcn ## _impl : (void*)fcn ## _uncached)
 
@@ -3967,7 +3968,7 @@ CodeGenerator::visitMathFunctionF(LMathFunctionF *ins)
     JS_ASSERT(ToFloatRegister(ins->output()) == ReturnFloatReg);
 
     masm.setupUnalignedABICall(1, temp);
-    masm.passABIArg(input);
+    masm.passABIArg(input, MoveResolver::MoveOperand::FLOAT_REG);
 
     void *funptr = nullptr;
     switch (ins->mir()->function()) {
@@ -3998,8 +3999,8 @@ CodeGenerator::visitModD(LModD *ins)
     JS_ASSERT(ToFloatRegister(ins->output()) == ReturnFloatReg);
 
     masm.setupUnalignedABICall(2, temp);
-    masm.passABIArg(lhs);
-    masm.passABIArg(rhs);
+    masm.passABIArg(lhs, MoveResolver::MoveOperand::FLOAT_REG);
+    masm.passABIArg(rhs, MoveResolver::MoveOperand::FLOAT_REG);
 
     if (gen->compilingAsmJS())
         masm.callWithABI(AsmJSImm_ModD, MacroAssembler::DOUBLE);

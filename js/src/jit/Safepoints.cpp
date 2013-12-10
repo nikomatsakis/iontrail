@@ -450,7 +450,7 @@ PartFromStream(CompactBufferReader &stream, NunboxPartKind kind, uint32_t info)
         info = stream.readUnsigned();
 
     if (kind == Part_Stack)
-        return LStackSlot(info);
+        return LStackSlot(info, LAllocation::STACK_SLOT);
 
     JS_ASSERT(kind == Part_Arg);
     return LArgument(LAllocation::INT_ARGUMENT, info);

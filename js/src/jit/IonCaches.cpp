@@ -3149,7 +3149,7 @@ GenerateDenseElement(JSContext *cx, MacroAssembler &masm, IonCache::StubAttacher
         // Unbox the index.
         masm.unboxInt32(val, indexReg);
     } else {
-        JS_ASSERT(!index.reg().typedReg().isFloat());
+        JS_ASSERT(!index.reg().typedReg().isFloatRegClass());
         indexReg = index.reg().typedReg().gpr();
     }
 
@@ -3258,7 +3258,7 @@ GenerateGetTypedArrayElement(JSContext *cx, MacroAssembler &masm, IonCache::Stub
 
             str = masm.extractString(val, indexReg);
         } else {
-            JS_ASSERT(!index.reg().typedReg().isFloat());
+            JS_ASSERT(!index.reg().typedReg().isFloatRegClass());
             str = index.reg().typedReg().gpr();
         }
 
@@ -3290,7 +3290,7 @@ GenerateGetTypedArrayElement(JSContext *cx, MacroAssembler &masm, IonCache::Stub
             // Unbox the index.
             masm.unboxInt32(val, indexReg);
         } else {
-            JS_ASSERT(!index.reg().typedReg().isFloat());
+            JS_ASSERT(!index.reg().typedReg().isFloatRegClass());
             indexReg = index.reg().typedReg().gpr();
         }
     }
@@ -3409,7 +3409,7 @@ GetElementIC::attachArgumentsElement(JSContext *cx, IonScript *ion, JSObject *ob
     masm.branchTestMagic(Assembler::Equal, elemIdx, &failureRestoreIndex);
 
     if (output().hasTyped()) {
-        JS_ASSERT(!output().typedReg().isFloat());
+        JS_ASSERT(!output().typedReg().isFloatRegClass());
         JS_ASSERT(index().reg().type() == MIRType_Boolean ||
                   index().reg().type() == MIRType_Int32 ||
                   index().reg().type() == MIRType_String ||
@@ -3481,7 +3481,7 @@ GetElementIC::update(JSContext *cx, size_t cacheIndex, HandleObject obj,
             !cache.index().constant() &&
             (cache.index().reg().hasValue() ||
              cache.index().reg().type() == MIRType_Int32) &&
-            (cache.output().hasValue() || !cache.output().typedReg().isFloat()))
+            (cache.output().hasValue() || !cache.output().typedReg().isFloatRegClass()))
         {
             if (!cache.attachArgumentsElement(cx, ion, obj))
                 return false;

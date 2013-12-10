@@ -136,9 +136,18 @@ static inline bool
 DefinitionCompatibleWith(LInstruction *ins, const LDefinition *def, LAllocation alloc)
 {
     if (ins->isPhi()) {
-        if (def->type() == LDefinition::DOUBLE)
+        switch (def->type()) {
+          case LDefinition::BOX:
+          case LDefinition::OBJECT:
+          case LDefinition::GENERAL:
+            return alloc.isGeneralReg() || alloc.kind() == LAllocation::STACK_SLOT;
+          case LDefinition::DOUBLE:
             return alloc.isFloatReg() || alloc.kind() == LAllocation::DOUBLE_SLOT;
-        return alloc.isGeneralReg() || alloc.kind() == LAllocation::STACK_SLOT;
+          case LDefinition::SIMD128:
+            return alloc.isSIMD128Reg() || alloc.kind() == LAllocation::SIMD128_SLOT;
+          default:
+            MOZ_ASSUME_UNREACHABLE("Unexpected definition type");
+        }
     }
 
     switch (def->policy()) {
@@ -437,6 +446,9 @@ class VirtualRegister
     LDefinition::Type type() const {
         return def()->type();
     }
+    LAllocation::Kind spillKind() const {
+        return LDefinition::spillKind(type());
+    }
     bool isTemp() const {
         return isTemp_;
     }
@@ -472,8 +484,8 @@ class VirtualRegister
         interval->setIndex(found - intervals_.begin());
         return intervals_.insert(found, interval);
     }
-    bool isDouble() const {
-        return def_->type() == LDefinition::DOUBLE;
+    bool isFloatRegClass() const {
+        return def()->isFloatRegClass();
     }
 
     LiveInterval *intervalFor(CodePosition pos);

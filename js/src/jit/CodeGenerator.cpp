@@ -6959,7 +6959,8 @@ CodeGenerator::visitLoadTypedArrayElement(LLoadTypedArrayElement *lir)
 bool
 CodeGenerator::visitLoadX4Value(LLoadX4Value *lir)
 {
-   return true;
+    // TODO: emit native instructions.
+    return true;
 }
 
 

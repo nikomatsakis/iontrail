@@ -122,6 +122,7 @@
     _(MulI)                         \
     _(MathD)                        \
     _(MathF)                        \
+    _(MathFloat32x4)                \
     _(ModD)                         \
     _(BinaryV)                      \
     _(Concat)                       \

@@ -1365,7 +1365,7 @@ LIRGenerator::visitAdd(MAdd *ins)
     if (ins->specialization() == MIRType_float32x4) {
         JS_ASSERT(lhs->type() == MIRType_float32x4);
         ReorderCommutative(&lhs, &rhs);
-        return true;
+        return lowerForFPU(new LMathFloat32x4(JSOP_ADD), ins, lhs, rhs);
     }
 
     return lowerBinaryV(JSOP_ADD, ins);

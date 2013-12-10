@@ -1481,6 +1481,13 @@ CodeGeneratorX86Shared::visitMathF(LMathF *math)
 }
 
 bool
+CodeGeneratorX86Shared::visitMathFloat32x4(LMathFloat32x4 *math)
+{
+    // TODO: emit native instructions
+    return true;
+}
+
+bool
 CodeGeneratorX86Shared::visitFloor(LFloor *lir)
 {
     FloatRegister input = ToFloatRegister(lir->input());

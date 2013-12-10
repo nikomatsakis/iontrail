@@ -2622,6 +2622,27 @@ class LMathF: public LBinaryMath<0>
     }
 };
 
+// Performs an add, sub, mul, or div on two float32x4 values.
+class LMathFloat32x4: public LBinaryMath<0>
+{
+    JSOp jsop_;
+
+  public:
+    LIR_HEADER(MathFloat32x4)
+
+    LMathFloat32x4(JSOp jsop)
+      : jsop_(jsop)
+    { }
+
+    JSOp jsop() const {
+        return jsop_;
+    }
+
+    const char *extraName() const {
+        return js_CodeName[jsop_];
+    }
+};
+
 class LModD : public LBinaryMath<1>
 {
   public:

@@ -63,12 +63,6 @@ ToObjectIfObject(HandleValue value)
     return &value.toObject();
 }
 
-static inline bool
-IsTypedDatum(JSObject &obj)
-{
-    return obj.is<TypedObject>() || obj.is<TypedHandle>();
-}
-
 static inline uint8_t *
 TypedMem(JSObject &val)
 {
@@ -1450,34 +1444,6 @@ GlobalObject::initTypedObjectModule(JSContext *cx, Handle<GlobalObject*> global)
     if (!JS_DefineFunctions(cx, module, TypeObjectMethods))
         return false;
 
-    RootedValue moduleValue(cx, ObjectValue(*module));
-
-    global->setConstructor(JSProto_TypedObject, moduleValue);
-    return true;
-}
-
-JS_FRIEND_API(JSObject *)
-js_InitTypedObjectModuleObject(JSContext *cx, HandleObject obj)
-{
-    /*
-     * The initialization strategy for TypedObjects is mildly unusual
-     * compared to other classes. Because all of the types are members
-     * of a single global, `TypedObject`, we basically make the
-     * initialized for the `TypedObject` class populate the
-     * `TypedObject` global (which is referred to as "module" herein).
-     */
-
-    JS_ASSERT(obj->is<GlobalObject>());
-    Rooted<GlobalObject *> global(cx, &obj->as<GlobalObject>());
-
-    RootedObject module(cx, global->getOrCreateTypedObjectModule(cx));
-    if (!module)
-        return nullptr;
-
-    // Define TypedObject global.
-
-    RootedValue moduleValue(cx, ObjectValue(*module));
-
     // uint8, uint16, any, etc
 
 #define BINARYDATA_SCALAR_DEFINE(constant_, type_, name_)                       \
@@ -1587,13 +1553,23 @@ js_InitTypedObjectModuleObject(JSContext *cx, HandleObject obj)
     }
 
     // Everything is setup, install module on the global object:
+    RootedValue moduleValue(cx, ObjectValue(*module));
     if (!JSObject::defineProperty(cx, global, cx->names().TypedObject,
                                   moduleValue,
                                   nullptr, nullptr,
                                   0))
         return nullptr;
+    global->setConstructor(JSProto_TypedObject, moduleValue);
 
     return module;
+}
+
+JS_FRIEND_API(JSObject *)
+js_InitTypedObjectModuleObject(JSContext *cx, HandleObject obj)
+{
+    JS_ASSERT(obj->is<GlobalObject>());
+    Rooted<GlobalObject *> global(cx, &obj->as<GlobalObject>());
+    return global->getOrCreateTypedObjectModule(cx);
 }
 
 JSObject *
@@ -2479,6 +2455,12 @@ TypedDatum::obj_enumerate(JSContext *cx, HandleObject obj, JSIterateOp enum_op,
 TypedDatum::dataOffset()
 {
     return JSObject::getPrivateDataOffset(JS_DATUM_SLOTS);
+}
+
+TypeRepresentation *
+TypedDatum::typeRepresentation()
+{
+    return typeRepresentation(GetType(*this));
 }
 
 /******************************************************************************

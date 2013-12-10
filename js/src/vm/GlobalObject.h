@@ -108,9 +108,11 @@ class GlobalObject : public JSObject
     static const unsigned RUNTIME_CODEGEN_ENABLED = WARNED_WATCH_DEPRECATED + 1;
     static const unsigned DEBUGGERS               = RUNTIME_CODEGEN_ENABLED + 1;
     static const unsigned INTRINSICS              = DEBUGGERS + 1;
+    static const unsigned FLOAT32X4_TYPE_OBJECT   = INTRINSICS + 1;
+    static const unsigned INT32X4_TYPE_OBJECT     = FLOAT32X4_TYPE_OBJECT + 1;
 
     /* Total reserved-slot count for global objects. */
-    static const unsigned RESERVED_SLOTS = INTRINSICS + 1;
+    static const unsigned RESERVED_SLOTS = INT32X4_TYPE_OBJECT + 1;
 
     /*
      * The slot count must be in the public API for JSCLASS_GLOBAL_FLAGS, and
@@ -411,6 +413,18 @@ class GlobalObject : public JSObject
 
     JSObject *getOrCreateTypedObjectModule(JSContext *cx) {
         return getOrCreateObject(cx, APPLICATION_SLOTS + JSProto_TypedObject, initTypedObjectModule);
+    }
+
+    JSObject &getFloat32x4TypeObject(JSContext *cx) {
+        // only gets called from contexts where known to be initialized
+        JS_ASSERT(getSlotRef(FLOAT32X4_TYPE_OBJECT).isObject());
+        return getSlotRef(FLOAT32X4_TYPE_OBJECT).toObject();
+    }
+
+    JSObject &getInt32x4TypeObject(JSContext *cx) {
+        // only gets called from contexts where known to be initialized
+        JS_ASSERT(getSlotRef(INT32X4_TYPE_OBJECT).isObject());
+        return getSlotRef(INT32X4_TYPE_OBJECT).toObject();
     }
 
     TypedObjectModuleObject &getTypedObjectModule() const;

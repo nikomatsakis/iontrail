@@ -356,6 +356,9 @@ class TypedDatum : public JSObject
 
     // Otherwise, use this to attach to memory referenced by another datum.
     void attach(JSObject &datum, uint32_t offset);
+
+    TypeRepresentation *typeRepresentation();
+    void *typedMem();
 };
 
 class TypedObject : public TypedDatum
@@ -380,6 +383,21 @@ class TypedHandle : public TypedDatum
     static const Class class_;
     static const JSFunctionSpec handleStaticMethods[];
 };
+
+/*
+ * Because TypedDatum is a supertype of two concrete
+ * classes, we can't use JSObject.is() and JSObject.as(),
+ * so create two concrete casting operations.
+ */
+
+inline bool IsTypedDatum(JSObject &obj) {
+    return obj.is<TypedObject>() || obj.is<TypedHandle>();
+}
+
+inline TypedDatum &AsTypedDatum(JSObject &obj) {
+    JS_ASSERT(IsTypedDatum(obj));
+    return *static_cast<TypedDatum *>(&obj);
+}
 
 /*
  * Usage: NewTypedHandle(typeObj)

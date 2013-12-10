@@ -76,10 +76,13 @@ class LAllocation : public TempObject
         CONSTANT_INDEX, // Constant arbitrary index.
         GPR,            // General purpose register.
         FPU,            // Floating-point register.
+        SIMD128,        // 128-bit SIMD register.
         STACK_SLOT,     // 32-bit stack slot.
         DOUBLE_SLOT,    // 64-bit stack slot.
+        SIMD128_SLOT,   // 128-bit stack slot.
         INT_ARGUMENT,   // Argument slot that gets loaded into a GPR.
-        DOUBLE_ARGUMENT // Argument slot to be loaded into an FPR
+        DOUBLE_ARGUMENT,// Argument slot to be loaded into an FPR
+        SIMD128_ARGUMENT// Argument slot to be loaded into a 128-bit SIMD reg.
     };
 
   protected:
@@ -154,23 +157,37 @@ class LAllocation : public TempObject
     bool isFloatReg() const {
         return kind() == FPU;
     }
+    bool isSIMD128Reg() const {
+        return kind() == SIMD128;
+    }
     bool isStackSlot() const {
-        return kind() == STACK_SLOT || kind() == DOUBLE_SLOT;
+        return kind() == STACK_SLOT || kind() == DOUBLE_SLOT || kind() == SIMD128_SLOT;
     }
     bool isArgument() const {
-        return kind() == INT_ARGUMENT || kind() == DOUBLE_ARGUMENT;
+        return kind() == INT_ARGUMENT || kind() == DOUBLE_ARGUMENT || kind() == SIMD128_ARGUMENT;
     }
     bool isRegister() const {
-        return isGeneralReg() || isFloatReg();
+        return isGeneralReg() || isFloatReg() || isSIMD128Reg();
     }
-    bool isRegister(bool needFloat) const {
-        return needFloat ? isFloatReg() : isGeneralReg();
+    bool isFloatRegClass() const {
+        if (isFloatReg() || isSIMD128Reg())
+            return true;
+        if (isGeneralReg())
+            return false;
+        JS_ASSERT(!isRegister());
+        return false;
+    }
+    bool isRegister(bool needFloatRegClass) const {
+        return needFloatRegClass ? isFloatRegClass() : isGeneralReg();
     }
     bool isMemory() const {
         return isStackSlot() || isArgument();
     }
     bool isDouble() const {
         return kind() == DOUBLE_SLOT || kind() == FPU || kind() == DOUBLE_ARGUMENT;
+    }
+    bool isSIMD128() const {
+        return kind() == SIMD128_SLOT || kind() == SIMD128 || kind() == SIMD128_ARGUMENT;
     }
     inline LUse *toUse();
     inline const LUse *toUse() const;
@@ -359,12 +376,20 @@ class LConstantIndex : public LAllocation
 class LStackSlot : public LAllocation
 {
   public:
-    explicit LStackSlot(uint32_t slot, bool isDouble = false)
-      : LAllocation(isDouble ? DOUBLE_SLOT : STACK_SLOT, slot)
-    { }
+    explicit LStackSlot(uint32_t slot, LAllocation::Kind kind)
+      : LAllocation(kind, slot)
+    {
+        JS_ASSERT(kind == STACK_SLOT ||
+                  kind == DOUBLE_SLOT ||
+                  kind == SIMD128_SLOT);
+    }
 
-    bool isDouble() const {
+    bool isDoubleFIXME() const {
         return kind() == DOUBLE_SLOT;
+    }
+
+    bool isSIMD128() const {
+        return kind() == SIMD128_SLOT;
     }
 
     uint32_t slot() const {
@@ -447,6 +472,7 @@ class LDefinition
         OBJECT,     // Pointer that may be collected as garbage (GPR).
         SLOTS,      // Slots/elements pointer that may be moved by minor GCs (GPR).
         DOUBLE,     // 64-bit point value (FPU).
+        SIMD128,    // 128-bit value(XMM).
 #ifdef JS_NUNBOX32
         // A type virtual register must be followed by a payload virtual
         // register, as both will be tracked as a single gcthing.
@@ -456,6 +482,18 @@ class LDefinition
         BOX         // Joined box, for punbox systems. (GPR, gcthing)
 #endif
     };
+
+    static LAllocation::Kind spillKind(Type type) {
+        switch (type) {
+          case LDefinition::BOX:
+          case LDefinition::SLOTS:
+          case LDefinition::OBJECT:
+          case LDefinition::GENERAL: return LAllocation::STACK_SLOT;
+          case LDefinition::DOUBLE:  return LAllocation::DOUBLE_SLOT;
+          case LDefinition::SIMD128: return LAllocation::SIMD128_SLOT;
+          default: MOZ_ASSUME_UNREACHABLE("Unknown spill kind");
+        }
+    }
 
     void set(uint32_t index, Type type, Policy policy) {
         JS_STATIC_ASSERT(MAX_VIRTUAL_REGISTERS <= VREG_MASK);
@@ -529,6 +567,30 @@ class LDefinition
     uint32_t getReusedInput() const {
         JS_ASSERT(policy() == LDefinition::MUST_REUSE_INPUT);
         return output_.toConstantIndex()->index();
+    }
+
+    bool isRegClass() const {
+        switch (type()) {
+          case LDefinition::SLOTS:
+          case LDefinition::OBJECT:
+          case LDefinition::BOX:     return false;
+          case LDefinition::GENERAL:
+          case LDefinition::DOUBLE:
+          case LDefinition::SIMD128: return true;
+          default: MOZ_ASSUME_UNREACHABLE("Unknown register class");
+        }
+    }
+
+    bool isFloatRegClass() const {
+        switch (type()) {
+          case LDefinition::SLOTS:
+          case LDefinition::OBJECT:
+          case LDefinition::BOX:
+          case LDefinition::GENERAL: return false;
+          case LDefinition::DOUBLE:
+          case LDefinition::SIMD128: return true;
+          default: MOZ_ASSUME_UNREACHABLE("Unknown register class");
+        }
     }
 
     static inline Type TypeFrom(MIRType type) {
@@ -1452,7 +1514,7 @@ class LIRGraph
 
 LAllocation::LAllocation(const AnyRegister &reg)
 {
-    if (reg.isFloat())
+    if (reg.isFloatRegClass())
         *this = LFloatReg(reg.fpu());
     else
         *this = LGeneralReg(reg.gpr());

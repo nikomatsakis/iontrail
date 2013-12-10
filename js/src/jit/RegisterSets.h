@@ -26,63 +26,63 @@ struct AnyRegister {
         Registers::Code gpr_;
         FloatRegisters::Code fpu_;
     };
-    bool isFloat_;
+    bool isFloatRegClass_;
 
     AnyRegister()
     { }
     explicit AnyRegister(Register gpr) {
         gpr_ = gpr.code();
-        isFloat_ = false;
+        isFloatRegClass_ = false;
     }
     explicit AnyRegister(FloatRegister fpu) {
         fpu_ = fpu.code();
-        isFloat_ = true;
+        isFloatRegClass_ = true;
     }
     static AnyRegister FromCode(uint32_t i) {
         JS_ASSERT(i < Total);
         AnyRegister r;
         if (i < Registers::Total) {
             r.gpr_ = Register::Code(i);
-            r.isFloat_ = false;
+            r.isFloatRegClass_ = false;
         } else {
             r.fpu_ = FloatRegister::Code(i - Registers::Total);
-            r.isFloat_ = true;
+            r.isFloatRegClass_ = true;
         }
         return r;
     }
-    bool isFloat() const {
-        return isFloat_;
+    bool isFloatRegClass() const {
+        return isFloatRegClass_;
     }
     Register gpr() const {
-        JS_ASSERT(!isFloat());
+        JS_ASSERT(!isFloatRegClass());
         return Register::FromCode(gpr_);
     }
     FloatRegister fpu() const {
-        JS_ASSERT(isFloat());
+        JS_ASSERT(isFloatRegClass());
         return FloatRegister::FromCode(fpu_);
     }
     bool operator ==(const AnyRegister &other) const {
-        return isFloat()
-               ? (other.isFloat() && fpu_ == other.fpu_)
-               : (!other.isFloat() && gpr_ == other.gpr_);
+        return isFloatRegClass()
+               ? (other.isFloatRegClass() && fpu_ == other.fpu_)
+               : (!other.isFloatRegClass() && gpr_ == other.gpr_);
     }
     bool operator !=(const AnyRegister &other) const {
-        return isFloat()
-               ? (!other.isFloat() || fpu_ != other.fpu_)
-               : (other.isFloat() || gpr_ != other.gpr_);
+        return isFloatRegClass()
+               ? (!other.isFloatRegClass() || fpu_ != other.fpu_)
+               : (other.isFloatRegClass() || gpr_ != other.gpr_);
     }
     const char *name() const {
-        return isFloat()
+        return isFloatRegClass()
                ? FloatRegister::FromCode(fpu_).name()
                : Register::FromCode(gpr_).name();
     }
     const Code code() const {
-        return isFloat()
+        return isFloatRegClass()
                ? fpu_ + Registers::Total
                : gpr_;
     }
     bool volatile_() const {
-        return isFloat() ? fpu().volatile_() : gpr().volatile_();
+        return isFloatRegClass() ? fpu().volatile_() : gpr().volatile_();
     }
 };
 
@@ -532,7 +532,7 @@ class RegisterSet {
         return fpu_.has(reg);
     }
     bool has(AnyRegister reg) const {
-        return reg.isFloat() ? has(reg.fpu()) : has(reg.gpr());
+        return reg.isFloatRegClass() ? has(reg.fpu()) : has(reg.gpr());
     }
     void add(Register reg) {
         gpr_.add(reg);
@@ -541,7 +541,7 @@ class RegisterSet {
         fpu_.add(reg);
     }
     void add(const AnyRegister &any) {
-        if (any.isFloat())
+        if (any.isFloatRegClass())
             add(any.fpu());
         else
             add(any.gpr());
@@ -569,7 +569,7 @@ class RegisterSet {
         fpu_.addUnchecked(reg);
     }
     void addUnchecked(const AnyRegister &any) {
-        if (any.isFloat())
+        if (any.isFloatRegClass())
             addUnchecked(any.fpu());
         else
             addUnchecked(any.gpr());
@@ -593,7 +593,7 @@ class RegisterSet {
 #endif
     }
     void take(const AnyRegister &reg) {
-        if (reg.isFloat())
+        if (reg.isFloatRegClass())
             fpu_.take(reg.fpu());
         else
             gpr_.take(reg.gpr());
@@ -624,7 +624,7 @@ class RegisterSet {
         fpu_.takeUnchecked(reg);
     }
     void takeUnchecked(AnyRegister reg) {
-        if (reg.isFloat())
+        if (reg.isFloatRegClass())
             fpu_.takeUnchecked(reg.fpu());
         else
             gpr_.takeUnchecked(reg.gpr());

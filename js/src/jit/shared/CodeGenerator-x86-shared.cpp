@@ -1334,11 +1334,23 @@ typedef MoveResolver::MoveOperand MoveOperand;
 MoveOperand
 CodeGeneratorX86Shared::toMoveOperand(const LAllocation *a) const
 {
-    if (a->isGeneralReg())
+    switch (a->kind()) {
+      case LAllocation::GPR:
         return MoveOperand(ToRegister(a));
-    if (a->isFloatReg())
-        return MoveOperand(ToFloatRegister(a));
-    return MoveOperand(StackPointer, ToStackOffset(a));
+      case LAllocation::FPU:
+        return MoveOperand(ToFloatRegister(a), MoveOperand::FLOAT_REG);
+      case LAllocation::SIMD128:
+        return MoveOperand(ToFloatRegister(a), MoveOperand::SIMD128_REG);
+      case LAllocation::INT_ARGUMENT:
+      case LAllocation::STACK_SLOT:
+        return MoveOperand(StackPointer, ToStackOffset(a), MoveOperand::ADDRESS);
+      case LAllocation::DOUBLE_SLOT:
+        return MoveOperand(StackPointer, ToStackOffset(a), MoveOperand::FLOAT_ADDRESS);
+      case LAllocation::SIMD128_SLOT:
+        return MoveOperand(StackPointer, ToStackOffset(a), MoveOperand::SIMD128_ADDRESS);
+      default:
+        MOZ_ASSUME_UNREACHABLE("Unexpected kind");
+    }
 }
 
 class OutOfLineTableSwitch : public OutOfLineCodeBase<CodeGeneratorX86Shared>

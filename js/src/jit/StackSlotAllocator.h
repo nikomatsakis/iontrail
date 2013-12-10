@@ -16,6 +16,7 @@ class StackSlotAllocator
 {
     js::Vector<uint32_t, 4, SystemAllocPolicy> normalSlots;
     js::Vector<uint32_t, 4, SystemAllocPolicy> doubleSlots;
+    js::Vector<uint32_t, 4, SystemAllocPolicy> simd128Slots;
     uint32_t height_;
 
   public:
@@ -27,6 +28,9 @@ class StackSlotAllocator
     }
     void freeDoubleSlot(uint32_t index) {
         doubleSlots.append(index);
+    }
+    void freeSIMD128Slot(uint32_t index) {
+        simd128Slots.append(index);
     }
     void freeValueSlot(uint32_t index) {
         freeDoubleSlot(index);
@@ -40,11 +44,24 @@ class StackSlotAllocator
         height_ += (sizeof(double) / STACK_SLOT_SIZE);
         return height_;
     }
+    uint32_t allocateSIMD128Slot() {
+        if (!simd128Slots.empty())
+            return simd128Slots.popCopy();
+        if (ComputeByteAlignment(height_, SIMD128_STACK_ALIGNMENT))
+            normalSlots.append(++height_);
+        height_ += (16 / STACK_SLOT_SIZE);
+        return height_;
+    }
     uint32_t allocateSlot() {
         if (!normalSlots.empty())
             return normalSlots.popCopy();
         if (!doubleSlots.empty()) {
             uint32_t index = doubleSlots.popCopy();
+            normalSlots.append(index - 1);
+            return index;
+        }
+        if (!simd128Slots.empty()) {
+            uint32_t index = simd128Slots.popCopy();
             normalSlots.append(index - 1);
             return index;
         }

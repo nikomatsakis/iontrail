@@ -515,7 +515,7 @@ LinearScanAllocator::populateSafepoints()
             if (ins == reg->ins() && !reg->isTemp()) {
                 DebugOnly<LDefinition*> def = reg->def();
                 JS_ASSERT_IF(def->policy() == LDefinition::MUST_REUSE_INPUT,
-                             def->type() == LDefinition::GENERAL || def->type() == LDefinition::DOUBLE);
+                             def->isRegClass());
                 continue;
             }
 
@@ -825,9 +825,19 @@ LinearScanAllocator::allocateSlotFor(const LiveInterval *interval)
 
     if (IsNunbox(reg))
         return stackSlotAllocator.allocateValueSlot();
-    if (reg->isDouble())
+    switch (reg->type()) {
+      case LDefinition::GENERAL:
+      case LDefinition::BOX:
+      case LDefinition::SLOTS:
+      case LDefinition::OBJECT:
+        return stackSlotAllocator.allocateSlot();
+      case LDefinition::DOUBLE:
         return stackSlotAllocator.allocateDoubleSlot();
-    return stackSlotAllocator.allocateSlot();
+      case LDefinition::SIMD128:
+        return stackSlotAllocator.allocateSIMD128Slot();
+      default:
+        MOZ_ASSUME_UNREACHABLE("Unexpected type");
+    }
 }
 
 bool
@@ -870,7 +880,7 @@ LinearScanAllocator::spill()
     }
     JS_ASSERT(stackSlot <= stackSlotAllocator.stackHeight());
 
-    return assign(LStackSlot(stackSlot, reg->isDouble()));
+    return assign(LStackSlot(stackSlot, reg->spillKind()));
 }
 
 void
@@ -943,14 +953,14 @@ LinearScanAllocator::findBestFreeRegister(CodePosition *freeUntil)
 
     // Compute free-until positions for all registers
     CodePosition freeUntilPos[AnyRegister::Total];
-    bool needFloat = vregs[current->vreg()].isDouble();
-    for (RegisterSet regs(allRegisters_); !regs.empty(needFloat); ) {
-        AnyRegister reg = regs.takeAny(needFloat);
+    bool needFloatRegClass = vregs[current->vreg()].isFloatRegClass();
+    for (RegisterSet regs(allRegisters_); !regs.empty(needFloatRegClass); ) {
+        AnyRegister reg = regs.takeAny(needFloatRegClass);
         freeUntilPos[reg.code()] = CodePosition::MAX;
     }
     for (IntervalIterator i(active.begin()); i != active.end(); i++) {
         LAllocation *alloc = i->getAllocation();
-        if (alloc->isRegister(needFloat)) {
+        if (alloc->isRegister(needFloatRegClass)) {
             AnyRegister reg = alloc->toRegister();
             IonSpew(IonSpew_RegAlloc, "   Register %s not free", reg.name());
             freeUntilPos[reg.code()] = CodePosition::MIN;
@@ -958,7 +968,7 @@ LinearScanAllocator::findBestFreeRegister(CodePosition *freeUntil)
     }
     for (IntervalIterator i(inactive.begin()); i != inactive.end(); i++) {
         LAllocation *alloc = i->getAllocation();
-        if (alloc->isRegister(needFloat)) {
+        if (alloc->isRegister(needFloatRegClass)) {
             AnyRegister reg = alloc->toRegister();
             CodePosition pos = current->intersect(*i);
             if (pos != CodePosition::MIN && pos < freeUntilPos[reg.code()]) {
@@ -988,7 +998,7 @@ LinearScanAllocator::findBestFreeRegister(CodePosition *freeUntil)
         // it is available.
         LiveInterval *previous = vregs[current->vreg()].getInterval(current->index() - 1);
         LAllocation *alloc = previous->getAllocation();
-        if (alloc->isRegister(needFloat)) {
+        if (alloc->isRegister(needFloatRegClass)) {
             AnyRegister prevReg = alloc->toRegister();
             if (freeUntilPos[prevReg.code()] != CodePosition::MIN)
                 bestCode = prevReg.code();
@@ -1038,14 +1048,14 @@ LinearScanAllocator::findBestBlockedRegister(CodePosition *nextUsed)
 
     // Compute next-used positions for all registers
     CodePosition nextUsePos[AnyRegister::Total];
-    bool needFloat = vregs[current->vreg()].isDouble();
-    for (RegisterSet regs(allRegisters_); !regs.empty(needFloat); ) {
-        AnyRegister reg = regs.takeAny(needFloat);
+    bool needFloatRegClass = vregs[current->vreg()].isFloatRegClass();
+    for (RegisterSet regs(allRegisters_); !regs.empty(needFloatRegClass); ) {
+        AnyRegister reg = regs.takeAny(needFloatRegClass);
         nextUsePos[reg.code()] = CodePosition::MAX;
     }
     for (IntervalIterator i(active.begin()); i != active.end(); i++) {
         LAllocation *alloc = i->getAllocation();
-        if (alloc->isRegister(needFloat)) {
+        if (alloc->isRegister(needFloatRegClass)) {
             AnyRegister reg = alloc->toRegister();
             if (i->start().ins() == current->start().ins()) {
                 nextUsePos[reg.code()] = CodePosition::MIN;
@@ -1059,7 +1069,7 @@ LinearScanAllocator::findBestBlockedRegister(CodePosition *nextUsed)
     }
     for (IntervalIterator i(inactive.begin()); i != inactive.end(); i++) {
         LAllocation *alloc = i->getAllocation();
-        if (alloc->isRegister(needFloat)) {
+        if (alloc->isRegister(needFloatRegClass)) {
             AnyRegister reg = alloc->toRegister();
             CodePosition pos = i->nextUsePosAfter(current->start());
             if (pos < nextUsePos[reg.code()]) {

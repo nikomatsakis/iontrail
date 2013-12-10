@@ -197,6 +197,7 @@ static const char * const TypeChars[] =
     "i",            // INTEGER
     "o",            // OBJECT
     "f",            // DOUBLE
+    "v",            // SIMD128
 #ifdef JS_NUNBOX32
     "t",            // TYPE
     "d"             // PAYLOAD

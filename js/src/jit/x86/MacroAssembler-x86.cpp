@@ -167,12 +167,24 @@ MacroAssemblerX86::passABIArg(const MoveOperand &from)
 {
     ++passedArgs_;
     MoveOperand to = MoveOperand(StackPointer, stackForCall_);
-    if (from.isDouble()) {
+    switch (from.kind()) {
+      case MoveOperand::FLOAT_REG:
+      case MoveOperand::FLOAT_ADDRESS:
         stackForCall_ += sizeof(double);
         enoughMemory_ &= moveResolver_.addMove(from, to, Move::DOUBLE);
-    } else {
+        break;
+      case MoveOperand::REG:
+      case MoveOperand::ADDRESS:
         stackForCall_ += sizeof(int32_t);
         enoughMemory_ &= moveResolver_.addMove(from, to, Move::GENERAL);
+        break;
+      case MoveOperand::SIMD128_REG:
+      case MoveOperand::SIMD128_ADDRESS:
+        MOZ_ASSUME_UNREACHABLE("FIXME");
+        break;
+      default:
+        MOZ_ASSUME_UNREACHABLE("Unexpected kind");
+        break;
     }
 }
 

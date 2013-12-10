@@ -23,6 +23,30 @@ MoveResolver::resetState()
 bool
 MoveResolver::addMove(const MoveOperand &from, const MoveOperand &to, Move::Kind kind)
 {
+    switch (kind) {
+      case Move::GENERAL:
+        JS_ASSERT(from.kind() == MoveOperand::REG ||
+                  from.kind() == MoveOperand::ADDRESS ||
+                  from.kind() == MoveOperand::EFFECTIVE_ADDRESS);
+        JS_ASSERT(to.kind() == MoveOperand::REG ||
+                  to.kind() == MoveOperand::ADDRESS);
+        break;
+      case Move::DOUBLE:
+        JS_ASSERT(from.kind() == MoveOperand::FLOAT_REG ||
+                  from.kind() == MoveOperand::FLOAT_ADDRESS);
+        JS_ASSERT(to.kind() == MoveOperand::FLOAT_REG ||
+                  to.kind() == MoveOperand::FLOAT_ADDRESS);
+        break;
+      case Move::SIMD128:
+        JS_ASSERT(from.kind() == MoveOperand::SIMD128_REG ||
+                  from.kind() == MoveOperand::SIMD128_ADDRESS);
+        JS_ASSERT(to.kind() == MoveOperand::SIMD128_REG ||
+                  to.kind() == MoveOperand::SIMD128_ADDRESS);
+        break;
+      default:
+        MOZ_ASSUME_UNREACHABLE("Unexpected move kind");
+    }
+
     // Assert that we're not doing no-op moves.
     JS_ASSERT(!(from == to));
     PendingMove *pm = movePool_.allocate();

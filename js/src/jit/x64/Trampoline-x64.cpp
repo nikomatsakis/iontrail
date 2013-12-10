@@ -594,13 +594,13 @@ JitRuntime::generateVMWrapper(JSContext *cx, const VMFunction &f)
             switch (f.argProperties(explicitArg)) {
               case VMFunction::WordByValue:
                 if (f.argPassedInFloatReg(explicitArg))
-                    masm.passABIArg(MoveOperand(argsBase, argDisp, MoveOperand::FLOAT));
+                    masm.passABIArg(MoveOperand(argsBase, argDisp, MoveOperand::FLOAT_ADDRESS));
                 else
-                    masm.passABIArg(MoveOperand(argsBase, argDisp));
+                    masm.passABIArg(MoveOperand(argsBase, argDisp, MoveOperand::ADDRESS));
                 argDisp += sizeof(void *);
                 break;
               case VMFunction::WordByRef:
-                masm.passABIArg(MoveOperand(argsBase, argDisp, MoveOperand::EFFECTIVE));
+                masm.passABIArg(MoveOperand(argsBase, argDisp, MoveOperand::EFFECTIVE_ADDRESS));
                 argDisp += sizeof(void *);
                 break;
               case VMFunction::DoubleByValue:

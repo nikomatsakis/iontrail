@@ -344,7 +344,7 @@ ContextToPC(CONTEXT *context)
 static void
 SetRegisterToCoercedUndefined(CONTEXT *context, bool isFloat32, AnyRegister reg)
 {
-    if (reg.isFloat()) {
+    if (reg.isFloatRegClass()) {
         switch (reg.fpu().code()) {
           case JSC::X86Registers::xmm0:  SetXMMRegToNaN(isFloat32, &XMM_sig(context, 0)); break;
           case JSC::X86Registers::xmm1:  SetXMMRegToNaN(isFloat32, &XMM_sig(context, 1)); break;
@@ -504,7 +504,7 @@ static bool
 SetRegisterToCoercedUndefined(mach_port_t rtThread, x86_thread_state64_t &state,
                               const AsmJSHeapAccess &heapAccess)
 {
-    if (heapAccess.loadedReg().isFloat()) {
+    if (heapAccess.loadedReg().isFloatRegClass()) {
         kern_return_t kret;
 
         x86_float_state64_t fstate;

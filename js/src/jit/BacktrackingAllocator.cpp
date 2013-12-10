@@ -161,7 +161,7 @@ BacktrackingAllocator::tryGroupRegisters(uint32_t vreg0, uint32_t vreg1)
     // already grouped with reg0 or reg1.
     BacktrackingVirtualRegister *reg0 = &vregs[vreg0], *reg1 = &vregs[vreg1];
 
-    if (reg0->isDouble() != reg1->isDouble())
+    if (reg0->type() != reg1->type())
         return true;
 
     VirtualRegisterGroup *group0 = reg0->group(), *group1 = reg1->group();
@@ -636,7 +636,7 @@ BacktrackingAllocator::tryAllocateGroupRegister(PhysicalRegister &r, VirtualRegi
     if (!r.allocatable)
         return true;
 
-    if (r.reg.isFloat() != vregs[group->registers[0]].isDouble())
+    if (r.reg.isFloatRegClass() != vregs[group->registers[0]].isFloatRegClass())
         return true;
 
     bool allocatable = true;
@@ -686,7 +686,7 @@ BacktrackingAllocator::tryAllocateRegister(PhysicalRegister &r, LiveInterval *in
         return true;
 
     BacktrackingVirtualRegister *reg = &vregs[interval->vreg()];
-    if (reg->isDouble() != r.reg.isFloat())
+    if (reg->isFloatRegClass() != r.reg.isFloatRegClass())
         return true;
 
     JS_ASSERT_IF(interval->requirement()->kind() == Requirement::FIXED,
@@ -862,13 +862,25 @@ BacktrackingAllocator::spill(LiveInterval *interval)
     }
 
     uint32_t stackSlot;
-    if (reg->isDouble())
-        stackSlot = stackSlotAllocator.allocateDoubleSlot();
-    else
+    switch (reg->type()) {
+      case LDefinition::OBJECT:
+      case LDefinition::BOX:
+      case LDefinition::SLOTS:
+      case LDefinition::GENERAL:
         stackSlot = stackSlotAllocator.allocateSlot();
+        break;
+      case LDefinition::DOUBLE:
+        stackSlot = stackSlotAllocator.allocateDoubleSlot();
+        break;
+      case LDefinition::SIMD128:
+        stackSlot = stackSlotAllocator.allocateSIMD128Slot();
+        break;
+      default:
+        MOZ_ASSUME_UNREACHABLE("Unexpected definition type");
+    }
     JS_ASSERT(stackSlot <= stackSlotAllocator.stackHeight());
 
-    LStackSlot alloc(stackSlot, reg->isDouble());
+    LStackSlot alloc(stackSlot, reg->spillKind());
     interval->setAllocation(alloc);
 
     IonSpew(IonSpew_RegAlloc, "  Allocating spill location %s", alloc.toString());
@@ -1127,7 +1139,7 @@ BacktrackingAllocator::populateSafepoints()
             if (ins == reg->ins() && !reg->isTemp()) {
                 DebugOnly<LDefinition*> def = reg->def();
                 JS_ASSERT_IF(def->policy() == LDefinition::MUST_REUSE_INPUT,
-                             def->type() == LDefinition::GENERAL || def->type() == LDefinition::DOUBLE);
+                             def->isRegClass());
                 continue;
             }
 

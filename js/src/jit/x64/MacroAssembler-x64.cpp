@@ -137,20 +137,27 @@ void
 MacroAssemblerX64::passABIArg(const MoveOperand &from)
 {
     MoveOperand to;
-    if (from.isDouble()) {
+    switch (from.kind()) {
+      case MoveOperand::FLOAT_REG:
+      case MoveOperand::FLOAT_ADDRESS: {
         FloatRegister dest;
         if (GetFloatArgReg(passedIntArgs_, passedFloatArgs_++, &dest)) {
             if (from.isFloatReg() && from.floatReg() == dest) {
                 // Nothing to do; the value is in the right register already
                 return;
             }
-            to = MoveOperand(dest);
+            to = MoveOperand(dest, MoveOperand::FLOAT_REG);
         } else {
-            to = MoveOperand(StackPointer, stackForCall_);
+            to = MoveOperand(StackPointer, stackForCall_, MoveOperand::ADDRESS);
             stackForCall_ += sizeof(double);
         }
         enoughMemory_ = moveResolver_.addMove(from, to, Move::DOUBLE);
-    } else {
+      }
+      break;
+    case MoveOperand::REG:
+    case MoveOperand::ADDRESS:
+    case MoveOperand::EFFECTIVE_ADDRESS:
+      {
         Register dest;
         if (GetIntArgReg(passedIntArgs_++, passedFloatArgs_, &dest)) {
             if (from.isGeneralReg() && from.reg() == dest) {
@@ -159,10 +166,17 @@ MacroAssemblerX64::passABIArg(const MoveOperand &from)
             }
             to = MoveOperand(dest);
         } else {
-            to = MoveOperand(StackPointer, stackForCall_);
+            to = MoveOperand(StackPointer, stackForCall_, MoveOperand::ADDRESS);
             stackForCall_ += sizeof(int64_t);
         }
         enoughMemory_ = moveResolver_.addMove(from, to, Move::GENERAL);
+      }
+      break;
+    case MoveOperand::SIMD128_REG:
+    case MoveOperand::SIMD128_ADDRESS:
+      MOZ_ASSUME_UNREACHABLE("FIXME");
+    default:
+      MOZ_ASSUME_UNREACHABLE("Unexpected move kind");
     }
 }
 
@@ -173,9 +187,9 @@ MacroAssemblerX64::passABIArg(const Register &reg)
 }
 
 void
-MacroAssemblerX64::passABIArg(const FloatRegister &reg)
+MacroAssemblerX64::passABIArg(const FloatRegister &reg, MoveOperand::Kind kind)
 {
-    passABIArg(MoveOperand(reg));
+    passABIArg(MoveOperand(reg, kind));
 }
 
 void

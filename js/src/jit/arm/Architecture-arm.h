@@ -19,6 +19,7 @@ namespace jit {
 
 static const uint32_t STACK_SLOT_SIZE       = 4;
 static const uint32_t DOUBLE_STACK_ALIGNMENT = 2;
+static const uint32_t SIMD128_STACK_ALIGNMENT = 4;
 
 // In bytes: slots needed for potential memory->memory move spills.
 //   +8 for cycles

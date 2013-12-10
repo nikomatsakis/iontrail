@@ -2841,8 +2841,8 @@ ICBinaryArith_Double::Compiler::generateStubCode(MacroAssembler &masm)
         break;
       case JSOP_MOD:
         masm.setupUnalignedABICall(2, R0.scratchReg());
-        masm.passABIArg(FloatReg0);
-        masm.passABIArg(FloatReg1);
+        masm.passABIArg(FloatReg0, MoveResolver::MoveOperand::FLOAT_REG);
+        masm.passABIArg(FloatReg1, MoveResolver::MoveOperand::FLOAT_REG);
         masm.callWithABI(JS_FUNC_TO_DATA_PTR(void *, NumberMod), MacroAssembler::DOUBLE);
         JS_ASSERT(ReturnFloatReg == FloatReg0);
         break;
@@ -2968,7 +2968,7 @@ ICBinaryArith_DoubleWithInt32::Compiler::generateStubCode(MacroAssembler &masm)
         masm.bind(&truncateABICall);
         masm.push(intReg);
         masm.setupUnalignedABICall(1, scratchReg);
-        masm.passABIArg(FloatReg0);
+        masm.passABIArg(FloatReg0, MoveResolver::MoveOperand::FLOAT_REG);
         masm.callWithABI(JS_FUNC_TO_DATA_PTR(void *, js::ToInt32));
         masm.storeCallResult(scratchReg);
         masm.pop(intReg);

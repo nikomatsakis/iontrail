@@ -1052,7 +1052,7 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
     }
 
     void unboxValue(const ValueOperand &src, AnyRegister dest) {
-        if (dest.isFloat()) {
+        if (dest.isFloatRegClass()) {
             Label notInt32, end;
             branchTestInt32(Assembler::NotEqual, src, &notInt32);
             convertInt32ToDouble(src.valueReg(), dest.fpu());
@@ -1136,12 +1136,14 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
 
     template <typename T>
     void loadUnboxedValue(const T &src, MIRType type, AnyRegister dest) {
-        if (dest.isFloat())
+        if (dest.isFloatRegClass()) {
+            JS_ASSERT(type == MIRType_Double);
             loadInt32OrDouble(Operand(src), dest.fpu());
-        else if (type == MIRType_Int32 || type == MIRType_Boolean)
+        } else if (type == MIRType_Int32 || type == MIRType_Boolean) {
             movl(Operand(src), dest.gpr());
-        else
+        } else {
             unboxNonDouble(Operand(src), dest.gpr());
+        }
     }
 
     void loadInstructionPointerAfterCall(const Register &dest) {
@@ -1204,7 +1206,7 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
     // operations should be emitted while setting arguments.
     void passABIArg(const MoveOperand &from);
     void passABIArg(const Register &reg);
-    void passABIArg(const FloatRegister &reg);
+    void passABIArg(const FloatRegister &reg, MoveOperand::Kind kind);
 
   private:
     void callWithABIPre(uint32_t *stackAdjust);

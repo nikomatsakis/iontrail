@@ -108,15 +108,8 @@ MoveEmitterARM::breakCycle(const MoveOperand &from, const MoveOperand &to, Move:
     //
     // This case handles (A -> B), which we reach first. We save B, then allow
     // the original move to continue.
-    if (kind == Move::DOUBLE) {
-        if (to.isMemory()) {
-            FloatRegister temp = ScratchFloatReg;
-            masm.ma_vldr(toOperand(to, true), temp);
-            masm.ma_vstr(temp, cycleSlot());
-        } else {
-            masm.ma_vstr(to.floatReg(), cycleSlot());
-        }
-    } else {
+    switch (kind) {
+      case Move::GENERAL:
         // an non-vfp value
         if (to.isMemory()) {
             Register temp = tempReg();
@@ -130,6 +123,20 @@ MoveEmitterARM::breakCycle(const MoveOperand &from, const MoveOperand &to, Move:
             }
             masm.ma_str(to.reg(), cycleSlot());
         }
+        break;
+      case Move::DOUBLE:
+        if (to.isMemory()) {
+            FloatRegister temp = ScratchFloatReg;
+            masm.ma_vldr(toOperand(to, true), temp);
+            masm.ma_vstr(temp, cycleSlot());
+        } else {
+            masm.ma_vstr(to.floatReg(), cycleSlot());
+        }
+        break;
+      case Move::SIMD128:
+        MOZ_ASSUME_UNREACHABLE("FIXME");
+      default:
+        MOZ_ASSUME_UNREACHABLE("Unexpected type");
     }
 }
 
@@ -142,15 +149,8 @@ MoveEmitterARM::completeCycle(const MoveOperand &from, const MoveOperand &to, Mo
     //
     // This case handles (B -> A), which we reach last. We emit a move from the
     // saved value of B, to A.
-    if (kind == Move::DOUBLE) {
-        if (to.isMemory()) {
-            FloatRegister temp = ScratchFloatReg;
-            masm.ma_vldr(cycleSlot(), temp);
-            masm.ma_vstr(temp, toOperand(to, true));
-        } else {
-            masm.ma_vldr(cycleSlot(), to.floatReg());
-        }
-    } else {
+    switch (kind) {
+      case Move::GENERAL:
         if (to.isMemory()) {
             Register temp = tempReg();
             masm.ma_ldr(cycleSlot(), temp);
@@ -162,6 +162,20 @@ MoveEmitterARM::completeCycle(const MoveOperand &from, const MoveOperand &to, Mo
             }
             masm.ma_ldr(cycleSlot(), to.reg());
         }
+        break;
+      case Move::DOUBLE:
+        if (to.isMemory()) {
+            FloatRegister temp = ScratchFloatReg;
+            masm.ma_vldr(cycleSlot(), temp);
+            masm.ma_vstr(temp, toOperand(to, true));
+        } else {
+            masm.ma_vldr(cycleSlot(), to.floatReg());
+        }
+        break;
+      case Move::SIMD128:
+        MOZ_ASSUME_UNREACHABLE("FIXME");
+      default:
+        MOZ_ASSUME_UNREACHABLE("Unexpected type");
     }
 }
 
@@ -248,10 +262,18 @@ MoveEmitterARM::emit(const Move &move)
         inCycle_ = true;
     }
 
-    if (move.kind() == Move::DOUBLE)
-        emitDoubleMove(from, to);
-    else
+    switch (move.kind()) {
+      case Move::GENERAL:
         emitMove(from, to);
+        break;
+      case Move::DOUBLE:
+        emitDoubleMove(from, to);
+        break;
+      case Move::SIMD128:
+        MOZ_ASSUME_UNREACHABLE("FIXME");
+      default:
+        MOZ_ASSUME_UNREACHABLE("Unexpected type");
+    }
 }
 
 void

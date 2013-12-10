@@ -607,9 +607,8 @@ class LDefinition
           case MIRType_Float32:
             return LDefinition::DOUBLE;
           case MIRType_float32x4:
-            return LDefinition::FLOAT32X4;
           case MIRType_int32x4:
-            return LDefinition::INT32X4;
+            return LDefinition::SIMD128;
 #if defined(JS_PUNBOX64)
           case MIRType_Value:
             return LDefinition::BOX;
@@ -1530,7 +1529,7 @@ AnyRegister
 LAllocation::toRegister() const
 {
     JS_ASSERT(isRegister());
-    if (isFloatReg())
+    if (isFloatRegClass())
         return AnyRegister(toFloatReg()->reg());
     return AnyRegister(toGeneralReg()->reg());
 }

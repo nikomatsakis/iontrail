@@ -1209,7 +1209,7 @@ DefineSimpleTypeObject(JSContext *cx,
         int32_t result = mx | my << 1 | mz << 2 | mw << 3; \
         args.rval().setInt32(result); \
         return true; \
-    } 
+    }
     SIGN_MASK(Float32, float);
     SIGN_MASK(Int32, int32_t);
  #undef SIGN_MASK
@@ -1388,12 +1388,6 @@ X4Type::call(JSContext *cx, unsigned argc, Value *vp)
     }
     args.rval().setObject(*result);
     return true;
-}
-
-bool
-X4Type::is(const Value &v)
-{
-    return v.isObject() && v.toObject().hasClass(&X4Type::class_);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -1577,8 +1571,9 @@ GlobalObject::initTypedObjectModule(JSContext *cx, Handle<GlobalObject*> global)
         return nullptr;
     }
 
-    // Everything is set up, install module on the global object:
     RootedValue moduleValue(cx, ObjectValue(*module));
+    global->setConstructor(JSProto_TypedObject, moduleValue);
+    // Everything is set up, install module on the global object:
     if (!JSObject::defineProperty(cx, global, cx->names().TypedObject,
                                   moduleValue,
                                   nullptr, nullptr,
@@ -1586,7 +1581,6 @@ GlobalObject::initTypedObjectModule(JSContext *cx, Handle<GlobalObject*> global)
     {
         return nullptr;
     }
-    global->setConstructor(JSProto_TypedObject, moduleValue);
 
     return module;
 }

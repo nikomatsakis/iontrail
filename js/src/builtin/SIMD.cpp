@@ -65,7 +65,7 @@ SIMDObject::initClass(JSContext *cx, Handle<GlobalObject *> global)
     if (!SIMD)
         return nullptr;
 
-    // Get Float32x4 and Int32x4 Objects from TypedObject 
+    // Get Float32x4 and Int32x4 Objects from TypedObject
     RootedObject typedObject(cx, &global->getTypedObjectModule());
     RootedValue float32x4Value(cx);
     if(!JSObject::getProperty(cx,typedObject, typedObject,
@@ -140,7 +140,7 @@ struct Float32x4 {
     static JSObject &GetTypeObject(GlobalObject &obj) {
         return obj.getFloat32x4TypeObject();
     }
-    static Elem toType(Elem a) { 
+    static Elem toType(Elem a) {
         return a;
     }
 };
@@ -155,7 +155,7 @@ struct Int32x4 {
     static JSObject &GetTypeObject(GlobalObject &obj) {
         return obj.getInt32x4TypeObject();
     }
-    static Elem toType(Elem a) { 
+    static Elem toType(Elem a) {
         return ToInt32(a);
     }
 };

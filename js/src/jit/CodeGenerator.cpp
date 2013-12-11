@@ -6959,10 +6959,19 @@ CodeGenerator::visitLoadTypedArrayElement(LLoadTypedArrayElement *lir)
 bool
 CodeGenerator::visitLoadX4Value(LLoadX4Value *lir)
 {
-    // TODO: emit native instructions.
+    const LDefinition *result = lir->output();
+    FloatRegister resultReg = ToSIMD128Register(result);
+
+    Register elements = ToRegister(lir->elements());
+    if (lir->offset()->isConstant()) {
+        masm.loadSIMD128(Address(elements, ToInt32(lir->offset())), resultReg);
+    } else {
+        BaseIndex source(elements, ToRegister(lir->offset()), TimesOne);
+        masm.loadSIMD128(source, resultReg);
+    }
+
     return true;
 }
-
 
 bool
 CodeGenerator::visitLoadTypedArrayElementHole(LLoadTypedArrayElementHole *lir)

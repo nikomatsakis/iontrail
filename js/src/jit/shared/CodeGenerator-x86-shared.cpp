@@ -1330,7 +1330,7 @@ CodeGeneratorX86Shared::toMoveOperand(const LAllocation *a) const
       case LAllocation::FPU:
         return MoveOperand(ToFloatRegister(a), MoveOperand::FLOAT_REG);
       case LAllocation::SIMD128:
-        return MoveOperand(ToFloatRegister(a), MoveOperand::SIMD128_REG);
+        return MoveOperand(ToSIMD128Register(a), MoveOperand::SIMD128_REG);
       case LAllocation::INT_ARGUMENT:
       case LAllocation::STACK_SLOT:
         return MoveOperand(StackPointer, ToStackOffset(a), MoveOperand::ADDRESS);

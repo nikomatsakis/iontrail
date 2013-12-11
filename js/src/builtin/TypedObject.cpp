@@ -1469,6 +1469,7 @@ GlobalObject::initTypedObjectModule(JSContext *cx, Handle<GlobalObject*> global)
 
     // install float32x4 as a property of the TypedObject object and
     // of the global object
+    global->setFloat32x4TypeObject(*float32x4Object);
     RootedValue float32x4Value(cx, ObjectValue(*float32x4Object));
     if (!JSObject::defineProperty(cx, module, cx->names().float32x4,
                                   float32x4Value,
@@ -1491,6 +1492,7 @@ GlobalObject::initTypedObjectModule(JSContext *cx, Handle<GlobalObject*> global)
 
     // install int32x4 as a property of the TypedObject object and
     // of the global object
+    global->setInt32x4TypeObject(*int32x4Object);
     RootedValue int32x4Value(cx, ObjectValue(*int32x4Object));
     if (!JSObject::defineProperty(cx, module, cx->names().int32x4,
                                   int32x4Value,
@@ -1558,7 +1560,9 @@ GlobalObject::initTypedObjectModule(JSContext *cx, Handle<GlobalObject*> global)
                                   moduleValue,
                                   nullptr, nullptr,
                                   0))
+    {
         return nullptr;
+    }
     global->setConstructor(JSProto_TypedObject, moduleValue);
 
     return module;
@@ -1584,41 +1588,55 @@ js_InitTypedObjectDummy(JSContext *cx, HandleObject obj)
     MOZ_ASSUME_UNREACHABLE("shouldn't be initializing TypedObject via the JSProtoKey initializer mechanism");
 }
 
-bool
+/*
+ * Each type repr has an associated TI type object (these will
+ * eventually be used as the TI type objects for type objects, though
+ * they are not now). To create these TI type objects, we need to know
+ * the clasp/proto of the type object for a particular kind. This
+ * accessor function returns those. In the case of the predefined type
+ * objects, like scalars/references/x4s, this is invoked while
+ * creating the typed object module, and thus does not require that
+ * the typed object module is fully initialized. For array types and
+ * struct types, it is invoked when the user creates an instance of
+ * those types (and hence requires that the typed object module is
+ * already initialized).
+ */
+/*static*/ bool
 TypedObjectModuleObject::getSuitableClaspAndProto(JSContext *cx,
                                                   TypeRepresentation::Kind kind,
                                                   const Class **clasp,
                                                   MutableHandleObject proto)
 {
+    Rooted<GlobalObject *> global(cx, cx->global());
     switch (kind) {
       case TypeRepresentation::Scalar:
         *clasp = &ScalarType::class_;
-        proto.set(global().getOrCreateFunctionPrototype(cx));
+        proto.set(global->getOrCreateFunctionPrototype(cx));
         break;
 
       case TypeRepresentation::Reference:
         *clasp = &ReferenceType::class_;
-        proto.set(global().getOrCreateFunctionPrototype(cx));
+        proto.set(global->getOrCreateFunctionPrototype(cx));
         break;
 
       case TypeRepresentation::X4:
         *clasp = &X4Type::class_;
-        proto.set(global().getOrCreateFunctionPrototype(cx));
+        proto.set(global->getOrCreateFunctionPrototype(cx));
         break;
 
       case TypeRepresentation::Struct:
         *clasp = &StructType::class_;
-        proto.set(&getSlot(StructTypePrototype).toObject());
+        proto.set(&global->getTypedObjectModule().getSlot(StructTypePrototype).toObject());
         break;
 
       case TypeRepresentation::SizedArray:
         *clasp = &ArrayType::class_;
-        proto.set(&getSlot(ArrayTypePrototype).toObject());
+        proto.set(&global->getTypedObjectModule().getSlot(ArrayTypePrototype).toObject());
         break;
 
       case TypeRepresentation::UnsizedArray:
         *clasp = &ArrayType::class_;
-        proto.set(&getSlot(ArrayTypePrototype).toObject());
+        proto.set(&global->getTypedObjectModule().getSlot(ArrayTypePrototype).toObject());
         break;
     }
 

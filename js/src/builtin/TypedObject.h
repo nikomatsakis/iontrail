@@ -111,10 +111,10 @@ class TypedObjectModuleObject : public JSObject {
 
     static const Class class_;
 
-    bool getSuitableClaspAndProto(JSContext *cx,
-                                  TypeRepresentation::Kind kind,
-                                  const Class **clasp,
-                                  MutableHandleObject proto);
+    static bool getSuitableClaspAndProto(JSContext *cx,
+                                         TypeRepresentation::Kind kind,
+                                         const Class **clasp,
+                                         MutableHandleObject proto);
 };
 
 // Type for scalar type constructors like `uint8`. All such type

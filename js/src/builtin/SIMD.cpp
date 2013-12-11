@@ -165,7 +165,7 @@ Create(JSContext *cx, typename V::Elem *data)
 namespace js {
 template<typename T>
 struct Add {
-    static T add(T l, T r) {
+    static inline T apply(T l, T r) {
         return l + r;
     }
 };
@@ -193,7 +193,7 @@ Oper(JSContext *cx, unsigned argc, Value *vp)
 
     typename V::Elem result[V::lanes];
     for (int32_t i = 0; i < V::lanes; i++)
-        result[i] = left[i] + right[i];
+        result[i] = Op::apply(left[i], right[i]);
 
     RootedObject obj(cx, Create<V>(cx, result));
     if (!obj)

@@ -415,10 +415,20 @@ class GlobalObject : public JSObject
         return getOrCreateObject(cx, APPLICATION_SLOTS + JSProto_TypedObject, initTypedObjectModule);
     }
 
+    void setFloat32x4TypeObject(JSObject &obj) {
+        JS_ASSERT(getSlotRef(FLOAT32X4_TYPE_OBJECT).isUndefined());
+        setSlot(FLOAT32X4_TYPE_OBJECT, ObjectValue(obj));
+    }
+
     JSObject &getFloat32x4TypeObject() {
         // only gets called from contexts where known to be initialized
         JS_ASSERT(getSlotRef(FLOAT32X4_TYPE_OBJECT).isObject());
         return getSlotRef(FLOAT32X4_TYPE_OBJECT).toObject();
+    }
+
+    void setInt32x4TypeObject(JSObject &obj) {
+        JS_ASSERT(getSlotRef(INT32X4_TYPE_OBJECT).isUndefined());
+        setSlot(INT32X4_TYPE_OBJECT, ObjectValue(obj));
     }
 
     JSObject &getInt32x4TypeObject() {

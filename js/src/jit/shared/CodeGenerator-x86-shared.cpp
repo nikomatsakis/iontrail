@@ -1483,7 +1483,19 @@ CodeGeneratorX86Shared::visitMathF(LMathF *math)
 bool
 CodeGeneratorX86Shared::visitMathFloat32x4(LMathFloat32x4 *math)
 {
-    // TODO: emit native instructions
+    FloatRegister lhs = ToSIMD128Register(math->lhs());
+    Operand rhs = ToOperand(math->rhs());
+
+    JS_ASSERT(ToSIMD128Register(math->output()) == lhs);
+
+    switch (math->jsop()) {
+      case JSOP_ADD:
+        masm.addps(rhs, lhs);
+        break;
+      default:
+        MOZ_ASSUME_UNREACHABLE("unexpected opcode");
+        return false;
+    }
     return true;
 }
 

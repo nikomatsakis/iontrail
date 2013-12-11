@@ -1311,6 +1311,10 @@ class AssemblerX86Shared
         JS_ASSERT(HasSSE2());
         masm.addss_rr(src.code(), dest.code());
     }
+    void addps(const FloatRegister &src, const FloatRegister &dest) {
+        JS_ASSERT(HasSSE2());
+        masm.addps_rr(src.code(), dest.code());
+    }
     void addsd(const Operand &src, const FloatRegister &dest) {
         JS_ASSERT(HasSSE2());
         switch (src.kind()) {
@@ -1338,6 +1342,22 @@ class AssemblerX86Shared
             break;
           case Operand::MEM_ADDRESS32:
             masm.addss_mr(src.address(), dest.code());
+            break;
+          default:
+            MOZ_ASSUME_UNREACHABLE("unexpected operand kind");
+        }
+    }
+    void addps(const Operand &src, const FloatRegister &dest) {
+        JS_ASSERT(HasSSE2());
+        switch (src.kind()) {
+          case Operand::FPREG:
+            masm.addps_rr(src.fpu(), dest.code());
+            break;
+          case Operand::MEM_REG_DISP:
+            masm.addps_mr(src.disp(), src.base(), dest.code());
+            break;
+          case Operand::MEM_ADDRESS32:
+            masm.addps_mr(src.address(), dest.code());
             break;
           default:
             MOZ_ASSUME_UNREACHABLE("unexpected operand kind");

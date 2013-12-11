@@ -40,6 +40,8 @@ class CodeGeneratorX86Shared : public CodeGeneratorShared
             return Operand(a.toGeneralReg()->reg());
         if (a.isFloatReg())
             return Operand(a.toFloatReg()->reg());
+        if (a.isSIMD128Reg())
+            return Operand(a.toSIMD128Reg()->reg());
         return Operand(StackPointer, ToStackOffset(&a));
     }
     inline Operand ToOperand(const LAllocation *a) {

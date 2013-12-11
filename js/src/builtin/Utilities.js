@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "TypedObjectConstants.h"
-#include "TypedObjectSelfHosted.h"
-
 /*jshint bitwise: true, camelcase: false, curly: false, eqeqeq: true,
          es5: true, forin: true, immed: true, indent: 4, latedef: false,
          newcap: false, noarg: true, noempty: true, nonew: true,

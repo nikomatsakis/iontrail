@@ -1197,7 +1197,6 @@ class Int32x4Defn {
     static const JSFunctionSpec TypeDescriptorMethods[];
     static const JSPropertySpec TypeObjectProperties[];
     static const JSFunctionSpec TypeObjectMethods[];
-    static const JSFunctionSpec TypeObjectStaticMethods[];
 };
 class Float32x4Defn {
   public:
@@ -1205,7 +1204,6 @@ class Float32x4Defn {
     static const JSFunctionSpec TypeDescriptorMethods[];
     static const JSPropertySpec TypeObjectProperties[];
     static const JSFunctionSpec TypeObjectMethods[];
-    static const JSFunctionSpec TypeObjectStaticMethods[];
 };
 } // namespace js
 
@@ -1239,13 +1237,6 @@ const JSFunctionSpec js::Float32x4Defn::TypeDescriptorMethods[] = {
     JS_FS_END
 };
 
-const JSFunctionSpec js::Int32x4Defn::TypeObjectStaticMethods[] = {
-    JS_SELF_HOSTED_FN("bool", "Int32x4Bool", 4, 0),
-    JS_SELF_HOSTED_FN("splat", "Int32x4Splat", 1, 0),
-    JS_SELF_HOSTED_FN("zero", "Int32x4Zero", 0, 0),
-    JS_FS_END
-};
-
 const JSPropertySpec js::Float32x4Defn::TypeObjectProperties[] = {
     JS_SELF_HOSTED_GET("x", "Float32x4Lane0", JSPROP_PERMANENT),
     JS_SELF_HOSTED_GET("y", "Float32x4Lane1", JSPROP_PERMANENT),
@@ -1257,12 +1248,6 @@ const JSPropertySpec js::Float32x4Defn::TypeObjectProperties[] = {
 
 const JSFunctionSpec js::Float32x4Defn::TypeObjectMethods[] = {
     JS_SELF_HOSTED_FN("toSource", "X4ToSource", 0, 0),
-    JS_FS_END
-};
-
-const JSFunctionSpec js::Float32x4Defn::TypeObjectStaticMethods[] = {
-    JS_SELF_HOSTED_FN("splat", "Float32x4Splat", 1, 0),
-    JS_SELF_HOSTED_FN("zero", "Float32x4Zero", 0, 0),
     JS_FS_END
 };
 
@@ -1312,7 +1297,6 @@ CreateX4Class(JSContext *cx, Handle<GlobalObject*> global)
         return nullptr;
 
     if (!LinkConstructorAndPrototype(cx, x4, proto) ||
-        !JS_DefineFunctions(cx, x4, T::TypeObjectStaticMethods) ||
         !DefinePropertiesAndBrand(cx, proto, T::TypeObjectProperties,
                                   T::TypeObjectMethods))
     {
@@ -1467,15 +1451,10 @@ GlobalObject::initTypedObjectModule(JSContext *cx, Handle<GlobalObject*> global)
     if (!float32x4Object)
         return nullptr;
 
-    // install float32x4 as a property of the TypedObject object and
-    // of the global object
+    // Install float32x4 as a property of the TypedObject object.
     global->setFloat32x4TypeObject(*float32x4Object);
     RootedValue float32x4Value(cx, ObjectValue(*float32x4Object));
     if (!JSObject::defineProperty(cx, module, cx->names().float32x4,
-                                  float32x4Value,
-                                  nullptr, nullptr,
-                                  JSPROP_READONLY | JSPROP_PERMANENT) ||
-        !JSObject::defineProperty(cx, global, cx->names().float32x4,
                                   float32x4Value,
                                   nullptr, nullptr,
                                   JSPROP_READONLY | JSPROP_PERMANENT))
@@ -1490,15 +1469,10 @@ GlobalObject::initTypedObjectModule(JSContext *cx, Handle<GlobalObject*> global)
     if (!int32x4Object)
         return nullptr;
 
-    // install int32x4 as a property of the TypedObject object and
-    // of the global object
+    // Install int32x4 as a property of the TypedObject object.
     global->setInt32x4TypeObject(*int32x4Object);
     RootedValue int32x4Value(cx, ObjectValue(*int32x4Object));
     if (!JSObject::defineProperty(cx, module, cx->names().int32x4,
-                                  int32x4Value,
-                                  nullptr, nullptr,
-                                  JSPROP_READONLY | JSPROP_PERMANENT) ||
-        !JSObject::defineProperty(cx, global, cx->names().int32x4,
                                   int32x4Value,
                                   nullptr, nullptr,
                                   JSPROP_READONLY | JSPROP_PERMANENT))
@@ -1554,7 +1528,7 @@ GlobalObject::initTypedObjectModule(JSContext *cx, Handle<GlobalObject*> global)
         return nullptr;
     }
 
-    // Everything is setup, install module on the global object:
+    // Everything is set up, install module on the global object:
     RootedValue moduleValue(cx, ObjectValue(*module));
     if (!JSObject::defineProperty(cx, global, cx->names().TypedObject,
                                   moduleValue,

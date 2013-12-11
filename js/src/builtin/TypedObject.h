@@ -591,7 +591,7 @@ JS_FOR_EACH_REFERENCE_TYPE_REPR(JS_LOAD_REFERENCE_CLASS_DEFN)
 
 } // namespace js
 
-extern JS_FRIEND_API(JSObject *)
+extern JSObject *
 js_InitTypedObjectModuleObject(JSContext *cx, HandleObject obj);
 
 #endif /* builtin_TypedObject_h */

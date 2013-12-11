@@ -1235,10 +1235,8 @@ static const JSStdName builtin_property_names[] = {
     {js_InitStringClass,        EAGER_ATOM(uneval), OCLASP(String)},
 #endif
 #ifdef ENABLE_BINARYDATA
-    {js_InitSIMDClass,               EAGER_ATOM(SIMD), OCLASP(SIMD)},
+    {js_InitSIMDClass,          EAGER_ATOM(SIMD), OCLASP(SIMD)},
     {js_InitTypedObjectModuleObject, EAGER_ATOM(TypedObject), OCLASP(TypedObjectModule)},
-    {js_InitTypedObjectModuleObject, EAGER_ATOM(int32x4), OCLASP(TypedObjectModule)},
-    {js_InitTypedObjectModuleObject, EAGER_ATOM(float32x4), OCLASP(TypedObjectModule)},
 #endif
 
     {nullptr,                     0, nullptr}

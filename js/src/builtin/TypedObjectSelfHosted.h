@@ -40,30 +40,3 @@
 
 #define DATUM_TYPE_REPR(obj) \
 	 TYPE_TYPE_REPR(DATUM_TYPE_OBJ(obj))
-
-#ifdef ENABLE_BINARYDATA
-#define ABS(a) std_Math_abs(a)
-#define NEG(a) (-1 * a)
-#define RECIPROCAL(a) (1 / (a))
-#define RECIPROCALSQRT(a) (1 / std_Math_sqrt(a))
-#define SQRT(a) std_Math_sqrt(a)
-#define ADD(a,b) ((a) + (b))
-#define SUB(a,b) ((a) - (b))
-#define DIV(a,b) ((a) / (b))
-#define FMUL(a,b) ((a) * (b))
-#define MIN(a,b) std_Math_min(a, b)
-#define MAX(a,b) std_Math_max(a, b)
-#define LESSTHAN(a,b) ((a) < (b) ? -1 : 0x0)
-#define LESSTHANEQ(a,b) ((a) <= (b) ? -1 : 0x0)
-#define GREATERTHAN(a,b) ((a) > (b) ? -1 : 0x0)
-#define GREATERTHANEQ(a,b) ((a) >= (b) ? -1 : 0x0)
-#define EQ(a,b) ((a) == (b) ? -1 : 0x0)
-#define NOTEQ(a,b) ((a) != (b) ? -1 : 0x0)
-#define XOR(a,b) ((a) ^ (b))
-#define AND(a,b) ((a) & (b))
-#define OR(a,b) ((a) | (b))
-#define NOT(a) (~a)
-#define IMUL(a,b) std_Math_imul(a, b)
-#define WITH(b) (b)
-#define WITHFLAG(b) (b ? -1 : 0x0)
-#endif

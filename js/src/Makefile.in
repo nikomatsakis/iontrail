@@ -598,7 +598,6 @@ selfhosting_srcs := \
   $(srcdir)/builtin/ParallelArray.js \
   $(srcdir)/builtin/String.js \
   $(srcdir)/builtin/Set.js \
-  $(srcdir)/builtin/SIMD.js \
   $(srcdir)/builtin/TypedObject.js \
   $(NULL)
 

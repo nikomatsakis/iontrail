@@ -114,14 +114,15 @@ js_InitSIMDClass(JSContext *cx, HandleObject obj)
 namespace js {
 struct Float32x4 {
     typedef float Elem;
-
     static const int32_t lanes = 4;
-
     static const X4TypeRepresentation::Type type =
         X4TypeRepresentation::TYPE_FLOAT32;
 
     static JSObject &GetTypeObject(GlobalObject &obj) {
         return obj.getFloat32x4TypeObject();
+    }
+    static Elem toType(Elem a) { 
+        return a;
     }
 };
 } // namespace js
@@ -132,6 +133,12 @@ struct Int32x4 {
     static const int32_t lanes = 4;
     static const X4TypeRepresentation::Type type =
         X4TypeRepresentation::TYPE_INT32;
+    static JSObject &GetTypeObject(GlobalObject &obj) {
+        return obj.getInt32x4TypeObject();
+    }
+    static Elem toType(Elem a) { 
+        return ToInt32(a);
+    }
 };
 } // namespace js
 
@@ -163,39 +170,201 @@ Create(JSContext *cx, typename V::Elem *data)
 }
 
 namespace js {
-template<typename T>
+template<typename T, typename V>
+struct Abs {
+    static inline T apply(T x, T zero) {return V::toType(x < 0 ? (-1*x) : x);}
+};
+template<typename T, typename V>
+struct Neg {
+    static inline T apply(T x, T zero) {return V::toType(-1 * x);}
+};
+template<typename T, typename V>
+struct Not {
+    static inline T apply(T x, T zero) {return V::toType(~x);}
+};
+template<typename T, typename V>
+struct Rec {
+    static inline T apply(T x, T zero) {return V::toType(1 / x);}
+};
+template<typename T, typename V>
+struct RecSqrt {
+    static inline T apply(T x, T zero) {return V::toType(1 / sqrt(x));}
+};
+template<typename T, typename V>
+struct Sqrt {
+    static inline T apply(T x, T zero) {return V::toType(sqrt(x));}
+};
+template<typename T, typename V>
 struct Add {
-    static inline T apply(T l, T r) {
-        return l + r;
-    }
+    static inline T apply(T l, T r) {return V::toType(l + r);}
+};
+template<typename T, typename V>
+struct Sub {
+    static inline T apply(T l, T r) {return V::toType(l - r);}
+};
+template<typename T, typename V>
+struct Div {
+    static inline T apply(T l, T r) {return V::toType(l / r);}
+};
+template<typename T, typename V>
+struct Mul {
+    static inline T apply(T l, T r) {return V::toType(l * r);}
+};
+template<typename T, typename V>
+struct Minimum {
+    static inline T apply(T l, T r) {return V::toType(l < r ? l : r);}
+};
+template<typename T, typename V>
+struct Maximum {
+    static inline T apply(T l, T r) {return V::toType(l > r ? l : r);}
+};
+template<typename T, typename V>
+struct LessThan {
+    static inline T apply(T l, T r) {return V::toType(l < r ? 0xFFFFFFFF: 0x0);}
+};
+template<typename T, typename V>
+struct LessThanOrEqual {
+    static inline T apply(T l, T r) {return V::toType(l <= r ? 0xFFFFFFFF: 0x0);}
+};
+template<typename T, typename V>
+struct GreaterThan {
+    static inline T apply(T l, T r) {return V::toType(l > r ? 0xFFFFFFFF: 0x0);}
+};
+template<typename T, typename V>
+struct GreaterThanOrEqual {
+    static inline T apply(T l, T r) {return V::toType(l >= r ? 0xFFFFFFFF: 0x0);}
+};
+template<typename T, typename V>
+struct Equal {
+    static inline T apply(T l, T r) {return V::toType(l == r ? 0xFFFFFFFF: 0x0);}
+};
+template<typename T, typename V>
+struct NotEqual {
+    static inline T apply(T l, T r) {return V::toType(l != r ? 0xFFFFFFFF: 0x0);}
+};
+template<typename T, typename V>
+struct Xor {
+    static inline T apply(T l, T r) {return V::toType(l ^ r);}
+};
+template<typename T, typename V>
+struct And {
+    static inline T apply(T l, T r) {return V::toType(l & r);}
+};
+template<typename T, typename V>
+struct Or {
+    static inline T apply(T l, T r) {return V::toType(l | r);}
+};
+template<typename T, typename V>
+struct WithX {
+    static inline T apply(T lane, T scalar, T x) {return V::toType(lane == 0 ? scalar : x);}
+};
+template<typename T, typename V>
+struct WithY {
+    static inline T apply(T lane, T scalar, T x) {return V::toType(lane == 1 ? scalar : x);}
+};
+template<typename T, typename V>
+struct WithZ {
+    static inline T apply(T lane, T scalar, T x) {return V::toType(lane == 2 ? scalar : x);}
+};
+template<typename T, typename V>
+struct WithW {
+    static inline T apply(T lane, T scalar, T x) {return V::toType(lane == 3 ? scalar : x);}
+};
+template<typename T, typename V>
+struct WithFlagX {
+    static inline T apply(T l, T f, T x) { return V::toType(l == 0 ? (f ? 0xFFFFFFFF : 0x0) : x);}
+};
+template<typename T, typename V>
+struct WithFlagY {
+    static inline T apply(T l, T f, T x) { return V::toType(l == 1 ? (f ? 0xFFFFFFFF : 0x0) : x);}
+};
+template<typename T, typename V>
+struct WithFlagZ {
+    static inline T apply(T l, T f, T x) { return V::toType(l == 2 ? (f ? 0xFFFFFFFF : 0x0) : x);}
+};
+template<typename T, typename V>
+struct WithFlagW {
+    static inline T apply(T l, T f, T x) { return V::toType(l == 3 ? (f ? 0xFFFFFFFF : 0x0) : x);}
 };
 }
 
-template<typename V, typename Op>
+template<typename V, typename Op, typename Vret>
 static bool
 Oper(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
 
-    if (argc < 2 ||
+    if (argc == 1) {
+        if((!args[0].isObject() || !ObjectIsVector<V>(args[0].toObject()))) {
+            JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_TYPED_ARRAY_BAD_ARGS);
+            return false;
+        }
+        typename V::Elem *val = (typename V::Elem*) AsTypedDatum(args[0].toObject()).typedMem();
+        typename Vret::Elem result[Vret::lanes];
+        for (int32_t i = 0; i < Vret::lanes; i++)
+            result[i] = Op::apply(val[i], 0);
+
+        RootedObject obj(cx, Create<Vret>(cx, result));
+        if (!obj)
+            return false;
+
+        args.rval().setObject(*obj);
+        return true;
+
+    } else if (argc == 2) {
+        if((!args[0].isObject() || !ObjectIsVector<V>(args[0].toObject())) ||
+           (!args[1].isObject() || !ObjectIsVector<V>(args[1].toObject())))
+        {
+            JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_TYPED_ARRAY_BAD_ARGS);
+            return false;
+        }
+
+        typename V::Elem *left = (typename V::Elem*) AsTypedDatum(args[0].toObject()).typedMem();
+        typename V::Elem *right = (typename V::Elem*) AsTypedDatum(args[1].toObject()).typedMem();
+
+        typename Vret::Elem result[Vret::lanes];
+        for (int32_t i = 0; i < Vret::lanes; i++)
+            result[i] = Op::apply(left[i], right[i]);
+
+        RootedObject obj(cx, Create<Vret>(cx, result));
+        if (!obj)
+            return false;
+
+        args.rval().setObject(*obj);
+        return true;
+    } else if (argc == 3) {
+
+    }
+
+    JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,JSMSG_TYPED_ARRAY_BAD_ARGS);
+    return false;
+
+}
+
+template<typename V, typename OpWith, typename Vret>
+static bool
+OperWith(JSContext *cx, unsigned argc, Value *vp)
+{
+    CallArgs args = CallArgsFromVp(argc, vp);
+
+    if ((argc != 2) ||
         (!args[0].isObject() || !ObjectIsVector<V>(args[0].toObject())) ||
-        (!args[1].isObject() || !ObjectIsVector<V>(args[1].toObject())))
+        (!args[1].isNumber() && !args[1].isBoolean()))
     {
-        JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
-                             JSMSG_TYPED_ARRAY_BAD_ARGS);
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_TYPED_ARRAY_BAD_ARGS);
         return false;
     }
 
-    typename V::Elem *left =
-        (typename V::Elem*) AsTypedDatum(args[0].toObject()).typedMem();
-    typename V::Elem *right =
-        (typename V::Elem*) AsTypedDatum(args[1].toObject()).typedMem();
+    typename V::Elem *val = (typename V::Elem*) AsTypedDatum(args[0].toObject()).typedMem();
 
-    typename V::Elem result[V::lanes];
-    for (int32_t i = 0; i < V::lanes; i++)
-        result[i] = Op::apply(left[i], right[i]);
-
-    RootedObject obj(cx, Create<V>(cx, result));
+    typename Vret::Elem result[Vret::lanes];
+    for (int32_t i = 0; i < Vret::lanes; i++){
+        if(args[1].isNumber())
+            result[i] = OpWith::apply(i, args[1].toNumber(), val[i]);
+        else if (args[1].isBoolean())
+            result[i] = OpWith::apply(i, args[1].toBoolean(), val[i]);
+    }
+    RootedObject obj(cx, Create<Vret>(cx, result));
     if (!obj)
         return false;
 
@@ -204,27 +373,27 @@ Oper(JSContext *cx, unsigned argc, Value *vp)
 }
 
 const JSFunctionSpec js::Float32x4Methods[] = {
-        JS_SELF_HOSTED_FN("abs", "Float32x4Abs", 1, 0),
-        JS_SELF_HOSTED_FN("neg", "Float32x4Neg", 1, 0),
-        JS_SELF_HOSTED_FN("reciprocal", "Float32x4Reciprocal", 1, 0),
-        JS_SELF_HOSTED_FN("reciprocalSqrt", "Float32x4ReciprocalSqrt", 1, 0),
-        JS_SELF_HOSTED_FN("sqrt", "Float32x4Sqrt", 1, 0),
-        JS_FN("add", (Oper< Float32x4, Add<float> >), 2, 0),
-        JS_SELF_HOSTED_FN("sub", "Float32x4Sub", 2, 0),
-        JS_SELF_HOSTED_FN("div", "Float32x4Div", 2, 0),
-        JS_SELF_HOSTED_FN("mul", "Float32x4Mul", 2, 0),
-        JS_SELF_HOSTED_FN("min", "Float32x4Min", 2, 0),
-        JS_SELF_HOSTED_FN("max", "Float32x4Max", 2, 0),
-        JS_SELF_HOSTED_FN("lessThan", "Float32x4LessThan", 2, 0),
-        JS_SELF_HOSTED_FN("lessThanOrEqual", "Float32x4LessThanOrEqual", 2, 0),
-        JS_SELF_HOSTED_FN("greaterThan", "Float32x4GreaterThan", 2, 0),
-        JS_SELF_HOSTED_FN("greaterThanOrEqual", "Float32x4GreaterThanOrEqual", 2, 0),
-        JS_SELF_HOSTED_FN("equal", "Float32x4Equal", 2, 0),
-        JS_SELF_HOSTED_FN("notEqual", "Float32x4NotEqual", 2, 0),
-        JS_SELF_HOSTED_FN("withX", "Float32x4WithX", 2, 0),
-        JS_SELF_HOSTED_FN("withY", "Float32x4WithY", 2, 0),
-        JS_SELF_HOSTED_FN("withZ", "Float32x4WithZ", 2, 0),
-        JS_SELF_HOSTED_FN("withW", "Float32x4WithW", 2, 0),
+        JS_FN("abs", (Oper< Float32x4, Abs< float, Float32x4 >, Float32x4 >), 1, 0),
+        JS_FN("neg", (Oper< Float32x4, Neg< float, Float32x4 >, Float32x4 >), 1, 0),
+        JS_FN("reciprocal", (Oper< Float32x4, Rec< float, Float32x4 >, Float32x4 >), 1, 0),
+        JS_FN("reciprocalSqrt", (Oper< Float32x4, RecSqrt< float, Float32x4 >, Float32x4 >), 1, 0),
+        JS_FN("sqrt", (Oper< Float32x4, Sqrt< float, Float32x4 >, Float32x4 >), 1, 0),
+        JS_FN("add", (Oper< Float32x4, Add< float, Float32x4 >, Float32x4 >), 2, 0),
+        JS_FN("sub", (Oper< Float32x4, Sub< float, Float32x4 >, Float32x4 >), 2, 0),
+        JS_FN("div", (Oper< Float32x4, Div< float, Float32x4 >, Float32x4 >), 2, 0),
+        JS_FN("mul", (Oper< Float32x4, Mul< float, Float32x4 >, Float32x4 >), 2, 0),
+        JS_FN("max", (Oper< Float32x4, Maximum< float, Float32x4 >, Float32x4 >), 2, 0),
+        JS_FN("min", (Oper< Float32x4, Minimum< float, Float32x4 >, Float32x4 >), 2, 0),
+        JS_FN("lessThan", (Oper< Float32x4, LessThan< float, Int32x4 >, Int32x4 >), 2, 0),
+        JS_FN("lessThanOrEqual", (Oper< Float32x4, LessThanOrEqual< float, Int32x4 >, Int32x4 >), 2, 0),
+        JS_FN("greaterThan", (Oper< Float32x4, GreaterThan< float, Int32x4 >, Int32x4 >), 2, 0),
+        JS_FN("greaterThanOrEqual", (Oper< Float32x4, GreaterThanOrEqual< float, Int32x4 >, Int32x4 >), 2, 0),
+        JS_FN("equal", (Oper< Float32x4, Equal< float, Int32x4 >, Int32x4 >), 2, 0),
+        JS_FN("notEqual", (Oper< Float32x4, NotEqual< float, Int32x4 >, Int32x4 >), 2, 0),
+        JS_FN("withX", (OperWith< Float32x4, WithX< float, Float32x4 >, Float32x4 >), 2, 0),
+        JS_FN("withY", (OperWith< Float32x4, WithY< float, Float32x4 >, Float32x4 >), 2, 0),
+        JS_FN("withZ", (OperWith< Float32x4, WithZ< float, Float32x4 >, Float32x4 >), 2, 0),
+        JS_FN("withW", (OperWith< Float32x4, WithW< float, Float32x4 >, Float32x4 >), 2, 0),
         JS_SELF_HOSTED_FN("shuffle", "Float32x4Shuffle", 2, 0),
         JS_SELF_HOSTED_FN("shuffleMix", "Float32x4ShuffleMix", 3, 0),
         JS_SELF_HOSTED_FN("clamp", "Float32x4Clamp", 3, 0),
@@ -235,22 +404,22 @@ const JSFunctionSpec js::Float32x4Methods[] = {
 };
 
 const JSFunctionSpec js::Int32x4Methods[] = {
-        JS_SELF_HOSTED_FN("not", "Int32x4Not", 1, 0),
-        JS_SELF_HOSTED_FN("neg", "Int32x4Neg", 1, 0),
-        JS_SELF_HOSTED_FN("add", "Int32x4Add", 2, 0),
-        JS_SELF_HOSTED_FN("sub", "Int32x4Sub", 2, 0),
-        JS_SELF_HOSTED_FN("mul", "Int32x4Mul", 2, 0),
-        JS_SELF_HOSTED_FN("xor", "Int32x4Xor", 2, 0),
-        JS_SELF_HOSTED_FN("and", "Int32x4And", 2, 0),
-        JS_SELF_HOSTED_FN("or", "Int32x4Or", 2, 0),
-        JS_SELF_HOSTED_FN("withX", "Int32x4WithX", 2, 0),
-        JS_SELF_HOSTED_FN("withFlagX", "Int32x4WithFlagX", 2, 0),
-        JS_SELF_HOSTED_FN("withY", "Int32x4WithY", 2, 0),
-        JS_SELF_HOSTED_FN("withFlagY", "Int32x4WithFlagY", 2, 0),
-        JS_SELF_HOSTED_FN("withZ", "Int32x4WithZ", 2, 0),
-        JS_SELF_HOSTED_FN("withFlagZ", "Int32x4WithFlagZ", 2, 0),
-        JS_SELF_HOSTED_FN("withW", "Int32x4WithW", 2, 0),
-        JS_SELF_HOSTED_FN("withFlagW", "Int32x4WithFlagW", 2, 0),
+        JS_FN("not", (Oper< Int32x4, Not< int32_t, Int32x4 >, Int32x4 >), 1, 0),
+        JS_FN("neg", (Oper< Int32x4, Neg< int32_t, Int32x4 >, Int32x4 >), 1, 0),
+        JS_FN("add", (Oper< Int32x4, Add< int32_t, Int32x4 >, Int32x4 >), 2, 0),
+        JS_FN("sub", (Oper< Int32x4, Sub< int32_t, Int32x4 >, Int32x4 >), 2, 0),
+        JS_FN("mul", (Oper< Int32x4, Mul< int32_t, Int32x4 >, Int32x4 >), 2, 0),
+        JS_FN("xor", (Oper< Int32x4, Xor< int32_t, Int32x4 >, Int32x4 >), 2, 0),
+        JS_FN("and", (Oper< Int32x4, And< int32_t, Int32x4 >, Int32x4 >), 2, 0),
+        JS_FN("or", (Oper< Int32x4, Or< int32_t, Int32x4 >, Int32x4 >), 2, 0),
+        JS_FN("withX", (OperWith< Int32x4, WithX< int32_t, Int32x4 >, Int32x4 >), 2, 0),
+        JS_FN("withY", (OperWith< Int32x4, WithY< int32_t, Int32x4 >, Int32x4 >), 2, 0),
+        JS_FN("withZ", (OperWith< Int32x4, WithZ< int32_t, Int32x4 >, Int32x4 >), 2, 0),
+        JS_FN("withW", (OperWith< Int32x4, WithW< int32_t, Int32x4 >, Int32x4 >), 2, 0),
+        JS_FN("withFlagX", (OperWith< Int32x4, WithFlagX< int32_t, Int32x4 >, Int32x4 >), 2, 0),
+        JS_FN("withFlagY", (OperWith< Int32x4, WithFlagY< int32_t, Int32x4 >, Int32x4 >), 2, 0),
+        JS_FN("withFlagZ", (OperWith< Int32x4, WithFlagZ< int32_t, Int32x4 >, Int32x4 >), 2, 0),
+        JS_FN("withFlagW", (OperWith< Int32x4, WithFlagW< int32_t, Int32x4 >, Int32x4 >), 2, 0),
         JS_SELF_HOSTED_FN("shuffle", "Int32x4Shuffle", 2, 0),
         JS_SELF_HOSTED_FN("shuffleMix", "Int32x4ShuffleMix", 3, 0),
         JS_SELF_HOSTED_FN("toFloat32x4", "Int32x4ToFloat32x4", 1, 0),

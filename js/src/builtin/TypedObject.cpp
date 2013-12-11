@@ -1352,7 +1352,7 @@ X4Type::call(JSContext *cx, unsigned argc, Value *vp)
       {                                                                       \
         _type *mem = (_type*) TypedMem(*result);                              \
         for (uint32_t i = 0; i < LANES; i++) {                                \
-            mem[i] = values[i];                                               \
+            mem[i] = ConvertScalar<_type>(values[i]);                          \
         }                                                                     \
         break;                                                                \
       }

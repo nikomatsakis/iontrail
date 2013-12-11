@@ -48,6 +48,7 @@ class MoveEmitterX86
                                  bool allGeneralRegs, bool allFloatRegs, size_t swapCount);
     void emitGeneralMove(const MoveOperand &from, const MoveOperand &to);
     void emitDoubleMove(const MoveOperand &from, const MoveOperand &to);
+    void emitSIMD128Move(const MoveOperand &from, const MoveOperand &to);
     void breakCycle(const MoveOperand &to, Move::Kind kind);
     void completeCycle(const MoveOperand &to, Move::Kind kind);
 

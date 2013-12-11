@@ -414,6 +414,19 @@ class AssemblerX86Shared
         masm.movaps_rr(src.code(), dest.code());
     }
 
+    void movups(const Address &src, const FloatRegister &dest) {
+        masm.movups_mr(src.offset, src.base.code(), dest.code());
+    }
+    void movups(const BaseIndex &src, const FloatRegister &dest) {
+        masm.movups_mr(src.offset, src.base.code(), src.index.code(), src.scale, dest.code());
+    }
+    void movups(const FloatRegister &src, const Address &dest) {
+        masm.movups_rm(src.code(), dest.offset, dest.base.code());
+    }
+    void movups(const FloatRegister &src, const BaseIndex &dest) {
+        masm.movups_rm(src.code(), dest.offset, dest.base.code(), dest.index.code(), dest.scale);
+    }
+
     // movsd and movss are only provided in load/store form since the
     // register-to-register form has different semantics (it doesn't clobber
     // the whole output register) and isn't needed currently.
@@ -1281,7 +1294,7 @@ class AssemblerX86Shared
     void pcmpeqw(const FloatRegister &lhs, const FloatRegister &rhs) {
         JS_ASSERT(HasSSE2());
         masm.pcmpeqw_rr(rhs.code(), lhs.code());
-    }    
+    }
     void movd(const Register &src, const FloatRegister &dest) {
         JS_ASSERT(HasSSE2());
         masm.movd_rr(src.code(), dest.code());

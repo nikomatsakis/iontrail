@@ -472,8 +472,6 @@ class LDefinition
         OBJECT,     // Pointer that may be collected as garbage (GPR).
         SLOTS,      // Slots/elements pointer that may be moved by minor GCs (GPR).
         DOUBLE,     // 64-bit point value (FPU).
-        FLOAT32X4,  // float32x4 value (XMM).
-        INT32X4,    // int32x4 value (XMM).
         SIMD128,    // 128-bit value(XMM).
 #ifdef JS_NUNBOX32
         // A type virtual register must be followed by a payload virtual

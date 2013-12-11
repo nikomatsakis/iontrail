@@ -196,6 +196,7 @@ static const char * const TypeChars[] =
 {
     "i",            // INTEGER
     "o",            // OBJECT
+    "s",            // SLOTS
     "f",            // DOUBLE
     "v",            // SIMD128
 #ifdef JS_NUNBOX32
@@ -267,17 +268,26 @@ LAllocation::toString() const
       case LAllocation::FPU:
         JS_snprintf(buf, sizeof(buf), "=%s", toFloatReg()->reg().name());
         return buf;
+      case LAllocation::SIMD128:
+        JS_snprintf(buf, sizeof(buf), "=%s(v)", toFloatReg()->reg().name());
+        return buf;
       case LAllocation::STACK_SLOT:
         JS_snprintf(buf, sizeof(buf), "stack:i%d", toStackSlot()->slot());
         return buf;
       case LAllocation::DOUBLE_SLOT:
         JS_snprintf(buf, sizeof(buf), "stack:d%d", toStackSlot()->slot());
         return buf;
+      case LAllocation::SIMD128_SLOT:
+        JS_snprintf(buf, sizeof(buf), "stack:v%d", toStackSlot()->slot());
+        return buf;
       case LAllocation::INT_ARGUMENT:
         JS_snprintf(buf, sizeof(buf), "arg:%d", toArgument()->index());
         return buf;
       case LAllocation::DOUBLE_ARGUMENT:
         JS_snprintf(buf, sizeof(buf), "arg:%d", toArgument()->index());
+        return buf;
+      case LAllocation::SIMD128_ARGUMENT:
+        JS_snprintf(buf, sizeof(buf), "arg(v):%d", toArgument()->index());
         return buf;
       case LAllocation::USE:
         PrintUse(buf, sizeof(buf), toUse());

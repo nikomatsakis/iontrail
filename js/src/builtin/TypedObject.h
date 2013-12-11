@@ -154,6 +154,7 @@ class X4Type : public JSObject
     static const Class class_;
 
     static bool call(JSContext *cx, unsigned argc, Value *vp);
+    static bool is(const Value &v);
 };
 
 /*

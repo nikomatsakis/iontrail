@@ -1171,6 +1171,49 @@ DefineSimpleTypeObject(JSContext *cx,
 ///////////////////////////////////////////////////////////////////////////
 // X4
 
+#define LANE_ACCESSOR(Type32, Elem, ret, lane) \
+    bool Type32##x4Lane##lane(JSContext *cx, unsigned argc, Value *vp) { \
+       CallArgs args = CallArgsFromVp(argc, vp); \
+       if(!IsTypedDatum(args.thisv().toObject())){ \
+           JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_INCOMPATIBLE_PROTO, \
+                                X4Type::class_.name, "lane" + lane, InformalValueTypeName(args.thisv())); \
+           return false; \
+       } \
+       Elem *data= (Elem *) AsTypedDatum(args.thisv().toObject()).typedMem(); \
+       args.rval().set##ret(data[lane]); \
+       return true; \
+    }
+    LANE_ACCESSOR(Float32, float, Double, 0);
+    LANE_ACCESSOR(Float32, float, Double, 1);
+    LANE_ACCESSOR(Float32, float, Double, 2);
+    LANE_ACCESSOR(Float32, float, Double, 3);
+    LANE_ACCESSOR(Int32, int32_t, Int32, 0);
+    LANE_ACCESSOR(Int32, int32_t, Int32, 1);
+    LANE_ACCESSOR(Int32, int32_t, Int32, 2);
+    LANE_ACCESSOR(Int32, int32_t, Int32, 3);
+#undef LANE_ACCESSOR
+
+#define SIGN_MASK(Type32, Elem) \
+    bool Type32##x4SignMask(JSContext *cx, unsigned argc, Value *vp) { \
+        CallArgs args = CallArgsFromVp(argc, vp); \
+        if(!IsTypedDatum(args.thisv().toObject())){ \
+            JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_INCOMPATIBLE_PROTO, \
+                                 X4Type::class_.name, "signMask", InformalValueTypeName(args.thisv())); \
+            return false; \
+        } \
+        Elem *data = (Elem *) AsTypedDatum(args.thisv().toObject()).typedMem(); \
+        int32_t mx = data[0] < 0.0 ? 1 : 0; \
+        int32_t my = data[1] < 0.0 ? 1 : 0; \
+        int32_t mz = data[2] < 0.0 ? 1 : 0; \
+        int32_t mw = data[3] < 0.0 ? 1 : 0; \
+        int32_t result = mx | my << 1 | mz << 2 | mw << 3; \
+        args.rval().setInt32(result); \
+        return true; \
+    } 
+    SIGN_MASK(Float32, float);
+    SIGN_MASK(Int32, int32_t);
+ #undef SIGN_MASK
+
 const Class X4Type::class_ = {
     "X4",
     JSCLASS_HAS_RESERVED_SLOTS(JS_TYPEOBJ_X4_SLOTS),
@@ -1216,11 +1259,11 @@ const JSFunctionSpec js::Int32x4Defn::TypeDescriptorMethods[] = {
 };
 
 const JSPropertySpec js::Int32x4Defn::TypeObjectProperties[] = {
-    JS_SELF_HOSTED_GET("x", "Int32x4Lane0", JSPROP_PERMANENT),
-    JS_SELF_HOSTED_GET("y", "Int32x4Lane1", JSPROP_PERMANENT),
-    JS_SELF_HOSTED_GET("z", "Int32x4Lane2", JSPROP_PERMANENT),
-    JS_SELF_HOSTED_GET("w", "Int32x4Lane3", JSPROP_PERMANENT),
-    JS_SELF_HOSTED_GET("signMask", "Int32x4SignMask", JSPROP_PERMANENT),
+    JS_PSG("x", Int32x4Lane0, JSPROP_PERMANENT),
+    JS_PSG("y", Int32x4Lane1, JSPROP_PERMANENT),
+    JS_PSG("z", Int32x4Lane2, JSPROP_PERMANENT),
+    JS_PSG("w", Int32x4Lane3, JSPROP_PERMANENT),
+    JS_PSG("signMask", Int32x4SignMask, JSPROP_PERMANENT),
     JS_PS_END
 };
 
@@ -1238,11 +1281,11 @@ const JSFunctionSpec js::Float32x4Defn::TypeDescriptorMethods[] = {
 };
 
 const JSPropertySpec js::Float32x4Defn::TypeObjectProperties[] = {
-    JS_SELF_HOSTED_GET("x", "Float32x4Lane0", JSPROP_PERMANENT),
-    JS_SELF_HOSTED_GET("y", "Float32x4Lane1", JSPROP_PERMANENT),
-    JS_SELF_HOSTED_GET("z", "Float32x4Lane2", JSPROP_PERMANENT),
-    JS_SELF_HOSTED_GET("w", "Float32x4Lane3", JSPROP_PERMANENT),
-    JS_SELF_HOSTED_GET("signMask", "Float32x4SignMask", JSPROP_PERMANENT),
+    JS_PSG("x", Float32x4Lane0, JSPROP_PERMANENT),
+    JS_PSG("y", Float32x4Lane1, JSPROP_PERMANENT),
+    JS_PSG("z", Float32x4Lane2, JSPROP_PERMANENT),
+    JS_PSG("w", Float32x4Lane3, JSPROP_PERMANENT),
+    JS_PSG("signMask", Float32x4SignMask, JSPROP_PERMANENT),
     JS_PS_END
 };
 
@@ -1345,6 +1388,12 @@ X4Type::call(JSContext *cx, unsigned argc, Value *vp)
     }
     args.rval().setObject(*result);
     return true;
+}
+
+bool
+X4Type::is(const Value &v)
+{
+    return v.isObject() && v.toObject().hasClass(&X4Type::class_);
 }
 
 ///////////////////////////////////////////////////////////////////////////

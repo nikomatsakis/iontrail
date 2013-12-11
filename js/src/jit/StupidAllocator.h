@@ -64,6 +64,7 @@ class StupidAllocator : public RegisterAllocator
     void allocateForDefinition(LInstruction *ins, LDefinition *def);
 
     LAllocation *stackLocation(uint32_t vreg);
+    LAllocation *registerLocation(AnyRegister reg, uint32_t vreg);
 
     RegisterIndex registerIndex(AnyRegister reg);
 

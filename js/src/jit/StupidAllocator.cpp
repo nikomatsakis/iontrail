@@ -31,6 +31,16 @@ StupidAllocator::stackLocation(uint32_t vreg)
     return new(alloc()) LStackSlot(DefaultStackSlot(vreg), LDefinition::spillKind(def->type()));
 }
 
+LAllocation *
+StupidAllocator::registerLocation(AnyRegister reg, uint32_t vreg)
+{
+    LDefinition *def = virtualRegisters[vreg];
+    if (def->policy() == LDefinition::PRESET && def->output()->isArgument())
+        return def->output();
+
+    return new(alloc()) LAllocation(reg, LDefinition::registerKind(def->type()));
+}
+
 StupidAllocator::RegisterIndex
 StupidAllocator::registerIndex(AnyRegister reg)
 {
@@ -186,10 +196,9 @@ StupidAllocator::syncRegister(LInstruction *ins, RegisterIndex index)
 {
     if (registers[index].dirty) {
         LMoveGroup *input = getInputMoveGroup(ins->id());
-        LAllocation *source = new LAllocation(registers[index].reg);
-
         uint32_t existing = registers[index].vreg;
         LAllocation *dest = stackLocation(existing);
+        LAllocation *source = registerLocation(registers[index].reg, existing);
         input->addAfter(source, dest);
 
         registers[index].dirty = false;
@@ -209,7 +218,7 @@ StupidAllocator::loadRegister(LInstruction *ins, uint32_t vreg, RegisterIndex in
     // Load a vreg from its stack location to a register.
     LMoveGroup *input = getInputMoveGroup(ins->id());
     LAllocation *source = stackLocation(vreg);
-    LAllocation *dest = new LAllocation(registers[index].reg);
+    LAllocation *dest = registerLocation(registers[index].reg, vreg);
     input->addAfter(source, dest);
     registers[index].set(vreg, ins);
 }
@@ -332,7 +341,7 @@ StupidAllocator::allocateForInstruction(LInstruction *ins)
         uint32_t vreg = use->virtualRegister();
         if (use->policy() == LUse::REGISTER) {
             AnyRegister reg = ensureHasRegister(ins, vreg);
-            alloc.replace(LAllocation(reg));
+            alloc.replace(*registerLocation(reg, vreg));
         } else if (use->policy() == LUse::FIXED) {
             AnyRegister reg = GetFixedRegister(virtualRegisters[use->virtualRegister()], use);
             RegisterIndex index = registerIndex(reg);
@@ -343,7 +352,7 @@ StupidAllocator::allocateForInstruction(LInstruction *ins)
                     evictRegister(ins, existing);
                 loadRegister(ins, vreg, index);
             }
-            alloc.replace(LAllocation(reg));
+            alloc.replace(*registerLocation(reg, vreg));
         } else {
             // Inputs which are not required to be in a register are not
             // allocated until after temps/definitions, as the latter may need
@@ -377,7 +386,7 @@ StupidAllocator::allocateForInstruction(LInstruction *ins)
             alloc.replace(*stack);
         } else {
             registers[index].age = ins->id();
-            alloc.replace(LAllocation(registers[index].reg));
+            alloc.replace(*registerLocation(registers[index].reg, vreg));
         }
     }
 
@@ -407,7 +416,7 @@ StupidAllocator::allocateForDefinition(LInstruction *ins, LDefinition *def)
                           : ins->getOperand(def->getReusedInput())->toRegister());
         evictRegister(ins, index);
         registers[index].set(vreg, ins, true);
-        def->setOutput(LAllocation(registers[index].reg));
+        def->setOutput(*registerLocation(registers[index].reg, vreg));
     } else if (def->policy() == LDefinition::PRESET) {
         // The result must be a stack location.
         def->setOutput(*stackLocation(vreg));
@@ -415,6 +424,6 @@ StupidAllocator::allocateForDefinition(LInstruction *ins, LDefinition *def)
         // Find a register to hold the result of the instruction.
         RegisterIndex best = allocateRegister(ins, vreg);
         registers[best].set(vreg, ins, true);
-        def->setOutput(LAllocation(registers[best].reg));
+        def->setOutput(*registerLocation(registers[best].reg, vreg));
     }
 }

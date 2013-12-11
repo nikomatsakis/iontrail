@@ -447,6 +447,9 @@ class VirtualRegister
     LDefinition::Type type() const {
         return def()->type();
     }
+    LAllocation::Kind registerKind() const {
+        return LDefinition::registerKind(type());
+    }
     LAllocation::Kind spillKind() const {
         return LDefinition::spillKind(type());
     }

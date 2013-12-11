@@ -418,7 +418,7 @@ LiveRangeAllocator<VREG, forLSRA>::init()
     for (size_t i = 0; i < AnyRegister::Total; i++) {
         AnyRegister reg = AnyRegister::FromCode(i);
         LiveInterval *interval = LiveInterval::New(alloc(), 0);
-        interval->setAllocation(LAllocation(reg));
+        interval->setAllocation(LAllocation(reg, reg.isFloatRegClass() ? LAllocation::FPU : LAllocation::GPR));
         fixedIntervals[i] = interval;
     }
 
@@ -559,7 +559,7 @@ LiveRangeAllocator<VREG, forLSRA>::buildLivenessInfo()
                         bool found = false;
                         for (size_t i = 0; i < ins->numDefs(); i++) {
                             if (ins->getDef(i)->isPreset() &&
-                                *ins->getDef(i)->output() == LAllocation(*iter)) {
+                                *ins->getDef(i)->output() == LAllocation(*iter, LDefinition::registerKind(ins->getDef(i)->type()))) {
                                 found = true;
                                 break;
                             }
@@ -728,7 +728,7 @@ LiveRangeAllocator<VREG, forLSRA>::buildLivenessInfo()
                         to = (use->usedAtStart() || ins->isCall())
                            ? inputOf(*ins) : outputOf(*ins);
                         if (use->isFixedRegister()) {
-                            LAllocation reg(AnyRegister::FromCode(use->registerCode()));
+                            LAllocation reg(AnyRegister::FromCode(use->registerCode()), vregs[use].registerKind());
                             for (size_t i = 0; i < ins->numDefs(); i++) {
                                 LDefinition *def = ins->getDef(i);
                                 if (def->policy() == LDefinition::PRESET && *def->output() == reg)

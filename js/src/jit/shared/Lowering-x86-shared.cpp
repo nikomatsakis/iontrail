@@ -171,7 +171,7 @@ LIRGeneratorX86Shared::lowerDivI(MDiv *div)
     LDivI *lir = new LDivI(useFixed(div->lhs(), eax), useRegister(div->rhs()), tempFixed(edx));
     if (div->fallible() && !assignSnapshot(lir, Bailout_BaselineInfo))
         return false;
-    return defineFixed(lir, div, LAllocation(AnyRegister(eax)));
+    return defineFixed(lir, div, LAllocation(AnyRegister(eax), LAllocation::GPR));
 }
 
 bool
@@ -209,7 +209,7 @@ LIRGeneratorX86Shared::lowerModI(MMod *mod)
                            tempFixed(eax));
     if (mod->fallible() && !assignSnapshot(lir, Bailout_BaselineInfo))
         return false;
-    return defineFixed(lir, mod, LAllocation(AnyRegister(edx)));
+    return defineFixed(lir, mod, LAllocation(AnyRegister(edx), LAllocation::GPR));
 }
 
 bool
@@ -241,7 +241,7 @@ LIRGeneratorX86Shared::lowerUDiv(MDiv *div)
                                      tempFixed(edx));
     if (div->fallible() && !assignSnapshot(lir, Bailout_BaselineInfo))
         return false;
-    return defineFixed(lir, div, LAllocation(AnyRegister(eax)));
+    return defineFixed(lir, div, LAllocation(AnyRegister(eax), LAllocation::GPR));
 }
 
 bool
@@ -263,7 +263,7 @@ LIRGeneratorX86Shared::lowerUMod(MMod *mod)
                                      tempFixed(eax));
     if (mod->fallible() && !assignSnapshot(lir, Bailout_BaselineInfo))
         return false;
-    return defineFixed(lir, mod, LAllocation(AnyRegister(edx)));
+    return defineFixed(lir, mod, LAllocation(AnyRegister(edx), LAllocation::GPR));
 }
 
 bool

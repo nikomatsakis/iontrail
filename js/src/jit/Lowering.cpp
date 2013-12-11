@@ -1530,7 +1530,7 @@ LIRGenerator::visitConcat(MConcat *ins)
                                tempFixed(CallTempReg2),
                                tempFixed(CallTempReg3),
                                tempFixed(CallTempReg4));
-    if (!defineFixed(lir, ins, LAllocation(AnyRegister(CallTempReg5))))
+    if (!defineFixed(lir, ins, LAllocation(AnyRegister(CallTempReg5), LAllocation::GPR)))
         return false;
     return assignSafepoint(lir, ins);
 }
@@ -1553,7 +1553,7 @@ LIRGenerator::visitConcatPar(MConcatPar *ins)
                                      tempFixed(CallTempReg1),
                                      tempFixed(CallTempReg2),
                                      tempFixed(CallTempReg3));
-    if (!defineFixed(lir, ins, LAllocation(AnyRegister(CallTempReg5))))
+    if (!defineFixed(lir, ins, LAllocation(AnyRegister(CallTempReg5), LAllocation::GPR)))
         return false;
     return assignSafepoint(lir, ins);
 }
@@ -1609,7 +1609,7 @@ bool
 LIRGenerator::visitOsrEntry(MOsrEntry *entry)
 {
     LOsrEntry *lir = new LOsrEntry;
-    return defineFixed(lir, entry, LAllocation(AnyRegister(OsrFrameReg)));
+    return defineFixed(lir, entry, LAllocation(AnyRegister(OsrFrameReg), LAllocation::GPR));
 }
 
 bool
@@ -3298,12 +3298,21 @@ LIRGenerator::visitAsmJSLoadFFIFunc(MAsmJSLoadFFIFunc *ins)
     return define(new LAsmJSLoadFFIFunc, ins);
 }
 
+static LAllocation::Kind registerKind(ABIArg::Kind kind) {
+    // TODO: (add SIMD128 kind).
+    switch (kind) {
+        case ABIArg::GPR: return LAllocation::GPR;
+        case ABIArg::FPU:  return LAllocation::FPU;
+        default: MOZ_ASSUME_UNREACHABLE("Unknown register kind");
+    }
+}
+
 bool
 LIRGenerator::visitAsmJSParameter(MAsmJSParameter *ins)
 {
     ABIArg abi = ins->abi();
     if (abi.argInRegister())
-        return defineFixed(new LAsmJSParameter, ins, LAllocation(abi.reg()));
+        return defineFixed(new LAsmJSParameter, ins, LAllocation(abi.reg(), registerKind(abi.kind())));
 
     JS_ASSERT(ins->type() == MIRType_Int32 || ins->type() == MIRType_Double);
     LAllocation::Kind argKind = ins->type() == MIRType_Int32

@@ -616,7 +616,7 @@ BacktrackingAllocator::setIntervalRequirement(LiveInterval *interval)
             // If there are multiple fixed registers which the interval is
             // required to use, fail. The interval will need to be split before
             // it can be allocated.
-            if (!interval->addRequirement(Requirement(LAllocation(required))))
+            if (!interval->addRequirement(Requirement(LAllocation(required, reg->registerKind()))))
                 return false;
         } else if (policy == LUse::REGISTER) {
             if (!interval->addRequirement(Requirement(Requirement::REGISTER)))
@@ -672,7 +672,7 @@ BacktrackingAllocator::tryAllocateGroupRegister(PhysicalRegister &r, VirtualRegi
 
     *psuccess = true;
 
-    group->allocation = LAllocation(r.reg);
+    group->allocation = LAllocation(r.reg, vregs[group->registers[0]].registerKind());
     return true;
 }
 
@@ -690,7 +690,7 @@ BacktrackingAllocator::tryAllocateRegister(PhysicalRegister &r, LiveInterval *in
         return true;
 
     JS_ASSERT_IF(interval->requirement()->kind() == Requirement::FIXED,
-                 interval->requirement()->allocation() == LAllocation(r.reg));
+                 interval->requirement()->allocation() == LAllocation(r.reg, reg->registerKind()));
 
     for (size_t i = 0; i < interval->numRanges(); i++) {
         AllocatedRange range(interval, interval->getRange(i)), existing;
@@ -726,10 +726,10 @@ BacktrackingAllocator::tryAllocateRegister(PhysicalRegister &r, LiveInterval *in
     // Set any register hint for allocating other intervals in the same group.
     if (VirtualRegisterGroup *group = reg->group()) {
         if (!group->allocation.isRegister())
-            group->allocation = LAllocation(r.reg);
+            group->allocation = LAllocation(r.reg, reg->registerKind());
     }
 
-    interval->setAllocation(LAllocation(r.reg));
+    interval->setAllocation(LAllocation(r.reg, reg->registerKind()));
     *success = true;
     return true;
 }

@@ -33,32 +33,71 @@ extern const JSFunctionSpec Int32x4Methods[];
 ///////////////////////////////////////////////////////////////////////////
 // X4
 
-#define LANE_ACCESSOR(Type32, Elem, ret, lane) \
-    bool Type32##x4Lane##lane(JSContext *cx, unsigned argc, Value *vp) { \
-       CallArgs args = CallArgsFromVp(argc, vp); \
-       if(!IsTypedDatum(args.thisv().toObject())){ \
-           JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_INCOMPATIBLE_PROTO, \
-                                X4Type::class_.name, "lane" + lane, InformalValueTypeName(args.thisv())); \
-           return false; \
-       } \
-       Elem *data= (Elem *) AsTypedDatum(args.thisv().toObject()).typedMem(); \
-       args.rval().set##ret(data[lane]); \
-       return true; \
+namespace js {
+struct Float32x4 {
+    typedef float Elem;
+    static const int32_t lanes = 4;
+    static const X4TypeRepresentation::Type type =
+        X4TypeRepresentation::TYPE_FLOAT32;
+
+    static JSObject &GetTypeObject(GlobalObject &obj) {
+        return obj.getFloat32x4TypeObject();
     }
-    LANE_ACCESSOR(Float32, float, Double, 0);
-    LANE_ACCESSOR(Float32, float, Double, 1);
-    LANE_ACCESSOR(Float32, float, Double, 2);
-    LANE_ACCESSOR(Float32, float, Double, 3);
-    LANE_ACCESSOR(Int32, int32_t, Int32, 0);
-    LANE_ACCESSOR(Int32, int32_t, Int32, 1);
-    LANE_ACCESSOR(Int32, int32_t, Int32, 2);
-    LANE_ACCESSOR(Int32, int32_t, Int32, 3);
-#undef LANE_ACCESSOR
+    static Elem toType(Elem a) {
+        return a;
+    }
+    static void setReturn(CallArgs &args, float value) {
+        args.rval().setDouble(value);
+    }
+};
+} // namespace js
+
+namespace js {
+struct Int32x4 {
+    typedef int32_t Elem;
+    static const int32_t lanes = 4;
+    static const X4TypeRepresentation::Type type =
+        X4TypeRepresentation::TYPE_INT32;
+    static JSObject &GetTypeObject(GlobalObject &obj) {
+        return obj.getInt32x4TypeObject();
+    }
+    static Elem toType(Elem a) {
+        return ToInt32(a);
+    }
+    static void setReturn(CallArgs &args, int32_t value) {
+        args.rval().setInt32(value);
+    }
+};
+} // namespace js
+
+template<typename L, uint32_t lane>
+static bool
+LaneAccessor(JSContext *cx, unsigned argc, Value *vp) {
+    CallArgs args = CallArgsFromVp(argc, vp);
+    if(!args.thisv().isObject() || !IsTypedDatum(args.thisv().toObject())) {
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_INCOMPATIBLE_PROTO,
+                             X4Type::class_.name, "lane" + lane, InformalValueTypeName(args.thisv()));
+        return false;
+    }
+    TypedDatum &datum = AsTypedDatum(args.thisv().toObject());
+    TypeRepresentation *typeRepr = datum.datumTypeRepresentation();
+    if (typeRepr->kind() != TypeRepresentation::X4 ||
+        typeRepr->asX4()->type() != L::type)
+    {
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_INCOMPATIBLE_PROTO,
+                             X4Type::class_.name, "lane" + lane, InformalValueTypeName(args.thisv()));
+        return false;
+    }
+    typename L::Elem *data =
+        (typename L::Elem *) datum.typedMem();
+    L::setReturn(args, data[lane]);
+        return true;
+}
 
 #define SIGN_MASK(Type32, Elem) \
     bool Type32##x4SignMask(JSContext *cx, unsigned argc, Value *vp) { \
         CallArgs args = CallArgsFromVp(argc, vp); \
-        if(!IsTypedDatum(args.thisv().toObject())){ \
+        if(!args.thisv().isObject() || !IsTypedDatum(args.thisv().toObject())){              \
             JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_INCOMPATIBLE_PROTO, \
                                  X4Type::class_.name, "signMask", InformalValueTypeName(args.thisv())); \
             return false; \
@@ -114,17 +153,17 @@ class Float32x4Defn {
 
 const JSFunctionSpec js::Int32x4Defn::TypeDescriptorMethods[] = {
     JS_FN("toSource", TypeObjectToSource, 0, 0),
-    {"handle", {nullptr, nullptr}, 2, 0, "HandleCreate"},
-    {"array", {nullptr, nullptr}, 1, 0, "ArrayShorthand"},
-    {"equivalent", {nullptr, nullptr}, 1, 0, "TypeObjectEquivalent"},
-    JS_FS_END
+    JS_SELF_HOSTED_FN("handle", "HandleCreate", 2, 0),
+    JS_SELF_HOSTED_FN("array", "ArrayShorthand", 1, 0),
+    JS_SELF_HOSTED_FN("equivalent", "TypeObjectEquivalent", 1, 0),
+    JS_FS_END,
 };
 
 const JSPropertySpec js::Int32x4Defn::TypeObjectProperties[] = {
-    JS_PSG("x", Int32x4Lane0, JSPROP_PERMANENT),
-    JS_PSG("y", Int32x4Lane1, JSPROP_PERMANENT),
-    JS_PSG("z", Int32x4Lane2, JSPROP_PERMANENT),
-    JS_PSG("w", Int32x4Lane3, JSPROP_PERMANENT),
+    JS_PSG("x", (LaneAccessor<Int32x4, 0>), JSPROP_PERMANENT),
+    JS_PSG("y", (LaneAccessor<Int32x4, 1>), JSPROP_PERMANENT),
+    JS_PSG("z", (LaneAccessor<Int32x4, 2>), JSPROP_PERMANENT),
+    JS_PSG("w", (LaneAccessor<Int32x4, 3>), JSPROP_PERMANENT),
     JS_PSG("signMask", Int32x4SignMask, JSPROP_PERMANENT),
     JS_PS_END
 };
@@ -136,17 +175,17 @@ const JSFunctionSpec js::Int32x4Defn::TypeObjectMethods[] = {
 
 const JSFunctionSpec js::Float32x4Defn::TypeDescriptorMethods[] = {
     JS_FN("toSource", TypeObjectToSource, 0, 0),
-    {"handle", {nullptr, nullptr}, 2, 0, "HandleCreate"},
-    {"array", {nullptr, nullptr}, 1, 0, "ArrayShorthand"},
-    {"equivalent", {nullptr, nullptr}, 1, 0, "TypeObjectEquivalent"},
+    JS_SELF_HOSTED_FN("handle", "HandleCreate", 2, 0),
+    JS_SELF_HOSTED_FN("array", "ArrayShorthand", 1, 0),
+    JS_SELF_HOSTED_FN("equivalent", "TypeObjectEquivalent", 1, 0),
     JS_FS_END
 };
 
 const JSPropertySpec js::Float32x4Defn::TypeObjectProperties[] = {
-    JS_PSG("x", Float32x4Lane0, JSPROP_PERMANENT),
-    JS_PSG("y", Float32x4Lane1, JSPROP_PERMANENT),
-    JS_PSG("z", Float32x4Lane2, JSPROP_PERMANENT),
-    JS_PSG("w", Float32x4Lane3, JSPROP_PERMANENT),
+    JS_PSG("x", (LaneAccessor<Float32x4, 0>), JSPROP_PERMANENT),
+    JS_PSG("y", (LaneAccessor<Float32x4, 1>), JSPROP_PERMANENT),
+    JS_PSG("z", (LaneAccessor<Float32x4, 2>), JSPROP_PERMANENT),
+    JS_PSG("w", (LaneAccessor<Float32x4, 3>), JSPROP_PERMANENT),
     JS_PSG("signMask", Float32x4SignMask, JSPROP_PERMANENT),
     JS_PS_END
 };
@@ -346,37 +385,6 @@ js_InitSIMDClass(JSContext *cx, HandleObject obj)
     Rooted<GlobalObject *> global(cx, &obj->as<GlobalObject>());
     return SIMDObject::initClass(cx, global);
 }
-
-namespace js {
-struct Float32x4 {
-    typedef float Elem;
-    static const int32_t lanes = 4;
-    static const X4TypeRepresentation::Type type =
-        X4TypeRepresentation::TYPE_FLOAT32;
-
-    static JSObject &GetTypeObject(GlobalObject &obj) {
-        return obj.getFloat32x4TypeObject();
-    }
-    static Elem toType(Elem a) {
-        return a;
-    }
-};
-} // namespace js
-
-namespace js {
-struct Int32x4 {
-    typedef int32_t Elem;
-    static const int32_t lanes = 4;
-    static const X4TypeRepresentation::Type type =
-        X4TypeRepresentation::TYPE_INT32;
-    static JSObject &GetTypeObject(GlobalObject &obj) {
-        return obj.getInt32x4TypeObject();
-    }
-    static Elem toType(Elem a) {
-        return ToInt32(a);
-    }
-};
-} // namespace js
 
 template<typename V>
 static bool

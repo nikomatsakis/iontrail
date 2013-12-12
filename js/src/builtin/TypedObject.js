@@ -724,42 +724,6 @@ function X4ProtoString(type) {
   return undefined;
 }
 
-var X4LaneStrings = ["x", "y", "z", "w"];
-
-// Generalized handler for the various properties for accessing a
-// single lane of an X4 vector value. Note that this is the slow path;
-// the fast path will be inlined into ion code.
-function X4GetLane(datum, type, lane) {
-  if (!IsObject(datum) || !ObjectIsTypedDatum(datum))
-    ThrowError(JSMSG_INCOMPATIBLE_PROTO, X4ProtoString(type),
-               X4LaneStrings[lane], typeof this);
-
-  var repr = DATUM_TYPE_REPR(datum);
-  if (REPR_KIND(repr) != JS_TYPEREPR_X4_KIND || REPR_TYPE(repr) != type)
-    ThrowError(JSMSG_INCOMPATIBLE_PROTO, X4ProtoString(type),
-               X4LaneStrings[lane], typeof this);
-
-  switch (type) {
-  case JS_X4TYPEREPR_INT32:
-    return Load_int32(datum, lane * 4);
-  case JS_X4TYPEREPR_FLOAT32:
-    return Load_float32(datum, lane * 4);
-  }
-
-  assert(false, "Unhandled type constant");
-  return undefined;
-}
-
-function Float32x4Lane0() { return X4GetLane(this, JS_X4TYPEREPR_FLOAT32, 0); }
-function Float32x4Lane1() { return X4GetLane(this, JS_X4TYPEREPR_FLOAT32, 1); }
-function Float32x4Lane2() { return X4GetLane(this, JS_X4TYPEREPR_FLOAT32, 2); }
-function Float32x4Lane3() { return X4GetLane(this, JS_X4TYPEREPR_FLOAT32, 3); }
-
-function Int32x4Lane0() { return X4GetLane(this, JS_X4TYPEREPR_INT32, 0); }
-function Int32x4Lane1() { return X4GetLane(this, JS_X4TYPEREPR_INT32, 1); }
-function Int32x4Lane2() { return X4GetLane(this, JS_X4TYPEREPR_INT32, 2); }
-function Int32x4Lane3() { return X4GetLane(this, JS_X4TYPEREPR_INT32, 3); }
-
 function X4ToSource() {
   if (!IsObject(this) || !ObjectIsTypedDatum(this))
     ThrowError(JSMSG_INCOMPATIBLE_PROTO, "X4", "toSource", typeof this);

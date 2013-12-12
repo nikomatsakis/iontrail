@@ -286,21 +286,20 @@ TypedObjectPointer.prototype.getReference = function() {
 
 TypedObjectPointer.prototype.getX4 = function() {
   var type = REPR_TYPE(this.typeRepr);
-  var T = GetTypedObjectModule();
   switch (type) {
   case JS_X4TYPEREPR_FLOAT32:
     var x = Load_float32(this.datum, this.offset + 0);
     var y = Load_float32(this.datum, this.offset + 4);
     var z = Load_float32(this.datum, this.offset + 8);
     var w = Load_float32(this.datum, this.offset + 12);
-    return T.float32x4(x, y, z, w);
+    return GetFloat32x4TypeObject()(x, y, z, w);
 
   case JS_X4TYPEREPR_INT32:
     var x = Load_int32(this.datum, this.offset + 0);
     var y = Load_int32(this.datum, this.offset + 4);
     var z = Load_int32(this.datum, this.offset + 8);
     var w = Load_int32(this.datum, this.offset + 12);
-    return T.int32x4(x, y, z, w);
+    return GetInt32x4TypeObject()(x, y, z, w);
   }
 
   assert(false, "Unhandled x4 type: " + type);

@@ -117,6 +117,46 @@ class TypedObjectModuleObject : public JSObject {
                                          MutableHandleObject proto);
 };
 
+/*
+ * Helper method for converting a double into other scalar
+ * types in the same way that JavaScript would. In particular,
+ * simple C casting from double to int32_t gets things wrong
+ * for values like 0xF0000000.
+ */
+template <typename T>
+static T ConvertScalar(double d)
+{
+    if (TypeIsFloatingPoint<T>()) {
+        return T(d);
+    } else if (TypeIsUnsigned<T>()) {
+        uint32_t n = ToUint32(d);
+        return T(n);
+    } else {
+        int32_t n = ToInt32(d);
+        return T(n);
+    }
+}
+
+/*
+ * Given a user-visible type descriptor object, returns the
+ * owner object for the TypeRepresentation* that we use internally.
+ */
+JSObject *typeRepresentationOwnerObj(const JSObject &typeObj);
+
+/*
+ * Given a user-visible type descriptor object, returns the
+ * TypeRepresentation* that we use internally.
+ *
+ * Note: this pointer is valid only so long as `typeObj` remains rooted.
+ */
+TypeRepresentation *typeRepresentation(const JSObject &typeObj);
+
+bool TypeObjectToSource(JSContext *cx, unsigned int argc, Value *vp);
+
+bool InitializeCommonTypeDescriptorProperties(JSContext *cx,
+                                              HandleObject obj,
+                                              HandleObject typeReprOwnerObj);
+
 // Type for scalar type constructors like `uint8`. All such type
 // constructors share a common js::Class and JSFunctionSpec. Scalar
 // types are non-opaque (their storage is visible unless combined with
@@ -504,6 +544,22 @@ extern const JSJitInfo MemcpyJitInfo;
 bool GetTypedObjectModule(JSContext *cx, unsigned argc, Value *vp);
 
 /*
+ * Usage: GetFloat32x4TypeObject()
+ *
+ * Returns the float32x4 type object. SIMD module must have been
+ * initialized for this to be safe.
+ */
+bool GetFloat32x4TypeObject(JSContext *cx, unsigned argc, Value *vp);
+
+/*
+ * Usage: GetInt32x4TypeObject()
+ *
+ * Returns the int32x4 type object. SIMD module must have been
+ * initialized for this to be safe.
+ */
+bool GetInt32x4TypeObject(JSContext *cx, unsigned argc, Value *vp);
+
+/*
  * Usage: Store_int8(targetDatum, targetOffset, value)
  *        ...
  *        Store_uint8(targetDatum, targetOffset, value)
@@ -591,7 +647,7 @@ JS_FOR_EACH_REFERENCE_TYPE_REPR(JS_LOAD_REFERENCE_CLASS_DEFN)
 
 } // namespace js
 
-extern JSObject *
+JSObject *
 js_InitTypedObjectModuleObject(JSContext *cx, HandleObject obj);
 
 #endif /* builtin_TypedObject_h */

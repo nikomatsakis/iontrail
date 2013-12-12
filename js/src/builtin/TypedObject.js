@@ -760,30 +760,6 @@ function Int32x4Lane1() { return X4GetLane(this, JS_X4TYPEREPR_INT32, 1); }
 function Int32x4Lane2() { return X4GetLane(this, JS_X4TYPEREPR_INT32, 2); }
 function Int32x4Lane3() { return X4GetLane(this, JS_X4TYPEREPR_INT32, 3); }
 
-function Float32x4SignMask() {
-  var xx = X4GetLane(this, JS_X4TYPEREPR_FLOAT32, 0);
-  var yy = X4GetLane(this, JS_X4TYPEREPR_FLOAT32, 1);
-  var zz = X4GetLane(this, JS_X4TYPEREPR_FLOAT32, 2);
-  var ww = X4GetLane(this, JS_X4TYPEREPR_FLOAT32, 3);
-  var mx = xx < 0.0 ? 1 : 0;
-  var my = yy < 0.0 ? 1 : 0;
-  var mz = zz < 0.0 ? 1 : 0;
-  var mw = ww < 0.0 ? 1 : 0;
-  return mx | my << 1 | mz << 2 | mw << 3;
-}
-
-function Int32x4SignMask() {
-  var xx = X4GetLane(this, JS_X4TYPEREPR_INT32, 0);
-  var yy = X4GetLane(this, JS_X4TYPEREPR_INT32, 1);
-  var zz = X4GetLane(this, JS_X4TYPEREPR_INT32, 2);
-  var ww = X4GetLane(this, JS_X4TYPEREPR_INT32, 3);
-  var mx = xx < 0.0 ? 1 : 0;
-  var my = yy < 0.0 ? 1 : 0;
-  var mz = zz < 0.0 ? 1 : 0;
-  var mw = ww < 0.0 ? 1 : 0;
-  return mx | my << 1 | mz << 2 | mw << 3;
-}
-
 function X4ToSource() {
   if (!IsObject(this) || !ObjectIsTypedDatum(this))
     ThrowError(JSMSG_INCOMPATIBLE_PROTO, "X4", "toSource", typeof this);

@@ -27,7 +27,6 @@ namespace jit {
 class LUse;
 class LGeneralReg;
 class LFloatReg;
-class LSIMD128Reg;
 class LStackSlot;
 class LArgument;
 class LConstantIndex;
@@ -156,6 +155,9 @@ class LAllocation : public TempObject
         return kind() == GPR;
     }
     bool isFloatReg() const {
+        return kind() == FPU || kind() == SIMD128;
+    }
+    bool isDoubleReg() const {
         return kind() == FPU;
     }
     bool isSIMD128Reg() const {
@@ -194,7 +196,6 @@ class LAllocation : public TempObject
     inline const LUse *toUse() const;
     inline const LGeneralReg *toGeneralReg() const;
     inline const LFloatReg *toFloatReg() const;
-    inline const LSIMD128Reg *toSIMD128Reg() const;
     inline const LStackSlot *toStackSlot() const;
     inline const LArgument *toArgument() const;
     inline const LConstantIndex *toConstantIndex() const;
@@ -342,20 +343,8 @@ class LGeneralReg : public LAllocation
 class LFloatReg : public LAllocation
 {
   public:
-    explicit LFloatReg(FloatRegister reg)
-      : LAllocation(FPU, reg.code())
-    { }
-
-    FloatRegister reg() const {
-        return FloatRegister::FromCode(data());
-    }
-};
-
-class LSIMD128Reg : public LAllocation
-{
-  public:
-    explicit LSIMD128Reg(FloatRegister reg)
-      : LAllocation(SIMD128, reg.code())
+    explicit LFloatReg(FloatRegister reg, Kind kind)
+      : LAllocation(kind, reg.code())
     { }
 
     FloatRegister reg() const {
@@ -1543,12 +1532,8 @@ class LIRGraph
 
 LAllocation::LAllocation(const AnyRegister &reg, Kind kind)
 {
-    if (reg.isFloatRegClass()) {
-        if (kind == FPU)
-            *this = LFloatReg(reg.fpu());
-        else
-            *this = LSIMD128Reg(reg.fpu());
-    }
+    if (reg.isFloatRegClass())
+        *this = LFloatReg(reg.fpu(), kind);
     else
         *this = LGeneralReg(reg.gpr());
 }
@@ -1559,8 +1544,6 @@ LAllocation::toRegister() const
     JS_ASSERT(isRegister());
     if (isFloatReg())
         return AnyRegister(toFloatReg()->reg());
-    else if (isSIMD128Reg())
-        return AnyRegister(toSIMD128Reg()->reg());
     return AnyRegister(toGeneralReg()->reg());
 }
 
@@ -1632,7 +1615,6 @@ LALLOC_CAST(Use)
 LALLOC_CONST_CAST(Use)
 LALLOC_CONST_CAST(GeneralReg)
 LALLOC_CONST_CAST(FloatReg)
-LALLOC_CONST_CAST(SIMD128Reg)
 LALLOC_CONST_CAST(StackSlot)
 LALLOC_CONST_CAST(Argument)
 LALLOC_CONST_CAST(ConstantIndex)

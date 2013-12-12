@@ -1328,9 +1328,8 @@ CodeGeneratorX86Shared::toMoveOperand(const LAllocation *a) const
       case LAllocation::GPR:
         return MoveOperand(ToRegister(a));
       case LAllocation::FPU:
-        return MoveOperand(ToFloatRegister(a), MoveOperand::FLOAT_REG);
       case LAllocation::SIMD128:
-        return MoveOperand(ToSIMD128Register(a), MoveOperand::SIMD128_REG);
+        return MoveOperand(ToFloatRegister(a), MoveOperand::FLOAT_REG);
       case LAllocation::INT_ARGUMENT:
       case LAllocation::STACK_SLOT:
         return MoveOperand(StackPointer, ToStackOffset(a), MoveOperand::ADDRESS);
@@ -1483,10 +1482,10 @@ CodeGeneratorX86Shared::visitMathF(LMathF *math)
 bool
 CodeGeneratorX86Shared::visitMathFloat32x4(LMathFloat32x4 *math)
 {
-    FloatRegister lhs = ToSIMD128Register(math->lhs());
+    FloatRegister lhs = ToFloatRegister(math->lhs());
     Operand rhs = ToOperand(math->rhs());
 
-    JS_ASSERT(ToSIMD128Register(math->output()) == lhs);
+    JS_ASSERT(ToFloatRegister(math->output()) == lhs);
 
     switch (math->jsop()) {
       case JSOP_ADD:

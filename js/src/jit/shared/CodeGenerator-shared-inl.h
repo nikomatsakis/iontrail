@@ -85,25 +85,6 @@ ToFloatRegister(const LDefinition *def)
     return ToFloatRegister(*def->output());
 }
 
-static inline FloatRegister
-ToSIMD128Register(const LAllocation &a)
-{
-    JS_ASSERT(a.isSIMD128Reg());
-    return a.toSIMD128Reg()->reg();
-}
-
-static inline FloatRegister
-ToSIMD128Register(const LAllocation *a)
-{
-    return ToSIMD128Register(*a);
-}
-
-static inline FloatRegister
-ToSIMD128Register(const LDefinition *def)
-{
-    return ToSIMD128Register(*def->output());
-}
-
 static inline AnyRegister
 ToAnyRegister(const LAllocation &a)
 {

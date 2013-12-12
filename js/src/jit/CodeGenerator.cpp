@@ -6960,7 +6960,7 @@ bool
 CodeGenerator::visitLoadX4Value(LLoadX4Value *lir)
 {
     const LDefinition *result = lir->output();
-    FloatRegister resultReg = ToSIMD128Register(result);
+    FloatRegister resultReg = ToFloatRegister(result);
 
     Register elements = ToRegister(lir->elements());
     if (lir->offset()->isConstant()) {

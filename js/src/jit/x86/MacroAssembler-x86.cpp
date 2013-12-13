@@ -175,6 +175,7 @@ MacroAssemblerX86::passABIArg(const MoveOperand &from)
         break;
       case MoveOperand::REG:
       case MoveOperand::ADDRESS:
+      case MoveOperand::EFFECTIVE_ADDRESS:
         stackForCall_ += sizeof(int32_t);
         enoughMemory_ &= moveResolver_.addMove(from, to, Move::GENERAL);
         break;

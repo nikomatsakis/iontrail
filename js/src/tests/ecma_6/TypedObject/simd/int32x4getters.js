@@ -2,6 +2,7 @@
 var BUGNUMBER = 938728;
 var float32x4 = SIMD.float32x4;
 var int32x4 = SIMD.int32x4;
+var {StructType, int32} = TypedObject;
 var summary = 'int32x4 getters';
 
 /*
@@ -31,15 +32,12 @@ function test() {
     g.call(0xDEADBEEF)
   }, TypeError, "Getter applicable to integers");
   assertThrowsInstanceOf(function() {
-    var T = new TypedObject.StructType({x: TypedObject.int32,
-                                        y: TypedObject.int32,
-                                        z: TypedObject.int32,
-                                        w: TypedObject.int32});
+    var T = new StructType({x: int32, y: int32, z: int32, w: int32});
     var v = new T({x: 11, y: 22, z: 33, w: 44});
     g.call(v)
   }, TypeError, "Getter applicable to structs");
   assertThrowsInstanceOf(function() {
-    var t = new TypedObject.float32x4(1, 2, 3, 4);
+    var t = new float32x4(1, 2, 3, 4);
     g.call(t)
   }, TypeError, "Getter applicable to float32x4");
 

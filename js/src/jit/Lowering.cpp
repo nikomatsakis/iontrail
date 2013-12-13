@@ -2066,7 +2066,7 @@ LIRGenerator::visitForkJoinSlice(MForkJoinSlice *ins)
 }
 
 bool
-LIRGenerator::visitGuardThreadLocalObject(MGuardThreadLocalObject *ins)
+LIRGenerator::visitGuardParallelWrite(MGuardParallelWrite *ins)
 {
     LGuardThreadLocalObject *lir =
         new(alloc()) LGuardThreadLocalObject(useFixed(ins->forkJoinSlice(), CallTempReg0),

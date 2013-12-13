@@ -288,7 +288,7 @@ class ParallelSafetyVisitor : public MInstructionVisitor
     UNSAFE_OP(NewDeclEnvObject)
     UNSAFE_OP(In)
     UNSAFE_OP(InArray)
-    SAFE_OP(GuardThreadLocalObject)
+    SAFE_OP(GuardParallelWrite)
     SAFE_OP(CheckInterruptPar)
     SAFE_OP(CheckOverRecursedPar)
     SAFE_OP(FunctionDispatch)
@@ -688,8 +688,8 @@ ParallelSafetyVisitor::insertWriteGuard(MInstruction *writeInstruction,
     }
 
     MBasicBlock *block = writeInstruction->block();
-    MGuardThreadLocalObject *writeGuard =
-        MGuardThreadLocalObject::New(alloc(), forkJoinSlice(), object);
+    MGuardParallelWrite *writeGuard =
+        MGuardParallelWrite::New(alloc(), forkJoinSlice(), object);
     block->insertBefore(writeInstruction, writeGuard);
     writeGuard->adjustInputs(alloc(), writeGuard);
     return true;

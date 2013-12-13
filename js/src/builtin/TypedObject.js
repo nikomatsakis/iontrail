@@ -825,3 +825,97 @@ function ObjectIsAttached(obj) {
          "ObjectIsAttached() invoked on invalid obj");
   return DATUM_OWNER(obj) != null;
 }
+
+///////////////////////////////////////////////////////////////////////////
+// mapPar -- temporary
+
+function MapParHack(kernelfunc) {
+  function sequentialFallback() {
+    ASSERT_SEQUENTIAL_IS_OK(mode);
+    var handle = grainType.handle();
+    for (var i = 0; i < length; i++) {
+      // Note: Unlike JS arrays, parallel arrays cannot have holes.
+      callKernel(handle, i);
+    }
+  }
+
+  function mapSlice(sliceId, numSlices, warmup) {
+    var chunkPos = info[SLICE_POS(sliceId)];
+    var chunkEnd = info[SLICE_END(sliceId)];
+    var handle = handles[sliceId];
+
+    if (warmup && chunkEnd > chunkPos)
+      chunkEnd = chunkPos + 1;
+
+    while (chunkPos < chunkEnd) {
+      var indexStart = chunkPos << CHUNK_SHIFT;
+      var indexEnd = std_Math_min(indexStart + CHUNK_SIZE, length);
+
+      for (var i = indexStart; i < indexEnd; i++)
+        callKernel(handle, i);
+
+      UnsafePutElements(info, SLICE_POS(sliceId), ++chunkPos);
+    }
+
+    return chunkEnd == info[SLICE_END(sliceId)];
+  }
+
+  function callKernel(handle, i) {
+    var offset = std_Math_imul(i, grainTypeSize);
+    AttachHandle(handle, result, offset);
+    var r = kernelfunc(self[i], i, self, handle);
+    if (r !== undefined)
+      TypedObjectPointer.fromTypedDatum(handle).set(r);
+  }
+
+  var self = this;
+
+  if (!IsObject(self) || !ObjectIsTypedDatum(self))
+    ThrowError(JSMSG_INCOMPATIBLE_PROTO, "ArrayType", "mapPar", typeof self);
+
+  var typeObj = DATUM_TYPE_OBJ(self);
+  var typeRepr = TYPE_TYPE_REPR(typeObj);
+  if (REPR_KIND(typeRepr) != JS_TYPEREPR_SIZED_ARRAY_KIND)
+  {
+    ThrowError(JSMSG_INCOMPATIBLE_PROTO, "ArrayType", "mapPar", typeof self);
+  }
+
+  var length = self.length;
+  var grainTypeObj = typeObj.elementType;
+  assert(IsObject(grainTypeObj) && ObjectIsTypeObject(grainTypeObj),
+         "element type is not a type object");
+  var grainTypeRepr = TYPE_TYPE_REPR(grainTypeObj);
+  var grainTypeSize = REPR_SIZE(grainTypeRepr);
+
+  var result = new typeObj();
+
+  parallel: for (;;) {
+    if (ShouldForceSequential())
+      break parallel;
+    // if (!TRY_PARALLEL(mode))
+    //  break parallel;
+    // if (computefunc === fillN)
+    //  break parallel;
+
+    var chunks = ComputeNumChunks(length);
+    var numSlices = ForkJoinSlices();
+    var info = ComputeAllSliceBounds(chunks, numSlices);
+    var handles = CreateHandles(grainTypeObj, numSlices);
+    ForkJoin(mapSlice, ForkJoinMode(mode));
+    return result;
+  }
+
+  // Sequential fallback:
+  sequentialFallback();
+  return result;
+}
+
+/**
+ * Creates `numSlices` handles.
+ */
+function CreateHandles(grainTypeObj, numSlices) {
+  var result = NewDenseArray(numSlices);
+  for (var i = 0; i < numSlices; i++)
+    result[i] = grainTypeObj.handle();
+  return result;
+}

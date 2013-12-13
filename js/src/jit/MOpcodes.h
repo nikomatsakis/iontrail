@@ -210,7 +210,7 @@ namespace jit {
     _(LambdaPar)                                                            \
     _(RestPar)                                                              \
     _(ForkJoinSlice)                                                        \
-    _(GuardThreadLocalObject)                                               \
+    _(GuardParallelWrite)                                                   \
     _(CheckInterruptPar)
 
 // Forward declarations of MIR types.

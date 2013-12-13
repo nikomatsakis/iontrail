@@ -4,6 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "builtin/TypedObject.h"
 #include "jit/ParallelFunctions.h"
 
 #include "vm/ArrayObject.h"
@@ -37,13 +38,47 @@ jit::NewGCThingPar(ForkJoinSlice *slice, gc::AllocKind allocKind)
     return gc::NewGCThing<JSObject, NoGC>(slice, allocKind, thingSize, gc::DefaultHeap);
 }
 
-// Check that the object was created by the current thread
-// (and hence is writable).
+bool
+jit::ParallelWriteGuard(ForkJoinSlice *slice, JSObject *object)
+{
+    // Most general form of the write guard. We often codegen something more
+    // specific.
+    if (IsTypedDatum(*object)) {
+        TypedDatum &datum = AsTypedDatum(*object);
+
+        // Note: check target region based on `datum`, not the owner.
+        // This is because `datum` may point to some subregion of the
+        // owner and we only care if that *subregion* is within the
+        // target region, not the entire owner.
+        if (IsInTargetRegion(slice, &datum))
+            return true;
+
+        // Also check whether owner is thread-local.
+        TypedDatum *owner = datum.owner();
+        return owner && IsThreadLocalObject(slice, owner);
+    }
+
+    // For other kinds of writable objects, must be thread-local.
+    return IsThreadLocalObject(slice, object);
+}
+
+// Check that the object was created by the current thread.
 bool
 jit::IsThreadLocalObject(ForkJoinSlice *slice, JSObject *object)
 {
     JS_ASSERT(ForkJoinSlice::Current() == slice);
     return slice->isThreadLocal(object);
+}
+
+// Check that `object` (which must be a typed datum) maps
+// to memory in the target region.
+bool
+jit::IsInTargetRegion(ForkJoinSlice *slice, TypedDatum *datum)
+{
+    JS_ASSERT(IsTypedDatum(*datum)); // in case JIT supplies something bogus
+    uint8_t *typedMem = datum->typedMem();
+    return (typedMem >= slice->targetRegionStart &&
+            typedMem <  slice->targetRegionEnd);
 }
 
 #ifdef DEBUG

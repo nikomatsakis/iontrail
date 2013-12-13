@@ -63,14 +63,8 @@ ToObjectIfObject(HandleValue value)
     return &value.toObject();
 }
 
-static inline bool
-IsTypedDatum(JSObject &obj)
-{
-    return obj.is<TypedObject>() || obj.is<TypedHandle>();
-}
-
 static inline uint8_t *
-TypedMem(JSObject &val)
+TypedMem(const JSObject &val)
 {
     JS_ASSERT(IsTypedDatum(val));
     return (uint8_t*) val.getPrivate();
@@ -621,6 +615,7 @@ const JSPropertySpec ArrayType::typedObjectProperties[] = {
 const JSFunctionSpec ArrayType::typedObjectMethods[] = {
     {"forEach", {nullptr, nullptr}, 1, 0, "ArrayForEach"},
     {"redimension", {nullptr, nullptr}, 1, 0, "TypedArrayRedimension"},
+    JS_SELF_HOSTED_FN("mapParHack", "MapParHack", 1, 0),
     JS_FS_END
 };
 
@@ -1697,14 +1692,14 @@ TypedDatum::createUnattachedWithClass(JSContext *cx,
     return static_cast<TypedDatum*>(&*obj);
 }
 
-/*static*/ void
+void
 TypedDatum::attach(uint8_t *memory)
 {
     setPrivate(memory);
     setReservedSlot(JS_DATUM_SLOT_OWNER, ObjectValue(*this));
 }
 
-/*static*/ void
+void
 TypedDatum::attach(JSObject &datum, uint32_t offset)
 {
     JS_ASSERT(IsTypedDatum(datum));
@@ -2449,6 +2444,21 @@ TypedDatum::obj_enumerate(JSContext *cx, HandleObject obj, JSIterateOp enum_op,
 TypedDatum::dataOffset()
 {
     return JSObject::getPrivateDataOffset(JS_DATUM_SLOTS);
+}
+
+uint8_t *
+TypedDatum::typedMem() const
+{
+    return (uint8_t*) getPrivate();
+}
+
+TypedDatum *
+TypedDatum::owner() const
+{
+    JSObject *owner = getReservedSlot(JS_DATUM_SLOT_OWNER).toObjectOrNull();
+    if (!owner)
+        return nullptr;
+    return &AsTypedDatum(*owner);
 }
 
 /******************************************************************************

@@ -623,15 +623,18 @@ MMathFunction::printOpcode(FILE *fp) const
     fprintf(fp, " %s", FunctionName(function()));
 }
 
-const char *
-MBinarySIMDFunction::FunctionName(BuiltinSIMDFunctionId id)
-{
-    switch (id) {
-      case SIMDFloat32x4Add:    return "SIMD.float32x4.add";
-      default:
-        MOZ_ASSUME_UNREACHABLE("Unknown math function");
-    }
-}
+const char *MBinarySIMDFunction::Names[] = {
+#define MBINARYSIMDFUNCTIONNAME(_enum, _name, _t1, _t2) _name
+        MBINARYSIMDFUNCTIONS(MBINARYSIMDFUNCTIONNAME)
+#undef MBINARYSIMDFUNCTIONNAME
+};
+
+MIRType MBinarySIMDFunction::ArgumentTypes[][2] = {
+#define MBINARYSIMDFUNCTIONARGS(_enum, _name, _t1, _t2) { _t1, _t2 },
+        MBINARYSIMDFUNCTIONS(MBINARYSIMDFUNCTIONARGS)
+#undef MBINARYSIMDFUNCTIONARGS
+        { MIRType_None, MIRType_None }
+};
 
 void
 MBinarySIMDFunction::printOpcode(FILE *fp) const

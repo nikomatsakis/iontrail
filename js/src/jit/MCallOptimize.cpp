@@ -107,7 +107,7 @@ IonBuilder::inlineNativeCall(CallInfo &callInfo, JSNative native)
 
     // SIMD natives.
     if (native == js::js_simd_Float32x4_add)
-        return inlineSIMDFunction(callInfo, SIMDFloat32x4Add);
+        return inlineSIMDFunction(callInfo, MBinarySIMDFunction::Float32x4Add);
 
     // String natives.
     if (native == js_String)
@@ -206,50 +206,145 @@ IonBuilder::inlineMathFunction(CallInfo &callInfo, MMathFunction::Function funct
 }
 
 IonBuilder::InliningStatus
-IonBuilder::inlineSIMDFunction(CallInfo &callInfo, BuiltinSIMDFunctionId id)
+IonBuilder::inlineSIMDFunction(CallInfo &callInfo, MBinarySIMDFunction::Id id)
 {
     if (callInfo.constructing())
         return InliningStatus_NotInlined;
 
-    // TODO: Check input and output.
+    if (callInfo.argc() != 2)
+        return InliningStatus_NotInlined;
+
+    // FIXME. Right now, we only optimize calls where operands are
+    // known to be of the correct type. e.g., for a call like
+    // `SIMD.float32x4.add(x, y)`, we will only inline if `x` and `y`
+    // are both (unboxed or boxed) float32x4 vectors. In the future,
+    // we should not do any checks here, and instead employ a type policy
+    // that unboxes (and guards) as needed. This will aid in optimizing
+    // programs that are not strictly monomorphic, such as this:
+    //
+    //    function add(isFloat, arg1, arg2) {
+    //        if (isFloat) return SIMD.float32x4.add(arg1, arg2);
+    //        else return SIMD.int32x4.add(arg1, arg2);
+    //    }
+    //
+    // In this case, the type set of `arg[12]` will include both
+    // float32x4 and int32x4, but for any given execution only valid
+    // arguments will be used (presuming that `isFloat` is set to true
+    // or false appropriately). With the code as is, though, we would
+    // not optimize the calls here but instead fallback to the
+    // interpreter path.
+    const MIRType *argumentTypes = MBinarySIMDFunction::ArgumentTypes[id];
+    InliningStatus s = checkSIMDArgs(callInfo, argumentTypes);
+    if (s != InliningStatus_Inlined)
+        return s;
 
     callInfo.unwrapArgs();
 
-    // MInstruction *ins;
-    switch (id) {
-      case SIMDFloat32x4Add: {
-            MDefinition *boxedLeft = callInfo.getArg(0);
-            MDefinition *boxedRight = callInfo.getArg(1);
+    MDefinition *arg0 = unwrapSIMDArg(callInfo.getArg(0), argumentTypes[0]);
+    if (!arg0)
+        return InliningStatus_Error;
 
-            MDefinition *unboxedLeft, *unboxedRight;
-            if (!unboxX4Value(X4TypeRepresentation::TYPE_FLOAT32, boxedLeft, constantInt(0), &unboxedLeft))
+    MDefinition *arg1 = unwrapSIMDArg(callInfo.getArg(1), argumentTypes[1]);
+    if (!arg1)
+        return InliningStatus_Error;
+
+    MBinarySIMDFunction *op = MBinarySIMDFunction::New(alloc(), arg0, arg1, id);
+    current->add(op);
+    current->push(op);
+    return InliningStatus_Inlined;
+}
+
+IonBuilder::InliningStatus
+IonBuilder::checkSIMDArgs(CallInfo &callInfo, const MIRType *argumentTypes)
+{
+    for (uint32_t i = 0; i < callInfo.argc(); i++) {
+        MDefinition *arg = callInfo.getArg(i);
+        MIRType type = argumentTypes[i];
+        InliningStatus s;
+        switch (type) {
+          case MIRType_float32x4:
+            s = isSIMDOperand(arg, type, X4TypeRepresentation::TYPE_FLOAT32);
+            if (s != InliningStatus_Inlined)
+                return s;
+            break;
+
+          case MIRType_int32x4:
+            s = isSIMDOperand(arg, type, X4TypeRepresentation::TYPE_INT32);
+            if (s != InliningStatus_Inlined)
+                return s;
+            break;
+
+          default:
+            if (callInfo.getArg(i)->type() != argumentTypes[i])
                 return InliningStatus_NotInlined;
-            if (!unboxX4Value(X4TypeRepresentation::TYPE_FLOAT32, boxedRight, constantInt(0), &unboxedRight))
-                return InliningStatus_NotInlined;
-
-            MAdd *add = MAdd::NewAsmJS(alloc(), unboxedLeft, unboxedRight, MIRType_float32x4);
-            current->add(add);
-
-            MDefinition *boxedResult;
-            if (!boxX4Value(X4TypeRepresentation::TYPE_FLOAT32, add, &boxedResult))
-                return InliningStatus_NotInlined;
-
-            // output will have same type as inputs
-            boxedResult->setResultTypeSet(boxedLeft->resultTypeSet());
-
-            current->push(boxedResult);
-/*
-            ins = MBinarySIMDFunction::New(alloc(), callInfo.getArg(0), callInfo.getArg(1), id);
-*/
+            break;
         }
-        break;
-      default:
-        MOZ_ASSUME_UNREACHABLE("Unknown math function");
     }
-/*
-    current->add(ins);
-    current->push(ins);
-*/
+    return InliningStatus_Inlined;
+}
+
+MDefinition *
+IonBuilder::unwrapSIMDArg(MDefinition *arg, MIRType type)
+{
+    // either arg must be a direct match for `type`...
+    if (arg->type() == type)
+        return arg;
+
+    // ...or it is a boxed vector.
+    JS_ASSERT(arg->type() == MIRType_Object);
+    MDefinition *result;
+    switch (type) {
+      case MIRType_float32x4:
+        if (!unboxX4Value(X4TypeRepresentation::TYPE_FLOAT32, arg,
+                          constantInt(0), &result))
+            return nullptr;
+        break;
+
+      case MIRType_int32x4:
+        if (!unboxX4Value(X4TypeRepresentation::TYPE_INT32, arg,
+                          constantInt(0), &result))
+            return nullptr;
+        break;
+
+      default:
+        MOZ_ASSUME_UNREACHABLE("Unexpected type");
+    }
+
+    JS_ASSERT(result);
+    return result;
+}
+
+IonBuilder::InliningStatus
+IonBuilder::isSIMDOperand(MDefinition *arg, MIRType unboxedType,
+                          X4TypeRepresentation::Type boxedType)
+{
+    // Check that `arg` is either an unboxed vector of suitable type or
+    // a boxed vector of suitable type.
+    //
+    // FIXME -- when we transition to use type policies, this function
+    // will not be necessary (though something similar will be used by
+    // the type policies). See above for more details.
+
+    if (arg->type() == unboxedType)
+        return InliningStatus_Inlined;
+
+    if (arg->type() != MIRType_Object)
+        return InliningStatus_NotInlined;
+
+    TypeRepresentationSet argTypeReprs;
+    if (!lookupTypeRepresentationSet(arg, &argTypeReprs))
+        return InliningStatus_Error;
+
+    if (!argTypeReprs.singleton())
+        return InliningStatus_NotInlined;
+
+    if (!argTypeReprs.allOfKind(TypeRepresentation::X4))
+        return InliningStatus_NotInlined;
+
+    X4TypeRepresentation *typeRepr = argTypeReprs.getTypeRepresentation()->asX4();
+    if (boxedType != typeRepr->type())
+        return InliningStatus_NotInlined;
+
     return InliningStatus_Inlined;
 }
 

@@ -3955,37 +3955,46 @@ class MMathFunction
     void computeRange(TempAllocator &alloc);
 };
 
-enum BuiltinSIMDFunctionId {
-    SIMDFloat32x4Add
-};
-
 class MBinarySIMDFunction
   : public MBinaryInstruction
 {
-  private:
-    BuiltinSIMDFunctionId id_;
+  public:
+#define MBINARYSIMDFUNCTIONS(macro)                                           \
+    macro(Float32x4Add, "SIMD.float32x4.add",                                 \
+          MIRType_float32x4, MIRType_float32x4)
 
-    MBinarySIMDFunction(MDefinition *left, MDefinition *right, BuiltinSIMDFunctionId id)
+    enum Id {
+#define MBINARYSIMDFUNCTIONNAME(_enum, _name, _t1, _t2) _enum
+        MBINARYSIMDFUNCTIONS(MBINARYSIMDFUNCTIONNAME)
+#undef MBINARYSIMDFUNCTIONNAME
+    };
+
+    static MIRType ArgumentTypes[][2];
+    static const char *Names[];
+
+  private:
+    Id id_;
+
+    MBinarySIMDFunction(MDefinition *left, MDefinition *right, Id id)
       : MBinaryInstruction(left, right), id_(id)
     {
-        switch (id_) {
-          case SIMDFloat32x4Add:
-            setResultType(MIRType_float32x4);
-            break;
-          default:
-            MOZ_ASSUME_UNREACHABLE("Unknown math function");
-        }
         setMovable();
+        switch (id_) {
+          case Float32x4Add:
+            setResultType(MIRType_float32x4);
+            return;
+        }
+        MOZ_ASSUME_UNREACHABLE("Unknown binary simd function");
     }
 
   public:
     INSTRUCTION_HEADER(BinarySIMDFunction)
 
-    static MBinarySIMDFunction *New(TempAllocator &alloc, MDefinition *left, MDefinition *right, BuiltinSIMDFunctionId id)
+    static MBinarySIMDFunction *New(TempAllocator &alloc, MDefinition *left, MDefinition *right, Id id)
     {
         return new(alloc) MBinarySIMDFunction(left, right, id);
     }
-    BuiltinSIMDFunctionId id() const {
+    Id id() const {
         return id_;
     }
     bool congruentTo(MDefinition *ins) const {
@@ -4006,7 +4015,9 @@ class MBinarySIMDFunction
 
     void printOpcode(FILE *fp) const;
 
-    static const char *FunctionName(BuiltinSIMDFunctionId id);
+    static const char *FunctionName(Id id) {
+        return Names[id];
+    }
 };
 
 class MAdd : public MBinaryArithInstruction

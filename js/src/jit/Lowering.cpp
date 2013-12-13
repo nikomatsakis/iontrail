@@ -1357,6 +1357,22 @@ MaybeSetRecoversInput(S *mir, T *lir)
 }
 
 bool
+LIRGenerator::visitBinarySIMDFunction(MBinarySIMDFunction *ins)
+{
+    MDefinition *lhs = ins->getOperand(0);
+    MDefinition *rhs = ins->getOperand(1);
+
+    switch (ins->id()) {
+      case MBinarySIMDFunction::Float32x4Add:
+        JS_ASSERT(lhs->type() == MIRType_float32x4);
+        ReorderCommutative(&lhs, &rhs);
+        return lowerForFPU(new(alloc()) LMathFloat32x4(JSOP_ADD), ins, lhs, rhs);
+    }
+
+    MOZ_ASSUME_UNREACHABLE("Unknown binary simd function");
+}
+
+bool
 LIRGenerator::visitAdd(MAdd *ins)
 {
     MDefinition *lhs = ins->getOperand(0);
@@ -1389,12 +1405,6 @@ LIRGenerator::visitAdd(MAdd *ins)
         JS_ASSERT(lhs->type() == MIRType_Float32);
         ReorderCommutative(&lhs, &rhs);
         return lowerForFPU(new(alloc()) LMathF(JSOP_ADD), ins, lhs, rhs);
-    }
-
-    if (ins->specialization() == MIRType_float32x4) {
-        JS_ASSERT(lhs->type() == MIRType_float32x4);
-        ReorderCommutative(&lhs, &rhs);
-        return lowerForFPU(new(alloc()) LMathFloat32x4(JSOP_ADD), ins, lhs, rhs);
     }
 
     return lowerBinaryV(JSOP_ADD, ins);

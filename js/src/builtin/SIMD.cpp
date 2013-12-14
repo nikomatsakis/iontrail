@@ -365,6 +365,34 @@ Oper(JSContext *cx, unsigned argc, Value *vp)
     }
 }
 
+bool
+Float32x4Add(JSContext *cx, unsigned argc, Value *vp)
+{
+    CallArgs args = CallArgsFromVp(argc, vp);
+
+    if ((argc != 2) ||
+        (!args[0].isObject() || !ObjectIsVector<Float32x4>(args[0].toObject())) ||
+        (!args[1].isObject() || !ObjectIsVector<Float32x4>(args[1].toObject())))
+    {
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_TYPED_ARRAY_BAD_ARGS);
+        return false;
+    }
+    float *left = (float *) AsTypedDatum(args[0].toObject()).typedMem();
+    float *right = (float *) AsTypedDatum(args[1].toObject()).typedMem();
+
+    float result[Float32x4::lanes];
+    result[0] = left[0] + right[0];
+    result[1] = left[1] + right[1];
+    result[2] = left[2] + right[2];
+    result[3] = left[3] + right[3];
+    RootedObject obj(cx, Create<Float32x4>(cx, result));
+    if (!obj)
+        return false;
+
+    args.rval().setObject(*obj);
+    return true;
+}
+
 template<typename V, typename OpWith, typename Vret>
 static bool
 OperWith(JSContext *cx, unsigned argc, Value *vp)
@@ -644,7 +672,7 @@ const JSFunctionSpec js::Float32x4Methods[] = {
         JS_FN("reciprocal", (Oper< Float32x4, Rec< float, Float32x4 >, Float32x4 >), 1, 0),
         JS_FN("reciprocalSqrt", (Oper< Float32x4, RecSqrt< float, Float32x4 >, Float32x4 >), 1, 0),
         JS_FN("sqrt", (Oper< Float32x4, Sqrt< float, Float32x4 >, Float32x4 >), 1, 0),
-        JS_FN("add", (Oper< Float32x4, Add< float, Float32x4 >, Float32x4 >), 2, 0),
+        JS_FN("add", Float32x4Add, 2, 0),
         JS_FN("sub", (Oper< Float32x4, Sub< float, Float32x4 >, Float32x4 >), 2, 0),
         JS_FN("div", (Oper< Float32x4, Div< float, Float32x4 >, Float32x4 >), 2, 0),
         JS_FN("mul", (Oper< Float32x4, Mul< float, Float32x4 >, Float32x4 >), 2, 0),

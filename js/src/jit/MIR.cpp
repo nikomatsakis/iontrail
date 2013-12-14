@@ -623,6 +623,23 @@ MMathFunction::printOpcode(FILE *fp) const
     fprintf(fp, " %s", FunctionName(function()));
 }
 
+const char *
+MBinarySIMDFunction::FunctionName(BuiltinSIMDFunctionId id)
+{
+    switch (id) {
+      case SIMDFloat32x4Add:    return "SIMD.float32x4.add";
+      default:
+        MOZ_ASSUME_UNREACHABLE("Unknown math function");
+    }
+}
+
+void
+MBinarySIMDFunction::printOpcode(FILE *fp) const
+{
+    MDefinition::printOpcode(fp);
+    fprintf(fp, " %s", FunctionName(id()));
+}
+
 MParameter *
 MParameter::New(TempAllocator &alloc, int32_t index, types::TemporaryTypeSet *types)
 {

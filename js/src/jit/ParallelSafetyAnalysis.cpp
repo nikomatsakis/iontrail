@@ -159,6 +159,7 @@ class ParallelSafetyVisitor : public MInstructionVisitor
     UNSAFE_OP(Atan2)
     UNSAFE_OP(Hypot)
     CUSTOM_OP(MathFunction)
+    CUSTOM_OP(BinarySIMDFunction)
     SPECIALIZED_OP(Add, PERMIT_NUMERIC)
     SPECIALIZED_OP(Sub, PERMIT_NUMERIC)
     SPECIALIZED_OP(Mul, PERMIT_NUMERIC)
@@ -577,6 +578,12 @@ bool
 ParallelSafetyVisitor::visitMathFunction(MMathFunction *ins)
 {
     return replace(ins, MMathFunction::New(alloc(), ins->input(), ins->function(), nullptr));
+}
+
+bool
+ParallelSafetyVisitor::visitBinarySIMDFunction(MBinarySIMDFunction *ins)
+{
+    return replace(ins, MBinarySIMDFunction::New(alloc(), ins->lhs(), ins->rhs(), ins->id()));
 }
 
 bool

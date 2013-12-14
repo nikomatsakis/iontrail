@@ -64,6 +64,7 @@ namespace jit {
     _(PowHalf)                                                              \
     _(Random)                                                               \
     _(MathFunction)                                                         \
+    _(BinarySIMDFunction)                                                   \
     _(Add)                                                                  \
     _(Sub)                                                                  \
     _(Mul)                                                                  \

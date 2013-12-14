@@ -633,6 +633,9 @@ class IonBuilder : public MIRGenerator
     InliningStatus inlineMathFRound(CallInfo &callInfo);
     InliningStatus inlineMathFunction(CallInfo &callInfo, MMathFunction::Function function);
 
+    // SIMD natives.
+    InliningStatus inlineSIMDFunction(CallInfo &callInfo, BuiltinSIMDFunctionId id);
+
     // String natives.
     InliningStatus inlineStringObject(CallInfo &callInfo);
     InliningStatus inlineStringSplit(CallInfo &callInfo);

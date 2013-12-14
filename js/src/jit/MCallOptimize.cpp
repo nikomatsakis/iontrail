@@ -7,6 +7,7 @@
 #include "jsmath.h"
 
 #include "builtin/ParallelArray.h"
+#include "builtin/SIMD.h"
 #include "builtin/TestingFunctions.h"
 #include "jit/BaselineInspector.h"
 #include "jit/IonBuilder.h"
@@ -104,6 +105,10 @@ IonBuilder::inlineNativeCall(CallInfo &callInfo, JSNative native)
     if (native == js::math_cbrt)
         return inlineMathFunction(callInfo, MMathFunction::Cbrt);
 
+    // SIMD natives.
+    if (native == Float32x4Add)
+        return inlineSIMDFunction(callInfo, SIMDFloat32x4Add);
+
     // String natives.
     if (native == js_String)
         return inlineStringObject(callInfo);
@@ -197,6 +202,54 @@ IonBuilder::inlineMathFunction(CallInfo &callInfo, MMathFunction::Function funct
     MMathFunction *ins = MMathFunction::New(alloc(), callInfo.getArg(0), function, cache);
     current->add(ins);
     current->push(ins);
+    return InliningStatus_Inlined;
+}
+
+IonBuilder::InliningStatus
+IonBuilder::inlineSIMDFunction(CallInfo &callInfo, BuiltinSIMDFunctionId id)
+{
+    if (callInfo.constructing())
+        return InliningStatus_NotInlined;
+
+    // TODO: Check input and output.
+
+    callInfo.unwrapArgs();
+
+    // MInstruction *ins;
+    switch (id) {
+      case SIMDFloat32x4Add: {
+            MDefinition *boxedLeft = callInfo.getArg(0);
+            MDefinition *boxedRight = callInfo.getArg(1);
+
+            MDefinition *unboxedLeft, *unboxedRight;
+            if (!unboxX4Value(X4TypeRepresentation::TYPE_FLOAT32, boxedLeft, constantInt(0), &unboxedLeft))
+                return InliningStatus_NotInlined;
+            if (!unboxX4Value(X4TypeRepresentation::TYPE_FLOAT32, boxedRight, constantInt(0), &unboxedRight))
+                return InliningStatus_NotInlined;
+
+            MAdd *add = MAdd::NewAsmJS(alloc(), unboxedLeft, unboxedRight, MIRType_float32x4);
+            current->add(add);
+
+            MDefinition *boxedResult;
+            if (!boxX4Value(X4TypeRepresentation::TYPE_FLOAT32, add, &boxedResult))
+                return InliningStatus_NotInlined;
+
+            // output will have same type as inputs
+            boxedResult->setResultTypeSet(boxedLeft->resultTypeSet());
+
+            current->push(boxedResult);
+/*
+            ins = MBinarySIMDFunction::New(alloc(), callInfo.getArg(0), callInfo.getArg(1), id);
+*/
+        }
+        break;
+      default:
+        MOZ_ASSUME_UNREACHABLE("Unknown math function");
+    }
+/*
+    current->add(ins);
+    current->push(ins);
+*/
     return InliningStatus_Inlined;
 }
 

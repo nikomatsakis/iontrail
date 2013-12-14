@@ -3955,6 +3955,60 @@ class MMathFunction
     void computeRange(TempAllocator &alloc);
 };
 
+enum BuiltinSIMDFunctionId {
+    SIMDFloat32x4Add
+};
+
+class MBinarySIMDFunction
+  : public MBinaryInstruction
+{
+  private:
+    BuiltinSIMDFunctionId id_;
+
+    MBinarySIMDFunction(MDefinition *left, MDefinition *right, BuiltinSIMDFunctionId id)
+      : MBinaryInstruction(left, right), id_(id)
+    {
+        switch (id_) {
+          case SIMDFloat32x4Add:
+            setResultType(MIRType_float32x4);
+            break;
+          default:
+            MOZ_ASSUME_UNREACHABLE("Unknown math function");
+        }
+        setMovable();
+    }
+
+  public:
+    INSTRUCTION_HEADER(BinarySIMDFunction)
+
+    static MBinarySIMDFunction *New(TempAllocator &alloc, MDefinition *left, MDefinition *right, BuiltinSIMDFunctionId id)
+    {
+        return new(alloc) MBinarySIMDFunction(left, right, id);
+    }
+    BuiltinSIMDFunctionId id() const {
+        return id_;
+    }
+    bool congruentTo(MDefinition *ins) const {
+        if (!ins->isBinarySIMDFunction())
+            return false;
+        if (ins->toBinarySIMDFunction()->id() != id())
+            return false;
+        return congruentIfOperandsEqual(ins);
+    }
+
+    AliasSet getAliasSet() const {
+        return AliasSet::None();
+    }
+
+    bool possiblyCalls() const {
+        return true;
+    }
+
+    void printOpcode(FILE *fp) const;
+
+    static const char *FunctionName(BuiltinSIMDFunctionId id);
+};
+
 class MAdd : public MBinaryArithInstruction
 {
     // Is this instruction really an int at heart?

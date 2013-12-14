@@ -9927,37 +9927,6 @@ IonBuilder::constantInt(int32_t i)
     return constant(Int32Value(i));
 }
 
-/*
-bool
-IonBuilder::specializeAdd(CallInfo &callInfo, JSFunction *target,
-                          MIRType type, X4TypeRepresentation::Type x4Type)
-{
-    callInfo.unwrapArgs();
-
-    MDefinition *boxedLeft = callInfo.getArg(0);
-    MDefinition *boxedRight = callInfo.getArg(1);
-
-    MDefinition *unboxedLeft, *unboxedRight;
-    if (!unboxX4Value(x4Type, boxedLeft, constantInt(0), &unboxedLeft))
-        return false;
-    if (!unboxX4Value(x4Type, boxedRight, constantInt(0), &unboxedRight))
-        return false;
-
-    MAdd *add = MAdd::NewAsmJS(alloc(), unboxedLeft, unboxedRight, type);
-    current->add(add);
-
-    MDefinition *boxedResult;
-    if (!boxX4Value(x4Type, add, &boxedResult))
-        return false;
-
-    // output will have same type as inputs
-    boxedResult->setResultTypeSet(boxedLeft->resultTypeSet());
-
-    current->push(boxedResult);
-    return true;
-}
-*/
-
 bool
 IonBuilder::unboxX4Value(X4TypeRepresentation::Type x4Type,
                          MDefinition *boxed,

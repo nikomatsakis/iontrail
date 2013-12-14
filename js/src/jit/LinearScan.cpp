@@ -827,7 +827,9 @@ LinearScanAllocator::allocateSlotFor(const LiveInterval *interval)
         return stackSlotAllocator.allocateValueSlot();
     switch (reg->type()) {
       case LDefinition::GENERAL:
+#ifdef JS_PUNBOX64
       case LDefinition::BOX:
+#endif
       case LDefinition::SLOTS:
       case LDefinition::OBJECT:
         return stackSlotAllocator.allocateSlot();

@@ -864,7 +864,9 @@ BacktrackingAllocator::spill(LiveInterval *interval)
     uint32_t stackSlot;
     switch (reg->type()) {
       case LDefinition::OBJECT:
+#if defined(JS_PUNBOX64)
       case LDefinition::BOX:
+#endif
       case LDefinition::SLOTS:
       case LDefinition::GENERAL:
         stackSlot = stackSlotAllocator.allocateSlot();

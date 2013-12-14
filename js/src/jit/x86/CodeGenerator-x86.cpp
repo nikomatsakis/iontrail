@@ -542,7 +542,7 @@ CodeGeneratorX86::visitAsmJSLoadHeap(LAsmJSLoadHeap *ins)
 bool
 CodeGeneratorX86::visitOutOfLineLoadTypedArrayOutOfBounds(OutOfLineLoadTypedArrayOutOfBounds *ool)
 {
-    if (ool->dest().isFloat()) {
+    if (ool->dest().isFloatRegClass()) {
         masm.loadConstantDouble(GenericNaN(), ool->dest().fpu());
     } else {
         Register destReg = ool->dest().gpr();
@@ -921,7 +921,7 @@ CodeGeneratorX86::visitOutOfLineTruncate(OutOfLineTruncate *ool)
         saveVolatile(output);
 
         masm.setupUnalignedABICall(1, output);
-        masm.passABIArg(input);
+        masm.passABIArg(input, MoveResolver::MoveOperand::FLOAT_REG);
         if (gen->compilingAsmJS())
             masm.callWithABI(AsmJSImm_ToInt32);
         else
@@ -1012,7 +1012,7 @@ CodeGeneratorX86::visitOutOfLineTruncateFloat32(OutOfLineTruncateFloat32 *ool)
         masm.push(input);
         masm.setupUnalignedABICall(1, output);
         masm.cvtss2sd(input, input);
-        masm.passABIArg(input);
+        masm.passABIArg(input, MoveResolver::MoveOperand::FLOAT_REG);
         masm.callWithABI(JS_FUNC_TO_DATA_PTR(void *, js::ToInt32));
         masm.storeCallResult(output);
         masm.pop(input);

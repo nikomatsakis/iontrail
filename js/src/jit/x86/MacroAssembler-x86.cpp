@@ -166,7 +166,7 @@ void
 MacroAssemblerX86::passABIArg(const MoveOperand &from)
 {
     ++passedArgs_;
-    MoveOperand to = MoveOperand(StackPointer, stackForCall_);
+    MoveOperand to = MoveOperand(StackPointer, stackForCall_, MoveOperand::ADDRESS);
     switch (from.kind()) {
       case MoveOperand::FLOAT_REG:
       case MoveOperand::FLOAT_ADDRESS:
@@ -195,9 +195,9 @@ MacroAssemblerX86::passABIArg(const Register &reg)
 }
 
 void
-MacroAssemblerX86::passABIArg(const FloatRegister &reg)
+MacroAssemblerX86::passABIArg(const FloatRegister &reg, MoveOperand::Kind kind)
 {
-    passABIArg(MoveOperand(reg));
+    passABIArg(MoveOperand(reg, kind));
 }
 
 void

@@ -488,7 +488,9 @@ class LDefinition
 
     static LAllocation::Kind spillKind(Type type) {
         switch (type) {
+#ifndef JS_NUNBOX32
           case LDefinition::BOX:
+#endif
           case LDefinition::SLOTS:
           case LDefinition::OBJECT:
           case LDefinition::GENERAL: return LAllocation::STACK_SLOT;
@@ -500,7 +502,9 @@ class LDefinition
 
     static LAllocation::Kind registerKind(Type type) {
         switch (type) {
+#ifndef JS_NUNBOX32
           case LDefinition::BOX:
+#endif
           case LDefinition::SLOTS:
           case LDefinition::OBJECT:
           case LDefinition::GENERAL: return LAllocation::GPR;
@@ -587,8 +591,10 @@ class LDefinition
     bool isRegClass() const {
         switch (type()) {
           case LDefinition::SLOTS:
-          case LDefinition::OBJECT:
-          case LDefinition::BOX:     return false;
+#ifndef JS_NUNBOX32
+          case LDefinition::BOX:
+#endif
+          case LDefinition::OBJECT:  return false;
           case LDefinition::GENERAL:
           case LDefinition::DOUBLE:
           case LDefinition::SIMD128: return true;
@@ -600,7 +606,9 @@ class LDefinition
         switch (type()) {
           case LDefinition::SLOTS:
           case LDefinition::OBJECT:
+#ifndef JS_NUNBOX32
           case LDefinition::BOX:
+#endif
           case LDefinition::GENERAL: return false;
           case LDefinition::DOUBLE:
           case LDefinition::SIMD128: return true;

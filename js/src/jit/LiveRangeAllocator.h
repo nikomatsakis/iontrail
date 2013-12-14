@@ -137,7 +137,9 @@ DefinitionCompatibleWith(LInstruction *ins, const LDefinition *def, LAllocation 
 {
     if (ins->isPhi()) {
         switch (def->type()) {
+#ifdef JS_PUNBOX64
           case LDefinition::BOX:
+#endif
           case LDefinition::OBJECT:
           case LDefinition::GENERAL:
             return alloc.isGeneralReg() || alloc.kind() == LAllocation::STACK_SLOT;

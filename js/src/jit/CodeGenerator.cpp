@@ -3072,12 +3072,24 @@ CodeGenerator::visitNewX4TypedObject(LNewX4TypedObject *lir)
         if (!callVM(CreateZeroedFloat32x4WrapperInfo, lir))
             return false;
         // FIXME -- need to load void* from result and store data into it
+
+        // roughly, load the void* we will store in this way:
+        // masm.loadPtr(Address(obj, TypedObject::dataOffset()), out);
+        // and then
+        // masm.storeFloat32x4Vector(...)
+
         return true;
 
       case X4TypeRepresentation::TYPE_INT32:
         if (!callVM(CreateZeroedInt32x4WrapperInfo, lir))
             return false;
         // FIXME -- need to load void* from result and store data into it
+
+        // roughly, load the void* we will store in this way:
+        // masm.loadPtr(Address(obj, TypedObject::dataOffset()), out);
+        // and then
+        // masm.storeFloat32x4Vector(...)
+
         return true;
     }
 

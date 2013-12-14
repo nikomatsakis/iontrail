@@ -367,7 +367,7 @@ Oper(JSContext *cx, unsigned argc, Value *vp)
 
 #define DEFINE_SIMD_FUNCTIOIN(X4Type, OpCode, ElementType, Operands, Flags)         \
 bool                                                                                \
-js_simd_##X4Type##_##OpCode(JSContext *cx, unsigned argc, Value *vp)                \
+js::js_simd_##X4Type##_##OpCode(JSContext *cx, unsigned argc, Value *vp)            \
 {                                                                                   \
     return Oper< X4Type, OpCode< ElementType, X4Type >, X4Type >(cx, argc, vp);     \
 }
@@ -654,7 +654,7 @@ const JSFunctionSpec js::Float32x4Methods[] = {
         JS_FN("reciprocalSqrt", (Oper< Float32x4, RecSqrt< float, Float32x4 >, Float32x4 >), 1, 0),
         JS_FN("sqrt", (Oper< Float32x4, Sqrt< float, Float32x4 >, Float32x4 >), 1, 0),
 #define SIMD_FUNCTIOIN_ITEM(X4Type, OpCode, ElementType, Operands, Flags)      \
-        JS_FN(#OpCode, js_simd_##X4Type##_##OpCode, Operands, Flags),
+        JS_FN(#OpCode, js::js_simd_##X4Type##_##OpCode, Operands, Flags),
 SIMD_FUNCTION_LIST(SIMD_FUNCTIOIN_ITEM)
 #undef SIMD_FUNCTIOIN_ITEM
         JS_FN("sub", (Oper< Float32x4, Sub< float, Float32x4 >, Float32x4 >), 2, 0),

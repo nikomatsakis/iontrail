@@ -106,7 +106,7 @@ IonBuilder::inlineNativeCall(CallInfo &callInfo, JSNative native)
         return inlineMathFunction(callInfo, MMathFunction::Cbrt);
 
     // SIMD natives.
-    if (native == js_simd_Float32x4_add)
+    if (native == js::js_simd_Float32x4_add)
         return inlineSIMDFunction(callInfo, SIMDFloat32x4Add);
 
     // String natives.

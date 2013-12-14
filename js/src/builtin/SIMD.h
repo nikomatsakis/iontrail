@@ -31,15 +31,15 @@ class SIMDObject : public JSObject
     static bool toString(JSContext *cx, unsigned int argc, jsval *vp);
 };
 
-}  /* namespace js */
-
-extern JSObject *
-js_InitSIMDClass(JSContext *cx, js::HandleObject obj);
-
 #define DECLARE_SIMD_FUNCTION(X4Type, OpCode, ElementType, Operands, Flags)    \
 extern bool                                                                    \
 js_simd_##X4Type##_##OpCode(JSContext *cx, unsigned argc, Value *vp);
 SIMD_FUNCTION_LIST(DECLARE_SIMD_FUNCTION)
 #undef DECLARE_SIMD_FUNCTION
+
+}  /* namespace js */
+
+extern JSObject *
+js_InitSIMDClass(JSContext *cx, js::HandleObject obj);
 
 #endif /* builtin_SIMD_h */

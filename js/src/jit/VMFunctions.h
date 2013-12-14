@@ -14,6 +14,7 @@
 
 namespace js {
 
+class TypedObject;
 class DeclEnvObject;
 class ForkJoinSlice;
 
@@ -266,6 +267,7 @@ struct VMFunctionsModal
 template <class> struct TypeToDataType { /* Unexpected return type for a VMFunction. */ };
 template <> struct TypeToDataType<bool> { static const DataType result = Type_Bool; };
 template <> struct TypeToDataType<JSObject *> { static const DataType result = Type_Object; };
+template <> struct TypeToDataType<TypedObject *> { static const DataType result = Type_Object; };
 template <> struct TypeToDataType<DeclEnvObject *> { static const DataType result = Type_Object; };
 template <> struct TypeToDataType<JSString *> { static const DataType result = Type_Object; };
 template <> struct TypeToDataType<JSFlatString *> { static const DataType result = Type_Object; };
@@ -660,7 +662,6 @@ bool InitBaselineFrameForOsr(BaselineFrame *frame, StackFrame *interpFrame,
 
 JSObject *CreateDerivedTypedObj(JSContext *cx, HandleObject type,
                                 HandleObject owner, int32_t offset);
-JSObject *CreateX4TypedObj(JSContext *cx, X4TypeRepresentation::Type x4Type);
 
 bool Recompile(JSContext *cx);
 } // namespace jit

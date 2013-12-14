@@ -6116,10 +6116,13 @@ class MLoadX4Value
 };
 
 class MNewX4TypedObject
-  : public MBinaryInstruction
+  : public MUnaryInstruction
 {
-    MNewX4TypedObject(MDefinition *data, MDefinition *type)
-      : MBinaryInstruction(data, type)
+    X4TypeRepresentation::Type x4Type_;
+
+    MNewX4TypedObject(MDefinition *data, X4TypeRepresentation::Type x4Type)
+      : MUnaryInstruction(data),
+        x4Type_(x4Type)
     {
         setResultType(MIRType_Object);
         setMovable();
@@ -6131,17 +6134,19 @@ class MNewX4TypedObject
     INSTRUCTION_HEADER(NewX4TypedObject)
 
     static MNewX4TypedObject *New(TempAllocator &alloc, MDefinition *data,
-                                  MDefinition *type)
+                                  X4TypeRepresentation::Type x4Type)
     {
-        return new(alloc) MNewX4TypedObject(data, type);
+        return new(alloc) MNewX4TypedObject(data, x4Type);
+    }
+
+    X4TypeRepresentation::Type x4Type() const {
+        return x4Type_;
     }
 
     MDefinition *data() const {
         return getOperand(0);
     }
-    MDefinition *type() const {
-        return getOperand(1);
-    }
+
     AliasSet getAliasSet() const {
         return AliasSet::None();
     }

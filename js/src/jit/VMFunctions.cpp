@@ -945,13 +945,5 @@ Recompile(JSContext *cx)
     return true;
 }
 
-// TODO: figure out how to pass SIMD128 register through function call
-JSObject *CreateX4TypedObj(JSContext *cx, X4TypeRepresentation::Type x4Type)
-{
-    RootedObject typeReprObj(cx);
-    typeReprObj = X4TypeRepresentation::Create(cx, x4Type);
-    return TypedObject::createZeroed(cx, typeReprObj, 0);
-}
-
 } // namespace jit
 } // namespace js

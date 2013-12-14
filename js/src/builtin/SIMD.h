@@ -23,6 +23,8 @@
 
 namespace js {
 
+class TypedObject;
+
 class SIMDObject : public JSObject
 {
   public:
@@ -36,6 +38,51 @@ extern bool                                                                    \
 js_simd_##X4Type##_##OpCode(JSContext *cx, unsigned argc, Value *vp);
 SIMD_FUNCTION_LIST(DECLARE_SIMD_FUNCTION)
 #undef DECLARE_SIMD_FUNCTION
+
+// These classes exist for use with templates below.
+
+struct Float32x4 {
+    typedef float Elem;
+    static const int32_t lanes = 4;
+    static const X4TypeRepresentation::Type type =
+        X4TypeRepresentation::TYPE_FLOAT32;
+
+    static JSObject &GetTypeObject(GlobalObject &obj) {
+        return obj.getFloat32x4TypeObject();
+    }
+    static Elem toType(Elem a) {
+        return a;
+    }
+    static void setReturn(CallArgs &args, float value) {
+        args.rval().setDouble(value);
+    }
+
+    static const JSFunctionSpec TypeDescriptorMethods[];
+    static const JSPropertySpec TypeObjectProperties[];
+    static const JSFunctionSpec TypeObjectMethods[];
+};
+
+struct Int32x4 {
+    typedef int32_t Elem;
+    static const int32_t lanes = 4;
+    static const X4TypeRepresentation::Type type =
+        X4TypeRepresentation::TYPE_INT32;
+    static JSObject &GetTypeObject(GlobalObject &obj) {
+        return obj.getInt32x4TypeObject();
+    }
+    static Elem toType(Elem a) {
+        return ToInt32(a);
+    }
+    static void setReturn(CallArgs &args, int32_t value) {
+        args.rval().setInt32(value);
+    }
+    static const JSFunctionSpec TypeDescriptorMethods[];
+    static const JSPropertySpec TypeObjectProperties[];
+    static const JSFunctionSpec TypeObjectMethods[];
+};
+
+template<typename V>
+TypedObject *CreateZeroedSIMDWrapper(JSContext *cx);
 
 }  /* namespace js */
 

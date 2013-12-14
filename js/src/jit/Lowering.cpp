@@ -221,8 +221,7 @@ bool
 LIRGenerator::visitNewX4TypedObject(MNewX4TypedObject *ins)
 {
     LNewX4TypedObject *lir =
-        new(alloc()) LNewX4TypedObject(useRegisterAtStart(ins->data()),
-                                       useRegisterAtStart(ins->type()));
+        new(alloc()) LNewX4TypedObject(useRegisterAtStart(ins->data()));
     return defineReturn(lir, ins) && assignSafepoint(lir, ins);
 }
 

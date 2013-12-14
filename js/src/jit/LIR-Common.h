@@ -534,23 +534,21 @@ class LNewDerivedTypedObject : public LCallInstructionHelper<1, 3, 0>
     }
 };
 
-class LNewX4TypedObject : public LCallInstructionHelper<1, 2, 0>
+class LNewX4TypedObject : public LCallInstructionHelper<1, 1, 0>
 {
   public:
     LIR_HEADER(NewX4TypedObject);
 
-    LNewX4TypedObject(const LAllocation &data,
-                      const LAllocation &type) {
+    LNewX4TypedObject(const LAllocation &data) {
         setOperand(0, data);
-        setOperand(1, type);
     }
 
     const LAllocation *data() {
         return getOperand(0);
     }
 
-    const LAllocation *type() {
-        return getOperand(1);
+    MNewX4TypedObject *mir() const {
+        return mir_->toNewX4TypedObject();
     }
 };
 

@@ -16,6 +16,7 @@
 
 #include "builtin/Eval.h"
 #include "builtin/TypedObject.h"
+#include "builtin/SIMD.h"
 #ifdef JSGC_GENERATIONAL
 # include "gc/Nursery.h"
 #endif
@@ -3052,11 +3053,13 @@ CodeGenerator::visitNewDerivedTypedObject(LNewDerivedTypedObject *lir)
     return callVM(CreateDerivedTypedObjInfo, lir);
 }
 
-// TODO: figure out how to pass SIMD128 register though function call
-typedef JSObject *(*NewX4TypedObjectFn)(JSContext *,
-                                        X4TypeRepresentation::Type x4Type);
-static const VMFunction CreateX4TypedObjInfo =
-    FunctionInfo<NewX4TypedObjectFn>(CreateX4TypedObj);
+typedef TypedObject *(*CreateZeroedSIMDWrapperFn)(JSContext *);
+static const VMFunction CreateZeroedFloat32x4WrapperInfo =
+    FunctionInfo<CreateZeroedSIMDWrapperFn>(
+        CreateZeroedSIMDWrapper<Float32x4>);
+static const VMFunction CreateZeroedInt32x4WrapperInfo =
+    FunctionInfo<CreateZeroedSIMDWrapperFn>(
+        CreateZeroedSIMDWrapper<Int32x4>);
 
 bool
 CodeGenerator::visitNewX4TypedObject(LNewX4TypedObject *lir)
@@ -3064,8 +3067,21 @@ CodeGenerator::visitNewX4TypedObject(LNewX4TypedObject *lir)
     // Not yet made safe for par exec:
     JS_ASSERT(gen->info().executionMode() == SequentialExecution);
 
-    pushArg(ToRegister(lir->type()));
-    return callVM(CreateX4TypedObjInfo, lir);
+    switch (lir->mir()->x4Type()) {
+      case X4TypeRepresentation::TYPE_FLOAT32:
+        if (!callVM(CreateZeroedFloat32x4WrapperInfo, lir))
+            return false;
+        // FIXME -- need to load void* from result and store data into it
+        return true;
+
+      case X4TypeRepresentation::TYPE_INT32:
+        if (!callVM(CreateZeroedInt32x4WrapperInfo, lir))
+            return false;
+        // FIXME -- need to load void* from result and store data into it
+        return true;
+    }
+
+    MOZ_ASSUME_UNREACHABLE("Unknown type");
 }
 
 bool

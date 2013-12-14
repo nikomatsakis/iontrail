@@ -33,43 +33,6 @@ extern const JSFunctionSpec Int32x4Methods[];
 ///////////////////////////////////////////////////////////////////////////
 // X4
 
-namespace js {
-struct Float32x4 {
-    typedef float Elem;
-    static const int32_t lanes = 4;
-    static const X4TypeRepresentation::Type type =
-        X4TypeRepresentation::TYPE_FLOAT32;
-
-    static JSObject &GetTypeObject(GlobalObject &obj) {
-        return obj.getFloat32x4TypeObject();
-    }
-    static Elem toType(Elem a) {
-        return a;
-    }
-    static void setReturn(CallArgs &args, float value) {
-        args.rval().setDouble(value);
-    }
-};
-} // namespace js
-
-namespace js {
-struct Int32x4 {
-    typedef int32_t Elem;
-    static const int32_t lanes = 4;
-    static const X4TypeRepresentation::Type type =
-        X4TypeRepresentation::TYPE_INT32;
-    static JSObject &GetTypeObject(GlobalObject &obj) {
-        return obj.getInt32x4TypeObject();
-    }
-    static Elem toType(Elem a) {
-        return ToInt32(a);
-    }
-    static void setReturn(CallArgs &args, int32_t value) {
-        args.rval().setInt32(value);
-    }
-};
-} // namespace js
-
 template<typename L, uint32_t lane>
 static bool
 LaneAccessor(JSContext *cx, unsigned argc, Value *vp) {
@@ -133,25 +96,7 @@ const Class X4Type::class_ = {
     nullptr
 };
 
-// These classes just exist to group together various properties and so on.
-namespace js {
-class Int32x4Defn {
-  public:
-    static const X4TypeRepresentation::Type type = X4TypeRepresentation::TYPE_INT32;
-    static const JSFunctionSpec TypeDescriptorMethods[];
-    static const JSPropertySpec TypeObjectProperties[];
-    static const JSFunctionSpec TypeObjectMethods[];
-};
-class Float32x4Defn {
-  public:
-    static const X4TypeRepresentation::Type type = X4TypeRepresentation::TYPE_FLOAT32;
-    static const JSFunctionSpec TypeDescriptorMethods[];
-    static const JSPropertySpec TypeObjectProperties[];
-    static const JSFunctionSpec TypeObjectMethods[];
-};
-} // namespace js
-
-const JSFunctionSpec js::Int32x4Defn::TypeDescriptorMethods[] = {
+const JSFunctionSpec js::Int32x4::TypeDescriptorMethods[] = {
     JS_FN("toSource", TypeObjectToSource, 0, 0),
     JS_SELF_HOSTED_FN("handle", "HandleCreate", 2, 0),
     JS_SELF_HOSTED_FN("array", "ArrayShorthand", 1, 0),
@@ -159,7 +104,7 @@ const JSFunctionSpec js::Int32x4Defn::TypeDescriptorMethods[] = {
     JS_FS_END,
 };
 
-const JSPropertySpec js::Int32x4Defn::TypeObjectProperties[] = {
+const JSPropertySpec js::Int32x4::TypeObjectProperties[] = {
     JS_PSG("x", (LaneAccessor<Int32x4, 0>), JSPROP_PERMANENT),
     JS_PSG("y", (LaneAccessor<Int32x4, 1>), JSPROP_PERMANENT),
     JS_PSG("z", (LaneAccessor<Int32x4, 2>), JSPROP_PERMANENT),
@@ -168,12 +113,12 @@ const JSPropertySpec js::Int32x4Defn::TypeObjectProperties[] = {
     JS_PS_END
 };
 
-const JSFunctionSpec js::Int32x4Defn::TypeObjectMethods[] = {
+const JSFunctionSpec js::Int32x4::TypeObjectMethods[] = {
     JS_SELF_HOSTED_FN("toSource", "X4ToSource", 0, 0),
     JS_FS_END
 };
 
-const JSFunctionSpec js::Float32x4Defn::TypeDescriptorMethods[] = {
+const JSFunctionSpec js::Float32x4::TypeDescriptorMethods[] = {
     JS_FN("toSource", TypeObjectToSource, 0, 0),
     JS_SELF_HOSTED_FN("handle", "HandleCreate", 2, 0),
     JS_SELF_HOSTED_FN("array", "ArrayShorthand", 1, 0),
@@ -181,7 +126,7 @@ const JSFunctionSpec js::Float32x4Defn::TypeDescriptorMethods[] = {
     JS_FS_END
 };
 
-const JSPropertySpec js::Float32x4Defn::TypeObjectProperties[] = {
+const JSPropertySpec js::Float32x4::TypeObjectProperties[] = {
     JS_PSG("x", (LaneAccessor<Float32x4, 0>), JSPROP_PERMANENT),
     JS_PSG("y", (LaneAccessor<Float32x4, 1>), JSPROP_PERMANENT),
     JS_PSG("z", (LaneAccessor<Float32x4, 2>), JSPROP_PERMANENT),
@@ -190,7 +135,7 @@ const JSPropertySpec js::Float32x4Defn::TypeObjectProperties[] = {
     JS_PS_END
 };
 
-const JSFunctionSpec js::Float32x4Defn::TypeObjectMethods[] = {
+const JSFunctionSpec js::Float32x4::TypeObjectMethods[] = {
     JS_SELF_HOSTED_FN("toSource", "X4ToSource", 0, 0),
     JS_FS_END
 };
@@ -332,7 +277,7 @@ SIMDObject::initClass(JSContext *cx, Handle<GlobalObject *> global)
     // float32x4
 
     RootedObject float32x4Object(cx);
-    float32x4Object = CreateX4Class<Float32x4Defn>(cx, global);
+    float32x4Object = CreateX4Class<Float32x4>(cx, global);
     if (!float32x4Object)
         return nullptr;
 
@@ -350,7 +295,7 @@ SIMDObject::initClass(JSContext *cx, Handle<GlobalObject *> global)
     // int32x4
 
     RootedObject int32x4Object(cx);
-    int32x4Object = CreateX4Class<Int32x4Defn>(cx, global);
+    int32x4Object = CreateX4Class<Int32x4>(cx, global);
     if (!int32x4Object)
         return nullptr;
 
@@ -398,13 +343,25 @@ ObjectIsVector(JSObject &obj) {
 }
 
 template<typename V>
-static JSObject *
-Create(JSContext *cx, typename V::Elem *data)
+TypedObject *
+js::CreateZeroedSIMDWrapper(JSContext *cx)
 {
     RootedObject typeObj(cx, &V::GetTypeObject(*cx->global()));
     JS_ASSERT(typeObj);
 
-    Rooted<TypedObject *> result(cx, TypedObject::createZeroed(cx, typeObj, 0));
+    return TypedObject::createZeroed(cx, typeObj, 0);
+}
+
+namespace js {
+template TypedObject *CreateZeroedSIMDWrapper<Float32x4>(JSContext *cx);
+template TypedObject *CreateZeroedSIMDWrapper<Int32x4>(JSContext *cx);
+}
+
+template<typename V>
+static JSObject *
+Create(JSContext *cx, typename V::Elem *data)
+{
+    Rooted<TypedObject *> result(cx, CreateZeroedSIMDWrapper<V>(cx));
     if (!result)
         return nullptr;
 

@@ -214,7 +214,7 @@ struct Sqrt {
     static inline T apply(T x, T zero) {return V::toType(sqrt(x));}
 };
 template<typename T, typename V>
-struct Add {
+struct add {
     static inline T apply(T l, T r) {return V::toType(l + r);}
 };
 template<typename T, typename V>
@@ -365,33 +365,14 @@ Oper(JSContext *cx, unsigned argc, Value *vp)
     }
 }
 
-bool
-Float32x4Add(JSContext *cx, unsigned argc, Value *vp)
-{
-    CallArgs args = CallArgsFromVp(argc, vp);
-
-    if ((argc != 2) ||
-        (!args[0].isObject() || !ObjectIsVector<Float32x4>(args[0].toObject())) ||
-        (!args[1].isObject() || !ObjectIsVector<Float32x4>(args[1].toObject())))
-    {
-        JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_TYPED_ARRAY_BAD_ARGS);
-        return false;
-    }
-    float *left = (float *) AsTypedDatum(args[0].toObject()).typedMem();
-    float *right = (float *) AsTypedDatum(args[1].toObject()).typedMem();
-
-    float result[Float32x4::lanes];
-    result[0] = left[0] + right[0];
-    result[1] = left[1] + right[1];
-    result[2] = left[2] + right[2];
-    result[3] = left[3] + right[3];
-    RootedObject obj(cx, Create<Float32x4>(cx, result));
-    if (!obj)
-        return false;
-
-    args.rval().setObject(*obj);
-    return true;
+#define DEFINE_SIMD_FUNCTIOIN(X4Type, OpCode, ElementType, Operands, Flags)         \
+bool                                                                                \
+js_simd_##X4Type##_##OpCode(JSContext *cx, unsigned argc, Value *vp)                \
+{                                                                                   \
+    return Oper< X4Type, OpCode< ElementType, X4Type >, X4Type >(cx, argc, vp);     \
 }
+SIMD_FUNCTION_LIST(DEFINE_SIMD_FUNCTIOIN)
+#undef DEFINE_SIMD_FUNCTIOIN
 
 template<typename V, typename OpWith, typename Vret>
 static bool
@@ -672,7 +653,10 @@ const JSFunctionSpec js::Float32x4Methods[] = {
         JS_FN("reciprocal", (Oper< Float32x4, Rec< float, Float32x4 >, Float32x4 >), 1, 0),
         JS_FN("reciprocalSqrt", (Oper< Float32x4, RecSqrt< float, Float32x4 >, Float32x4 >), 1, 0),
         JS_FN("sqrt", (Oper< Float32x4, Sqrt< float, Float32x4 >, Float32x4 >), 1, 0),
-        JS_FN("add", Float32x4Add, 2, 0),
+#define SIMD_FUNCTIOIN_ITEM(X4Type, OpCode, ElementType, Operands, Flags)      \
+        JS_FN(#OpCode, js_simd_##X4Type##_##OpCode, Operands, Flags),
+SIMD_FUNCTION_LIST(SIMD_FUNCTIOIN_ITEM)
+#undef SIMD_FUNCTIOIN_ITEM
         JS_FN("sub", (Oper< Float32x4, Sub< float, Float32x4 >, Float32x4 >), 2, 0),
         JS_FN("div", (Oper< Float32x4, Div< float, Float32x4 >, Float32x4 >), 2, 0),
         JS_FN("mul", (Oper< Float32x4, Mul< float, Float32x4 >, Float32x4 >), 2, 0),
@@ -702,7 +686,7 @@ const JSFunctionSpec js::Float32x4Methods[] = {
 const JSFunctionSpec js::Int32x4Methods[] = {
         JS_FN("not", (Oper< Int32x4, Not< int32_t, Int32x4 >, Int32x4 >), 1, 0),
         JS_FN("neg", (Oper< Int32x4, Neg< int32_t, Int32x4 >, Int32x4 >), 1, 0),
-        JS_FN("add", (Oper< Int32x4, Add< int32_t, Int32x4 >, Int32x4 >), 2, 0),
+        JS_FN("add", (Oper< Int32x4, add< int32_t, Int32x4 >, Int32x4 >), 2, 0),
         JS_FN("sub", (Oper< Int32x4, Sub< int32_t, Int32x4 >, Int32x4 >), 2, 0),
         JS_FN("mul", (Oper< Int32x4, Mul< int32_t, Int32x4 >, Int32x4 >), 2, 0),
         JS_FN("xor", (Oper< Int32x4, Xor< int32_t, Int32x4 >, Int32x4 >), 2, 0),

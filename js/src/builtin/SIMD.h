@@ -27,11 +27,10 @@ class SIMDObject : public JSObject
     static JSObject* initClass(JSContext *cx, Handle<GlobalObject *> global);
     static bool toString(JSContext *cx, unsigned int argc, jsval *vp);
 };
-    
+
 }  /* namespace js */
 
-extern JSObject *
+JSObject *
 js_InitSIMDClass(JSContext *cx, js::HandleObject obj);
-
 
 #endif /* builtin_SIMD_h */

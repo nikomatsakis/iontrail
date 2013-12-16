@@ -420,8 +420,7 @@ class GlobalObject : public JSObject
         setSlot(FLOAT32X4_TYPE_OBJECT, ObjectValue(obj));
     }
 
-    JSObject &getFloat32x4TypeObject() {
-        // only gets called from contexts where known to be initialized
+    JSObject &float32x4TypeObject() {
         JS_ASSERT(getSlotRef(FLOAT32X4_TYPE_OBJECT).isObject());
         return getSlotRef(FLOAT32X4_TYPE_OBJECT).toObject();
     }
@@ -431,8 +430,7 @@ class GlobalObject : public JSObject
         setSlot(INT32X4_TYPE_OBJECT, ObjectValue(obj));
     }
 
-    JSObject &getInt32x4TypeObject() {
-        // only gets called from contexts where known to be initialized
+    JSObject &int32x4TypeObject() {
         JS_ASSERT(getSlotRef(INT32X4_TYPE_OBJECT).isObject());
         return getSlotRef(INT32X4_TYPE_OBJECT).toObject();
     }

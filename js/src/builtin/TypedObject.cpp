@@ -1210,6 +1210,12 @@ DefineMetaTypeObject(JSContext *cx,
     return ctor;
 }
 
+/*  The initialization strategy for TypedObjects is mildly unusual
+ * compared to other classes. Because all of the types are members
+ * of a single global, `TypedObject`, we basically make the
+ * initialized for the `TypedObject` class populate the
+ * `TypedObject` global (which is referred to as "module" herein).
+ */
 bool
 GlobalObject::initTypedObjectModule(JSContext *cx, Handle<GlobalObject*> global)
 {
@@ -2631,7 +2637,7 @@ js::GetFloat32x4TypeObject(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
     Rooted<GlobalObject*> global(cx, cx->global());
-    args.rval().setObject(global->getFloat32x4TypeObject());
+    args.rval().setObject(global->float32x4TypeObject());
     return true;
 }
 
@@ -2640,7 +2646,7 @@ js::GetInt32x4TypeObject(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
     Rooted<GlobalObject*> global(cx, cx->global());
-    args.rval().setObject(global->getInt32x4TypeObject());
+    args.rval().setObject(global->int32x4TypeObject());
     return true;
 }
 

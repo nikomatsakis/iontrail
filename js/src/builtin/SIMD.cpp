@@ -185,7 +185,7 @@ const JSPropertySpec js::Float32x4Defn::TypeObjectProperties[] = {
     JS_PSG("y", (LaneAccessor<Float32x4, 1>), JSPROP_PERMANENT),
     JS_PSG("z", (LaneAccessor<Float32x4, 2>), JSPROP_PERMANENT),
     JS_PSG("w", (LaneAccessor<Float32x4, 3>), JSPROP_PERMANENT),
-    JS_PSG("signMask", SignMask<Int32x4>, JSPROP_PERMANENT),
+    JS_PSG("signMask", SignMask<Float32x4>, JSPROP_PERMANENT),
     JS_PS_END
 };
 

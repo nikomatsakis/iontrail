@@ -314,13 +314,6 @@ const Class SIMDObject::class_ = {
 JSObject *
 SIMDObject::initClass(JSContext *cx, Handle<GlobalObject *> global)
 {
-    // Ensure that the TypedObject class is resolved. This is
-    // convenient because it allows us to assume that whenever a SIMD
-    // function runs, the `float32x4` and `int32x4` constructors have
-    // been created.
-    if (!global->getOrCreateTypedObjectModule(cx))
-        return nullptr;
-
     // Create SIMD Object.
     RootedObject objProto(cx, global->getOrCreateObjectPrototype(cx));
     RootedObject SIMD(cx, NewObjectWithGivenProto(cx, &SIMDObject::class_, objProto,

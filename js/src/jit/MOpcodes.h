@@ -64,7 +64,7 @@ namespace jit {
     _(PowHalf)                                                              \
     _(Random)                                                               \
     _(MathFunction)                                                         \
-    _(BinarySIMDFunction)                                                   \
+    _(BinarySIMDFloat32x4Function)                                          \
     _(Add)                                                                  \
     _(Sub)                                                                  \
     _(Mul)                                                                  \
@@ -84,6 +84,7 @@ namespace jit {
     _(AssertRange)                                                          \
     _(ToDouble)                                                             \
     _(ToFloat32)                                                            \
+    _(ToFloat32x4)                                                          \
     _(ToInt32)                                                              \
     _(TruncateToInt32)                                                      \
     _(ToString)                                                             \

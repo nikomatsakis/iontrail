@@ -159,6 +159,7 @@ class LIRGenerator : public LIRGeneratorSpecific
     bool visitOsrArgumentsObject(MOsrArgumentsObject *object);
     bool visitToDouble(MToDouble *convert);
     bool visitToFloat32(MToFloat32 *convert);
+    bool visitToFloat32x4(MToFloat32x4 *convert);
     bool visitToInt32(MToInt32 *convert);
     bool visitTruncateToInt32(MTruncateToInt32 *truncate);
     bool visitToString(MToString *convert);
@@ -263,7 +264,7 @@ class LIRGenerator : public LIRGeneratorSpecific
     bool visitSetDOMProperty(MSetDOMProperty *ins);
     bool visitGetDOMProperty(MGetDOMProperty *ins);
     bool visitGetDOMMember(MGetDOMMember *ins);
-    bool visitBinarySIMDFunction(MBinarySIMDFunction *ins);
+    bool visitBinarySIMDFloat32x4Function(MBinarySIMDFloat32x4Function *ins);
 };
 
 } // namespace jit

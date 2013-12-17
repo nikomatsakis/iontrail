@@ -634,7 +634,7 @@ class IonBuilder : public MIRGenerator
     InliningStatus inlineMathFunction(CallInfo &callInfo, MMathFunction::Function function);
 
     // SIMD natives.
-    InliningStatus inlineSIMDFunction(CallInfo &callInfo, MBinarySIMDFunction::Id id);
+    InliningStatus inlineSIMDFunction(CallInfo &callInfo, MBinarySIMDFloat32x4Function::Id id);
     InliningStatus checkSIMDArgs(CallInfo &callInfo, const MIRType *argumentTypes);
     MDefinition *unwrapSIMDArg(MDefinition *arg, MIRType type);
     InliningStatus isSIMDOperand(MDefinition *arg, MIRType unboxedType,

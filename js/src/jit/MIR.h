@@ -2991,6 +2991,38 @@ class MToFloat32
     bool canProduceFloat32() const { return true; }
 };
 
+class MToFloat32x4
+  : public MUnaryInstruction
+{
+  protected:
+    MToFloat32x4(MDefinition *def)
+      : MUnaryInstruction(def)
+    {
+        setResultType(MIRType_float32x4);
+        setMovable();
+    }
+
+  public:
+    INSTRUCTION_HEADER(ToFloat32x4)
+    static MToFloat32x4 *New(TempAllocator &alloc, MDefinition *def)
+    {
+        return new(alloc) MToFloat32x4(def);
+    }
+    static MToFloat32x4 *NewAsmJS(TempAllocator &alloc, MDefinition *def) {
+        return new(alloc) MToFloat32x4(def);
+    }
+
+    MDefinition *foldsTo(TempAllocator &alloc, bool useValueNumbers);
+    bool congruentTo(MDefinition *ins) const {
+        if (!ins->isToFloat32x4())
+            return false;
+        return congruentIfOperandsEqual(ins);
+    }
+    AliasSet getAliasSet() const {
+        return AliasSet::None();
+    }
+};
+
 // Converts a uint32 to a double (coming from asm.js).
 class MAsmJSUnsignedToDouble
   : public MUnaryInstruction
@@ -3955,14 +3987,15 @@ class MMathFunction
     void computeRange(TempAllocator &alloc);
 };
 
-class MBinarySIMDFunction
-  : public MBinaryInstruction
+#define MBINARYSIMDFUNCTIONS(V)                                                \
+    V(Float32x4Add, "SIMD.float32x4.add", MIRType_float32x4, MIRType_float32x4)
+
+class MBinarySIMDFloat32x4Function
+  : public MBinaryInstruction,
+    public Float32x4Policy<0>,
+    public Float32x4Policy<1>
 {
   public:
-#define MBINARYSIMDFUNCTIONS(macro)                                           \
-    macro(Float32x4Add, "SIMD.float32x4.add",                                 \
-          MIRType_float32x4, MIRType_float32x4)
-
     enum Id {
 #define MBINARYSIMDFUNCTIONNAME(_enum, _name, _t1, _t2) _enum
         MBINARYSIMDFUNCTIONS(MBINARYSIMDFUNCTIONNAME)
@@ -3975,7 +4008,7 @@ class MBinarySIMDFunction
   private:
     Id id_;
 
-    MBinarySIMDFunction(MDefinition *left, MDefinition *right, Id id)
+    MBinarySIMDFloat32x4Function(MDefinition *left, MDefinition *right, Id id)
       : MBinaryInstruction(left, right), id_(id)
     {
         setMovable();
@@ -3988,19 +4021,19 @@ class MBinarySIMDFunction
     }
 
   public:
-    INSTRUCTION_HEADER(BinarySIMDFunction)
+    INSTRUCTION_HEADER(BinarySIMDFloat32x4Function)
 
-    static MBinarySIMDFunction *New(TempAllocator &alloc, MDefinition *left, MDefinition *right, Id id)
+    static MBinarySIMDFloat32x4Function *New(TempAllocator &alloc, MDefinition *left, MDefinition *right, Id id)
     {
-        return new(alloc) MBinarySIMDFunction(left, right, id);
+        return new(alloc) MBinarySIMDFloat32x4Function(left, right, id);
     }
     Id id() const {
         return id_;
     }
     bool congruentTo(MDefinition *ins) const {
-        if (!ins->isBinarySIMDFunction())
+        if (!ins->isBinarySIMDFloat32x4Function())
             return false;
-        if (ins->toBinarySIMDFunction()->id() != id())
+        if (ins->toBinarySIMDFloat32x4Function()->id() != id())
             return false;
         return congruentIfOperandsEqual(ins);
     }
@@ -4014,10 +4047,6 @@ class MBinarySIMDFunction
     }
 
     void printOpcode(FILE *fp) const;
-
-    static const char *FunctionName(Id id) {
-        return Names[id];
-    }
 };
 
 class MAdd : public MBinaryArithInstruction

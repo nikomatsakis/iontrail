@@ -168,6 +168,17 @@ class Float32Policy : public BoxInputsPolicy
     }
 };
 
+// Expect a float32x4 for operand Op. If the input is a Value, it is unboxed.
+template <unsigned Op>
+class Float32x4Policy : public BoxInputsPolicy
+{
+  public:
+    static bool staticAdjustInputs(TempAllocator &alloc, MInstruction *def);
+    bool adjustInputs(TempAllocator &alloc, MInstruction *def) {
+        return staticAdjustInputs(alloc, def);
+    }
+};
+
 // Expect a float32 OR a double for operand Op, but will prioritize Float32
 // if the result type is set as such. If the input is a Value, it is unboxed.
 template <unsigned Op>

@@ -623,13 +623,13 @@ MMathFunction::printOpcode(FILE *fp) const
     fprintf(fp, " %s", FunctionName(function()));
 }
 
-const char *MBinarySIMDFunction::Names[] = {
+const char *MBinarySIMDFloat32x4Function::Names[] = {
 #define MBINARYSIMDFUNCTIONNAME(_enum, _name, _t1, _t2) _name
         MBINARYSIMDFUNCTIONS(MBINARYSIMDFUNCTIONNAME)
 #undef MBINARYSIMDFUNCTIONNAME
 };
 
-MIRType MBinarySIMDFunction::ArgumentTypes[][2] = {
+MIRType MBinarySIMDFloat32x4Function::ArgumentTypes[][2] = {
 #define MBINARYSIMDFUNCTIONARGS(_enum, _name, _t1, _t2) { _t1, _t2 },
         MBINARYSIMDFUNCTIONS(MBINARYSIMDFUNCTIONARGS)
 #undef MBINARYSIMDFUNCTIONARGS
@@ -637,10 +637,10 @@ MIRType MBinarySIMDFunction::ArgumentTypes[][2] = {
 };
 
 void
-MBinarySIMDFunction::printOpcode(FILE *fp) const
+MBinarySIMDFloat32x4Function::printOpcode(FILE *fp) const
 {
     MDefinition::printOpcode(fp);
-    fprintf(fp, " %s", FunctionName(id()));
+    fprintf(fp, " %s", Names[id()]);
 }
 
 MParameter *
@@ -881,6 +881,11 @@ jit::MergeTypes(MIRType *ptype, types::TemporaryTypeSet **ptypeSet,
     if (newType != *ptype) {
         if (IsNumberType(newType) && IsNumberType(*ptype)) {
             *ptype = MIRType_Double;
+        } else if ((IsX4Type(newType) && (*ptype == MIRType_Object)) ||
+                   ((newType == MIRType_Object) && (IsX4Type(*ptype)))) {
+            *ptype = MIRType_Object;
+            // TODO: is it correct?
+            return;
         } else if (*ptype != MIRType_Value) {
             if (!*ptypeSet)
                 *ptypeSet = MakeMIRTypeSet(*ptype);
@@ -2219,6 +2224,16 @@ MToFloat32::foldsTo(TempAllocator &alloc, bool useValueNumbers)
     }
     return this;
 }
+
+MDefinition *
+MToFloat32x4::foldsTo(TempAllocator &alloc, bool useValueNumbers)
+{
+    MDefinition *in = input();
+    if (in->type() == MIRType_float32x4)
+        return in;
+    return this;
+}
+
 
 MDefinition *
 MToString::foldsTo(TempAllocator &alloc, bool useValueNumbers)

@@ -139,6 +139,7 @@
     _(ValueToDouble)                \
     _(ValueToInt32)                 \
     _(ValueToFloat32)               \
+    _(TypedObjectToFloat32x4)       \
     _(DoubleToInt32)                \
     _(Float32ToInt32)               \
     _(TruncateDToInt32)             \

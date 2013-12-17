@@ -1356,13 +1356,13 @@ MaybeSetRecoversInput(S *mir, T *lir)
 }
 
 bool
-LIRGenerator::visitBinarySIMDFunction(MBinarySIMDFunction *ins)
+LIRGenerator::visitBinarySIMDFloat32x4Function(MBinarySIMDFloat32x4Function *ins)
 {
     MDefinition *lhs = ins->getOperand(0);
     MDefinition *rhs = ins->getOperand(1);
 
     switch (ins->id()) {
-      case MBinarySIMDFunction::Float32x4Add:
+      case MBinarySIMDFloat32x4Function::Float32x4Add:
         JS_ASSERT(lhs->type() == MIRType_float32x4);
         ReorderCommutative(&lhs, &rhs);
         return lowerForFPU(new(alloc()) LMathFloat32x4(JSOP_ADD), ins, lhs, rhs);
@@ -1772,6 +1772,24 @@ LIRGenerator::visitToFloat32(MToFloat32 *convert)
       default:
         // Objects might be effectful.
         // Strings are complicated - we don't handle them yet.
+        MOZ_ASSUME_UNREACHABLE("unexpected type");
+        return false;
+    }
+}
+
+bool
+LIRGenerator::visitToFloat32x4(MToFloat32x4 *convert)
+{
+    MDefinition *opd = convert->input();
+
+    switch (opd->type()) {
+      case MIRType_Object:
+      {
+        LTypedObjectToFloat32x4 *lir = new(alloc()) LTypedObjectToFloat32x4(useRegister(opd), temp());
+        return define(lir, convert);
+      }
+
+      default:
         MOZ_ASSUME_UNREACHABLE("unexpected type");
         return false;
     }

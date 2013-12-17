@@ -74,6 +74,8 @@ enum MIRType
     MIRType_Double,
     MIRType_Float32,
     MIRType_String,
+    MIRType_float32x4,
+    MIRType_int32x4,
     MIRType_Object,
     MIRType_Magic,
     MIRType_Value,
@@ -82,9 +84,7 @@ enum MIRType
     MIRType_Elements,      // An elements vector
     MIRType_Pointer,       // An opaque pointer that receives no special treatment
     MIRType_Shape,         // A Shape pointer.
-    MIRType_ForkJoinSlice, // js::ForkJoinSlice*
-    MIRType_float32x4,
-    MIRType_int32x4,
+    MIRType_ForkJoinSlice  // js::ForkJoinSlice*
 };
 
 static inline MIRType
@@ -133,6 +133,9 @@ ValueTypeFromMIRType(MIRType type)
       return JSVAL_TYPE_STRING;
     case MIRType_Magic:
       return JSVAL_TYPE_MAGIC;
+    case MIRType_float32x4:
+    case MIRType_int32x4:
+      return JSVAL_TYPE_OBJECT;  // TODO: is it correct?
     default:
       JS_ASSERT(type == MIRType_Object);
       return JSVAL_TYPE_OBJECT;

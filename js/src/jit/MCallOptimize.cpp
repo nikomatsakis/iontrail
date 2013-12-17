@@ -107,7 +107,7 @@ IonBuilder::inlineNativeCall(CallInfo &callInfo, JSNative native)
 
     // SIMD natives.
     if (native == js::js_simd_Float32x4_add)
-        return inlineSIMDFunction(callInfo, MBinarySIMDFunction::Float32x4Add);
+        return inlineSIMDFunction(callInfo, MBinarySIMDFloat32x4Function::Float32x4Add);
 
     // String natives.
     if (native == js_String)
@@ -206,7 +206,7 @@ IonBuilder::inlineMathFunction(CallInfo &callInfo, MMathFunction::Function funct
 }
 
 IonBuilder::InliningStatus
-IonBuilder::inlineSIMDFunction(CallInfo &callInfo, MBinarySIMDFunction::Id id)
+IonBuilder::inlineSIMDFunction(CallInfo &callInfo, MBinarySIMDFloat32x4Function::Id id)
 {
     if (callInfo.constructing())
         return InliningStatus_NotInlined;
@@ -233,13 +233,18 @@ IonBuilder::inlineSIMDFunction(CallInfo &callInfo, MBinarySIMDFunction::Id id)
     // or false appropriately). With the code as is, though, we would
     // not optimize the calls here but instead fallback to the
     // interpreter path.
-    const MIRType *argumentTypes = MBinarySIMDFunction::ArgumentTypes[id];
+
+    if (getInlineReturnType() != MIRType_Object)
+        return InliningStatus_NotInlined;
+
+    const MIRType *argumentTypes = MBinarySIMDFloat32x4Function::ArgumentTypes[id];
     InliningStatus s = checkSIMDArgs(callInfo, argumentTypes);
     if (s != InliningStatus_Inlined)
         return s;
 
     callInfo.unwrapArgs();
 
+#if 0
     MDefinition *arg0 = unwrapSIMDArg(callInfo.getArg(0), argumentTypes[0]);
     if (!arg0)
         return InliningStatus_Error;
@@ -248,7 +253,11 @@ IonBuilder::inlineSIMDFunction(CallInfo &callInfo, MBinarySIMDFunction::Id id)
     if (!arg1)
         return InliningStatus_Error;
 
-    MBinarySIMDFunction *op = MBinarySIMDFunction::New(alloc(), arg0, arg1, id);
+    MBinarySIMDFloat32x4Function *op = MBinarySIMDFloat32x4Function::New(alloc(), arg0, arg1, id);
+#else
+    MBinarySIMDFloat32x4Function *op = MBinarySIMDFloat32x4Function::New(
+        alloc(), callInfo.getArg(0), callInfo.getArg(1), id);
+#endif
     current->add(op);
     current->push(op);
     return InliningStatus_Inlined;

@@ -534,6 +534,24 @@ template bool Float32Policy<2>::staticAdjustInputs(TempAllocator &alloc, MInstru
 
 template <unsigned Op>
 bool
+Float32x4Policy<Op>::staticAdjustInputs(TempAllocator &alloc, MInstruction *def)
+{
+    MDefinition *in = def->getOperand(Op);
+    if (in->type() == MIRType_float32x4)
+        return true;
+
+    MToFloat32x4 *replace = MToFloat32x4::New(alloc, in);
+    def->block()->insertBefore(def, replace);
+    def->replaceOperand(Op, replace);
+    return true;
+}
+
+template bool Float32x4Policy<0>::staticAdjustInputs(TempAllocator &alloc, MInstruction *def);
+template bool Float32x4Policy<1>::staticAdjustInputs(TempAllocator &alloc, MInstruction *def);
+template bool Float32x4Policy<2>::staticAdjustInputs(TempAllocator &alloc, MInstruction *def);
+
+template <unsigned Op>
+bool
 NoFloatPolicy<Op>::staticAdjustInputs(TempAllocator &alloc, MInstruction *def)
 {
     MDefinition *in = def->getOperand(Op);

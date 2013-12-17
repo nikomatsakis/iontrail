@@ -2990,6 +2990,22 @@ class LValueToFloat32 : public LInstructionHelper<1, BOX_PIECES, 0>
     }
 };
 
+// Convert an object to a float32x4.
+class LTypedObjectToFloat32x4 : public LInstructionHelper<1, 1, 1>
+{
+  public:
+    LIR_HEADER(TypedObjectToFloat32x4)
+
+    LTypedObjectToFloat32x4(const LAllocation &input, const LDefinition &temp) {
+        setOperand(0, input);
+        setTemp(0, temp);
+    }
+
+    const LDefinition *temp() {
+        return getTemp(0);
+    }
+};
+
 // Convert a value to an int32.
 //   Input: components of a Value
 //   Output: 32-bit integer

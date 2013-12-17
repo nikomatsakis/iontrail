@@ -1213,7 +1213,7 @@ DefineMetaTypeObject(JSContext *cx,
 /*  The initialization strategy for TypedObjects is mildly unusual
  * compared to other classes. Because all of the types are members
  * of a single global, `TypedObject`, we basically make the
- * initialized for the `TypedObject` class populate the
+ * initializer for the `TypedObject` class populate the
  * `TypedObject` global (which is referred to as "module" herein).
  */
 bool
@@ -1349,6 +1349,7 @@ TypedObjectModuleObject::getSuitableClaspAndProto(JSContext *cx,
                                                   MutableHandleObject proto)
 {
     Rooted<GlobalObject *> global(cx, cx->global());
+    JS_ASSERT(global);
     switch (kind) {
       case TypeRepresentation::Scalar:
         *clasp = &ScalarType::class_;
@@ -2628,6 +2629,7 @@ js::GetTypedObjectModule(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
     Rooted<GlobalObject*> global(cx, cx->global());
+    JS_ASSERT(global);
     args.rval().setObject(global->getTypedObjectModule());
     return true;
 }
@@ -2637,6 +2639,7 @@ js::GetFloat32x4TypeObject(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
     Rooted<GlobalObject*> global(cx, cx->global());
+    JS_ASSERT(global);
     args.rval().setObject(global->float32x4TypeObject());
     return true;
 }
@@ -2646,6 +2649,7 @@ js::GetInt32x4TypeObject(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
     Rooted<GlobalObject*> global(cx, cx->global());
+    JS_ASSERT(global);
     args.rval().setObject(global->int32x4TypeObject());
     return true;
 }

@@ -547,16 +547,16 @@ bool GetTypedObjectModule(JSContext *cx, unsigned argc, Value *vp);
 /*
  * Usage: GetFloat32x4TypeObject()
  *
- * Returns the float32x4 type object. SIMD module must have been
- * initialized for this to be safe.
+ * Returns the float32x4 type object. SIMD pseudo-module must have 
+ * been initialized for this to be safe.
  */
 bool GetFloat32x4TypeObject(JSContext *cx, unsigned argc, Value *vp);
 
 /*
  * Usage: GetInt32x4TypeObject()
  *
- * Returns the int32x4 type object. SIMD module must have been
- * initialized for this to be safe.
+ * Returns the int32x4 type object. SIMD pseudo-module must have 
+ * been initialized for this to be safe.
  */
 bool GetInt32x4TypeObject(JSContext *cx, unsigned argc, Value *vp);
 

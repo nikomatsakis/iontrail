@@ -7,15 +7,13 @@
 #ifndef builtin_SIMD_h
 #define builtin_SIMD_h
 
-#include "mozilla/MemoryReporting.h"
-
 #include "jsapi.h"
 #include "jsobj.h"
 
 /*
  * JS SIMD functions.
  * Spec matching polyfill:
- * https://github.com/johnmccutchan/ecmascript_simd/blob/master/src/ecmascript_simd_tests.js
+ * https://github.com/johnmccutchan/ecmascript_simd/blob/master/src/ecmascript_simd.js
  */
 
 namespace js {

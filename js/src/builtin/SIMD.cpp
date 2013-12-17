@@ -8,7 +8,7 @@
  * JS SIMD package.
  * Specification matches polyfill:
  * https://github.com/johnmccutchan/ecmascript_simd/blob/master/src/ecmascript_simd_tests.js
- * The objects float32x4 and int32x4 are built, implemented, and installed on the SIMD module.
+ * The objects float32x4 and int32x4 are installed on the SIMD pseudo-module.
  */
 
 #include "builtin/SIMD.h"
@@ -39,8 +39,8 @@ struct Float32x4 {
     static const X4TypeRepresentation::Type type =
         X4TypeRepresentation::TYPE_FLOAT32;
 
-    static JSObject &GetTypeObject(GlobalObject &obj) {
-        return obj.float32x4TypeObject();
+    static JSObject &GetTypeObject(GlobalObject &global) {
+        return global.float32x4TypeObject();
     }
     static Elem toType(Elem a) {
         return a;
@@ -56,8 +56,8 @@ struct Int32x4 {
     static const X4TypeRepresentation::Type type =
         X4TypeRepresentation::TYPE_INT32;
 
-    static JSObject &GetTypeObject(GlobalObject &obj) {
-        return obj.int32x4TypeObject();
+    static JSObject &GetTypeObject(GlobalObject &global) {
+        return global.int32x4TypeObject();
     }
     static Elem toType(Elem a) {
         return ToInt32(a);
@@ -71,40 +71,38 @@ struct Int32x4 {
 template<typename L, uint32_t lane>
 static bool
 LaneAccessor(JSContext *cx, unsigned argc, Value *vp) {
+    static const char *laneNames[] = {"lane 0", "lane 1", "lane 2", "lane3"};
     CallArgs args = CallArgsFromVp(argc, vp);
     if(!args.thisv().isObject() || !IsTypedDatum(args.thisv().toObject())) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_INCOMPATIBLE_PROTO,
-                             X4Type::class_.name, "lane" + lane,
+                             X4Type::class_.name, laneNames[lane],
                              InformalValueTypeName(args.thisv()));
         return false;
     }
     TypedDatum &datum = AsTypedDatum(args.thisv().toObject());
     TypeRepresentation *typeRepr = datum.datumTypeRepresentation();
-    if (typeRepr->kind() != TypeRepresentation::X4 ||
-        typeRepr->asX4()->type() != L::type)
-    {
+    if (typeRepr->kind() != TypeRepresentation::X4 || typeRepr->asX4()->type() != L::type) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_INCOMPATIBLE_PROTO,
-                             X4Type::class_.name, "lane" + lane,
+                             X4Type::class_.name, laneNames[lane],
                              InformalValueTypeName(args.thisv()));
         return false;
     }
-    typename L::Elem *data =
-        reinterpret_cast<typename L::Elem *>(datum.typedMem());
+    typename L::Elem *data = reinterpret_cast<typename L::Elem *>(datum.typedMem());
     L::setReturn(args, data[lane]);
-        return true;
+    return true;
 }
 
 template<typename L>
 static bool
 SignMask(JSContext *cx, unsigned argc, Value *vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
-    if(!args.thisv().isObject() || !IsTypedDatum(args.thisv().toObject())){
+    if(!args.thisv().isObject() || !IsTypedDatum(args.thisv().toObject())) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_INCOMPATIBLE_PROTO,
                              X4Type::class_.name, "signMask", InformalValueTypeName(args.thisv()));
         return false;
     }
-    typename L::Elem *data =
-        reinterpret_cast<typename L::Elem *>(AsTypedDatum(args.thisv().toObject()).typedMem());
+    TypedDatum &datum = AsTypedDatum(args.thisv().toObject());
+    typename L::Elem *data = reinterpret_cast<typename L::Elem *>(datum.typedMem());
     int32_t mx = data[0] < 0.0 ? 1 : 0;
     int32_t my = data[1] < 0.0 ? 1 : 0;
     int32_t mz = data[2] < 0.0 ? 1 : 0;
@@ -150,28 +148,6 @@ class Float32x4Defn {
 };
 } // namespace js
 
-const JSFunctionSpec js::Int32x4Defn::TypeDescriptorMethods[] = {
-    JS_FN("toSource", TypeObjectToSource, 0, 0),
-    JS_SELF_HOSTED_FN("handle", "HandleCreate", 2, 0),
-    JS_SELF_HOSTED_FN("array", "ArrayShorthand", 1, 0),
-    JS_SELF_HOSTED_FN("equivalent", "TypeObjectEquivalent", 1, 0),
-    JS_FS_END,
-};
-
-const JSPropertySpec js::Int32x4Defn::TypeObjectProperties[] = {
-    JS_PSG("x", (LaneAccessor<Int32x4, 0>), JSPROP_PERMANENT),
-    JS_PSG("y", (LaneAccessor<Int32x4, 1>), JSPROP_PERMANENT),
-    JS_PSG("z", (LaneAccessor<Int32x4, 2>), JSPROP_PERMANENT),
-    JS_PSG("w", (LaneAccessor<Int32x4, 3>), JSPROP_PERMANENT),
-    JS_PSG("signMask", SignMask<Int32x4>, JSPROP_PERMANENT),
-    JS_PS_END
-};
-
-const JSFunctionSpec js::Int32x4Defn::TypeObjectMethods[] = {
-    JS_SELF_HOSTED_FN("toSource", "X4ToSource", 0, 0),
-    JS_FS_END
-};
-
 const JSFunctionSpec js::Float32x4Defn::TypeDescriptorMethods[] = {
     JS_FN("toSource", TypeObjectToSource, 0, 0),
     JS_SELF_HOSTED_FN("handle", "HandleCreate", 2, 0),
@@ -190,6 +166,28 @@ const JSPropertySpec js::Float32x4Defn::TypeObjectProperties[] = {
 };
 
 const JSFunctionSpec js::Float32x4Defn::TypeObjectMethods[] = {
+    JS_SELF_HOSTED_FN("toSource", "X4ToSource", 0, 0),
+    JS_FS_END
+};
+
+const JSFunctionSpec js::Int32x4Defn::TypeDescriptorMethods[] = {
+    JS_FN("toSource", TypeObjectToSource, 0, 0),
+    JS_SELF_HOSTED_FN("handle", "HandleCreate", 2, 0),
+    JS_SELF_HOSTED_FN("array", "ArrayShorthand", 1, 0),
+    JS_SELF_HOSTED_FN("equivalent", "TypeObjectEquivalent", 1, 0),
+    JS_FS_END,
+};
+
+const JSPropertySpec js::Int32x4Defn::TypeObjectProperties[] = {
+    JS_PSG("x", (LaneAccessor<Int32x4, 0>), JSPROP_PERMANENT),
+    JS_PSG("y", (LaneAccessor<Int32x4, 1>), JSPROP_PERMANENT),
+    JS_PSG("z", (LaneAccessor<Int32x4, 2>), JSPROP_PERMANENT),
+    JS_PSG("w", (LaneAccessor<Int32x4, 3>), JSPROP_PERMANENT),
+    JS_PSG("signMask", SignMask<Int32x4>, JSPROP_PERMANENT),
+    JS_PS_END
+};
+
+const JSFunctionSpec js::Int32x4Defn::TypeObjectMethods[] = {
     JS_SELF_HOSTED_FN("toSource", "X4ToSource", 0, 0),
     JS_FS_END
 };
@@ -316,6 +314,8 @@ SIMDObject::initClass(JSContext *cx, Handle<GlobalObject *> global)
 {
     // Create SIMD Object.
     RootedObject objProto(cx, global->getOrCreateObjectPrototype(cx));
+    if(!objProto)
+        return nullptr;
     RootedObject SIMD(cx, NewObjectWithGivenProto(cx, &SIMDObject::class_, objProto,
                                                   global, SingletonObject));
     if (!SIMD)
@@ -340,7 +340,7 @@ SIMDObject::initClass(JSContext *cx, Handle<GlobalObject *> global)
 
     // int32x4
 
-    RootedObject int32x4Object(cx, CreateX4Class<Int32x4Defn>(cx,global));
+    RootedObject int32x4Object(cx, CreateX4Class<Int32x4Defn>(cx, global));
     if (!int32x4Object)
         return nullptr;
 
@@ -359,9 +359,7 @@ SIMDObject::initClass(JSContext *cx, Handle<GlobalObject *> global)
     global->setConstructor(JSProto_SIMD, SIMDValue);
 
     // Everything is set up, install SIMD on the global object.
-    if (!JSObject::defineProperty(cx, global, cx->names().SIMD,  SIMDValue,
-                                  nullptr, nullptr, 0))
-    {
+    if (!JSObject::defineProperty(cx, global, cx->names().SIMD,  SIMDValue, nullptr, nullptr, 0)) {
         return nullptr;
     }
 

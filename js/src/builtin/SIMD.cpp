@@ -8,8 +8,7 @@
  * JS SIMD package.
  * Specification matches polyfill:
  * https://github.com/johnmccutchan/ecmascript_simd/blob/master/src/ecmascript_simd_tests.js
- * The objects float32x4 and int32x4 are implemented in TypedObjects.cpp.
- * The SIMD functions are declared here and implemented in self-hosted SIMD.js.
+ * The objects float32x4 and int32x4 are built, implemented, and installed on the SIMD module.
  */
 
 #include "builtin/SIMD.h"
@@ -39,7 +38,8 @@ LaneAccessor(JSContext *cx, unsigned argc, Value *vp) {
     CallArgs args = CallArgsFromVp(argc, vp);
     if(!args.thisv().isObject() || !IsTypedDatum(args.thisv().toObject())) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_INCOMPATIBLE_PROTO,
-                             X4Type::class_.name, "lane" + lane, InformalValueTypeName(args.thisv()));
+                             X4Type::class_.name, "lane" + lane,
+                             InformalValueTypeName(args.thisv()));
         return false;
     }
     TypedDatum &datum = AsTypedDatum(args.thisv().toObject());
@@ -48,55 +48,73 @@ LaneAccessor(JSContext *cx, unsigned argc, Value *vp) {
         typeRepr->asX4()->type() != L::type)
     {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_INCOMPATIBLE_PROTO,
-                             X4Type::class_.name, "lane" + lane, InformalValueTypeName(args.thisv()));
+                             X4Type::class_.name, "lane" + lane,
+                             InformalValueTypeName(args.thisv()));
         return false;
     }
     typename L::Elem *data =
-        (typename L::Elem *) datum.typedMem();
+        reinterpret_cast<typename L::Elem *>(datum.typedMem());
     L::setReturn(args, data[lane]);
         return true;
 }
 
-#define SIGN_MASK(Type32, Elem) \
-    bool Type32##x4SignMask(JSContext *cx, unsigned argc, Value *vp) { \
-        CallArgs args = CallArgsFromVp(argc, vp); \
-        if(!args.thisv().isObject() || !IsTypedDatum(args.thisv().toObject())){              \
-            JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_INCOMPATIBLE_PROTO, \
-                                 X4Type::class_.name, "signMask", InformalValueTypeName(args.thisv())); \
-            return false; \
-        } \
-        Elem *data = (Elem *) AsTypedDatum(args.thisv().toObject()).typedMem(); \
-        int32_t mx = data[0] < 0.0 ? 1 : 0; \
-        int32_t my = data[1] < 0.0 ? 1 : 0; \
-        int32_t mz = data[2] < 0.0 ? 1 : 0; \
-        int32_t mw = data[3] < 0.0 ? 1 : 0; \
-        int32_t result = mx | my << 1 | mz << 2 | mw << 3; \
-        args.rval().setInt32(result); \
-        return true; \
+template<typename L>
+static bool
+SignMask(JSContext *cx, unsigned argc, Value *vp) {
+    CallArgs args = CallArgsFromVp(argc, vp);
+    if(!args.thisv().isObject() || !IsTypedDatum(args.thisv().toObject())){
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_INCOMPATIBLE_PROTO,
+                             X4Type::class_.name, "signMask", InformalValueTypeName(args.thisv()));
+        return false;
     }
-    SIGN_MASK(Float32, float);
-    SIGN_MASK(Int32, int32_t);
- #undef SIGN_MASK
+    typename L::Elem *data =
+        reinterpret_cast<typename L::Elem *>(AsTypedDatum(args.thisv().toObject()).typedMem());
+    int32_t mx = data[0] < 0.0 ? 1 : 0;
+    int32_t my = data[1] < 0.0 ? 1 : 0;
+    int32_t mz = data[2] < 0.0 ? 1 : 0;
+    int32_t mw = data[3] < 0.0 ? 1 : 0;
+    int32_t result = mx | my << 1 | mz << 2 | mw << 3;
+    args.rval().setInt32(result);
+    return true;
+}
 
 const Class X4Type::class_ = {
     "X4",
     JSCLASS_HAS_RESERVED_SLOTS(JS_TYPEOBJ_X4_SLOTS),
-    JS_PropertyStub,
-    JS_DeletePropertyStub,
-    JS_PropertyStub,
-    JS_StrictPropertyStub,
+    JS_PropertyStub,         /* addProperty */
+    JS_DeletePropertyStub,   /* delProperty */
+    JS_PropertyStub,         /* getProperty */
+    JS_StrictPropertyStub,   /* setProperty */
     JS_EnumerateStub,
     JS_ResolveStub,
     JS_ConvertStub,
-    nullptr,
-    nullptr,
-    call,
-    nullptr,
-    nullptr,
+    nullptr,             /* finalize    */
+    nullptr,             /* checkAccess */
+    call,                /* call        */
+    nullptr,             /* hasInstance */
+    nullptr,             /* construct   */
     nullptr
 };
 
-const JSFunctionSpec js::Int32x4::TypeDescriptorMethods[] = {
+// These classes just exist to group together various properties and so on.
+namespace js {
+class Int32x4Defn {
+  public:
+    static const X4TypeRepresentation::Type type = X4TypeRepresentation::TYPE_INT32;
+    static const JSFunctionSpec TypeDescriptorMethods[];
+    static const JSPropertySpec TypeObjectProperties[];
+    static const JSFunctionSpec TypeObjectMethods[];
+};
+class Float32x4Defn {
+  public:
+    static const X4TypeRepresentation::Type type = X4TypeRepresentation::TYPE_FLOAT32;
+    static const JSFunctionSpec TypeDescriptorMethods[];
+    static const JSPropertySpec TypeObjectProperties[];
+    static const JSFunctionSpec TypeObjectMethods[];
+};
+} // namespace js
+
+const JSFunctionSpec js::Int32x4Defn::TypeDescriptorMethods[] = {
     JS_FN("toSource", TypeObjectToSource, 0, 0),
     JS_SELF_HOSTED_FN("handle", "HandleCreate", 2, 0),
     JS_SELF_HOSTED_FN("array", "ArrayShorthand", 1, 0),
@@ -104,21 +122,21 @@ const JSFunctionSpec js::Int32x4::TypeDescriptorMethods[] = {
     JS_FS_END,
 };
 
-const JSPropertySpec js::Int32x4::TypeObjectProperties[] = {
+const JSPropertySpec js::Int32x4Defn::TypeObjectProperties[] = {
     JS_PSG("x", (LaneAccessor<Int32x4, 0>), JSPROP_PERMANENT),
     JS_PSG("y", (LaneAccessor<Int32x4, 1>), JSPROP_PERMANENT),
     JS_PSG("z", (LaneAccessor<Int32x4, 2>), JSPROP_PERMANENT),
     JS_PSG("w", (LaneAccessor<Int32x4, 3>), JSPROP_PERMANENT),
-    JS_PSG("signMask", Int32x4SignMask, JSPROP_PERMANENT),
+    JS_PSG("signMask", SignMask<Int32x4>, JSPROP_PERMANENT),
     JS_PS_END
 };
 
-const JSFunctionSpec js::Int32x4::TypeObjectMethods[] = {
+const JSFunctionSpec js::Int32x4Defn::TypeObjectMethods[] = {
     JS_SELF_HOSTED_FN("toSource", "X4ToSource", 0, 0),
     JS_FS_END
 };
 
-const JSFunctionSpec js::Float32x4::TypeDescriptorMethods[] = {
+const JSFunctionSpec js::Float32x4Defn::TypeDescriptorMethods[] = {
     JS_FN("toSource", TypeObjectToSource, 0, 0),
     JS_SELF_HOSTED_FN("handle", "HandleCreate", 2, 0),
     JS_SELF_HOSTED_FN("array", "ArrayShorthand", 1, 0),
@@ -126,16 +144,16 @@ const JSFunctionSpec js::Float32x4::TypeDescriptorMethods[] = {
     JS_FS_END
 };
 
-const JSPropertySpec js::Float32x4::TypeObjectProperties[] = {
+const JSPropertySpec js::Float32x4Defn::TypeObjectProperties[] = {
     JS_PSG("x", (LaneAccessor<Float32x4, 0>), JSPROP_PERMANENT),
     JS_PSG("y", (LaneAccessor<Float32x4, 1>), JSPROP_PERMANENT),
     JS_PSG("z", (LaneAccessor<Float32x4, 2>), JSPROP_PERMANENT),
     JS_PSG("w", (LaneAccessor<Float32x4, 3>), JSPROP_PERMANENT),
-    JS_PSG("signMask", Float32x4SignMask, JSPROP_PERMANENT),
+    JS_PSG("signMask", SignMask<Float32x4>, JSPROP_PERMANENT),
     JS_PS_END
 };
 
-const JSFunctionSpec js::Float32x4::TypeObjectMethods[] = {
+const JSFunctionSpec js::Float32x4Defn::TypeObjectMethods[] = {
     JS_SELF_HOSTED_FN("toSource", "X4ToSource", 0, 0),
     JS_FS_END
 };
@@ -148,14 +166,14 @@ CreateX4Class(JSContext *cx, Handle<GlobalObject*> global)
     if (!funcProto)
         return nullptr;
 
-    // Create type representation
+    // Create type representation.
 
     RootedObject typeReprObj(cx);
     typeReprObj = X4TypeRepresentation::Create(cx, T::type);
     if (!typeReprObj)
         return nullptr;
 
-    // Create prototype property, which inherits from Object.prototype
+    // Create prototype property, which inherits from Object.prototype.
 
     RootedObject objProto(cx, global->getOrCreateObjectPrototype(cx));
     if (!objProto)
@@ -165,7 +183,7 @@ CreateX4Class(JSContext *cx, Handle<GlobalObject*> global)
     if (!proto)
         return nullptr;
 
-    // Create type constructor itself
+    // Create type constructor itself.
 
     RootedObject x4(cx);
     x4 = NewObjectWithClassProto(cx, &X4Type::class_, funcProto, global);
@@ -176,11 +194,11 @@ CreateX4Class(JSContext *cx, Handle<GlobalObject*> global)
         return nullptr;
     }
 
-    // Link type constructor to the type representation
+    // Link type constructor to the type representation.
 
     x4->initReservedSlot(JS_TYPEOBJ_SLOT_TYPE_REPR, ObjectValue(*typeReprObj));
 
-    // Link constructor to prototype and install properties
+    // Link constructor to prototype and install properties.
 
     if (!JS_DefineFunctions(cx, x4, T::TypeDescriptorMethods))
         return nullptr;
@@ -223,7 +241,7 @@ X4Type::call(JSContext *cx, unsigned argc, Value *vp)
 #define STORE_LANES(_constant, _type, _name)                                  \
       case _constant:                                                         \
       {                                                                       \
-        _type *mem = (_type*) result->typedMem();                             \
+        _type *mem = reinterpret_cast<_type*>(result->typedMem());            \
         for (uint32_t i = 0; i < LANES; i++) {                                \
             mem[i] = ConvertScalar<_type>(values[i]);                         \
         }                                                                     \
@@ -249,24 +267,17 @@ const Class SIMDObject::class_ = {
         JS_EnumerateStub,
         JS_ResolveStub,
         JS_ConvertStub,
-        nullptr,                 /* finalize    */
-        nullptr,                 /* checkAccess */
-        nullptr,                 /* call        */
-        nullptr,                 /* hasInstance */
-        nullptr,                 /* construct   */
+        nullptr,             /* finalize    */
+        nullptr,             /* checkAccess */
+        nullptr,             /* call        */
+        nullptr,             /* hasInstance */
+        nullptr,             /* construct   */
         nullptr
 };
 
 JSObject *
 SIMDObject::initClass(JSContext *cx, Handle<GlobalObject *> global)
 {
-    // Ensure that the TypedObject class is resolved. This is
-    // convenient because it allows us to assume that whenever a SIMD
-    // function runs, the `float32x4` and `int32x4` constructors have
-    // been created.
-    if (!global->getOrCreateTypedObjectModule(cx))
-        return nullptr;
-
     // Create SIMD Object.
     RootedObject objProto(cx, global->getOrCreateObjectPrototype(cx));
     RootedObject SIMD(cx, NewObjectWithGivenProto(cx, &SIMDObject::class_, objProto,
@@ -276,8 +287,7 @@ SIMDObject::initClass(JSContext *cx, Handle<GlobalObject *> global)
 
     // float32x4
 
-    RootedObject float32x4Object(cx);
-    float32x4Object = CreateX4Class<Float32x4>(cx, global);
+    RootedObject float32x4Object(cx, CreateX4Class<Float32x4Defn>(cx, global));
     if (!float32x4Object)
         return nullptr;
 
@@ -294,8 +304,7 @@ SIMDObject::initClass(JSContext *cx, Handle<GlobalObject *> global)
 
     // int32x4
 
-    RootedObject int32x4Object(cx);
-    int32x4Object = CreateX4Class<Int32x4>(cx, global);
+    RootedObject int32x4Object(cx, CreateX4Class<Int32x4Defn>(cx,global));
     if (!int32x4Object)
         return nullptr;
 
@@ -365,7 +374,7 @@ Create(JSContext *cx, typename V::Elem *data)
     if (!result)
         return nullptr;
 
-    typename V::Elem *resultMem = (typename V::Elem *) result->typedMem();
+    typename V::Elem *resultMem = reinterpret_cast<typename V::Elem *>(result->typedMem());
     memcpy(resultMem, data, sizeof(typename V::Elem) * V::lanes);
     return result;
 }
@@ -373,7 +382,7 @@ Create(JSContext *cx, typename V::Elem *data)
 namespace js {
 template<typename T, typename V>
 struct Abs {
-    static inline T apply(T x, T zero) {return V::toType(x < 0 ? (-1*x) : x);}
+    static inline T apply(T x, T zero) {return V::toType(x < 0 ? -1 * x : x);}
 };
 template<typename T, typename V>
 struct Neg {
@@ -499,7 +508,7 @@ struct Shuffle {
 
 template<typename V, typename Op, typename Vret>
 static bool
-Oper(JSContext *cx, unsigned argc, Value *vp)
+Func(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
 
@@ -508,7 +517,8 @@ Oper(JSContext *cx, unsigned argc, Value *vp)
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_TYPED_ARRAY_BAD_ARGS);
             return false;
         }
-        typename V::Elem *val = (typename V::Elem*) AsTypedDatum(args[0].toObject()).typedMem();
+        typename V::Elem *val =
+            reinterpret_cast<typename V::Elem *>(AsTypedDatum(args[0].toObject()).typedMem());
         typename Vret::Elem result[Vret::lanes];
         for (int32_t i = 0; i < Vret::lanes; i++)
             result[i] = Op::apply(val[i], 0);
@@ -528,8 +538,10 @@ Oper(JSContext *cx, unsigned argc, Value *vp)
             return false;
         }
 
-        typename V::Elem *left = (typename V::Elem*) AsTypedDatum(args[0].toObject()).typedMem();
-        typename V::Elem *right = (typename V::Elem*) AsTypedDatum(args[1].toObject()).typedMem();
+        typename V::Elem *left =
+            reinterpret_cast<typename V::Elem *>(AsTypedDatum(args[0].toObject()).typedMem());
+        typename V::Elem *right =
+            reinterpret_cast<typename V::Elem *>(AsTypedDatum(args[1].toObject()).typedMem());
 
         typename Vret::Elem result[Vret::lanes];
         for (int32_t i = 0; i < Vret::lanes; i++)
@@ -542,23 +554,23 @@ Oper(JSContext *cx, unsigned argc, Value *vp)
         args.rval().setObject(*obj);
         return true;
     } else {
-        JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,JSMSG_TYPED_ARRAY_BAD_ARGS);
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_TYPED_ARRAY_BAD_ARGS);
         return false;
     }
 }
 
-#define DEFINE_SIMD_FUNCTIOIN(X4Type, OpCode, ElementType, Operands, Flags)         \
+#define DEFINE_SIMD_FUNCTION(X4Type, OpCode, ElementType, Operands, Flags)         \
 bool                                                                                \
 js::js_simd_##X4Type##_##OpCode(JSContext *cx, unsigned argc, Value *vp)            \
 {                                                                                   \
-    return Oper< X4Type, OpCode< ElementType, X4Type >, X4Type >(cx, argc, vp);     \
+    return Func< X4Type, OpCode< ElementType, X4Type >, X4Type >(cx, argc, vp);     \
 }
-SIMD_FUNCTION_LIST(DEFINE_SIMD_FUNCTIOIN)
-#undef DEFINE_SIMD_FUNCTIOIN
+SIMD_FUNCTION_LIST(DEFINE_SIMD_FUNCTION)
+#undef DEFINE_SIMD_FUNCTION
 
 template<typename V, typename OpWith, typename Vret>
 static bool
-OperWith(JSContext *cx, unsigned argc, Value *vp)
+FuncWith(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
 
@@ -570,10 +582,11 @@ OperWith(JSContext *cx, unsigned argc, Value *vp)
         return false;
     }
 
-    typename V::Elem *val = (typename V::Elem*) AsTypedDatum(args[0].toObject()).typedMem();
+    typename V::Elem *val =
+        reinterpret_cast<typename V::Elem *>(AsTypedDatum(args[0].toObject()).typedMem());
 
     typename Vret::Elem result[Vret::lanes];
-    for (int32_t i = 0; i < Vret::lanes; i++){
+    for (int32_t i = 0; i < Vret::lanes; i++) {
         if(args[1].isNumber())
             result[i] = OpWith::apply(i, args[1].toNumber(), val[i]);
         else if (args[1].isBoolean())
@@ -589,7 +602,7 @@ OperWith(JSContext *cx, unsigned argc, Value *vp)
 
 template<typename V, typename OpShuffle, typename Vret>
 static bool
-OperShuffle(JSContext *cx, unsigned argc, Value *vp)
+FuncShuffle(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
 
@@ -601,10 +614,11 @@ OperShuffle(JSContext *cx, unsigned argc, Value *vp)
             return false;
         }
 
-        typename V::Elem *val = (typename V::Elem*) AsTypedDatum(args[0].toObject()).typedMem();
+        typename V::Elem *val =
+            reinterpret_cast<typename V::Elem *>(AsTypedDatum(args[0].toObject()).typedMem());
         typename Vret::Elem result[Vret::lanes];
-        for (int32_t i = 0; i < Vret::lanes; i++){
-            result[i] = val[OpShuffle::apply(i*2, args[1].toNumber())];
+        for (int32_t i = 0; i < Vret::lanes; i++) {
+            result[i] = val[OpShuffle::apply(i * 2, args[1].toNumber())];
         }
         RootedObject obj(cx, Create<Vret>(cx, result));
         if (!obj)
@@ -620,14 +634,16 @@ OperShuffle(JSContext *cx, unsigned argc, Value *vp)
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_TYPED_ARRAY_BAD_ARGS);
             return false;
         }
-        typename V::Elem *val1 = (typename V::Elem*) AsTypedDatum(args[0].toObject()).typedMem();
-        typename V::Elem *val2 = (typename V::Elem*) AsTypedDatum(args[1].toObject()).typedMem();
+        typename V::Elem *val1 =
+            reinterpret_cast<typename V::Elem *>(AsTypedDatum(args[0].toObject()).typedMem());
+        typename V::Elem *val2 =
+            reinterpret_cast<typename V::Elem *>(AsTypedDatum(args[1].toObject()).typedMem());
         typename Vret::Elem result[Vret::lanes];
-        for (int32_t i = 0; i < Vret::lanes; i++){
-            if(i<Vret::lanes/2)
-                result[i] = val1[OpShuffle::apply(i*2, args[2].toNumber())];
+        for (int32_t i = 0; i < Vret::lanes; i++) {
+            if(i < Vret::lanes / 2)
+                result[i] = val1[OpShuffle::apply(i * 2, args[2].toNumber())];
             else
-                result[i] = val2[OpShuffle::apply(i*2, args[2].toNumber())];
+                result[i] = val2[OpShuffle::apply(i * 2, args[2].toNumber())];
         }
         RootedObject obj(cx, Create<Vret>(cx, result));
         if (!obj)
@@ -636,14 +652,14 @@ OperShuffle(JSContext *cx, unsigned argc, Value *vp)
         args.rval().setObject(*obj);
         return true;
     } else {
-        JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,JSMSG_TYPED_ARRAY_BAD_ARGS);
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_TYPED_ARRAY_BAD_ARGS);
         return false;
     }
 }
 
 template<typename V, typename Vret>
 static bool
-OperConvert(JSContext *cx, unsigned argc, Value *vp)
+FuncConvert(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
 
@@ -653,10 +669,11 @@ OperConvert(JSContext *cx, unsigned argc, Value *vp)
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_TYPED_ARRAY_BAD_ARGS);
         return false;
     }
-    typename V::Elem *val = (typename V::Elem*) AsTypedDatum(args[0].toObject()).typedMem();
+    typename V::Elem *val =
+        reinterpret_cast<typename V::Elem *>(AsTypedDatum(args[0].toObject()).typedMem());
     typename Vret::Elem result[Vret::lanes];
     for (int32_t i = 0; i < Vret::lanes; i++)
-        result[i] = (typename Vret::Elem)(val[i]);
+        result[i] = static_cast<typename Vret::Elem>(val[i]);
 
     RootedObject obj(cx, Create<Vret>(cx, result));
     if (!obj)
@@ -668,7 +685,7 @@ OperConvert(JSContext *cx, unsigned argc, Value *vp)
 
 template<typename V, typename Vret>
 static bool
-OperConvertBits(JSContext *cx, unsigned argc, Value *vp)
+FuncConvertBits(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
 
@@ -678,7 +695,8 @@ OperConvertBits(JSContext *cx, unsigned argc, Value *vp)
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_TYPED_ARRAY_BAD_ARGS);
         return false;
     }
-    typename Vret::Elem *val = (typename Vret::Elem*) AsTypedDatum(args[0].toObject()).typedMem();
+    typename Vret::Elem *val =
+        reinterpret_cast<typename Vret::Elem *>(AsTypedDatum(args[0].toObject()).typedMem());
 
     RootedObject obj(cx, Create<Vret>(cx, val));
     if (!obj)
@@ -690,7 +708,7 @@ OperConvertBits(JSContext *cx, unsigned argc, Value *vp)
 
 template<typename Vret>
 static bool
-OperZero(JSContext *cx, unsigned argc, Value *vp)
+FuncZero(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
 
@@ -712,7 +730,7 @@ OperZero(JSContext *cx, unsigned argc, Value *vp)
 
 template<typename Vret>
 static bool
-OperSplat(JSContext *cx, unsigned argc, Value *vp)
+FuncSplat(JSContext *cx, unsigned argc, Value *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
 
@@ -746,7 +764,7 @@ Int32x4Bool(JSContext *cx, unsigned argc, Value *vp)
     }
     int32_t result[Int32x4::lanes];
     for (int32_t i = 0; i < Int32x4::lanes; i++)
-        result[i] =  args[i].toBoolean() ? 0xFFFFFFFF : 0x0;
+        result[i] = args[i].toBoolean() ? 0xFFFFFFFF : 0x0;
 
     RootedObject obj(cx, Create<Int32x4>(cx, result));
     if (!obj)
@@ -769,9 +787,9 @@ Float32x4Clamp(JSContext *cx, unsigned argc, Value *vp)
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_TYPED_ARRAY_BAD_ARGS);
         return false;
     }
-    float *val = (float *) AsTypedDatum(args[0].toObject()).typedMem();
-    float *lowerLimit = (float *) AsTypedDatum(args[1].toObject()).typedMem();
-    float *upperLimit = (float *) AsTypedDatum(args[2].toObject()).typedMem();
+    float *val = reinterpret_cast<float *>(AsTypedDatum(args[0].toObject()).typedMem());
+    float *lowerLimit = reinterpret_cast<float *>(AsTypedDatum(args[1].toObject()).typedMem());
+    float *upperLimit = reinterpret_cast<float *>(AsTypedDatum(args[2].toObject()).typedMem());
 
     float result[Float32x4::lanes];
     result[0] = val[0] < lowerLimit[0] ? lowerLimit[0] : val[0];
@@ -803,24 +821,20 @@ Int32x4Select(JSContext *cx, unsigned argc, Value *vp)
         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_TYPED_ARRAY_BAD_ARGS);
         return false;
     }
-    int32_t *val = (int32_t *) AsTypedDatum(args[0].toObject()).typedMem();
-    int32_t *tv = (int32_t *) AsTypedDatum(args[1].toObject()).typedMem();
-    int32_t *fv = (int32_t *) AsTypedDatum(args[2].toObject()).typedMem();
+    int32_t *val = reinterpret_cast<int32_t *>(AsTypedDatum(args[0].toObject()).typedMem());
+    int32_t *tv = reinterpret_cast<int32_t *>(AsTypedDatum(args[1].toObject()).typedMem());
+    int32_t *fv = reinterpret_cast<int32_t *>(AsTypedDatum(args[2].toObject()).typedMem());
     int32_t tr[Int32x4::lanes];
-    // var tr = SIMD.int32x4.and(t, tv);
     for (int32_t i = 0; i < Int32x4::lanes; i++)
         tr[i] = And<int32_t, Int32x4>::apply(val[i], tv[i]);
-    // var fr = SIMD.int32x4.and(SIMD.int32x4.not(t), fv);
     int32_t fr[Int32x4::lanes];
     for (int32_t i = 0; i < Int32x4::lanes; i++)
         fr[i] = And<int32_t, Int32x4>::apply(Not<int32_t, Int32x4>::apply(val[i], 0), fv[i]);
-    // var orInt = SIMD.int32x4.or(tr, fr)
     int32_t orInt[Int32x4::lanes];
     for (int32_t i = 0; i < Int32x4::lanes; i++)
         orInt[i] = Or<int32_t, Int32x4>::apply(tr[i], fr[i]);
-    // return SIMD.int32x4.bitsToFloat32x4(orInt);
     float *result[Float32x4::lanes];
-    *result = (float *)&orInt;
+    *result = reinterpret_cast<float *>(&orInt);
     RootedObject obj(cx, Create<Float32x4>(cx, *result));
     if (!obj)
         return false;
@@ -830,64 +844,64 @@ Int32x4Select(JSContext *cx, unsigned argc, Value *vp)
 }
 
 const JSFunctionSpec js::Float32x4Methods[] = {
-        JS_FN("abs", (Oper< Float32x4, Abs< float, Float32x4 >, Float32x4 >), 1, 0),
-        JS_FN("neg", (Oper< Float32x4, Neg< float, Float32x4 >, Float32x4 >), 1, 0),
-        JS_FN("reciprocal", (Oper< Float32x4, Rec< float, Float32x4 >, Float32x4 >), 1, 0),
-        JS_FN("reciprocalSqrt", (Oper< Float32x4, RecSqrt< float, Float32x4 >, Float32x4 >), 1, 0),
-        JS_FN("sqrt", (Oper< Float32x4, Sqrt< float, Float32x4 >, Float32x4 >), 1, 0),
-#define SIMD_FUNCTIOIN_ITEM(X4Type, OpCode, ElementType, Operands, Flags)      \
-        JS_FN(#OpCode, js::js_simd_##X4Type##_##OpCode, Operands, Flags),
-SIMD_FUNCTION_LIST(SIMD_FUNCTIOIN_ITEM)
-#undef SIMD_FUNCTIOIN_ITEM
-        JS_FN("sub", (Oper< Float32x4, Sub< float, Float32x4 >, Float32x4 >), 2, 0),
-        JS_FN("div", (Oper< Float32x4, Div< float, Float32x4 >, Float32x4 >), 2, 0),
-        JS_FN("mul", (Oper< Float32x4, Mul< float, Float32x4 >, Float32x4 >), 2, 0),
-        JS_FN("max", (Oper< Float32x4, Maximum< float, Float32x4 >, Float32x4 >), 2, 0),
-        JS_FN("min", (Oper< Float32x4, Minimum< float, Float32x4 >, Float32x4 >), 2, 0),
-        JS_FN("lessThan", (Oper< Float32x4, LessThan< float, Int32x4 >, Int32x4 >), 2, 0),
-        JS_FN("lessThanOrEqual", (Oper< Float32x4, LessThanOrEqual< float, Int32x4 >, Int32x4 >), 2, 0),
-        JS_FN("greaterThan", (Oper< Float32x4, GreaterThan< float, Int32x4 >, Int32x4 >), 2, 0),
-        JS_FN("greaterThanOrEqual", (Oper< Float32x4, GreaterThanOrEqual< float, Int32x4 >, Int32x4 >), 2, 0),
-        JS_FN("equal", (Oper< Float32x4, Equal< float, Int32x4 >, Int32x4 >), 2, 0),
-        JS_FN("notEqual", (Oper< Float32x4, NotEqual< float, Int32x4 >, Int32x4 >), 2, 0),
-        JS_FN("withX", (OperWith< Float32x4, WithX< float, Float32x4 >, Float32x4 >), 2, 0),
-        JS_FN("withY", (OperWith< Float32x4, WithY< float, Float32x4 >, Float32x4 >), 2, 0),
-        JS_FN("withZ", (OperWith< Float32x4, WithZ< float, Float32x4 >, Float32x4 >), 2, 0),
-        JS_FN("withW", (OperWith< Float32x4, WithW< float, Float32x4 >, Float32x4 >), 2, 0),
-        JS_FN("shuffle", (OperShuffle< Float32x4, Shuffle< float, Float32x4 >, Float32x4 >), 2, 0),
-        JS_FN("shuffleMix", (OperShuffle< Float32x4, Shuffle< float, Float32x4 >, Float32x4 >), 3, 0),
-        JS_FN("scale", (OperWith< Float32x4, Scale< float, Float32x4 >, Float32x4 >), 2, 0),
+        JS_FN("abs", (Func<Float32x4, Abs<float, Float32x4>, Float32x4>), 1, 0),
+        JS_FN("neg", (Func<Float32x4, Neg<float, Float32x4>, Float32x4>), 1, 0),
+        JS_FN("reciprocal", (Func<Float32x4, Rec<float, Float32x4>, Float32x4>), 1, 0),
+        JS_FN("reciprocalSqrt", (Func<Float32x4, RecSqrt<float, Float32x4>, Float32x4>), 1, 0),
+        JS_FN("sqrt", (Func<Float32x4, Sqrt<float, Float32x4>, Float32x4>), 1, 0),
+#define SIMD_FUNCTION_ITEM(X4Type, OpCode, ElementType, Funcands, Flags)      \
+        JS_FN(#OpCode, js::js_simd_##X4Type##_##OpCode, Funcands, Flags),
+SIMD_FUNCTION_LIST(SIMD_FUNCTION_ITEM)
+#undef SIMD_FUNCTION_ITEM
+        JS_FN("sub", (Func<Float32x4, Sub<float, Float32x4>, Float32x4>), 2, 0),
+        JS_FN("div", (Func<Float32x4, Div<float, Float32x4>, Float32x4>), 2, 0),
+        JS_FN("mul", (Func<Float32x4, Mul<float, Float32x4>, Float32x4>), 2, 0),
+        JS_FN("max", (Func<Float32x4, Maximum<float, Float32x4>, Float32x4>), 2, 0),
+        JS_FN("min", (Func<Float32x4, Minimum<float, Float32x4>, Float32x4>), 2, 0),
+        JS_FN("lessThan", (Func<Float32x4, LessThan<float, Int32x4>, Int32x4>), 2, 0),
+        JS_FN("lessThanOrEqual", (Func<Float32x4, LessThanOrEqual<float, Int32x4>, Int32x4>), 2, 0),
+        JS_FN("greaterThan", (Func<Float32x4, GreaterThan<float, Int32x4>, Int32x4>), 2, 0),
+        JS_FN("greaterThanOrEqual", (Func<Float32x4, GreaterThanOrEqual<float, Int32x4>, Int32x4>), 2, 0),
+        JS_FN("equal", (Func<Float32x4, Equal<float, Int32x4>, Int32x4>), 2, 0),
+        JS_FN("notEqual", (Func<Float32x4, NotEqual<float, Int32x4>, Int32x4>), 2, 0),
+        JS_FN("withX", (FuncWith<Float32x4, WithX<float, Float32x4>, Float32x4>), 2, 0),
+        JS_FN("withY", (FuncWith<Float32x4, WithY<float, Float32x4>, Float32x4>), 2, 0),
+        JS_FN("withZ", (FuncWith<Float32x4, WithZ<float, Float32x4>, Float32x4>), 2, 0),
+        JS_FN("withW", (FuncWith<Float32x4, WithW<float, Float32x4>, Float32x4>), 2, 0),
+        JS_FN("shuffle", (FuncShuffle<Float32x4, Shuffle<float, Float32x4>, Float32x4>), 2, 0),
+        JS_FN("shuffleMix", (FuncShuffle<Float32x4, Shuffle<float, Float32x4>, Float32x4>), 3, 0),
+        JS_FN("scale", (FuncWith<Float32x4, Scale<float, Float32x4>, Float32x4>), 2, 0),
         JS_FN("clamp", Float32x4Clamp, 3, 0),
-        JS_FN("toInt32x4", (OperConvert< Float32x4, Int32x4 >), 1, 0),
-        JS_FN("bitsToInt32x4", (OperConvertBits< Float32x4, Int32x4 >), 1, 0),
-        JS_FN("zero", (OperZero< Float32x4 >), 0, 0),
-        JS_FN("splat", (OperSplat< Float32x4 >), 0, 0),
+        JS_FN("toInt32x4", (FuncConvert<Float32x4, Int32x4>), 1, 0),
+        JS_FN("bitsToInt32x4", (FuncConvertBits<Float32x4, Int32x4>), 1, 0),
+        JS_FN("zero", (FuncZero<Float32x4>), 0, 0),
+        JS_FN("splat", (FuncSplat<Float32x4>), 0, 0),
         JS_FS_END
 };
 
 const JSFunctionSpec js::Int32x4Methods[] = {
-        JS_FN("not", (Oper< Int32x4, Not< int32_t, Int32x4 >, Int32x4 >), 1, 0),
-        JS_FN("neg", (Oper< Int32x4, Neg< int32_t, Int32x4 >, Int32x4 >), 1, 0),
-        JS_FN("add", (Oper< Int32x4, add< int32_t, Int32x4 >, Int32x4 >), 2, 0),
-        JS_FN("sub", (Oper< Int32x4, Sub< int32_t, Int32x4 >, Int32x4 >), 2, 0),
-        JS_FN("mul", (Oper< Int32x4, Mul< int32_t, Int32x4 >, Int32x4 >), 2, 0),
-        JS_FN("xor", (Oper< Int32x4, Xor< int32_t, Int32x4 >, Int32x4 >), 2, 0),
-        JS_FN("and", (Oper< Int32x4, And< int32_t, Int32x4 >, Int32x4 >), 2, 0),
-        JS_FN("or", (Oper< Int32x4, Or< int32_t, Int32x4 >, Int32x4 >), 2, 0),
-        JS_FN("withX", (OperWith< Int32x4, WithX< int32_t, Int32x4 >, Int32x4 >), 2, 0),
-        JS_FN("withY", (OperWith< Int32x4, WithY< int32_t, Int32x4 >, Int32x4 >), 2, 0),
-        JS_FN("withZ", (OperWith< Int32x4, WithZ< int32_t, Int32x4 >, Int32x4 >), 2, 0),
-        JS_FN("withW", (OperWith< Int32x4, WithW< int32_t, Int32x4 >, Int32x4 >), 2, 0),
-        JS_FN("withFlagX", (OperWith< Int32x4, WithFlagX< int32_t, Int32x4 >, Int32x4 >), 2, 0),
-        JS_FN("withFlagY", (OperWith< Int32x4, WithFlagY< int32_t, Int32x4 >, Int32x4 >), 2, 0),
-        JS_FN("withFlagZ", (OperWith< Int32x4, WithFlagZ< int32_t, Int32x4 >, Int32x4 >), 2, 0),
-        JS_FN("withFlagW", (OperWith< Int32x4, WithFlagW< int32_t, Int32x4 >, Int32x4 >), 2, 0),
-        JS_FN("shuffle", (OperShuffle< Int32x4, Shuffle< int32_t, Int32x4 >, Int32x4 >), 2, 0),
-        JS_FN("shuffleMix", (OperShuffle< Int32x4, Shuffle< int32_t, Int32x4 >, Int32x4 >), 3, 0),
-        JS_FN("toFloat32x4", (OperConvert< Int32x4, Float32x4 >), 1, 0),
-        JS_FN("bitsToFloat32x4", (OperConvertBits< Int32x4, Float32x4 >), 1, 0),
-        JS_FN("zero", (OperZero< Int32x4 >), 0, 0),
-        JS_FN("splat", (OperSplat< Int32x4 >), 0, 0),
+        JS_FN("not", (Func<Int32x4, Not<int32_t, Int32x4>, Int32x4>), 1, 0),
+        JS_FN("neg", (Func<Int32x4, Neg<int32_t, Int32x4>, Int32x4>), 1, 0),
+        JS_FN("add", (Func<Int32x4, add<int32_t, Int32x4>, Int32x4>), 2, 0),
+        JS_FN("sub", (Func<Int32x4, Sub<int32_t, Int32x4>, Int32x4>), 2, 0),
+        JS_FN("mul", (Func<Int32x4, Mul<int32_t, Int32x4>, Int32x4>), 2, 0),
+        JS_FN("xor", (Func<Int32x4, Xor<int32_t, Int32x4>, Int32x4>), 2, 0),
+        JS_FN("and", (Func<Int32x4, And<int32_t, Int32x4>, Int32x4>), 2, 0),
+        JS_FN("or", (Func<Int32x4, Or<int32_t, Int32x4>, Int32x4>), 2, 0),
+        JS_FN("withX", (FuncWith<Int32x4, WithX<int32_t, Int32x4>, Int32x4>), 2, 0),
+        JS_FN("withY", (FuncWith<Int32x4, WithY<int32_t, Int32x4>, Int32x4>), 2, 0),
+        JS_FN("withZ", (FuncWith<Int32x4, WithZ<int32_t, Int32x4>, Int32x4>), 2, 0),
+        JS_FN("withW", (FuncWith<Int32x4, WithW<int32_t, Int32x4>, Int32x4>), 2, 0),
+        JS_FN("withFlagX", (FuncWith<Int32x4, WithFlagX<int32_t, Int32x4>, Int32x4>), 2, 0),
+        JS_FN("withFlagY", (FuncWith<Int32x4, WithFlagY<int32_t, Int32x4>, Int32x4>), 2, 0),
+        JS_FN("withFlagZ", (FuncWith<Int32x4, WithFlagZ<int32_t, Int32x4>, Int32x4>), 2, 0),
+        JS_FN("withFlagW", (FuncWith<Int32x4, WithFlagW<int32_t, Int32x4>, Int32x4>), 2, 0),
+        JS_FN("shuffle", (FuncShuffle<Int32x4, Shuffle<int32_t, Int32x4>, Int32x4>), 2, 0),
+        JS_FN("shuffleMix", (FuncShuffle<Int32x4, Shuffle<int32_t, Int32x4>, Int32x4>), 3, 0),
+        JS_FN("toFloat32x4", (FuncConvert<Int32x4, Float32x4>), 1, 0),
+        JS_FN("bitsToFloat32x4", (FuncConvertBits<Int32x4, Float32x4>), 1, 0),
+        JS_FN("zero", (FuncZero<Int32x4>), 0, 0),
+        JS_FN("splat", (FuncSplat<Int32x4>), 0, 0),
         JS_FN("select", Int32x4Select, 3, 0),
         JS_FN("bool", Int32x4Bool, 4, 0),
         JS_FS_END

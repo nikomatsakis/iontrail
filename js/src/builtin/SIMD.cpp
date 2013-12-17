@@ -688,7 +688,7 @@ FuncConvert(JSContext *cx, unsigned argc, Value *vp)
         reinterpret_cast<typename V::Elem *>(AsTypedDatum(args[0].toObject()).typedMem());
     typename Vret::Elem result[Vret::lanes];
     for (int32_t i = 0; i < Vret::lanes; i++)
-        result[i] = (typename Vret::Elem) val[i];
+        result[i] = static_cast<typename Vret::Elem>(val[i]);
 
     RootedObject obj(cx, Create<Vret>(cx, result));
     if (!obj)

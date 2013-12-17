@@ -255,8 +255,8 @@ IonBuilder::inlineSIMDFunction(CallInfo &callInfo, MBinarySIMDFloat32x4Function:
 
     MBinarySIMDFloat32x4Function *op = MBinarySIMDFloat32x4Function::New(alloc(), arg0, arg1, id);
 #else
-    MBinarySIMDFloat32x4Function *op = MBinarySIMDFloat32x4Function::New(
-        alloc(), callInfo.getArg(0), callInfo.getArg(1), id);
+    MBinarySIMDFloat32x4Function *op = 
+        MBinarySIMDFloat32x4Function::New(alloc(), callInfo.getArg(0), callInfo.getArg(1), id);
 #endif
     current->add(op);
     current->push(op);

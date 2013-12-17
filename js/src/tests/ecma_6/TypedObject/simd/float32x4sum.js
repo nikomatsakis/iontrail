@@ -1,3 +1,4 @@
+var ArrayType = TypedObject.ArrayType;
 var { float32x4 } = SIMD;
 var Data = float32x4.array(100);
 

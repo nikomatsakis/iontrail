@@ -3992,8 +3992,7 @@ class MMathFunction
 
 class MBinarySIMDFloat32x4Function
   : public MBinaryInstruction,
-    public Float32x4Policy<0>,
-    public Float32x4Policy<1>
+    public MixPolicy<Float32x4Policy<0>, Float32x4Policy<1> >
 {
   public:
     enum Id {
@@ -4044,6 +4043,10 @@ class MBinarySIMDFloat32x4Function
 
     bool possiblyCalls() const {
         return true;
+    }
+
+    TypePolicy *typePolicy() {
+        return this;
     }
 
     void printOpcode(FILE *fp) const;

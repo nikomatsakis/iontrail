@@ -540,7 +540,12 @@ Float32x4Policy<Op>::staticAdjustInputs(TempAllocator &alloc, MInstruction *def)
     if (in->type() == MIRType_float32x4)
         return true;
 
-    MToFloat32x4 *replace = MToFloat32x4::New(alloc, in);
+    // Load the element data.
+    MConstant *offset = MConstant::New(alloc, Int32Value(0));
+    def->block()->insertBefore(def, offset);
+    MTypedObjectElements *elements = MTypedObjectElements::New(alloc, in);
+    def->block()->insertBefore(def, elements);
+    MLoadX4Value *replace = MLoadX4Value::New(alloc, elements, offset, X4TypeRepresentation::TYPE_FLOAT32);
     def->block()->insertBefore(def, replace);
     def->replaceOperand(Op, replace);
     return true;

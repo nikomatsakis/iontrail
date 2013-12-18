@@ -6605,9 +6605,12 @@ IonBuilder::getElemTryTypedObject(bool *emitted, MDefinition *obj, MDefinition *
 
     switch (elemTypeReprs.kind()) {
       case TypeRepresentation::X4:
-        // FIXME (bug 894104): load into a MIRType_float32x4 etc
-        return true;
-
+        return getElemTryX4ElemOfTypedObject(emitted,
+                                             obj,
+                                             index,
+                                             objTypeReprs,
+                                             elemTypeReprs,
+                                             elemSize);
       case TypeRepresentation::Struct:
       case TypeRepresentation::SizedArray:
         return getElemTryComplexElemOfTypedObject(emitted,
@@ -6756,6 +6759,40 @@ IonBuilder::getElemTryComplexElemOfTypedObject(bool *emitted,
     derived->setResultTypeSet(resultTypes);
     current->add(derived);
     current->push(derived);
+    *emitted = true;
+    return true;
+}
+
+bool
+IonBuilder::getElemTryX4ElemOfTypedObject(bool *emitted,
+                                          MDefinition *obj,
+                                          MDefinition *index,
+                                          TypeRepresentationSet objTypeReprs,
+                                          TypeRepresentationSet elemTypeReprs,
+                                          size_t elemSize)
+{
+    JS_ASSERT(objTypeReprs.allOfArrayKind());
+
+    // Must always be loading the same X4 type
+    if (!elemTypeReprs.singleton())
+        return true;
+    X4TypeRepresentation *elemTypeRepr = elemTypeReprs.getTypeRepresentation()->asX4();
+    X4TypeRepresentation::Type x4Type = elemTypeRepr->type();
+
+    MDefinition *indexAsByteOffset;
+    if (!checkTypedObjectIndexInBounds(elemSize, obj, index, &indexAsByteOffset, objTypeReprs))
+        return false;
+
+    // Unbox x4 value
+    MDefinition *unboxed;
+    if (!unboxX4Value(x4Type, obj, indexAsByteOffset, &unboxed))
+        return false;
+
+    current->push(unboxed);
+
+    types::TemporaryTypeSet *resultTypes = bytecodeTypes(pc);
+    unboxed->setResultTypeSet(resultTypes);
+
     *emitted = true;
     return true;
 }

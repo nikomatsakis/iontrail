@@ -491,7 +491,7 @@ struct Scale {
 };
 template<typename T, typename V>
 struct WithX {
-    static inline T apply(int32_t lane, T scalar, T x) {return V::toType(lane == 0 ? scalar : x);}
+    static inline T apply(int32_t lane, T scalar, T x) {return (lane == 0 ? scalar : x);}
 };
 template<typename T, typename V>
 struct WithY {
@@ -600,7 +600,7 @@ FuncWith(JSContext *cx, unsigned argc, Value *vp)
     typename Vret::Elem result[Vret::lanes];
     for (int32_t i = 0; i < Vret::lanes; i++) {
         if(args[1].isNumber())
-            result[i] = OpWith::apply(i, args[1].toNumber(), val[i]);
+            result[i] = OpWith::apply(i, Vret::toType(args[1].toNumber()), val[i]);
         else if (args[1].isBoolean())
             result[i] = OpWith::apply(i, args[1].toBoolean(), val[i]);
     }

@@ -515,7 +515,7 @@ struct Scale {
 };
 template<typename T, typename V>
 struct WithX {
-    static inline T apply(int32_t lane, T scalar, T x) {return V::toType(lane == 0 ? scalar : x);}
+    static inline T apply(int32_t lane, T scalar, T x) {return (lane == 0 ? scalar : x);}
 };
 template<typename T, typename V>
 struct WithY {
